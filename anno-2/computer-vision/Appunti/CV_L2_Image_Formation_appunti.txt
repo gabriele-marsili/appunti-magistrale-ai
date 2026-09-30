@@ -1,0 +1,1081 @@
+========================================================================
+COMPUTER VISION - LEZIONE 2
+"Image Formation: Cameras and Color"
+Antonio Carta - Universita di Pisa - 2026-09-02
+Appunti divisi per slide (74 slide) - pronti per copia-incolla su OneNote
+========================================================================
+
+Nota sull'uso: ogni blocco corrisponde a una slide del PDF L2.pdf.
+Le formule sono scritte in testo Unicode leggibile. Convenzioni usate:
+  n, p, q, r  = vettori (normale, direzione incidente, uscente, riflessa)
+  n . p       = prodotto scalare
+  lambda      = lunghezza d'onda
+  l_in, l_out = intensita luminosa entrante e uscente
+Le slide composte solo da immagini sono segnalate.
+
+
+========================================================================
+SLIDE 1 - Copertina
+========================================================================
+Image Formation - Cameras and Color.
+Antonio Carta, Universita di Pisa, 2026-09-02.
+Lezione dedicata al modello diretto (forward model): come la luce diventa
+un valore di pixel, e quale informazione si perde lungo il percorso.
+
+
+========================================================================
+SLIDE 2 - Goals of the Day
+========================================================================
+Obiettivi della lezione:
+- Comprensione ad alto livello della formazione dell'immagine, dalla luce
+  che lascia una superficie fino al valore del pixel: superfici, lenti,
+  sensori, colore.
+- Modellazione matematica:
+  - vista di algebra lineare della camera, l_s = A * l_w, e perche
+    recuperare il mondo dai dati del sensore e un problema inverso;
+  - vista geometrica della camera: proiezione prospettica e modello
+    semplificato pinhole (coordinate camera, senza lenti).
+- Discussione delle ambiguita che nascono dalla formazione dell'immagine:
+  - la prospettiva confonde dimensione e profondita;
+  - le camere scartano informazione che va recuperata con inversione
+    (regolarizzata);
+  - il colore confonde illuminante e materiale (oltre alla nostra
+    percezione ambigua del colore).
+
+
+========================================================================
+SLIDE 3 - Outline
+========================================================================
+Struttura della lezione:
+- Luce e superfici (BRDF, Lambert, Phong).
+- Proiezione prospettica e modello pinhole.
+- Camere come sistemi lineari.
+- Colore.
+
+
+========================================================================
+SLIDE 4 - Forward Model vs. Inverse Problem
+========================================================================
+Contenuto:
+- La Lezione 1 ha inquadrato la visione come problema inverso: immagine ->
+  scena, l'inverso della grafica (scena -> immagine).
+- Prima di risolvere il problema inverso serve capire con precisione il
+  modello diretto: come una scena 3D diventa davvero un array 2D di numeri.
+- La CV cerca di invertire la formazione dell'immagine:
+  - geometria: recupero della struttura 3D da immagini 2D;
+  - filtering: rimozione del rumore, sharpening, deblurring;
+  - rappresentazioni apprese: separare materiale da illuminazione, trovare
+    feature invarianti, ecc.
+
+Principio metodologico: non si puo invertire cio che non si sa modellare.
+
+
+========================================================================
+SLIDE 5 - The Imaging Pipeline
+========================================================================
+Il viaggio di un fotone dal mondo al pixel:
+
+  scena --(light transport)--> ottica (lente) --(focus)--> sensore --(ISP)--> immagine digitale
+
+- Scena: sorgenti luminose, superfici, materiali, geometria.
+- Ottica: la lente focalizza la luce sul piano del sensore (modello
+  pinhole/prospettico, lenti).
+- Sensore: converte fotoni in elettroni e poi in numeri digitali; registra
+  una misura lineare per pixel.
+- ISP (image signal processor, non trattato in dettaglio oggi):
+  demosaicing, white balance, gamma, ... trasforma la lettura grezza del
+  sensore nell'immagine RGB che effettivamente vediamo.
+
+Focus della lezione: geometria e fisica che determinano quale informazione
+finisce nei pixel finali. Obiettivo principale: capire quale informazione
+viene persa.
+
+
+========================================================================
+SLIDE 6 - Sezione: Light and Surfaces
+========================================================================
+Slide divisoria. Prima parte: come la luce interagisce con le superfici,
+modelli di riflettanza (BRDF, Lambert, Phong) e ambiguita materiale/luce.
+
+
+========================================================================
+SLIDE 7 - Light Ray (slide con sola immagine)
+========================================================================
+Figura da visionbook: un raggio luminoso.
+
+Punto: il modello di base e geometrico-ottico (optica dei raggi): la luce
+viaggia in linea retta, e descritta da direzione e intensita, e interagisce
+con le superfici nei punti di incidenza.
+
+
+========================================================================
+SLIDE 8 - Light Rays and Surfaces
+========================================================================
+Contenuto:
+- Un raggio colpisce una superficie dalla direzione p con intensita l_in.
+- La superficie genera un raggio uscente in direzione q con intensita l_out.
+- La relazione fra l_in e l_out dipende da:
+  - il materiale della superficie;
+  - la normale alla superficie n;
+  - le direzioni p (entrante) e q (uscente);
+  - la lunghezza d'onda lambda.
+
+Questi sono esattamente gli argomenti della BRDF della slide successiva.
+
+
+========================================================================
+SLIDE 9 - The BRDF: General Formulation
+========================================================================
+La bidirectional reflectance distribution function (BRDF) F lega la luce
+uscente a quella entrante:
+
+  l_out = F(l_in, n, p, q, lambda)
+
+Significato dei termini:
+- l_in: intensita del raggio entrante;
+- l_out: intensita del raggio uscente;
+- n: normale alla superficie;
+- p: direzione del raggio entrante;
+- q: direzione del raggio uscente;
+- lambda: lunghezza d'onda (componente spettrale).
+
+La figura mostra lo shading lambertiano, che dipende solo dall'angolo theta
+fra la normale n e la direzione della luce p.
+
+
+========================================================================
+SLIDE 10 - Linearity of Light
+========================================================================
+Contenuto:
+- La luce si comporta in modo lineare: se piu sorgenti illuminano una
+  superficie, l'intensita uscente e la somma dei contributi di ciascuna
+  sorgente.
+- La linearita giustifica la decomposizione di illuminazioni complesse in
+  componenti semplici (luci puntiformi, luce ambientale, ...) e la somma
+  dei loro effetti.
+
+Importanza: la linearita e l'ipotesi che rende possibile tutto il resto
+della lezione (modello Phong come somma di termini, camera come operatore
+lineare l_s = A l_w) e la Lezione 3 (sistemi LSI e convoluzione).
+
+
+========================================================================
+SLIDE 11 - Lambertian Surfaces
+========================================================================
+Il modello lambertiano e la BRDF piu semplice: superficie perfettamente
+diffusiva, che riflette la luce ugualmente in tutte le direzioni uscenti.
+
+  l_out = F_L(l_in(lambda), n, p) = a * l_in(lambda) * (n . p)
+
+- a: albedo, coefficiente di riflettanza della superficie;
+- n . p: coseno dell'angolo fra la normale e il raggio entrante,
+  (n . p) = cos(theta);
+- F_L non dipende dalla direzione uscente q: la superficie appare ugualmente
+  luminosa da ogni angolo di vista; contano solo quantita e angolo della
+  luce entrante.
+
+Conseguenza pratica: su una superficie lambertiana lo shading dipende solo
+dalla geometria (normale) e non dall'osservatore.
+
+
+========================================================================
+SLIDE 12 - Lambertian Sphere
+========================================================================
+Figure: sorgente luminosa puntiforme e sfera lambertiana risultante.
+
+- Si nota il gradiente morbido dal chiaro (parte rivolta verso la luce) allo
+  scuro (parte rivolta via dalla luce).
+- Il gradiente segue esattamente cos(theta) = n . p: e il motivo per cui
+  dallo shading si puo tentare di ricostruire la forma (shape from shading).
+
+
+========================================================================
+SLIDE 13 - Specular Surfaces and the Phong Model
+========================================================================
+Contenuto:
+- Le superfici reali riflettono la luce anche preferenzialmente attorno alla
+  direzione speculare (tipo specchio).
+- Il modello di Phong aggiunge tre termini:
+  - Ambient: termine costante, luce diffusa indirettamente da ogni
+    direzione; approssimazione grossolana dell'illuminazione globale.
+  - Diffuse: il termine lambertiano visto prima.
+  - Specular: highlight concentrato attorno alla direzione di riflessione
+    speculare r.
+- La linearita della luce permette di sommare semplicemente questi termini.
+
+
+========================================================================
+SLIDE 14 - Specular Surfaces and the Phong Model (formula)
+========================================================================
+Modello di Phong:
+
+  l_out = k_a + a * l_in * (n . p) + k_s * (r . q)^alpha * l_in
+          |___|   |________________|   |___________________|
+        ambient    diffuse (Lambert)         specular
+
+- k_a: coefficiente di luce ambientale;
+- a: viene dal termine diffusivo lambertiano;
+Termine speculare:
+- k_s: intensita della riflessione speculare;
+- alpha: "shininess", controlla quanto strettamente e concentrato
+  l'highlight;
+- r: direzione della riflessione speculare perfetta di p rispetto a n;
+- (r . q)^alpha e grande solo quando la direzione di vista q e vicina a r.
+
+Nota: e proprio questo termine a rendere l'aspetto dipendente dal punto di
+vista, a differenza del puro lambertiano.
+
+
+========================================================================
+SLIDE 15 - Lambertian vs. Phong
+========================================================================
+Figura: stessa sfera, stessa direzione della luce. Il rendering lambertiano
+(sinistra) e puramente diffusivo; il rendering Phong (destra) aggiunge un
+highlight speculare dove la direzione di vista e vicina alla direzione di
+riflessione speculare r.
+
+Punto: l'highlight si sposta se si muove l'osservatore. Per un algoritmo di
+matching questo e un fattore di disturbo: lo stesso punto 3D ha aspetto
+diverso in viste diverse.
+
+
+========================================================================
+SLIDE 16 - Material Parameters and Appearance
+========================================================================
+  l_out = k_a + a * l_in * (n . p) + k_s * (r . q)^alpha * l_in
+
+- Aumentare alpha restringe e rende piu netto l'highlight (metallo lucidato
+  contro plastica opaca).
+- Aumentare k_s rende l'highlight piu luminoso senza cambiarne la
+  dimensione.
+
+La figura mostra una griglia: righe = variazione di k_s, colonne =
+variazione di alpha. Serve a fissare l'intuizione geometrica dei due
+parametri.
+
+
+========================================================================
+SLIDE 17 - Example (slide con sola immagine)
+========================================================================
+Figura da visionbook: esempi di materiali reali con BRDF diverse.
+
+Punto: la varieta di aspetto degli oggetti reali (opaco, lucido, metallico,
+traslucido) e catturata dalla forma della BRDF. Phong e solo
+un'approssimazione empirica economica, non un modello fisico esatto.
+
+
+========================================================================
+SLIDE 18 - Light and Material
+========================================================================
+Contenuto:
+- La BRDF determina l'aspetto dell'immagine. Geometria, illuminazione e
+  materiale influenzano il modo in cui la luce interagisce con le
+  superfici: e un'ambiguita ricorrente in visione.
+- Vantaggio: le proprieta del materiale possono essere inferite dalle
+  immagini e usate per riconoscimento e comprensione della scena.
+- Sfida: le proprieta del materiale possono essere confuse con geometria e
+  illuminazione, rendendo difficile l'inferenza.
+
+Questa e la stessa struttura "prodotto di incognite" che ritorna nel
+problema della color constancy a fine lezione.
+
+
+========================================================================
+SLIDE 19 - Example (slide con sola immagine)
+========================================================================
+Figura: stessi oggetti, luce diversa.
+
+Punto: i valori dei pixel cambiano completamente pur essendo invariati
+scena e materiali. Ogni sistema di riconoscimento deve essere robusto a
+questa variazione, o esplicitamente scontarla.
+
+
+========================================================================
+SLIDE 20 - Sezione: Pinhole Cameras
+========================================================================
+Slide divisoria. Seconda parte: perche serve una camera, cioe perche una
+superficie qualsiasi non forma un'immagine, e come il foro stenopeico
+risolve il problema.
+
+
+========================================================================
+SLIDE 21 - Why Don't We See Images on a Wall?
+========================================================================
+Contenuto:
+- Ogni punto di un muro e illuminato da luce che arriva da molte direzioni.
+- Per un muro lambertiano, la radianza uscente in un punto e l'integrale su
+  tutte le direzioni entranti p:
+
+    l_out = integrale su p di [ a * l_in(p) * cos(n . p) ] dp
+
+- Questo integrale media via tutta la struttura spaziale della scena: il
+  muro appare semplicemente come una superficie illuminata in modo
+  uniforme, senza alcuna immagine della scena.
+
+Punto chiave: formare un'immagine significa impedire questa integrazione,
+cioe selezionare per ogni punto del sensore una sola direzione entrante.
+
+
+========================================================================
+SLIDE 22 - Restricting Incoming Rays
+========================================================================
+Contenuto:
+- Per formare un'immagine dobbiamo impedire a ogni punto della superficie di
+  imaging di vedere l'intera scena.
+- Soluzione: interporre una barriera opaca con un singolo piccolo foro
+  (pinhole) fra la scena e la superficie di imaging.
+- Ora ogni punto della superficie riceve luce (approssimativamente) da una
+  sola direzione, cioe da un solo punto della scena.
+- Questo spezza l'integrale della slide precedente in una corrispondenza
+  uno-a-uno (punto-punto) fra punti della scena e punti dell'immagine.
+
+
+========================================================================
+SLIDE 23 - Restricting Incoming Rays (figura)
+========================================================================
+Figura da visionbook.
+- Sinistra: senza restrizione, ogni punto dell'oggetto raggiunge ogni punto
+  del muro -> nessuna immagine.
+- Destra: con il pinhole, ogni punto dell'oggetto si mappa esattamente su un
+  punto del muro -> immagine.
+
+E la traduzione visiva del passaggio da integrale a mappa uno-a-uno.
+
+
+========================================================================
+SLIDE 24 - Natural Pinhole Cameras
+========================================================================
+Contenuto:
+- L'effetto pinhole puo avvenire naturalmente quando la luce passa
+  attraverso una piccola apertura (foglie di un albero, un forellino in una
+  tenda).
+- L'immagine risultante e:
+  - invertita rispetto alla scena (capovolta e specchiata destra-sinistra);
+  - piu scura della scena (solo una minima frazione della luce passa dal
+    foro);
+  - piu sfocata della scena (il foro non e un punto ideale, e la
+    diffrazione allarga i raggi).
+
+Le tre proprieta corrispondono a tre limiti reali: inversione (risolta per
+convenzione col piano virtuale), poca luce, e blur.
+
+
+========================================================================
+SLIDE 25 - Pinhole Camera Model: Setup
+========================================================================
+Contenuto:
+- Una camera pinhole e composta da:
+  - un piano opaco (barriera) con un singolo piccolo foro (pinhole / centro
+    della camera / centro ottico);
+  - un piano di imaging dietro la barriera, dove si forma l'immagine.
+- Ogni punto della scena emette/riflette luce in tutte le direzioni, ma ogni
+  punto immagine riceve luce da un singolo raggio: quello che passa per il
+  pinhole.
+- Con una camera pinhole abbiamo (approssimativamente) un raggio per punto
+  immagine.
+- Una camera pinhole ideale realizza una proiezione prospettica, la base di
+  tutti i modelli geometrici di camera.
+
+
+========================================================================
+SLIDE 26 - Pinhole Limitations and Lenses
+========================================================================
+Contenuto:
+- Problemi delle camere pinhole reali:
+  - Blur: un foro reale ha dimensione finita, quindi raggi provenienti da
+    uno stesso punto della scena passano per parti diverse del foro e
+    arrivano in punti immagine diversi, sfocando l'immagine.
+  - Raccolta di luce: un foro piccolo lascia passare poca luce, richiedendo
+    lunghi tempi di esposizione.
+- Soluzione: una lente puo avere un'apertura grande (piu luce) e allo stesso
+  tempo focalizzare i raggi di ciascun punto della scena in
+  (approssimativamente) un singolo punto immagine.
+
+Trade-off da ricordare: il pinhole scambia nitidezza con luminosita; la
+lente rompe questo compromesso ma introduce profondita di campo,
+aberrazioni e distorsioni.
+
+
+========================================================================
+SLIDE 27 - Sezione: Perspective Projection
+========================================================================
+Slide divisoria. Terza parte: le equazioni della proiezione prospettica,
+i sistemi di coordinate e l'ambiguita dimensione/profondita.
+
+
+========================================================================
+SLIDE 28 - Camera (figura)
+========================================================================
+Domanda posta dalla figura: come convertiamo le coordinate da un punto 3D
+della scena P alle corrispondenti coordinate 2D del punto immagine p sul
+piano immagine?
+
+E il problema che le prossime slide risolvono con i triangoli simili.
+
+
+========================================================================
+SLIDE 29 - Perspective Projection: World to Camera Coordinates
+========================================================================
+Contenuto e convenzioni:
+- Coordinate mondo: un punto 3D nella scena P = (X, Y, Z).
+- Coordinate camera: la corrispondente posizione 2D p = (x, y) sul piano
+  immagine.
+- Il pinhole (centro della camera) e l'origine (0, 0, 0); l'asse ottico e
+  l'asse Z, orientato verso la scena.
+  - questa semplificazione verra rimossa piu avanti nel corso (camera in
+    posizione e orientamento arbitrari).
+- f: distanza fra pinhole e piano immagine, cioe la focale (focal length).
+
+
+========================================================================
+SLIDE 30 - The Virtual Image Plane Trick
+========================================================================
+Contenuto:
+- Il piano immagine e dietro il pinhole a distanza f, e l'immagine proiettata
+  e invertita (capovolta e specchiata).
+- Trucco: si considera invece un piano immagine virtuale posto a distanza f
+  davanti al pinhole (fra il pinhole e la scena).
+- Questa convenzione del piano virtuale e quella usata d'ora in poi ed e
+  standard nella maggior parte del software.
+
+Vantaggio: le equazioni perdono i segni meno e l'immagine non e invertita;
+la geometria (triangoli simili) resta identica.
+
+
+========================================================================
+SLIDE 31 - Coordinate Mapping: The Perspective Projection Equations
+========================================================================
+Proiezione prospettica:
+
+  x = f * X / Z        y = f * Y / Z
+
+dove f e la focale e Z e la profondita.
+
+- Le coordinate sul piano virtuale non sono invertite.
+- Le coordinate immagine (x, y) sono proporzionali alle coordinate mondo
+  (X, Y), scalate dal fattore f/Z.
+- Si ricavano dai triangoli simili formati da punto della scena, pinhole e
+  punto immagine.
+
+Da ricordare: e una mappa non lineare in Z (c'e una divisione), ed e proprio
+questa divisione a generare tutti i fenomeni prospettici.
+
+
+========================================================================
+SLIDE 32 - Distant Objects Appear Smaller
+========================================================================
+Contenuto:
+- Dato x = f * X / Z, per una dimensione X fissata, aumentare la profondita
+  Z riduce la dimensione proiettata x proporzionalmente a 1/Z.
+- Due oggetti della stessa dimensione fisica a profondita diverse proiettano
+  dimensioni immagine diverse.
+- Rette parallele che si allontanano in profondita convergono verso un unico
+  punto (punto di fuga, vanishing point) per Z -> infinito, poiche
+  x = f * X / Z -> 0 indipendentemente da X.
+- Questa e la base geometrica dei cues di profondita da una singola immagine.
+
+
+========================================================================
+SLIDE 33 - Size vs. Depth Ambiguity
+========================================================================
+Contenuto:
+- x = f * X / Z dipende da X e Z solo attraverso il loro rapporto X/Z.
+- Un oggetto di dimensione X a profondita Z proietta esattamente nello
+  stesso punto immagine di un oggetto di dimensione kX a profondita kZ, per
+  qualunque k.
+  - Esempio: oggetto A (X = 1, Z = 2) e oggetto B (X = 2, Z = 4) proiettano
+    entrambi in x = 0.5.
+- La proiezione prospettica e una mappa molti-a-uno: una singola immagine e
+  compatibile con infinite coppie (dimensione, profondita).
+
+Conseguenze:
+- perdiamo informazione su dimensione e profondita;
+- serve invarianza alla scala.
+
+
+========================================================================
+SLIDE 34 - From Camera Coordinates to Image (Pixel) Coordinates
+========================================================================
+Contenuto:
+- Le coordinate camera (x, y) sono continue, misurate in unita fisiche, con
+  origine sull'asse ottico.
+- Le coordinate immagine (n, m) sono indici di pixel discreti, con origine
+  convenzionalmente nell'angolo in alto a sinistra dell'immagine.
+- La figura mostra la griglia di pixel con gli assi (n, m) sovrapposti agli
+  assi camera (x, y), legati dal punto principale (n_0, m_0).
+
+Attenzione: questa e una fonte classica di bug ed errori di segno; le
+convenzioni variano fra librerie diverse.
+
+
+========================================================================
+SLIDE 35 - Image Coordinates
+========================================================================
+Relazione fra coordinate camera e coordinate pixel:
+
+  n = -a * x + n_0        m = -a * y + m_0
+
+dove a e il fattore di scala e (n_0, m_0) e il punto principale.
+
+- a: fattore di scala che converte unita fisiche in pixel (legato alla
+  dimensione del pixel e alla focale);
+- (n_0, m_0): punto principale, cioe le coordinate pixel dell'asse ottico;
+- il segno meno tiene conto del ribaltamento fra gli assi camera e gli assi
+  immagine (es. y che cresce verso l'alto contro m che cresce verso il
+  basso).
+
+
+========================================================================
+SLIDE 36 - Summary (proiezione prospettica)
+========================================================================
+- La proiezione prospettica guida il ragionamento geometrico su camere e
+  immagini.
+- E una mappa molti-a-uno: perde informazione su dimensione assoluta e
+  profondita.
+- Abbiamo diversi sistemi di coordinate: mondo, camera, immagine (con
+  convenzioni diverse e non sempre coerenti).
+- Dobbiamo saper tradurre fra tutte queste coordinate in molti task di CV
+  (es. ricostruzione 3D, calibrazione della camera).
+
+
+========================================================================
+SLIDE 37 - Sezione: Orthographic Projection
+========================================================================
+Slide divisoria. Interludio sulla proiezione ortografica, usata come
+contrasto per capire che ogni geometria di imaging e una scelta su quale
+informazione conservare.
+
+
+========================================================================
+SLIDE 38 - Perspective Isn't the Only Choice
+========================================================================
+Contenuto:
+- La proiezione prospettica e la conseguenza naturale di un pinhole: i raggi
+  convergono in un unico punto, quindi la dimensione proiettata dipende
+  dalla profondita (x = f * X / Z).
+- Ma quella convergenza e una scelta di geometria, non una legge di natura.
+  Cosa succede se accettiamo solo i raggi che arrivano perpendicolari al
+  piano immagine?
+- Allora ogni punto della scena si mappa sull'immagine tramite raggi
+  paralleli, e la geometria di imaging e fondamentalmente diversa.
+
+
+========================================================================
+SLIDE 39 - Orthographic Projection: Equations
+========================================================================
+Proiezione ortografica:
+
+  x = k * X        y = k * Y
+
+- k: fattore di scala globale fisso (nessuna dipendenza dalla profondita Z).
+- La dimensione dell'oggetto nell'immagine e indipendente dalla profondita:
+  un oggetto vicino e uno lontano della stessa dimensione fisica proiettano
+  la stessa dimensione immagine.
+- Questo elimina l'ambiguita dimensione-profondita della prospettiva, ma al
+  prezzo di rimuovere completamente l'informazione di profondita: non ci
+  sono punti di fuga, non c'e scorcio prospettico.
+
+Uso pratico: e una buona approssimazione quando la profondita dell'oggetto e
+piccola rispetto alla sua distanza dalla camera (teleobiettivi).
+
+
+========================================================================
+SLIDE 40 - Soda Straw Camera (slide con sola immagine)
+========================================================================
+Figura da visionbook: la "camera a cannucce", un fascio di tubi paralleli
+che lascia passare solo i raggi perpendicolari al piano immagine.
+
+Punto: e la realizzazione fisica intuitiva della proiezione ortografica.
+Ogni cannuccia seleziona una direzione, non un punto di convergenza.
+
+
+========================================================================
+SLIDE 41 - Perspective vs. Orthographic: Two Ways to Lose Information
+========================================================================
+Contenuto:
+- Prospettica: mantiene un cue di profondita (la dimensione si riduce con la
+  distanza) ma lo confonde con la scala dell'oggetto; e un'ambiguita che va
+  risolta per altre vie (stereo, prior, stima di profondita appresa).
+- Ortografica: elimina per costruzione l'ambiguita scala-profondita, ma al
+  prezzo di scartare del tutto l'informazione di profondita.
+- Nessuna delle due e "piu corretta": sono scelte deliberate diverse su
+  quale informazione il sistema di imaging preserva, un tema che ritorna
+  quando guardiamo le camere come sistemi lineari.
+
+
+========================================================================
+SLIDE 42 - Sezione: Cameras as Linear Systems
+========================================================================
+Slide divisoria. Quarta parte: astrazione algebrica della camera come
+operatore lineare, e inversione regolarizzata.
+
+
+========================================================================
+SLIDE 43 - Motivation
+========================================================================
+Contenuto:
+- Finora "camera" ha significato un pinhole ideale o una lente che focalizza
+  raggi su un sensore.
+- Ma qualunque dispositivo che trasforma una scena in misure puo essere
+  descritto allo stesso modo: la luce e lineare, quindi la mappa
+  scena -> sensore e sempre una mappa lineare l_s = A * l_w.
+  - questa astrazione permette di ragionare su qualunque setup di imaging;
+  - pinhole reali sfocati;
+  - corner camera.
+- Obiettivo: una volta noto A, recuperare la scena l_w dalle misure l_s
+  diventa un problema generale (invertire, o regolarizzare, un sistema
+  lineare) applicabile a qualunque camera.
+
+
+========================================================================
+SLIDE 44 - The Camera as a Linear System (setup)
+========================================================================
+Consideriamo un mondo 1D semplificato:
+- un vettore l_w in R^N di intensita luminose della scena (una entry per
+  "posizione" o direzione della scena);
+- il sensore registra un vettore l_s in R^M di misure.
+
+La figura mostra le intensita del mondo 1D l_w, la camera come operatore
+lineare A e le misure risultanti l_s (fonte: visionbook).
+
+
+========================================================================
+SLIDE 45 - The Camera as a Linear System (formula)
+========================================================================
+Poiche la luce e lineare, la relazione fra scena e sensore e una mappa
+lineare:
+
+  l_s = A * l_w        con A in R^(M x N)
+
+dove A e l'operatore di imaging.
+
+- Ogni riga di A descrive come una singola misura del sensore sia una
+  combinazione (pesata) delle intensita della scena, cioe il pattern di
+  risposta/sensibilita della camera.
+
+Interpretazione: la riga i-esima e "cosa vede il pixel i" del mondo.
+
+
+========================================================================
+SLIDE 46 - The Ideal Pinhole as A = I
+========================================================================
+  l_s = A * l_w,   A in R^(M x N)
+
+- Per una camera pinhole ideale, ogni pixel del sensore riceve luce da
+  esattamente una direzione della scena.
+- Usando la convenzione del piano immagine virtuale (quindi senza
+  ribaltamento), la mappa e diretta: A = I, la matrice identita.
+
+Osservazione: il pinhole ideale e il caso migliore possibile, perche
+l'inversione e banale (l_w = l_s). Ogni camera reale si allontana da qui.
+
+
+========================================================================
+SLIDE 47 - Real Pinhole
+========================================================================
+Contenuto:
+- Un pinhole "meno che ideale" (foro di dimensione finita, diffrazione) rende
+  A una matrice vicina a I ma con una certa dispersione: ogni riga ha la
+  maggior parte del peso su una entry, con piccoli contributi dai vicini.
+- Questo e esattamente un blur, cioe una convoluzione.
+
+Collegamento: la struttura "stessa riga traslata" e una matrice di Toeplitz
+/ circolante; e il ponte diretto con la Lezione 3 (convoluzione come
+moltiplicazione matriciale).
+
+
+========================================================================
+SLIDE 48 - Other Cameras
+========================================================================
+Contenuto:
+- Una volta accettato che qualunque A lineare definisce un sistema di
+  imaging valido, possiamo progettare camere che non assomigliano per nulla
+  a un pinhole, purche si riesca comunque a recuperare l_w da l_s.
+- Esempi:
+  - edge camera;
+  - pinspeck camera;
+  - corner camera.
+- In ciascun caso la matrice di imaging A mescola i valori della scena molto
+  piu di un pinhole.
+
+Idea di fondo (computational imaging): l'ottica puo essere povera se
+l'algoritmo di ricostruzione e buono.
+
+
+========================================================================
+SLIDE 49 - Other Cameras (figura)
+========================================================================
+Figura da visionbook: edge camera (sinistra) e pinspeck camera (destra).
+
+- Edge camera: uno spigolo (es. il bordo di un muro) occlude progressivamente
+  la scena; le differenze di luce lungo il bordo codificano la scena
+  nascosta.
+- Pinspeck camera: l'opposto del pinhole, un piccolo oggetto opaco che
+  blocca la luce invece di un piccolo foro che la lascia passare.
+
+
+========================================================================
+SLIDE 50 - Recovering the World from Sensor Measurements
+========================================================================
+Contenuto:
+- Data una misura l_s = A * l_w, possiamo recuperare l_w?
+- Se A e quadrata e invertibile: l_w = A^(-1) * l_s, fine.
+- In pratica A spesso non e invertibile:
+  - mal condizionata: un piccolo rumore di misura causa errori enormi in
+    l_w;
+  - rank-deficient o non quadrata.
+- E un problema mal posto: molte scene diverse l_w possono produrre misure
+  l_s quasi identiche.
+  - la corner camera e un esempio estremo, in cui il segnale utile e una
+    frazione minuscola della misura.
+
+
+========================================================================
+SLIDE 51 - Regularized Least Squares
+========================================================================
+Per ottenere un problema ben posto si aggiunge un termine di
+regolarizzazione che penalizza le soluzioni implausibili (es. l_w molto
+grandi o rumorose):
+
+  E(l_w) = || l_s - A * l_w ||^2 + lambda * || l_w ||^2
+           |__________________|     |________________|
+              data fidelity            regolarizzatore
+
+- Primo termine (data fidelity): quanto bene l_w spiega la misura.
+- Secondo termine (regolarizzatore): preferisce soluzioni con norma piccola
+  (un prior semplice), pesato da lambda > 0.
+- lambda controlla il compromesso: lambda -> 0 recupera la soluzione ai
+  minimi quadrati (possibilmente instabile); lambda grande sbilancia
+  fortemente verso l_w circa uguale a 0.
+
+
+========================================================================
+SLIDE 52 - Deriving the Regularized Inverse
+========================================================================
+Derivazione (da saper rifare):
+
+1) Si espande l'obiettivo:
+   E(l_w) = (l_s - A l_w)^T (l_s - A l_w) + lambda * l_w^T l_w
+
+2) Si calcola il gradiente rispetto a l_w e lo si pone uguale a zero:
+   grad_{l_w} E = -2 A^T (l_s - A l_w) + 2 lambda l_w = 0
+
+3) Riordinando:
+   A^T A l_w + lambda l_w = A^T l_s
+   quindi  (A^T A + lambda I) l_w = A^T l_s
+
+4) Risolvendo per l_w si ottiene l'inversa regolarizzata in forma chiusa
+   (slide successiva).
+
+
+========================================================================
+SLIDE 53 - The Regularized Inverse
+========================================================================
+Minimizzando E(l_w) (gradiente nullo) si ottiene la soluzione in forma
+chiusa:
+
+  l_w = (A^T A + lambda I)^(-1) A^T l_s = B * l_s
+
+- B = (A^T A + lambda I)^(-1) A^T e la (pseudo-)inversa regolarizzata di A.
+- Aggiungere lambda I rende A^T A + lambda I invertibile anche quando A^T A
+  da sola e singolare o mal condizionata: sposta tutti gli autovalori verso
+  l'alto di lambda, allontanandoli da zero.
+- E la classica regolarizzazione di Tikhonov / ridge regression.
+
+Nota: e la stessa formula della ridge regression vista in machine learning;
+qui il "modello" e la camera e i "dati" sono le misure del sensore.
+
+
+========================================================================
+SLIDE 54 - The Regularized Inverse (2)
+========================================================================
+Contenuto:
+- Nel pinhole rumoroso, A^(-1) mostra un pattern "a scacchiera", mentre
+  l'inversa regolarizzata B e piu liscia.
+- Il pattern a scacchiera la rende molto sensibile al rumore: piccoli errori
+  di misura vengono amplificati in errori grandi e ad alta frequenza in l_w.
+
+Intuizione: il pattern a scacchiera e la componente a frequenza massima
+(Nyquist); l'inversa esatta amplifica proprio le frequenze che il blur
+aveva attenuato di piu, ed e li che vive il rumore.
+
+
+========================================================================
+SLIDE 55 - The Regularized Inverse (3)
+========================================================================
+Figura: edge camera e pinspeck camera; confronto fra l'inversa vera A^(-1) e
+l'inversa regolarizzata B.
+
+Punto: B non e uguale ad A^(-1). Introduce un bias (la ricostruzione e
+leggermente "sbagliata" ma stabile) in cambio di una riduzione enorme della
+varianza. E il classico trade-off bias-varianza in forma di algebra lineare.
+
+
+========================================================================
+SLIDE 56 - The Regularized Inverse (4)
+========================================================================
+Contenuto:
+- Il semplice modello diretto lineare risolto tramite inversa regolarizzata e
+  uno schema ricorrente in computer vision.
+- Convoluzione/deconvoluzione: un blur e un operatore lineare A (una matrice
+  di convoluzione); il deblurring si risolve con inversione regolarizzata.
+  - il pinhole sfocato applica un blur all'immagine (convoluzione);
+    invertire il pinhole sfocato e un'operazione di deconvoluzione.
+
+E il collegamento esplicito con la Lezione 3: se A e una convoluzione, tutto
+diventa piu semplice nel dominio di Fourier (divisione punto per punto,
+regolarizzata: filtro di Wiener).
+
+
+========================================================================
+SLIDE 57 - Sezione: Color
+========================================================================
+Slide divisoria. Quinta e ultima parte: spettri, riflettanza, color
+constancy, coni e metamerismo.
+
+
+========================================================================
+SLIDE 58 - Color Is Ambiguous
+========================================================================
+Contenuto:
+- La luce porta con se un intero spettro di potenza in funzione della
+  lunghezza d'onda.
+- La nostra visione a colori comprime quello spettro in pochi numeri.
+- La compressione e lossy e ambigua:
+  - gli stessi tre numeri possono derivare da molti spettri fisici diversi;
+  - la stessa superficie puo produrre numeri molto diversi sotto luci
+    diverse.
+- I colori nelle immagini devono corrispondere alla nostra percezione
+  (anch'essa lossy).
+
+Figura: spettro luminoso di un cielo azzurro.
+
+
+========================================================================
+SLIDE 59 - Light Power Spectra
+========================================================================
+Contenuto:
+- La luce visibile copre all'incirca 400-700 nm (nanometri) di lunghezza
+  d'onda, dal blu/violetto al rosso profondo.
+- Una sorgente luminosa o un raggio riflesso e descritto completamente dal
+  suo spettro di potenza: l'intensita a ciascuna lunghezza d'onda,
+  l(lambda).
+- Un prisma separa un fascio per lunghezza d'onda, rivelando che la luce
+  "bianca" e in realta una miscela ampia di tutte le lunghezze d'onda
+  visibili.
+
+Da notare: l(lambda) e una funzione, cioe un oggetto infinito-dimensionale;
+i tre numeri RGB sono la sua proiezione su tre dimensioni.
+
+
+========================================================================
+SLIDE 60 - RGB and CMY (slide con sola immagine)
+========================================================================
+Figura da visionbook: sintesi additiva (RGB, per schermi e luci) e sintesi
+sottrattiva (CMY, per pigmenti e stampa).
+
+Punto: additiva = si somma luce (rosso + verde + blu = bianco); sottrattiva
+= si sottraggono lunghezze d'onda dalla luce bianca riflessa (ciano +
+magenta + giallo = nero). Sono due modi diversi di generare lo stesso spazio
+percettivo.
+
+
+========================================================================
+SLIDE 61 - Reflectance and the Diffuse Reflection Model
+========================================================================
+Contenuto:
+- Si riprende la BRDF lambertiana: l_out = a * l_in * (n . p), con un
+  singolo albedo scalare a.
+- Rendendo esplicita la dipendenza dalla lunghezza d'onda, una superficie ha
+  uno spettro di riflettanza s(lambda) in [0, 1] (quanto riflette di ogni
+  lunghezza d'onda), e lo spettro osservato (riflesso) e:
+
+    r(lambda) = k * l_in(lambda) * s(lambda)
+
+- l_in(lambda): spettro dell'illuminante; s(lambda): riflettanza del
+  materiale; k: costante che dipende dalla geometria (il fattore n . p visto
+  prima).
+- Lo spettro di riflettanza s(lambda) e la proprieta del materiale che di
+  solito ci interessa (correla con maturazione, identita del materiale,
+  salute, ...), ma cio che osserviamo, r(lambda), e il prodotto di s(lambda)
+  con l'illuminante ignoto l_in(lambda).
+
+
+========================================================================
+SLIDE 62 - The Color Constancy Problem
+========================================================================
+Contenuto:
+- Poiche r(lambda) = k * l_in(lambda) * s(lambda) e un prodotto di due
+  incognite, osservare r(lambda) da solo non permette di determinare
+  univocamente s(lambda): un oggetto rossastro sotto luce bianca e un
+  oggetto grigio sotto luce rossastra possono produrre lo stesso spettro
+  osservato.
+- Color constancy: il problema (mal posto) di stimare la riflettanza
+  s(lambda) dato solo r(lambda), cioe scontare l'illuminante.
+- Il sistema visivo umano lo risolve in modo approssimato e automatico; le
+  camere devono farlo con algoritmi espliciti (euristiche, statistiche o
+  modelli appresi).
+
+Esempio di euristica classica: grey-world assumption (la media della scena e
+grigia). E il white balance dell'ISP.
+
+
+========================================================================
+SLIDE 63 - Worked Example: The Same Pixel Value, Two Perceived Colors
+========================================================================
+Contenuto (illusione della scacchiera di Adelson):
+- I quadrati A e B hanno valori di pixel identici (verificabile), eppure
+  appaiono di tonalita diversa perche il sistema visivo sconta l'ombra
+  apparente: e una forma di color constancy automatica (parziale).
+- I valori dei pixel non sono una lettura diretta del colore della
+  superficie: sono il colore della superficie intrecciato con
+  l'illuminazione.
+
+
+========================================================================
+SLIDE 64 - The Dress
+========================================================================
+Contenuto:
+- La fotografia "#TheDress" del 2015 e un esempio famoso:
+  - se si assume luce calda, il vestito e nero e blu;
+  - se si assume luce fredda, il vestito e bianco e oro/giallo;
+  - si tratta di un'assunzione implicita sull'illuminante, fatta spesso in
+    modo inconscio.
+
+Punto: l'ambiguita e reale e matematicamente irriducibile; il disaccordo fra
+osservatori umani mostra che stiamo usando prior diversi sullo stesso dato.
+
+
+========================================================================
+SLIDE 65 - The Machinery of the Eye: Cones and Trichromacy
+========================================================================
+Contenuto:
+- La retina umana ha bastoncelli (rods: monocromatici, attivi in scarsa
+  luce) e coni (cones: visione a colori, attivi in luce normale).
+- Ci sono tre tipi di coni, S, M, L (picco di sensibilita a lunghezza d'onda
+  corta/media/lunga), ciascuno dei quali integra la luce entrante su tutto
+  lo spettro, pesata dalla propria curva di sensibilita.
+- Tricromia: la percezione umana del colore e (con buona approssimazione)
+  determinata da soli tre numeri, indipendentemente dallo spettro completo
+  (continuo, infinito-dimensionale) della luce entrante.
+- Per questo le rappresentazioni RGB sono sufficienti quando il destinatario
+  e la visione umana.
+
+
+========================================================================
+SLIDE 66 - Cone Response as a Linear Map
+========================================================================
+Contenuto:
+- La risposta di ciascun cono e un integrale pesato dello spettro entrante
+  l(lambda) contro la propria curva di sensibilita.
+- Impilando le tre sensibilita dei coni come righe di C_eye in R^(3 x N), la
+  risposta e la mappa lineare:
+
+    [L, M, S]^T = C_eye * l(lambda)
+
+- Di nuovo usiamo i sistemi lineari come per le camere, ma applicati
+  all'occhio: un sensore lineare a 3 righe su un input spettrale
+  N-dimensionale.
+
+Osservazione: e la stessa struttura l_s = A l_w della terza parte della
+lezione, con A = C_eye di dimensione 3 x N e N molto grande.
+
+
+========================================================================
+SLIDE 67 - Metamerism
+========================================================================
+Contenuto:
+- Metamerismo: due spettri luminosi fisicamente diversi che producono le
+  stesse tre risposte dei coni e quindi appaiono identici a un osservatore
+  umano, pur essendo distribuzioni di energia diverse sulle lunghezze
+  d'onda.
+- Poiche C_eye: R^N -> R^3 e una mappa lineare da uno spazio ad alta
+  dimensione a R^3, il suo nucleo (null space) e enorme: qualunque spettro
+  puo essere perturbato con un vettore del nucleo senza cambiare affatto il
+  colore percepito.
+- Le camere (con le loro tre curve di sensibilita, diverse) possono non
+  percepire i due spettri come identici: e il motivo per cui i colori
+  possono sembrare corretti all'occhio ma essere registrati diversamente
+  dalla camera (o viceversa).
+- L'imaging iperspettrale (misurando molte piu di 3 bande) puo risolvere
+  metameri che ingannano sia l'occhio sia le camere RGB, al costo di una
+  maggiore complessita del sensore.
+
+Da ricordare: dim(null space) = N - 3, quindi il metamerismo non e un caso
+patologico, e la regola.
+
+
+========================================================================
+SLIDE 68 - Spatial Resolution and Color
+========================================================================
+Contenuto:
+- L'acuita spaziale umana non e uniforme rispetto al colore: siamo molto piu
+  sensibili al dettaglio spaziale fine nella luminanza (luminosita) che nella
+  crominanza (colore).
+- Equivalentemente, sfocare solo i canali di colore di un'immagine e molto
+  meno percepibile che sfocare solo la sua luminanza.
+- Questa asimmetria e sfruttata in tutta la compressione di immagini e video
+  (es. chroma subsampling, formati 4:2:0).
+
+
+========================================================================
+SLIDE 69 - RGB Blur (slide con sola immagine)
+========================================================================
+Figura da visionbook: la stessa immagine con blur applicato solo alla
+crominanza contro blur applicato solo alla luminanza.
+
+Punto: la dimostrazione visiva della slide precedente. Il blur di crominanza
+e quasi invisibile, quello di luminanza distrugge l'immagine.
+
+
+========================================================================
+SLIDE 70 - Sezione: Conclusions
+========================================================================
+Slide divisoria. Chiusura: le tre ambiguita, i takeaway e le letture.
+
+
+========================================================================
+SLIDE 71 - Summary: Three Ambiguities
+========================================================================
+Schema riassuntivo delle tre perdite di informazione:
+
+  prospettiva            sistema lineare l_s = A l_w      riflettanza x illuminante
+  (dimensione <-> profondita)   (inversione mal posta)         (color constancy)
+
+- Ogni stadio della formazione dell'immagine comporta una perdita di
+  informazione:
+  - geometria: da una scena 3D a un array 2D;
+  - colore: da uno spettro continuo a 3 numeri;
+  - camera: da una miscela lineare ignota a un insieme finito di misure.
+- Riconoscere quale informazione viene scartata (e come) e il primo passo
+  per recuperarla, che sia tramite viste aggiuntive, prior,
+  regolarizzazione o modelli appresi.
+
+
+========================================================================
+SLIDE 72 - Key Takeaways
+========================================================================
+- Il modello pinhole/prospettico e il modello geometrico per tutta la
+  Parte 2 del corso; vedremo un modello di camera completo e come stimare
+  profondita e dimensione.
+- Camere come sistemi lineari l_s = A * l_w; recuperare l_w e un problema
+  inverso mal posto, stabilizzato tramite regolarizzazione.
+- Il colore e una compressione in 3 numeri di uno spettro completo; il
+  colore e influenzato sia dal materiale sia dalla luce.
+
+
+========================================================================
+SLIDE 73 - Further Reading
+========================================================================
+- VisionBook, Capitoli 5, 6, 7, 8.
+- Il libro contiene piu dettagli delle slide.
+
+
+========================================================================
+SLIDE 74 - Next Lecture
+========================================================================
+- Oggi abbiamo trattato le immagini come output di un processo fisico di
+  formazione.
+- Nella prossima lezione le trattiamo come segnali, e costruiamo gli
+  strumenti (trasformata di Fourier e convoluzione) per analizzarle e
+  manipolarle.

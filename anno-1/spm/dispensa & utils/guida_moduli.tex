@@ -1,0 +1,861 @@
+% =============================================================
+% GUIDA AI MODULI DEL PROGETTO SPM -- preparazione orale
+% Università di Pisa -- Prof. Massimo Torquati -- A.A. 2025-2026
+% Compilare con: xelatex -interaction=nonstopmode guida_moduli.tex  (2 passate)
+% =============================================================
+\documentclass[11pt,a4paper]{article}
+
+\usepackage{fontspec}
+\usepackage[english]{babel}
+\setmainfont{Latin Modern Roman}
+\setmonofont{Latin Modern Mono}
+\usepackage{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{float}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{microtype}
+\usepackage{parskip}
+\usepackage{tcolorbox}
+\tcbuselibrary{breakable}
+
+\geometry{top=2.3cm, bottom=2.3cm, left=2.3cm, right=2.3cm}
+\setlength{\headheight}{14pt}
+\setlength{\emergencystretch}{3em}  % assorbe gli overfull in prosa (token \texttt lunghi)
+
+% --- Code styles ---
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{codeblue}{rgb}{0.0,0.3,0.7}
+\definecolor{codegreen}{rgb}{0,0.5,0}
+\definecolor{backcolour}{rgb}{0.97,0.97,0.97}
+\definecolor{cmdback}{rgb}{0.95,0.97,1.0}
+
+\lstdefinestyle{cpp}{
+  backgroundcolor=\color{backcolour},
+  commentstyle=\color{codegreen}\itshape,
+  keywordstyle=\color{codeblue}\bfseries,
+  stringstyle=\color{codepurple},
+  numberstyle=\tiny\color{codegray},
+  basicstyle=\ttfamily\footnotesize,
+  breakatwhitespace=false,
+  breaklines=true,
+  captionpos=b,
+  keepspaces=true,
+  numbers=left,
+  numbersep=4pt,
+  showspaces=false,
+  showstringspaces=false,
+  showtabs=false,
+  tabsize=2,
+  language=C++,
+  morekeywords={auto,nullptr,constexpr,noexcept,decltype,override,final,
+    std,atomic,thread,mutex,barrier,uint64_t,uint32_t,int32_t,size_t,
+    pragma,omp,parallel,task,taskgroup,single,reduction,schedule,
+    firstprivate,shared,default,nowait,__restrict__,__builtin_prefetch,
+    __m256i,__global__,MPI_Init_thread,MPI_Alltoallv,MPI_Allreduce,
+    MPI_Barrier,MPI_Alltoall,MPI_Reduce}
+}
+\lstdefinestyle{bash}{
+  backgroundcolor=\color{cmdback},
+  commentstyle=\color{codegreen}\itshape,
+  basicstyle=\ttfamily\footnotesize,
+  breaklines=true,
+  keepspaces=true,
+  showspaces=false,
+  showstringspaces=false,
+  showtabs=false,
+  tabsize=2,
+  language=bash,
+  frame=single,
+  framesep=4pt,
+  rulecolor=\color{codeblue},
+  morekeywords={srun,salloc,sbatch,mpirun,mpicxx,mpicc,make,g++,nvcc,
+    module,export,taskset,numactl,lscpu,ssh,rsync,scp,squeue,sinfo,scancel}
+}
+\lstset{style=cpp}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{Guida ai Moduli -- SPM 2025-26}
+\lhead{Progetto: Partitioned Hash Join}
+\cfoot{\thepage}
+
+% --- boxes ---
+\newtcolorbox{cmdbox}[1][]{breakable, colback=cmdback, colframe=codeblue,
+  fonttitle=\small\bfseries, title={\faTerminal\ Comandi#1}, before skip=6pt, after skip=6pt}
+% fallback without fontawesome
+\providecommand{\faTerminal}{>\_}
+
+\newtcolorbox{whybox}{breakable, colback=yellow!6!white, colframe=orange!75!black,
+  fonttitle=\small\bfseries, title={Perché (motivazione)}, before skip=6pt, after skip=6pt}
+
+\newtcolorbox{theorybox}{breakable, colback=green!5!white, colframe=green!50!black,
+  fonttitle=\small\bfseries, title={Collegamento alla teoria}, before skip=6pt, after skip=6pt}
+
+\newtcolorbox{qbox}[1][]{breakable, colback=red!4!white, colframe=red!60!black,
+  fonttitle=\small\bfseries, title={Possibile domanda d'esame\ifx&#1&\else: #1\fi}, before skip=6pt, after skip=6pt}
+
+\hypersetup{colorlinks=true, linkcolor=codeblue, urlcolor=codeblue,
+  pdftitle={Guida ai Moduli SPM}, pdfauthor={SPM module guide}}
+
+% =============================================================
+\begin{document}
+
+\begin{titlepage}
+\centering
+\vspace*{1.5cm}
+{\LARGE\bfseries Guida ai Moduli del Progetto\\[0.4em]
+Partitioned Hash Join with Duplicates\\[1em]}
+{\large\itshape Walkthrough del codice, comandi cluster, risultati e teoria}\\[1.5em]
+{\large Sistemi Paralleli e Distribuiti (SPM)}\\[0.4em]
+{\large Università di Pisa -- Prof. Massimo Torquati -- A.A. 2025-2026}\\[2em]
+\hrule\vspace{1em}
+\begin{flushleft}\small
+Documento di preparazione all'esame orale. Per ogni modulo (M1 SIMD, M2 C++ threads, M3 OpenMP, M4 MPI/ibrido):
+spiegazione del codice con snippet reali, motivazioni delle scelte implementative, cosa si poteva migliorare,
+\textbf{comandi esatti per compilare ed eseguire sul cluster} (\texttt{salloc}/\texttt{srun}/\texttt{sbatch}),
+risultati sperimentali e collegamenti alla teoria del corso. Pensato per essere consultato col laptop aperto
+durante l'esame (il prof chiede di compilare ed eseguire i moduli da terminale sul cluster SPM).
+\end{flushleft}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+% =============================================================
+\section{Setup d'esame: cluster, convenzioni, cosa aspettarsi}
+% =============================================================
+
+\subsection{Cosa chiede il professore (dalla mail)}
+
+All'orale: prima si discute il progetto consegnato, poi domande di teoria. Punti operativi:
+\begin{itemize}
+  \item Portare il \textbf{proprio laptop} (con adattatore HDMI) per mostrare il codice e \textbf{eseguire test sul cluster SPM}.
+  \item Essere pronti a \textbf{compilare ed eseguire ogni modulo da riga di comando}, usando \texttt{srun} o \texttt{salloc} quando serve.
+  \item Non serve lanciare gli script di benchmark completi, ma bisogna saper \textbf{compilare ed eseguire manualmente} ciascun modulo e \textbf{spiegare le opzioni della riga di comando}.
+\end{itemize}
+
+Questa guida è organizzata esattamente per coprire questi punti: ogni modulo ha una sezione ``Comandi'' pronta da copiare.
+
+\subsection{Accesso al cluster \texttt{spmcluster}}
+
+Il cluster ha 1 frontend + 9 nodi di calcolo. \textbf{node01--node08} sono omogenei (Intel, microarchitettura Ivy Bridge, no AVX2); \textbf{node09} è AMD (EPYC 7301, Zen~1) con GPU \textbf{NVIDIA A30}. Il login node (frontend) è invece Haswell (ha AVX2): da qui il vincolo sui flag di compilazione del Modulo~4 (vedi sotto).
+
+\begin{lstlisting}[style=bash, caption={Accesso, trasferimento file, comandi SLURM di base.}]
+# login (loginname = parte locale della mail UNIPI, tutto minuscolo)
+ssh loginname@spmcluster.unipi.it      # da fuori UNIPI: prima la VPN "Connect Tunnel"
+
+# trasferire la cartella di un modulo sul cluster (ATTENZIONE alla / finale:
+# non copiare mai dentro ~/ diretto, romperebbe i permessi 700 della home)
+rsync -rv module_3/ loginname@spmcluster.unipi.it:~/spm/module_3/
+
+# stato dei job / nodi
+squeue -u $USER          # i miei job in coda/esecuzione
+sinfo                    # partizioni e nodi disponibili
+scancel <jobid>          # uccidere un job
+\end{lstlisting}
+
+\subsection{\texttt{salloc} vs \texttt{srun} vs \texttt{sbatch} (riassunto operativo)}
+
+\begin{itemize}
+  \item \texttt{sbatch script.sh} -- sottomette uno script batch con direttive \texttt{\#SBATCH}; il job gira in background, output su file. È come sono scritti gli script di benchmark.
+  \item \texttt{salloc <flag>} -- riserva risorse e apre una shell interattiva che \emph{tiene} l'allocazione: da lì compili e lanci a mano. \textbf{È la modalità giusta per l'esame} (mostri tutto live).
+  \item \texttt{srun <flag> ./bin} -- lancia il programma \emph{dentro} l'allocazione (o ne crea una al volo). Per MPI: \texttt{srun --mpi=pmix}.
+\end{itemize}
+
+Flag SLURM ricorrenti: \texttt{--nodes=N} (nodi fisici), \texttt{--ntasks=R} (processi/rank totali), \texttt{--ntasks-per-node}, \texttt{--cpus-per-task=T} (core per task, serve a OpenMP), \texttt{--exclusive} (nodo tutto per sé, timing pulito), \texttt{--partition=normal} (coda standard; \texttt{gpu-excl} per node09/GPU), \texttt{--time=HH:MM:SS}.
+
+\subsection{Convenzioni comuni a tutti i moduli}
+
+L'\textbf{algoritmo è identico} nei quattro moduli: cambia solo il paradigma di parallelismo. La funzione di partizionamento (hash di Fibonacci a 32 bit) è la \emph{stessa} ovunque -- è un requisito del progetto (``contratto'') e garantisce che i \texttt{partition\_id} siano consistenti tra moduli.
+
+\begin{lstlisting}[style=cpp, caption={La hash di partizionamento condivisa (include/common.hpp), usata in M1--M4.}]
+static constexpr uint32_t HASH_A32 = 0x9E3779B9u; // floor(2^32 / phi)
+
+inline part_t hash_key(spm_key_t key, unsigned shift32) {
+    const uint32_t k_lo = static_cast<uint32_t>(key);
+    const uint32_t k_hi = static_cast<uint32_t>(key >> 32);
+    return static_cast<uint32_t>(((k_lo ^ k_hi) * HASH_A32) >> shift32);
+}
+inline unsigned compute_shift(uint32_t P) {     // shift = 32 - log2(P)
+    return 32u - static_cast<unsigned>(__builtin_ctz(P));
+}
+\end{lstlisting}
+
+\begin{whybox}
+XOR-fold delle due metà a 32 bit (\texttt{k\_lo \^{} k\_hi}) per non perdere informazione, poi moltiplicazione per la costante di Fibonacci $A_{32}=\lfloor 2^{32}/\varphi\rfloor$ e right-shift per tenere i \texttt{log2(P)} bit \emph{alti} (i più mescolati). Si lavora a \textbf{32 bit} perché \texttt{vpmulld} (AVX2) moltiplica 8 \texttt{uint32} in una sola istruzione: è ciò che rende la kernel vettorizzabile in M1. \texttt{P} è potenza di due, così il modulo diventa uno shift; \texttt{\_\_builtin\_ctz(P)} ricava \texttt{log2(P)} senza branch.
+\end{whybox}
+
+Verifica di correttezza (in tutti i moduli): per input piccoli (NR, NS $\le 500$) i binari lanciano automaticamente un join naive $O(N^2)$ e confrontano la tripla \texttt{(join\_count, checksum1, checksum2)}; per input grandi confrontano la stessa tripla tra sequenziale e parallelo. I checksum usano \texttt{splitmix64} e sono \emph{ordine-indipendenti} (somme), quindi insensibili all'ordine di completamento dei thread/task.
+% =============================================================
+\section{Modulo 1 -- SIMD: kernel di partitioning}
+% =============================================================
+
+\subsection{Cosa fa e struttura del codice}
+
+Isola e ottimizza la sola \emph{partition mapping kernel}: dati $N$ chiavi \texttt{uint64\_t} e $P$ partizioni, calcola \texttt{part\_id[i]}$=h(\text{keys}[i])\in[0,P)$. Quattro varianti: \texttt{plain\_baseline} (scalare, autovec disattivata), \texttt{plain\_autovec} (autovec attiva), \texttt{avx2} (intrinsics a mano), \texttt{cuda\_kernel} (GPU, opzionale).
+
+File principali: \texttt{include/common.hpp} (hash, RNG xoshiro256**, allocatore allineato, checksum FNV-1a, statistiche), \texttt{src/plain.cpp} (baseline+autovec dallo stesso sorgente), \texttt{src/avx2.cpp} (kernel AVX2 + riferimento scalare interno), \texttt{src/cuda\_kernel.cu}, \texttt{src/dataset\_creator.cpp}.
+
+\subsection{Walkthrough del codice}
+
+\paragraph{Kernel scalare autovettorizzabile (plain.cpp).}
+
+\begin{lstlisting}[style=cpp]
+void partition_map(const spm_key_t *__restrict__ keys,
+                   part_t *__restrict__ part_ids, size_t N, unsigned shift)
+{
+    for (size_t i = 0; i < N; i++) {
+        uint32_t k_lo = static_cast<uint32_t>(keys[i]);
+        uint32_t k_hi = static_cast<uint32_t>(keys[i] >> 32);
+        uint32_t mixed = k_lo ^ k_hi;          // XOR-fold a 32 bit
+        part_ids[i] = (mixed * HASH_A32) >> shift; // Fibonacci multiply-shift
+    }
+}
+\end{lstlisting}
+
+\begin{whybox}
+GCC autovettorizza questo loop perché: trip count \texttt{N} noto, niente dipendenze loop-carried, niente chiamate nel corpo, \texttt{\_\_restrict\_\_} (i due array non si aliasano), accesso a stride unitario. L'operazione centrale è una \emph{mul a 32 bit} che mappa sull'istruzione nativa \texttt{vpmulld}; una mul a 64 bit andrebbe emulata con 3$\times$ \texttt{vpmuludq} + shift, perdendo il vantaggio.
+\end{whybox}
+
+\paragraph{Kernel AVX2 a mano (avx2.cpp) -- il cuore del modulo.} Processa 8 chiavi per iterazione.
+
+\begin{lstlisting}[style=cpp]
+const __m256i va32 = _mm256_set1_epi32((int32_t)HASH_A32);     // costante in 8 lane
+const __m256i shuf = _mm256_setr_epi32(0,2,4,6,1,3,5,7);
+for (size_t i = 0; i < simd_end; i += 8) {
+    __m256i vk0 = _mm256_load_si256((const __m256i*)&keys[i]);   // 4 chiavi u64
+    __m256i vk1 = _mm256_load_si256((const __m256i*)&keys[i+4]); // 4 chiavi u64
+    __m256i hi0 = _mm256_srli_epi64(vk0, 32);                    // estrai k_hi
+    __m256i hi1 = _mm256_srli_epi64(vk1, 32);
+    __m256i x0  = _mm256_xor_si256(vk0, hi0);                    // k_lo ^ k_hi
+    __m256i x1  = _mm256_xor_si256(vk1, hi1);
+    __m256i p0  = _mm256_permutevar8x32_epi32(x0, shuf);         // compatta i dword bassi
+    __m256i p1  = _mm256_permutevar8x32_epi32(x1, shuf);
+    __m256i mixed = _mm256_permute2x128_si256(p0, p1, 0x20);     // 8 valori a 32 bit
+    __m256i prod  = _mm256_mullo_epi32(mixed, va32);             // vpmulld: 8 mul in 1 istr.
+    __m256i h     = _mm256_srli_epi32(prod, shift);              // shift -> partition id
+    _mm256_storeu_si256((__m256i*)&part_ids[i], h);             // store 8x u32
+}
+for (size_t i = simd_end; i < N; i++)                           // coda scalare N%8
+    part_ids[i] = hash_key(keys[i], shift);
+\end{lstlisting}
+
+Mappa intrinsic$\to$istruzione: \texttt{\_mm256\_load\_si256}=\texttt{vmovdqa} (load allineata, da cui l'allineamento a 32~B); \texttt{\_mm256\_srli\_epi64}=\texttt{vpsrlq}; \texttt{\_mm256\_xor\_si256}=\texttt{vpxor}; \texttt{permutevar8x32}=\texttt{vpermd} (permute cross-lane di dword) e \texttt{permute2x128}=\texttt{vperm2i128} servono a impacchettare i 4+4 dword bassi in un unico registro di 8 valori; \texttt{\_mm256\_mullo\_epi32}=\textbf{\texttt{vpmulld}} (l'istruzione portante: 8 moltiplicazioni in una); \texttt{\_mm256\_srli\_epi32}=\texttt{vpsrld}.
+
+\paragraph{Riferimento scalare interno + checksum FNV-1a.} \texttt{avx2.cpp} compila un riferimento scalare con \texttt{\#pragma GCC optimize("no-tree-vectorize")} e confronta i checksum FNV-1a prima del benchmark. FNV-1a è \emph{ordine-sensibile}: stesso checksum $\Rightarrow$ array di output identici elemento per elemento.
+
+\paragraph{Kernel CUDA (un thread per chiave) e timing con eventi.}
+\begin{lstlisting}[style=cpp]
+__global__ void partition_map_cuda(const uint64_t* __restrict__ keys,
+        uint32_t* __restrict__ part_ids, size_t N, uint32_t a32, unsigned shift) {
+    size_t idx = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < N) {
+        uint32_t k_lo = (uint32_t)keys[idx], k_hi = (uint32_t)(keys[idx] >> 32);
+        part_ids[idx] = ((k_lo ^ k_hi) * a32) >> shift;
+    }
+}
+// launch: tpb=256; nblocks=(N+tpb-1)/tpb;  eventi e0..e3 cronometrano H2D / kernel / D2H
+\end{lstlisting}
+
+\begin{whybox}
+Quattro \texttt{cudaEvent} separano H$\to$D, kernel e D$\to$H. Host memory \emph{pinned} (\texttt{cudaMallocHost}) per DMA PCIe a piena banda. Serve a rendere \emph{visibile} che la kernel è velocissima ma i trasferimenti PCIe dominano l'end-to-end.
+\end{whybox}
+
+\subsection{Motivazioni delle scelte}
+
+\begin{itemize}
+  \item \textbf{Hash a 32 bit}: l'unica decisione che rende il SIMD utile (\texttt{vpmulld} singola istruzione). A 64 bit l'AVX2 sarebbe più lento dello scalare.
+  \item \textbf{Layout SoA} (chiavi e output in array separati): stride unitario, load/store vettoriali contigue, massimo uso della cache line e coalescing su GPU.
+  \item \textbf{Allineamento 32~B + \texttt{\_\_restrict\_\_}}: condizioni per load allineate e per l'autovettorizzazione.
+  \item \textbf{$P$ potenza di due}: modulo $\to$ shift; niente divisione intera (non vettorizzabile).
+  \item \textbf{Mediana su 11 ripetizioni + warmup}: timing robusto a jitter dell'OS; si cronometra solo la kernel, non l'allocazione.
+\end{itemize}
+
+\subsection{Cosa si poteva migliorare}
+
+\begin{itemize}
+  \item \textbf{Non-temporal stores} (\texttt{\_mm256\_stream\_si256}): l'output è write-only, bypassare la cache evita il read-for-ownership. È l'ottimizzazione CPU con impatto atteso maggiore, proprio perché il kernel è bandwidth-bound.
+  \item \textbf{Store allineata} (\texttt{\_mm256\_store\_si256}): l'output è già allineato a 32~B ma si usa la store unaligned; cambiarla costa nulla.
+  \item \textbf{AVX-512}: 16 \texttt{uint32}/istruzione, ma node09 (Zen~1) non lo supporta e comunque il kernel è memory-bound $\Rightarrow$ impatto atteso nullo.
+  \item \textbf{Multi-thread}: il kernel è embarrassingly parallel ma single-thread per isolare il SIMD; scalerebbe fino a saturare il memory controller.
+  \item \textbf{CUDA con stream/overlap}: pipeline H2D/kernel/D2H; ma per un kernel così leggero il PCIe domina comunque -- conviene solo tenendo i dati residenti su GPU tra fasi successive.
+\end{itemize}
+
+\subsection{Comandi di esecuzione}
+
+\begin{lstlisting}[style=bash, caption={Build (Makefile reale). Su x86\_64 compila anche avx2.}]
+make all      # plain_baseline, plain_autovec, avx2, dataset_creator
+make cuda     # cuda_kernel (richiede nvcc, solo node09)
+# flag effettivi (dal Makefile):
+#  COMMON  : -std=c++20 -Wall -Wextra -I include
+#  OPT     : -O3 -march=native -mavx2 -mfma
+#  baseline: $COMMON $OPT -fno-tree-vectorize
+#  autovec : $COMMON $OPT -ftree-vectorize -DAUTOVEC_ENABLED
+#            -fopt-info-vec-optimized=results/vec_report_optimized.txt
+#  avx2    : $COMMON $OPT
+#  cuda    : nvcc -std=c++17 -O3 -I include -gencode arch=compute_80,code=sm_80
+\end{lstlisting}
+
+\begin{lstlisting}[style=bash, caption={Esecuzione. Firma CLI: ./bin/<binario> N P [seed] [key\_space] [reps].}]
+./bin/plain_baseline 100000000 256 42 0 11
+./bin/plain_autovec  100000000 256 42 0 11
+./bin/avx2           100000000 256 42 0 11
+./bin/cuda_kernel    100000000 256 42 0 11
+./bin/avx2           100000000 256 42 1000000 11   # key_space=1M -> molti duplicati
+make test_correctness                              # N=16, P=4, confronto checksum
+\end{lstlisting}
+
+\begin{lstlisting}[style=bash, caption={Sul cluster: M1 gira su node09 (AMD + GPU A30), partizione gpu-excl.}]
+# allocazione interattiva esclusiva su node09
+salloc --partition=gpu-excl --nodelist=node09 --ntasks=1 --cpus-per-task=1 \
+       --exclusive --time=00:25:00
+make all                                            # build sul nodo
+srun ./bin/avx2 100000000 256 42 0 11
+
+# CUDA: caricare i path CUDA, compilare, eseguire
+export PATH=/usr/local/cuda-12.3/bin:$PATH
+export LD_LIBRARY_PATH=/usr/local/cuda-12.3/lib64:$LD_LIBRARY_PATH
+make cuda
+srun ./bin/cuda_kernel 100000000 256 42 0 11
+
+# one-shot senza shell interattiva:
+srun --partition=gpu-excl --nodelist=node09 --ntasks=1 --cpus-per-task=1 \
+     --exclusive --time=00:05:00 ./bin/avx2 100000000 256 42 0 11
+\end{lstlisting}
+
+\subsection{Risultati da ricordare}
+
+Throughput baseline $\sim$915 Mkeys/s; \textbf{autovec $\sim$1.43$\times$} (15.7 GB/s, 96\% del tetto di banda single-core $\sim$16.4 GB/s su node09); \textbf{AVX2 $\sim$1.30$\times$} (14.4 GB/s). Intensità operazionale $I=4/12\approx 0.33$ ops/byte $\Rightarrow$ \textbf{bandwidth-bound}. Speedup stabile su tutti gli $N$, indipendente da $P$ e dalla key-space. Uniformità hash: $\max/\text{atteso}\le 1.005$.
+
+\textbf{Anomalia chiave}: l'autovec batte l'AVX2 a mano, perché in regime memory-bound GCC ha più libertà di scheduling e satura meglio la banda; le intrinsics impongono una sequenza rigida.
+
+\textbf{CUDA}: kernel a 808 GB/s (81\% del picco HBM2 dell'A30, 993 GB/s), ma i trasferimenti PCIe sono il 98\% del tempo end-to-end $\Rightarrow$ solo $1.12\times$. Offload conveniente solo con dati già on-device.
+
+\begin{theorybox}
+\textbf{L6--L7 (SIMD su CPU)} e \textbf{Roofline}. Da spiegare: livelli di programmazione SIMD (auto-vec vs intrinsics), naming AVX2, allineamento, gestione della coda; il modello roofline con $I=0.33$ che colloca il kernel sulla rampa di banda; perché lo speedup è limitato dalla banda DRAM e non dalla larghezza SIMD. \textbf{L8 (SIMT/GPU)}: un thread per chiave, coalescing, e il \emph{computation-to-communication ratio} che spiega l'inutilità dell'offload PCIe per kernel leggeri.
+\end{theorybox}
+
+\begin{qbox}[M1]
+\emph{``Perché lo speedup SIMD si ferma a 1.4$\times$ e non 8$\times$?''} $\to$ kernel bandwidth-bound ($I=0.33$): il SIMD accelera il compute, non la banda DRAM che è il vincolo; si misura solo una migliore saturazione (96\% del tetto). \emph{``Perché l'autovec batte le intrinsics?''} $\to$ in regime memory-bound contano scheduling/unrolling che il compilatore ottimizza meglio della sequenza rigida scritta a mano.
+\end{qbox}
+% =============================================================
+\section{Modulo 2 -- C++ Threads: hash join parallelo}
+% =============================================================
+
+\subsection{Cosa fa e struttura del codice}
+
+Join parallelo completo con \texttt{std::thread} + \texttt{std::barrier} (C++20). Pipeline a 5 fasi: Histogram, Prefix-Sum, Scatter, Join Local, Accumulation. File: \texttt{src/hashjoin\_parallel.cpp} (main), \texttt{src/hashjoin\_seq.cpp} (riferimento), \texttt{include/join\_phases.hpp} (\texttt{FlatCountMap}, prefix-sum, \texttt{join\_one\_partition}), \texttt{include/generator.hpp} (splitmix64), \texttt{include/verifier.hpp} (naive $O(N^2)$).
+
+\subsection{Walkthrough del codice}
+
+\paragraph{FlatCountMap -- hash table open-addressing (build + probe).}
+\begin{lstlisting}[style=cpp]
+struct FlatCountMap {
+    struct Slot { uint64_t key = ~0ULL; uint32_t cnt = 0; uint32_t _p = 0; }; // 16 B
+    std::vector<Slot> slots; uint32_t mask;
+    explicit FlatCountMap(size_t r_count) {
+        size_t n = 1; while (n < r_count * 2) n <<= 1;   // load factor < 50%
+        slots.assign(n, Slot{}); mask = (uint32_t)(n - 1);
+    }
+    uint32_t slot_of(uint64_t key) const noexcept { return (uint32_t)key & mask; }
+    void increment(uint64_t key) noexcept {              // BUILD
+        uint32_t h = slot_of(key);
+        while (slots[h].key != ~0ULL && slots[h].key != key) h = (h + 1) & mask;
+        if (slots[h].key == ~0ULL) slots[h].key = key;
+        ++slots[h].cnt;
+    }
+    uint32_t count(uint64_t key) const noexcept {        // PROBE
+        uint32_t h = slot_of(key);
+        while (slots[h].key != ~0ULL && slots[h].key != key) h = (h + 1) & mask;
+        return (slots[h].key == key) ? slots[h].cnt : 0u;
+    }
+};
+\end{lstlisting}
+
+\begin{whybox}
+Sostituisce \texttt{std::unordered\_map}: un solo \texttt{vector} contiguo, linear probing, niente allocazioni per nodo né pointer-chasing. Slot a 16~B $\Rightarrow$ 4 per cache line da 64~B. Capacità a potenza di due $\ge 2|R_p|$ $\Rightarrow$ load factor $<50\%$, lunghezza di probe attesa costante. Hash di slot \emph{identity} (\texttt{key \& mask}): le chiavi sono già uniformi in $[0,\text{max\_key})$ e usare di nuovo la hash di Fibonacci creerebbe correlazione.
+\end{whybox}
+
+\paragraph{Barriera BSP + completion function.}
+\begin{lstlisting}[style=cpp]
+auto on_barrier = [&]() noexcept {        // gira su UN thread tra le fasi
+    switch (phase) {
+      case 0: // dopo histogram R: merge istogrammi locali -> globale
+        for (int t=0; t<nt; ++t) for (uint32_t pid=0; pid<P; ++pid)
+            global_hist_R[pid] += local_hists_R[t][pid];
+        exclusive_prefix_sum_inplace(global_hist_R, global_begin_R); // O(P), noexcept
+        for (uint32_t pid=0; pid<P; ++pid) {        // offset per-thread (scatter lock-free)
+            size_t off = global_begin_R[pid];
+            for (int t=0; t<nt; ++t) { offsets_R[t][pid] = off; off += local_hists_R[t][pid]; }
+        }
+        break;
+      /* ... casi 1..3 per scatter R, histogram/scatter S ... */
+    }
+    ++phase;
+};
+std::barrier sync(nt, on_barrier);
+\end{lstlisting}
+
+\begin{whybox}
+Struttura \textbf{Bulk-Synchronous-Parallel}: \texttt{std::barrier(nt, on\_barrier)} blocca tutti i thread; quando arriva l'ultimo, la \emph{completion function} gira \textbf{una volta su un solo thread} mentre gli altri sono fermi -- perfetta per il lavoro sequenziale (merge istogrammi, prefix-sum, calcolo offset) \emph{tra} fasi parallele. È \texttt{noexcept} e non alloca (usa prefix-sum in-place su buffer pre-allocati): un'eccezione nella completion chiamerebbe \texttt{std::terminate}.
+\end{whybox}
+
+\paragraph{Istogramma privato, scatter lock-free, join ciclico.}
+\begin{lstlisting}[style=cpp]
+// Fase 0: histogram R (blocco contiguo per thread, istogramma privato -> zero contesa)
+for (size_t i = r_start; i < r_end; ++i) ++local_hists_R[t][hash_key(R[i].key, shift)];
+sync.arrive_and_wait();
+// Fase 1: scatter R lock-free (cursore locale sullo stack)
+auto cursor = offsets_R[t];
+for (size_t i = r_start; i < r_end; ++i) {
+    uint32_t pid = hash_key(R[i].key, shift); out_R[cursor[pid]++] = R[i];
+}
+sync.arrive_and_wait();
+// Fase 4: join, partizioni cicliche (thread t possiede t, t+nt, t+2nt, ...)
+JoinResult local{};
+for (uint32_t pid = t; pid < P; pid += nt) {
+    FlatCountMap countR(re - rb);
+    for (size_t i = rb; i < re; ++i) countR.increment(out_R[i].key);
+    for (size_t i = sb; i < se; ++i) {
+        uint32_t m = countR.count(out_S[i].key);
+        if (m) { local.join_count += m; local.checksum1 += splitmix64(key) * m; /*...*/ }
+    }
+}
+thr_results[t].result = local;   // scritto UNA volta
+\end{lstlisting}
+
+\paragraph{Accumulatori padded + thread count adattivo.}
+\begin{lstlisting}[style=cpp]
+struct alignas(64) PaddedResult { JoinResult result{}; };   // 1 cache line ciascuno
+std::vector<PaddedResult> thr_results(nt);
+// nt = min(max_threads, floor(min(NR,NS)/8192))  -> niente overhead su input piccoli
+\end{lstlisting}
+
+\begin{whybox}
+\textbf{Scatter lock-free}: gli offset per-thread/per-partizione sono pre-calcolati nella completion, quindi ogni thread scrive in regioni \emph{disgiunte} -- nessun lock né atomico. \textbf{Assegnazione ciclica}: con hash uniforme le partizioni sono quasi uguali, quindi il round-robin bilancia come LPT a costo zero. \textbf{alignas(64)}: ogni \texttt{JoinResult} su una cache line distinta $\Rightarrow$ niente false sharing (protocollo MESI). \textbf{Thread count adattivo}: evita che la sincronizzazione domini il lavoro su input piccoli.
+\end{whybox}
+
+\subsection{Motivazioni delle scelte}
+
+Barriera invece di thread pool: la pipeline è BSP, serve comunque una barriera completa a ogni fase; un pool aggiungerebbe overhead (submission, polling) senza poter sovrapporre fasi. Istogrammi privati: niente atomici sui contatori condivisi. Ciclico invece di LPT: con dati uniformi nessun beneficio dal sort $O(P\log P)$ di LPT. Buffer di output pre-allocati \emph{fuori} dalla regione cronometrata.
+
+\subsection{Cosa si poteva migliorare}
+
+\begin{itemize}
+  \item \textbf{NUMA affinity / first-touch} (assenti): causa probabile del \emph{dip} a $p=20$ (accesso a memoria remota sul 2\textsuperscript{o} socket). Pinning + first-touch parallelo (poi fatti in M3) lo eliminerebbero.
+  \item \textbf{Software prefetching} (assente): scatter e probe sono ad accesso casuale. In M3 porta lo scatter da $\sim$85 a $\sim$29~ms a $T=8$.
+  \item \textbf{LPT / gestione skew}: il ciclico è ottimo solo su input uniforme; M2 non ha generatore skewed.
+  \item \textbf{Two-pass (radix) partitioning}: ridurrebbe il thrashing di TLB/cache dello scatter a $P$ grande, ma raddoppia le passate sulla memoria.
+\end{itemize}
+
+\subsection{Comandi di esecuzione}
+
+\begin{lstlisting}[style=bash, caption={Build ed esecuzione (flag CLI: -nr -ns -seed -max-key -p -t).}]
+make                 # hashjoin_seq e hashjoin_par
+# g++ -O3 -std=c++20 -Wall -Wextra -pthread -Iinclude src/...  (sul nodo aggiungi -march=native)
+
+./hashjoin_seq -nr 10000000 -ns 20000000 -seed 42 -max-key 1000000 -p 128
+./hashjoin_par -nr 10000000 -ns 20000000 -seed 42 -max-key 1000000 -p 128 -t 8
+# correttezza naive (NR,NS <= 500):
+./hashjoin_par -nr 50 -ns 80 -seed 13 -max-key 8 -p 4 -t 4   # naive_verify=PASS
+# debug race: make hashjoin_par_tsan  (ThreadSanitizer)
+\end{lstlisting}
+
+\begin{lstlisting}[style=bash, caption={Sul cluster: Xeon E5-2640 v2, 16 fisici / 32 logici, 2 NUMA.}]
+salloc --nodes=1 --ntasks=1 --cpus-per-task=32 --exclusive --time=00:30:00
+# build sul nodo (cosi -march=native = Ivy Bridge del nodo)
+g++ -O3 -std=c++20 -Wall -Wextra -march=native -pthread -Iinclude \
+    src/hashjoin_parallel.cpp -o hashjoin_par
+g++ -O3 -std=c++20 -Wall -Wextra -march=native -pthread -Iinclude \
+    src/hashjoin_seq.cpp -o hashjoin_seq
+
+# UN punto di strong scaling (problema fisso, vario i thread -> T=16):
+srun --cpus-per-task=32 ./hashjoin_par -nr 10000000 -ns 20000000 -seed 42 -max-key 1000000 -p 128 -t 16
+srun --cpus-per-task=32 ./hashjoin_seq -nr 10000000 -ns 20000000 -seed 42 -max-key 1000000 -p 128
+# UN punto di weak scaling (NR = 1M * T -> T=16 => NR=16M, NS=32M):
+srun --cpus-per-task=32 ./hashjoin_par -nr 16000000 -ns 32000000 -seed 42 -max-key 1000000 -p 128 -t 16
+\end{lstlisting}
+
+\subsection{Risultati da ricordare}
+
+Strong scaling ($P=128$): $S(16)=7.49$, $S(32)=8.64$ (NR=10M) e $9.64$ (NR=20M); efficienza da 70\% ($p=2$) a 27\% ($p=32$). \textbf{Amdahl}: $f\approx 0.078$ $\Rightarrow$ $S_\infty\approx 12.9\times$; il picco misurato sta sotto perché il vincolo reale è la \emph{saturazione di banda DRAM}. A \textbf{$P=512$} (tabelle $\approx$1~MB in L3): $f\approx 0.058$, $S_\infty\approx 17\times$, $11.4\times$. \textbf{Dip NUMA} a $p=20$. Weak scaling WSE da 0.74 a 0.33. Breakdown: scatter 53\% (409~ms, scala bene anche in HT), join 309~ms (plateau in HT, compute-bound), histogram 51~ms (memory-bound, scala male).
+
+\begin{theorybox}
+\textbf{L12--L13 (concorrenza C++)}: \texttt{std::thread}, \texttt{std::barrier}, RAII. \textbf{Cache/memoria}: false sharing e protocollo MESI (perché \texttt{alignas(64)}). \textbf{NUMA}: il dip a $p=20$ come effetto di memoria remota. \textbf{Metriche e leggi}: speedup, efficienza, fit di Amdahl, distinzione strong/weak scaling. \textbf{BSP}: la barriera modella il bulk-synchronous.
+\end{theorybox}
+
+\begin{qbox}[M2]
+\emph{``Barriera o thread pool?''} $\to$ pipeline BSP: serve comunque una barriera completa a ogni fase; il pool aggiunge overhead senza sovrapporre fasi. \emph{``Dove nasce il false sharing?''} $\to$ accumulatori per-thread sulla stessa cache line; risolto con \texttt{alignas(64)}. \emph{``Perché lo scatter è lock-free?''} $\to$ offset disgiunti pre-calcolati nella completion function.
+\end{qbox}
+% =============================================================
+\section{Modulo 3 -- OpenMP: loop vs task e skew}
+% =============================================================
+
+\subsection{Cosa fa e struttura del codice}
+
+Reimplementa l'algoritmo di M2 in OpenMP con due varianti: \emph{loop-level} (\texttt{parallel for}) e \emph{task-based} (\texttt{omp task} + LPT + split intra-partizione). File: \texttt{src/hashjoin\_OpenMP.cpp} (entrambe le varianti), \texttt{include/join\_phases.hpp} (\texttt{build\_table}, \texttt{probe\_chunk}, \texttt{join\_one\_partition} con prefetch), \texttt{include/common\_structs.hpp} (allocatore first-touch, \texttt{PaddedResult}), \texttt{include/generator.hpp} (generatore skewed Bernoulli).
+
+\subsection{Walkthrough del codice}
+
+\paragraph{Join loop-level.}
+\begin{lstlisting}[style=cpp]
+#pragma omp parallel for schedule(dynamic,1) \
+    default(none) shared(P, Rpart, Spart) \
+    reduction(+: join_count, checksum1, checksum2)
+for (uint32_t pid = 0; pid < P; ++pid) {
+    const JoinResult local = join_one_partition(Rpart, Spart, pid);
+    join_count += local.join_count; checksum1 += local.checksum1; checksum2 += local.checksum2;
+}
+\end{lstlisting}
+\begin{whybox}
+Una iterazione = una partizione (build su $R_p$ + probe di $S_p$). \texttt{schedule(dynamic,1)} consegna una partizione alla volta: un thread che pesca una partizione leggera ne prende subito un'altra. La \texttt{reduction} dà a ogni thread una somma parziale privata combinata alla barriera $\Rightarrow$ niente contesa. La macro \texttt{RUNTIME\_SCHEDULE} sostituisce \texttt{dynamic,1} con \texttt{schedule(runtime)} (legge \texttt{OMP\_SCHEDULE}): è il binario dello schedule-sweep.
+\end{whybox}
+
+\paragraph{Join task-based: ordinamento LPT + dispatch single nowait.}
+\begin{lstlisting}[style=cpp]
+// LPT: ordina le partizioni per |R_p|+|S_p| decrescente
+std::vector<uint32_t> order(P); std::iota(order.begin(), order.end(), 0);
+std::sort(order.begin(), order.end(),
+          [&](uint32_t a, uint32_t b){ return weights[a] > weights[b]; });
+#pragma omp parallel default(none) shared(P, order, weights, Rpart, Spart, thr_results, ...)
+{
+  #pragma omp single nowait                 // UN thread emette i task, gli altri li consumano
+  for (uint32_t idx = 0; idx < P; ++idx) {
+    uint32_t pid = order[idx];
+    #pragma omp task firstprivate(pid) shared(Rpart, Spart, thr_results)
+    { /* cold: build+probe; hot: probe spezzato in taskgroup annidato */ }
+  }
+}
+\end{lstlisting}
+\begin{whybox}
+\textbf{LPT} (Graham 1969, makespan $\le 4/3$ OPT): sottomettere le partizioni pesanti per prime evita che una finisca da sola sul percorso critico alla fine. \texttt{single nowait}: un thread genera i task, gli altri \emph{saltano} il single (il \texttt{nowait} toglie la barriera implicita) e iniziano subito a consumarli $\Rightarrow$ produzione e consumo si sovrappongono. Task \emph{tied} (default): l'indice di thread letto a inizio task resta stabile.
+\end{whybox}
+
+\paragraph{Split intra-partizione delle partizioni calde (rompe il tetto $H/T$).}
+\begin{lstlisting}[style=cpp]
+const size_t hot_threshold = 8 * avg_weight;         // "calda" se peso > 8x media
+auto split_count_for = [&](size_t w)->int {          // K = min(T, floor(w/avg)), clamp 2
+    if (w <= hot_threshold || T <= 1) return 1;
+    int k = (int)std::min<size_t>(w / avg_weight, T); return std::max(2, k);
+};
+// nel task di una partizione calda:
+FlatCountMap tbl = build_table(Rpart, pid);          // build UNA volta (sequenziale)
+#pragma omp taskgroup {                               // mantiene viva tbl per tutti i lettori
+  for (int k = 0; k < K; ++k)
+    #pragma omp task firstprivate(s_lo, s_hi) shared(tbl, Spart, thr_results)
+    { JoinResult local = probe_chunk(tbl, Spart, s_lo, s_hi);   // probe read-only, parallelo
+      int tid = omp_get_thread_num(); thr_results[tid].r.join_count += local.join_count; /*...*/ }
+}
+\end{lstlisting}
+\begin{whybox}
+Con solo $H$ partizioni calde, uno schema per-partizione usa al più $H$ thread $\Rightarrow$ efficienza $\le H/T$ (es.\ $4/16=25\%$). Spezzando il \emph{probe} di una partizione calda in $K$ sub-task, tutti i $T$ thread la attaccano. Il \emph{build} resta sequenziale (gli update su \texttt{FlatCountMap} richiederebbero atomici); il \emph{probe} è read-only e parallelizza. Il \texttt{taskgroup} interno tiene viva la tabella \texttt{tbl} finché tutti i sub-task la leggono.
+\end{whybox}
+
+\paragraph{Software prefetch (scatter 12 avanti, probe 8 avanti).}
+\begin{lstlisting}[style=cpp]
+// scatter
+constexpr size_t PF_DIST = 12;
+if (i + PF_DIST < N) { uint32_t pn = hash_key(relation[i+PF_DIST].key, shift);
+    __builtin_prefetch(&part.data[cursors[tid][pn]], 1, 0); }   // 1=write, 0=non-temporal
+// probe
+constexpr size_t PF_DIST = 8;
+if (i + PF_DIST < s_hi) { uint64_t kn = Spart.data[i+PF_DIST].key;
+    __builtin_prefetch(&tbl.slots[tbl.slot_of(kn)], 0, 0); }     // 0=read
+\end{lstlisting}
+\begin{whybox}
+Scatter (destinazione scelta dall'hash) e probe (slot della tabella) sono ad accesso \emph{casuale}: il prefetcher hardware non li prevede. Prefetchare 12 (scatter) / 8 (probe) iterazioni avanti maschera la latenza. Distanza $\approx$ latenza / lavoro-per-iter: lo scatter ha corpo più leggero $\Rightarrow$ guarda più avanti (12); il probe è più pesante $\Rightarrow$ basta 8. Hint \texttt{locality=0}: non inquinare la cache.
+\end{whybox}
+
+\paragraph{NUMA first-touch.}
+\begin{lstlisting}[style=cpp]
+// allocatore che NON value-inizializza: resize() prenota pagine senza toccarle
+template<class T> struct default_init_allocator : std::allocator<T> { /* construct() no-init */ };
+// primo write reale, in parallelo con lo STESSO partizionamento del futuro scatter:
+#pragma omp parallel for schedule(static)
+for (size_t i = 0; i < NR; ++i) Rpart.data[i].key = 0;
+\end{lstlisting}
+\begin{whybox}
+Linux usa \textbf{first-touch}: la pagina finisce sul nodo NUMA del thread che la tocca per primo. \texttt{resize} normale toccherebbe tutto da un solo thread (tutte le pagine su un nodo). L'allocatore default-init evita il touch; il \texttt{parallel for schedule(static)} di zero-init è il primo write, con lo \emph{stesso} static dello scatter $\Rightarrow$ ogni pagina sul nodo del thread che vi scriverà.
+\end{whybox}
+
+\paragraph{Generatore skewed (mistura di Bernoulli).} Con prob.\ $\rho=0.9$ la chiave è una di $H=4$ chiavi ``calde'' (ciascuna su una partizione distinta), altrimenti uniforme. $f_\text{hot}=\rho/H+(1-\rho)/P\approx 0.226$.
+
+\subsection{Motivazioni delle scelte}
+
+Loop vince su uniforme (niente overhead di task sulle fasi regolari; la \texttt{reduction} è più economica degli accumulatori padded del task). Task vince su skew (LPT + split). \texttt{dynamic,1} di default: lo schedule-sweep mostra che su uniforme tutte le policy stanno entro $\sim$1\%, su skew solo \texttt{dynamic} evita il penalty sulle partizioni pesanti.
+
+\subsection{Cosa si poteva migliorare}
+
+\begin{itemize}
+  \item \textbf{Build parallelo delle partizioni calde}: servirebbero atomici/CAS sugli slot (o sub-tabelle per-thread + merge); rimuoverebbe il collo del build sulla partizione più grande ad alto $T$, ma la contesa sulle chiavi calde potrebbe mangiare il guadagno.
+  \item \textbf{Task untied}: più libertà di rebalance, ma l'indicizzazione \texttt{thr\_results[tid]} andrebbe verificata.
+  \item \textbf{Tuning distanze di prefetch} (12/8 sono costanti tarate su E5-2640 v2).
+  \item \textbf{Proxy LPT pesato}: il probe domina il build, quindi $|R_p|+c\,|S_p|$ schedulerebbe meglio.
+\end{itemize}
+
+\subsection{Comandi di esecuzione}
+
+\begin{lstlisting}[style=bash, caption={Build (makefile). CLI: -nr -ns -seed -max-key -p -mode loop|task -t [-skew -hot].}]
+make            # hashjoin_seq, hashjoin_omp  (g++ -fopenmp -O3 -std=c++20 -Iinclude)
+make cluster    # aggiunge -march=native
+make hashjoin_omp_runtime   # variante schedule(runtime) per lo schedule-sweep (-DRUNTIME_SCHEDULE)
+
+./hashjoin_omp -nr 10000000 -ns 20000000 -seed 42 -max-key 5000000 -p 128 -mode loop -t 16
+./hashjoin_omp -nr 10000000 -ns 20000000 -seed 42 -max-key 5000000 -p 128 -mode task -t 8 -skew 0.9 -hot 4
+./hashjoin_seq -nr 10000000 -ns 20000000 -seed 42 -max-key 5000000 -p 128
+\end{lstlisting}
+
+\begin{lstlisting}[style=bash, caption={Sul cluster: stesso nodo di M2. Pinning OpenMP obbligatorio.}]
+salloc --nodes=1 --ntasks=1 --cpus-per-task=32 --exclusive --time=00:20:00 --partition=normal
+make cluster CXX=g++
+
+# UN punto strong (uniforme loop, T=16):
+OMP_NUM_THREADS=16 OMP_PROC_BIND=close OMP_PLACES=cores \
+  srun --cpus-per-task=32 ./hashjoin_omp -nr 10000000 -ns 20000000 -seed 42 -max-key 5000000 -p 128 -mode loop -t 16
+# UN punto skewed (task, T=8, rho=0.9, hot=4):
+OMP_NUM_THREADS=8 OMP_PROC_BIND=close OMP_PLACES=cores \
+  srun --cpus-per-task=32 ./hashjoin_omp -nr 10000000 -ns 20000000 -seed 42 -max-key 5000000 -p 128 -mode task -t 8 -skew 0.9 -hot 4
+# UN punto schedule-sweep (binario runtime, dynamic,1):
+OMP_NUM_THREADS=8 OMP_PROC_BIND=close OMP_PLACES=cores OMP_SCHEDULE="dynamic,1" \
+  srun --cpus-per-task=32 ./hashjoin_omp_runtime -nr 10000000 -ns 20000000 -seed 42 -max-key 5000000 -p 128 -t 8 -mode loop
+\end{lstlisting}
+
+\emph{Nota}: solo \texttt{run\_crossmodule\_50m.sh} ha direttive \texttt{\#SBATCH} (nodes=1, ntasks=1, cpus-per-task=32, exclusive); gli altri script girano su nodo già allocato via \texttt{deploy\_and\_run.sh} (SSH). \texttt{-t} e \texttt{OMP\_NUM\_THREADS} settano la stessa cosa: tienili uguali.
+
+\subsection{Risultati da ricordare}
+
+Baseline $T_\text{seq}=0.802$~s. Strong (vs $T_\text{seq}$): uniforme \textbf{loop $11.46\times$ a $T=16$} (eff.\ 72\%); uniforme task $8.72\times$; skewed loop $8.27\times$; skewed task migliore a $T=8$. Uniforme: il loop batte il task fino a $-31\%$ a $T=16$. Skewed: il task batte il loop ($+17\%$ a $T=8$, $+28\%$ a $T=32$ dove il loop stalla sulle 4 partizioni). Schedule-sweep: uniforme entro $\sim$1\%, skew \texttt{dynamic} $-38\%$ vs \texttt{static}. \textbf{M3 loop $11.46\times$ vs M2 $7.86\times$ a $T=16$} (scatter col prefetch: $\sim$29 vs $\sim$85~ms; histogram: $\sim$9 vs $\sim$35~ms). A $T=32$ M2/M3 convergono ($\sim$9$\times$): banda DRAM dominante.
+
+\begin{theorybox}
+\textbf{L19 (OpenMP loop)}: \texttt{parallel for}, \texttt{schedule} (static/dynamic/guided), \texttt{reduction}, fork-join. \textbf{L22 (OpenMP task)}: \texttt{task}, \texttt{taskgroup}, \texttt{single nowait}, task tied/untied, dipendenze. \textbf{L14 (workload balancing)}: LPT, distribuzioni statiche vs dinamiche, gestione dello skew. \textbf{L18 (affinity)}: \texttt{OMP\_PROC\_BIND}/\texttt{PLACES}, NUMA first-touch. \textbf{Cache}: prefetching, false sharing.
+\end{theorybox}
+
+\begin{qbox}[M3]
+\emph{``Perché il task batte il loop su skew?''} $\to$ LPT (pesanti per prime) + split intra-partizione che rompe il tetto $H/T$; il loop con una partizione per iterazione lascia un solo thread su ciascuna calda. \emph{``Perché serve nowait sul single?''} $\to$ altrimenti i worker aspettano la fine dell'emissione alla barriera implicita invece di consumare i task subito. \emph{``Prefetch più utile in scatter o probe?''} $\to$ entrambi (stream casuale); guadagno assoluto maggiore sullo scatter.
+\end{qbox}
+% =============================================================
+\section{Modulo 4 -- MPI e MPI+OpenMP ibrido}
+% =============================================================
+
+\subsection{Cosa fa e struttura del codice}
+
+Porta il join in memoria distribuita. \texttt{src/hashjoin\_mpi.cpp} (MPI puro) e \texttt{src/hashjoin\_mpi\_omp.cpp} (ibrido) sono driver quasi identici che chiamano lo \emph{stesso} \texttt{mpi\_pipeline::run(...)} in \texttt{include/mpi\_pipeline.hpp}: l'unica differenza è il livello di thread MPI e il flag \texttt{-fopenmp} che attiva i rami \texttt{\#ifdef \_OPENMP}. \textbf{Non c'è una pipeline ibrida separata}: l'ibrido è lo stesso header compilato con OpenMP. Pipeline a \textbf{8 fasi cronometrate} (non 7).
+
+\subsection{Walkthrough del codice}
+
+\paragraph{Init MPI: puro (SINGLE) vs ibrido (FUNNELED).}
+\begin{lstlisting}[style=cpp]
+// puro:    MPI_Init_thread(&argc, &argv, MPI_THREAD_SINGLE,   &provided);
+// ibrido:  MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &provided);
+\end{lstlisting}
+\begin{whybox}
+\texttt{FUNNELED} = esistono più thread ma \emph{solo il main} emette chiamate MPI. Qui tutte le collettive girano fuori dalle regioni OpenMP, sul main, quindi FUNNELED basta. \texttt{MPI\_THREAD\_MULTIPLE} costringerebbe la libreria a prendere lock interni a ogni chiamata: overhead inutile senza concorrenza MPI reale.
+\end{whybox}
+
+\paragraph{Assegnazione partizione$\to$rank e remap dest-major.}
+\begin{lstlisting}[style=cpp]
+// pid = hash_key(key, shift) in [0,P);  dest = pid % R;  lp = pid / R
+inline uint32_t dest_major_pid(uint32_t pid, uint32_t R, uint32_t P_per_rank) noexcept {
+    uint32_t dest = pid % R, lp = pid / R;
+    return dest * P_per_rank + lp;     // permutazione: send buffer contiguo per destinazione
+}
+\end{lstlisting}
+\begin{whybox}
+\texttt{dest = pid \% R} (owner rank), \texttt{lp = pid / R} (partizione locale). Lo scatter usa il \emph{remap dest-major} \texttt{pid' = dest*P\_per\_rank + lp}: così tutti i record per il rank 0 sono i primi \texttt{P\_per\_rank} slot, ecc.\ $\Rightarrow$ il send buffer è già nel layout che vuole \texttt{MPI\_Alltoallv}, zero-copy sul lato invio. Vincolo \texttt{P \% R == 0}: ogni rank possiede lo stesso numero di partizioni.
+\end{whybox}
+
+\paragraph{Generazione locale con skip-ahead (niente scatter iniziale).}
+\begin{lstlisting}[style=cpp]
+// splitmix64: state += GOLDEN per chiamata => skip esatto: seed + GOLDEN*offset
+uint64_t state = base_seed + SPLITMIX_GOLDEN * (uint64_t)offset;
+for (size_t i = 0; i < n_local; ++i) out[i].key = splitmix64_next(state) % max_key;
+\end{lstlisting}
+\begin{whybox}
+Ogni rank genera \emph{solo} la sua slice $[\text{offset}, \text{offset}+n)$, ma la concatenazione è byte-per-byte uguale al generatore sequenziale. Quindi \textbf{nessun \texttt{MPI\_Scatterv} iniziale}: costo di distribuzione zero, fuori dalla regione cronometrata, e baseline di confronto onesta. Eccezione: lo skew usa rejection sampling (numero variabile di draw) $\Rightarrow$ skip-ahead non vale, ogni rank rigenera-e-slicia (sempre non cronometrato).
+\end{whybox}
+
+\paragraph{Le 8 fasi (mpi\_pipeline.hpp) con barriera-prima-del-timer.}
+\begin{lstlisting}[style=cpp]
+// pattern di ogni fase con comunicazione:
+MPI_Barrier(comm); t0 = MPI_Wtime();  /* ...lavoro... */  t1 = MPI_Wtime(); timing.X = t1 - t0;
+// 1 histogram_local  2 scatter_local                      (locali)
+// 3 comm_sizes:  MPI_Alltoall(send_counts -> recv_counts)  (scambio conteggi)
+// 4 comm_payload: MPI_Alltoallv(send_buf, counts, displs -> recv_buf, ...)  (scambio record)
+// 5 histogram_post  6 scatter_post                         (ri-ordina per partizione locale)
+// 7 join_local: build+probe sulle P/R partizioni (ibrido: parallel for schedule(dynamic))
+// 8 reduce_final: MPI_Allreduce({join_count,ck1,ck2}, MPI_SUM)
+\end{lstlisting}
+\begin{whybox}
+\textbf{comm\_sizes} (\texttt{MPI\_Alltoall} di 1 int) fa sapere a ogni rank quanti record riceverà, per dimensionare i buffer e calcolare i \texttt{displs} di ricezione (idioma ``scambia i conteggi, poi i dati''). \textbf{comm\_payload}: in \texttt{MPI\_Alltoallv} i \texttt{displs} sono il prefix-sum esclusivo dei \texttt{counts}; \texttt{send\_displs[j]} è dove inizia il blocco per il rank $j$, esattamente dove lo scatter dest-major l'ha messo. \textbf{Barriera prima del timer}: senza, un rank in ritardo farebbe aspettare i veloci \emph{dentro} la collettiva, e quel tempo (load imbalance a monte) verrebbe attribuito alla fase. La barriera è dentro la regione misurata di proposito.
+\end{whybox}
+
+\paragraph{Riduzione rank-max dei tempi di fase.}
+\begin{lstlisting}[style=cpp]
+MPI_Reduce(in, out, 9, MPI_DOUBLE, MPI_MAX, 0, comm);  // per-fase: il rank piu' lento
+\end{lstlisting}
+Il breakdown riporta il \emph{rank più lento} per fase (percorso critico): è perché uno straggler skewed gonfia \texttt{join\_local}.
+
+\paragraph{Ibrido: ogni fase locale è OpenMP.} Stesso header con \texttt{-fopenmp}: istogrammi privati per-thread + merge, scatter con offset per-thread (scritture disgiunte), join \texttt{parallel for schedule(dynamic)} + reduction. \textbf{Tutte} le fasi locali sono parallele (non solo il join).
+
+\subsection{Motivazioni delle scelte}
+
+\texttt{MPI\_Alltoallv} bloccante invece di \texttt{Isend/Irecv}: è la primitiva canonica per un all-to-all totale, una sola chiamata fa scegliere alla libreria l'algoritmo migliore, e dà un \texttt{t\_comm} pulito. Un rank per nodo nell'ibrido: minimizza il \emph{fan-out} della collettiva (meno rank = meno messaggi). Parallelizzare \emph{tutte} le fasi locali: histogram/scatter sono $O(N_\text{local})$, non trascurabili; se solo il join è parallelo, le passate seriali dominano Amdahl dentro il rank (prima versione 6.25~s $\to$ 1.61~s).
+
+\subsection{Cosa si poteva migliorare}
+
+\begin{itemize}
+  \item \textbf{Overlap \texttt{Isend/Irecv}}: nascondere parte di \texttt{comm\_payload} dietro il build locale; utile soprattutto a 128 rank (Alltoallv erratico 0.6--1.5~s). Costo: bookkeeping di $R(R-1)$ richieste, ricezioni fuori ordine, niente \texttt{t\_comm} pulito.
+  \item \textbf{Remap skew-aware}: replicare il \emph{build} delle partizioni calde su più rank e splittarne il \emph{probe}; alza il floor skewed (ibrido 1.5$\to$2.5$\times$). Costo: round globale extra per il piano, memoria del build duplicata, redistribuzione a due percorsi.
+  \item \textbf{RDMA / one-sided} (\texttt{MPI\_Put}/\texttt{Get}): elimina l'handshake a due lati; utile nel regime start-up-bound. Costo: gestione esplicita di finestre ed epoche.
+  \item \textbf{Communicator gerarchici}: riduzione intra-nodo poi Alltoallv inter-nodo tra un rappresentante per nodo (è ciò che l'ibrido già ottiene di fatto).
+\end{itemize}
+
+\subsection{Comandi di esecuzione}
+
+\begin{lstlisting}[style=bash, caption={Build cluster: -march=ivybridge OBBLIGATORIO (nodi di calcolo Ivy Bridge, no AVX2).}]
+module load openmpi5     # path: /opt/ohpc/pub/mpi/openmpi5-gnu12/5.0.3/bin
+make cluster MPICXX=mpicxx CXX=g++
+# comandi letterali:
+mpicxx -O3 -Wall -Wextra -Wpedantic -std=c++20 -Iinclude -march=ivybridge -mtune=ivybridge \
+       src/hashjoin_mpi.cpp -o hashjoin_mpi
+mpicxx -O3 -Wall -Wextra -Wpedantic -std=c++20 -Iinclude -fopenmp -march=ivybridge -mtune=ivybridge \
+       src/hashjoin_mpi_omp.cpp -o hashjoin_mpi_omp
+g++    -O3 -Wall -Wextra -Wpedantic -std=c++20 -Iinclude -march=ivybridge -mtune=ivybridge \
+       src/hashjoin_seq.cpp -o hashjoin_seq
+# ATTENZIONE: -march=native sul login node (Haswell) emette AVX2 -> SIGILL sui nodi di calcolo.
+\end{lstlisting}
+
+\begin{lstlisting}[style=bash, caption={Run locale e CLI (-nr -ns -seed -max-key -p [-t] [-skew -hot]).}]
+mpirun -n 4 ./hashjoin_mpi     -nr 1000000 -ns 2000000 -seed 42 -max-key 500000 -p 32
+mpirun -n 2 ./hashjoin_mpi_omp -nr 1000000 -ns 2000000 -seed 42 -max-key 500000 -p 32 -t 4
+\end{lstlisting}
+
+\begin{lstlisting}[style=bash, caption={Sul cluster: strong scaling NR=50M, NS=100M, P=256.}]
+# MPI puro: 128 rank (32 rank/nodo x 4 nodi)
+salloc --partition=normal --nodes=4 --ntasks-per-node=32 --time=00:25:00 --exclusive
+srun --nodes=4 --ntasks=128 --ntasks-per-node=32 --mpi=pmix \
+     ./hashjoin_mpi -nr 50000000 -ns 100000000 -seed 42 -max-key 25000000 -p 256
+
+# Ibrido: 1 rank/nodo x 32 thread su 4 nodi (4 rank, 128 core)
+salloc --partition=normal --nodes=4 --ntasks-per-node=1 --cpus-per-task=32 --time=00:25:00 --exclusive
+export OMP_NUM_THREADS=32 OMP_PROC_BIND=close OMP_PLACES=cores
+srun --nodes=4 --ntasks=4 --ntasks-per-node=1 --cpus-per-task=32 --mpi=pmix \
+     ./hashjoin_mpi_omp -nr 50000000 -ns 100000000 -seed 42 -max-key 25000000 -p 256 -t 32
+
+# Baseline sequenziale (nodo dedicato, 1 core; -skew 0.9 -hot 4 per la variante skewed)
+salloc --partition=normal --nodes=1 --ntasks=1 --time=00:10:00 --exclusive
+srun --nodes=1 --ntasks=1 --cpus-per-task=1 \
+     ./hashjoin_seq -nr 50000000 -ns 100000000 -seed 42 -max-key 25000000 -p 256
+\end{lstlisting}
+
+Flag MPI: \texttt{--mpi=pmix} è l'interfaccia (PMIx) con cui SLURM avvia Open MPI 5 (necessaria); \texttt{--ntasks-per-node} = rank per nodo (32 puro, 1 ibrido); \texttt{--cpus-per-task=32} dà a ogni rank ibrido 32 core per i suoi thread.
+
+\subsection{Risultati da ricordare}
+
+Strong uniforme: ibrido $2.8\times$(1 nodo)$\to 12.0\times$(8 nodi); MPI puro picco $7.6\times$(2 nodi), \textbf{collasso $3.0\times$ a 4 nodi/128 rank} (Alltoallv erratico 0.6--1.5~s), recupero $7.1\times$ a 8 nodi/256 rank. Weak: ibrido \textbf{0.58}, MPI puro 0.21. Modello di Hockney $\alpha+\beta m$: MPI puro start-up-bound (start-up $\propto$ rank), ibrido bandwidth-bound. Skew floor: MPI puro $2.2\to1.4\times$, ibrido $1.5\to2.5\times$. Collettiva ibrido 256$\to$8 rank: 0.53$\to$0.18~s. Cross-module: seq 4.48~s uniforme / 2.30~s skew; M2 $8.4\times$, M3 $10.1\times$, M4 ibrido 8 nodi $12.0\times$; \textbf{su skew M3 $6.2\times$ batte M4 $2.5\times$} (le partizioni calde pinnate ai rank non si ribilanciano).
+
+\begin{theorybox}
+\textbf{L24--L26 (MPI)}: \texttt{MPI\_Init\_thread} e i livelli di thread, send/recv, collettive (\texttt{Alltoall}, \texttt{Alltoallv}, \texttt{Allreduce}), \texttt{MPI\_Barrier}, MPI+OpenMP ibrido. \textbf{L23 (sistemi distribuiti)}: modello di costo $\alpha+\beta m$ (Hockney), topologie, computation-to-communication ratio. \textbf{L14}: il floor di load imbalance distribuito (stato partizionato, hashing bilancia il numero non il volume). \textbf{Amdahl}: la collettiva come frazione che non si riduce coi nodi.
+\end{theorybox}
+
+\begin{qbox}[M4]
+\emph{``Computation-to-communication ratio?''} $\to$ a 4 nodi/128 rank MPI puro spende 88\% in Alltoallv; l'ibrido riequilibra riducendo il fan-out. \emph{``Perché FUNNELED basta?''} $\to$ solo il main chiama MPI, fuori dalle regioni OpenMP; MULTIPLE aggiungerebbe lock inutili. \emph{``Perché lo skew è un floor in M4 ma non in M3?''} $\to$ in M3 \texttt{dynamic} ribilancia (memoria condivisa); in M4 le partizioni sono in memoria privata pinnata a un rank, non cedibili senza muovere dati.
+\end{qbox}
+% =============================================================
+\section{Confronto tra moduli e risultati complessivi}
+% =============================================================
+
+Stesso algoritmo, stesso baseline sequenziale, stesso hardware (per M2/M3; M4 distribuito): i quattro moduli isolano il \emph{paradigma}. La gerarchia è annidabile e il progetto la esibisce: \textbf{M4 ibrido usa M3 internamente} (layer OpenMP per rank), M3 riusa la kernel di M2, che usa la hash vettorizzabile di M1. Il pattern di un cluster moderno è MPI tra i nodi + OpenMP tra i core + SIMD dentro il core.
+
+\begin{table}[H]
+\centering\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\textwidth}{@{}llccX@{}}
+\toprule
+\textbf{Mod} & \textbf{Paradigma} & \textbf{Speedup tip.} & \textbf{Efficienza} & \textbf{Limite principale} \\
+\midrule
+M1 & SIMD (AVX2/autovec) & $1.4\times$ vs scalare & 96\% banda & bandwidth-bound ($I{=}0.33$) \\
+M2 & C++ threads & $8.6$--$9.6\times$ & 47\%@16 & banda DRAM, dip NUMA, no skew \\
+M3 & OpenMP loop/task & $11.5\times$@16 (loop) & 72\%@16 & banda DRAM; overhead task su uniforme \\
+M4 & MPI / ibrido & $12.0\times$ (8 nodi) & 0.58 weak & \texttt{Alltoallv} fan-out; skew non ribilanciabile \\
+\bottomrule
+\end{tabularx}
+\caption{Sintesi. Speedup uniformi; baseline sequenziale comune.}
+\end{table}
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{@{}lrr|lrr@{}}
+\toprule
+\multicolumn{3}{c|}{\textbf{Uniforme} (seq 4.48 s)} & \multicolumn{3}{c}{\textbf{Skewed} (seq 2.30 s)} \\
+Impl. & Tempo & $S$ & Impl. & Tempo & $S$ \\
+\midrule
+M2 thr (32t, 1 nodo)   & 0.53 & $8.4\times$  & M3 loop (16t, 1 nodo) & 0.37 & $6.2\times$ \\
+M3 loop (32t, 1 nodo)  & 0.44 & $10.1\times$ & M4 puro (1 nodo,32r)  & 1.03 & $2.2\times$ \\
+M4 puro (2 nodi,64r)   & 0.59 & $7.6\times$  & M4 ibrido (8 nodi)    & 0.90 & $2.5\times$ \\
+M4 ibrido (8 nodi)     & 0.37 & $12.0\times$ &                       &      &            \\
+\bottomrule
+\end{tabular}
+\caption{Cross-module. Su uniforme la distribuzione rende poco (8 nodi $\approx$ M3 su 1). Su skew M3 in memoria condivisa domina: \texttt{dynamic} ribilancia il volume, impossibile sotto distribuzione.}
+\end{table}
+
+\subsection{Quando scegliere ciascuno}
+
+\textbf{SIMD (M1)} è ortogonale: agisce dentro un thread. Sempre da abilitare (autovec gratis), ma non risolve un problema memory-bound. \textbf{Threads (M2)}: massimo controllo del ciclo di vita e della sincronizzazione; più codice e più modi di sbagliare. \textbf{OpenMP (M3)}: punto dolce in shared-memory -- stesso speedup di M2 e oltre, meno codice, due modelli pronti (loop per regolare, task+LPT per irregolare). \textbf{MPI (M4)}: si giustifica per \emph{capacità} (input che non entra in un nodo), non per velocità; la forma ibrida è quasi sempre preferibile al puro perché minimizza il fan-out delle collettive.
+
+\subsection{Legge di Amdahl applicata}
+
+In M2/M3: $f\approx 0.078$ ($P{=}128$, $S_\infty\approx 12.9\times$), $f\approx 0.058$ ($P{=}512$, $S_\infty\approx 17\times$). I picchi misurati stanno \emph{sotto} Amdahl perché il vincolo reale è la \textbf{banda DRAM condivisa}, che Amdahl non cattura. In M4 la collettiva \texttt{Alltoallv} è una frazione che \emph{non} si riduce coi nodi (anzi cresce col fan-out): si comporta come un $f$ effettivo che cappa lo speedup -- per questo 8 nodi ($12.0\times$) battono di poco 1 nodo OpenMP ($10.1\times$). Su weak scaling vale Gustafson: l'ibrido tiene WSE $=0.58$ perché il termine di banda $\beta V$ di Hockney è costante; MPI puro crolla a 0.21 perché lo start-up $(\mathcal{R}-1)\alpha$ cresce coi rank.
+
+\[ S_\infty=\tfrac{1}{f},\quad E(p)=\tfrac{S(p)}{p},\quad \text{WSE}=\tfrac{T(1)}{T(p)},\quad t_\text{Hockney}=\alpha+\beta m. \]
+
+% =============================================================
+\section{Mappa teoria $\leftrightarrow$ moduli (per le domande finali)}
+% =============================================================
+
+\begin{table}[H]
+\centering\small
+\begin{tabularx}{\textwidth}{@{}lX@{}}
+\toprule
+\textbf{Argomento (lezione)} & \textbf{Dove appare nel progetto} \\
+\midrule
+SIMD, Roofline (L6--L7) & M1: $I{=}0.33$ bandwidth-bound, \texttt{vpmulld}, autovec vs intrinsics \\
+SIMT/GPU (L8) & M1: kernel CUDA, coalescing, PCIe-bound \\
+Cache, false sharing, MESI & M2/M3: \texttt{alignas(64)}, slot da 16~B (4/linea) \\
+NUMA, affinity (L18) & M2 dip a $p{=}20$; M3/M4 first-touch + \texttt{PROC\_BIND=close} \\
+Metriche e leggi (L10) & speedup/efficienza, Amdahl fit, Gustafson, strong/weak \\
+Workload balancing (L14) & M3 LPT + \texttt{dynamic}; M4 floor di skew distribuito \\
+C++ concorrenza (L12--L13) & M2: \texttt{std::thread}, \texttt{std::barrier}, RAII \\
+OpenMP loop (L19) & M3 loop: \texttt{parallel for}, \texttt{schedule}, \texttt{reduction} \\
+OpenMP task (L22) & M3 task: \texttt{task}, \texttt{taskgroup}, \texttt{single nowait}, tied \\
+Sistemi distribuiti (L23) & M4: Hockney $\alpha{+}\beta m$, comp/comm ratio \\
+MPI (L24--L26) & M4: \texttt{Init\_thread}, \texttt{Alltoall(v)}, \texttt{Allreduce}, ibrido \\
+BSP / Work-Span & M2 struttura bulk-synchronous a barriere \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+% =============================================================
+\section{Checklist finale per l'orale}
+% =============================================================
+
+\begin{enumerate}
+  \item \textbf{Saper compilare ed eseguire ogni modulo da terminale} (vedi le sezioni ``Comandi''): \texttt{salloc} per allocare, \texttt{srun} per lanciare, e spiegare ogni flag CLI e SLURM.
+  \item \textbf{M1}: spiegare hash a 32 bit ($\to$\texttt{vpmulld}), roofline e perché l'autovec batte l'AVX2 a mano.
+  \item \textbf{M2}: barriera BSP + completion function, scatter lock-free, false sharing/\texttt{alignas(64)}, dip NUMA, fit di Amdahl.
+  \item \textbf{M3}: loop vs task, \texttt{dynamic,1}, LPT, split intra-partizione (tetto $H/T$), prefetch 12/8, first-touch.
+  \item \textbf{M4}: 8 fasi, \texttt{dest=pid\%R}, skip-ahead (niente scatter iniziale), \texttt{Alltoallv} + displs, FUNNELED, \texttt{-march=ivybridge} (perché non native), floor di skew distribuito.
+  \item \textbf{Trasversale}: Amdahl/Gustafson sui numeri reali, banda DRAM come vero collo in shared-memory, fan-out della collettiva come collo in distribuito, e come i 4 livelli si annidano (MPI+OpenMP+SIMD).
+\end{enumerate}
+
+\emph{Trappole da conoscere}: M4 ha \textbf{8} fasi cronometrate (non 7: histogram\_post e scatter\_post sono separate). Su node09 (M1) i nodi sono AMD+GPU; sui nodi di calcolo M4 sono Ivy Bridge senza AVX2 (da cui \texttt{-march=ivybridge}). I checksum sono ordine-indipendenti, quindi la verifica regge anche con ordini di task diversi.
+
+\end{document}

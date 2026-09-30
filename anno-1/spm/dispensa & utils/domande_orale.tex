@@ -1,0 +1,384 @@
+% =============================================================
+% DOMANDE D'ESAME -- preparazione orale SPM (livello avanzato)
+% Compilare con: xelatex -interaction=nonstopmode domande_orale.tex (2 passate)
+% =============================================================
+\documentclass[11pt,a4paper]{article}
+
+\usepackage{fontspec}
+\usepackage[english]{babel}
+\setmainfont{Latin Modern Roman}
+\setmonofont{Latin Modern Mono}
+\usepackage{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{float}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{microtype}
+\usepackage{parskip}
+\usepackage{tcolorbox}
+\tcbuselibrary{breakable}
+
+\geometry{top=2.3cm, bottom=2.3cm, left=2.3cm, right=2.3cm}
+\setlength{\headheight}{14pt}
+\setlength{\emergencystretch}{3em}
+
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codeblue}{rgb}{0.0,0.3,0.7}
+\definecolor{codegreen}{rgb}{0,0.5,0}
+\definecolor{backcolour}{rgb}{0.97,0.97,0.97}
+\definecolor{cmdback}{rgb}{0.95,0.97,1.0}
+
+\lstdefinestyle{cpp}{
+  backgroundcolor=\color{backcolour}, commentstyle=\color{codegreen}\itshape,
+  keywordstyle=\color{codeblue}\bfseries, basicstyle=\ttfamily\footnotesize,
+  breaklines=true, keepspaces=true, showspaces=false, showstringspaces=false,
+  showtabs=false, tabsize=2, language=C++,
+  morekeywords={omp,pragma,parallel,task,schedule,reduction,MPI_Alltoallv,
+    MPI_Allreduce,uint64_t,uint32_t,size_t}
+}
+\lstdefinestyle{bash}{
+  backgroundcolor=\color{cmdback}, basicstyle=\ttfamily\footnotesize,
+  commentstyle=\color{codegreen}\itshape, breaklines=true, keepspaces=true,
+  showspaces=false, showstringspaces=false, showtabs=false, tabsize=2,
+  language=bash, frame=single, framesep=4pt, rulecolor=\color{codeblue},
+  morekeywords={srun,salloc,sbatch,mpirun,mpicxx,make,g++,nvcc,module,export,
+    numactl,lscpu,squeue,sinfo,perf,likwid}
+}
+\lstset{style=cpp}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{Domande d'esame -- SPM 2025-26}
+\lhead{Partitioned Hash Join}
+\cfoot{\thepage}
+
+% Box per la domanda (solo testo, niente listing dentro)
+\newtcolorbox{dom}{breakable, colback=red!7!white, colframe=red!55!black,
+  boxrule=0.6pt, left=5pt, right=5pt, top=3pt, bottom=3pt, before skip=8pt, after skip=3pt}
+\newcommand{\D}[1]{\begin{dom}\small\textbf{D.}\ \itshape #1\end{dom}}
+% etichette risposta
+\newcommand{\R}{\noindent\textbf{R.}\ }
+\newcommand{\Inc}[1]{\par\smallskip\noindent\textbf{\textcolor{red!55!black}{Incalzante:}} \textit{#1}\ \par}
+\newcommand{\Trap}{\par\smallskip\noindent\textbf{\textcolor{orange!80!black}{Trappola:}} }
+\newtcolorbox{theorybox}{breakable, colback=green!5!white, colframe=green!50!black,
+  fonttitle=\small\bfseries, title={Collegamento alla teoria}, before skip=6pt, after skip=6pt}
+
+\hypersetup{colorlinks=true, linkcolor=codeblue, urlcolor=codeblue,
+  pdftitle={Domande orale SPM}, pdfauthor={SPM oral prep}}
+
+% =============================================================
+\begin{document}
+
+\begin{titlepage}
+\centering
+\vspace*{1.5cm}
+{\LARGE\bfseries Domande d'Esame -- Orale SPM\\[0.4em]
+Partitioned Hash Join (M1--M4)\\[1em]}
+{\large\itshape Banca di domande difficili e incalzanti, con risposte modello}\\[1.5em]
+{\large Sistemi Paralleli e Distribuiti -- Università di Pisa}\\[0.4em]
+{\large Prof. Massimo Torquati -- A.A. 2025-2026}\\[2em]
+\hrule\vspace{1em}
+\begin{flushleft}\small
+Per ogni modulo: domande di \textbf{esecuzione sul cluster} (compila/esegui, spiega i flag), domande che
+chiedono di \textbf{giustificare le affermazioni del report} (``perché è bandwidth-bound? dimostralo''),
+di \textbf{difendere le scelte implementative}, e di \textbf{proporre alternative migliori}. Molte domande
+hanno un follow-up \emph{incalzante} (``e se invece\dots'') e segnalano le \emph{trappole}. Le risposte sono
+modello: vanno capite, non recitate. L'obiettivo è padroneggiare teoria, report e codice insieme, e
+soprattutto saper distinguere ciò che è \textbf{misurato} da ciò che è \textbf{inferito} -- è lì che il prof
+incalza.
+\end{flushleft}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+% =============================================================
+\section{Strategia e principi di risposta}
+% =============================================================
+
+Tre regole che reggono quasi ogni risposta difficile in questo progetto:
+
+\begin{enumerate}
+  \item \textbf{Misurato vs inferito.} Per ogni claim causale (``è bandwidth-bound'', ``è un effetto NUMA'', ``la rete è satura'') sappi indicare \emph{da quale misura} viene. Se è un'ipotesi coerente coi dati ma non provata, dillo: ``è coerente con\dots, lo confermerebbe una misura di \texttt{numastat}/\texttt{perf}''. Questa onestà vale più di una risposta sicura ma non supportata.
+  \item \textbf{Il vero collo in shared-memory è la banda DRAM}, non la frazione seriale di Amdahl. In distribuito è il \emph{fan-out della collettiva}. Quasi ogni ``perché non scala oltre $X$?'' si riconduce a uno di questi due.
+  \item \textbf{Trade-off, non assoluti.} Ogni ottimizzazione non fatta va valutata come bilancio (guadagno atteso vs costo/complessità), non come ``si poteva fare e basta''. Quantifica quando puoi (es.\ ``il lavoro post-exchange è solo il 7\% del wall time, quindi l'overlap rende al più 7\%'').
+\end{enumerate}
+
+\paragraph{Hardware da citare a memoria.}
+Nodi di calcolo \textbf{node01--08}: 2$\times$ Intel Xeon E5-2640~v2 (Ivy Bridge), 8 core/socket = 16 fisici / 32 logici (HT), 2 nodi NUMA, L3 da 20~MB/socket, \emph{niente AVX2}. \textbf{node09}: AMD EPYC 7301 (Zen~1) + GPU NVIDIA A30 (HBM2 993~GB/s, PCIe). Login node: Haswell (ha AVX2). Da qui i vincoli di compilazione: M1 gira su node09; M4 si compila \texttt{-march=ivybridge} perché il login emette AVX2 che fa SIGILL sui nodi di calcolo.
+% =============================================================
+\section{Modulo 1 -- SIMD: domande}
+% =============================================================
+
+\subsection{Esecuzione sul cluster}
+
+\D{Compila ed esegui il Modulo 1 su node09 e dimostrami, dai numeri, che la kernel è bandwidth-bound.}
+\R Alloco node09, compilo, lancio un N-sweep e converto il throughput in banda effettiva:
+\begin{lstlisting}[style=bash]
+salloc --partition=gpu-excl --nodelist=node09 --ntasks=1 --cpus-per-task=1 --exclusive --time=00:15:00
+make all
+for N in 1000000 10000000 100000000 200000000; do srun ./bin/avx2 $N 256 42 0 11; done
+\end{lstlisting}
+La prova è in due passaggi: (1) lo speedup è \emph{piatto} su tutti gli $N$ (e su tutti i $P$, e su tutte le key-space): se fosse compute-bound vedrei variazioni con $N$/cache. (2) Converto: ogni chiave muove 12~B (8 read + 4 write), quindi GB/s $=12N/t$. L'autovec dà $\sim$15.7~GB/s, e il tetto di banda single-core misurato su node09 è $\sim$16.4~GB/s: siamo al 96\%. Una kernel compute-bound non potrebbe stare incollata al tetto di banda indipendentemente da $N$.
+\Inc{E come hai misurato il ``tetto di banda single-core''? Non te lo sei inventato?} È una misura tipo STREAM (un kernel di sola copia/somma su array grandi, un thread), oppure il massimo throughput osservato della baseline stessa che è puro traffico di memoria. Onestamente: il 96\% è ``frazione del tetto misurato''; se il prof vuole rigore assoluto, la misura pulita è \texttt{likwid-bench} o STREAM su un core di node09.
+
+\D{Cosa succede se compili \texttt{avx2} sul login node invece che su node09? E perché per M1 il problema di \texttt{-march=native} non è grave come in M4?}
+\R Il login è Haswell e ha AVX2, quindi \texttt{avx2} compila e gira lì. Ma M1 va misurato su node09 (AMD Zen~1), che pure ha AVX2 -- quindi il binario gira. Il problema critico di \texttt{-march=native} è del \emph{Modulo 4}: lì i nodi di calcolo sono Ivy Bridge senza AVX2, e un binario compilato \texttt{-march=native} sul login (Haswell) emette istruzioni AVX2 che fanno SIGILL sul nodo di calcolo. Per M1 la regola pratica è comunque: \emph{compila sul nodo su cui misuri} (node09), così \texttt{-march=native} = Zen~1.
+
+\D{Perché far variare \texttt{key\_space} cambia il numero di duplicati ma non il throughput?}
+\R Perché la hash è \emph{branchless} e a costo costante per chiave: nessun ramo dipende dal valore. Cambiare key-space cambia la distribuzione delle chiavi (più o meno duplicati) ma non il traffico di memoria (sempre 12~B/chiave) né il numero di operazioni. Il throughput è quindi invariante -- ed è esattamente ciò che il report mostra col key-space sweep, un'ulteriore conferma del regime memory-bound.
+
+\subsection{Giustificare le affermazioni del report}
+
+\D{Il report dice $I=0.33$ ops/byte. Derivalo davanti a me.}
+\R Per chiave: traffico $=8$~B (load della chiave \texttt{uint64}) $+4$~B (store del \texttt{part\_id uint32}) $=12$~B. Operazioni: 2 estrazioni + XOR + moltiplicazione + shift $\approx 4$ operazioni intere ``utili''. Intensità $I = 4/12 \approx 0.33$ ops/byte. Sul roofline, con un punto di ginocchio tipicamente a 5--10 ops/byte, $0.33$ cade ben dentro la rampa di banda $\Rightarrow$ memory-bound. Il numero esatto di op non cambia la conclusione: anche con 6 op sarebbe $0.5$, sempre sotto il ginocchio.
+
+\D{Spiega meglio perché l'AVX2 scritto a mano è PIÙ LENTO dell'autovettorizzato. Controintuitivo: il controllo manuale non dovrebbe dare più performance?}
+\R In regime compute-bound sì, ma qui il collo è la \emph{memoria}, non l'ALU. Quando il bottleneck è la banda, ciò che conta è quanto bene riempi le richieste di memoria in volo, e questo dipende da scheduling delle istruzioni, unrolling e allocazione dei registri -- cose che GCC, autovettorizzando, ottimizza liberamente. Le intrinsics impongono una sequenza rigida (load/permute/mul/store fissa) che il compilatore non può riordinare altrettanto bene. Dato misurabile: autovec 15.7~GB/s vs AVX2 14.4~GB/s, e la stabilità (CoV) è 0.4\% per autovec contro 3.5\% per AVX2 -- la sequenza a mano produce pattern di accesso meno deterministici.
+\Inc{Quindi le intrinsics sono inutili?} No: sono utili quando il kernel è compute-bound (es.\ molte FMA per byte) o quando il compilatore \emph{non riesce} a vettorizzare (controllo di flusso, gather). Qui il messaggio è proprio che il SIMD a mano non è una bacchetta magica: prima capisci se sei compute- o memory-bound.
+
+\D{La kernel CUDA fa 808~GB/s ma l'end-to-end è solo $1.12\times$. Spiega, e dimmi quando varrebbe la pena la GPU.}
+\R Gli 808~GB/s sono l'81\% del picco HBM2 dell'A30 (993~GB/s): la kernel da sola è eccellente. Ma il timing per fasi mostra che H$\to$D e D$\to$H (PCIe) valgono il $\sim$98\% del tempo end-to-end; la kernel è $\sim$2\%. Stai pagando due trasferimenti PCIe per fare $\sim$4 operazioni per chiave: il \emph{computation-to-communication ratio} è pessimo. La GPU converrebbe solo se: (a) i dati sono già residenti in device memory (niente trasferimento), oppure (b) questo è uno stadio di una pipeline i cui stadi successivi (build, probe) girano anch'essi su GPU, ammortizzando il trasferimento iniziale.
+
+\subsection{Alternative e performance}
+
+\D{Come miglioreresti il throughput su CPU? Quantifica.}
+\R L'ottimizzazione con impatto atteso maggiore sono i \textbf{non-temporal stores} (\texttt{\_mm256\_stream\_si256}). L'output è write-only e non riletto nel loop: una store normale prima \emph{legge} la cache line (read-for-ownership) e poi la scrive. Bypassando la cache si elimina quel read. Stima dell'upper bound: le scritture sono $4/12\approx33\%$ del traffico; il RFO aggiunge un'altra load della linea, quindi eliminandolo si risparmia fino a $\sim4$~B su $\sim16$~B effettivi $\approx 25\%$ del traffico di scrittura -- un guadagno reale ma limitato, coerente col fatto che restiamo memory-bound. In più, il \textbf{multi-thread} userebbe l'intera banda del socket invece di un core.
+\Inc{Allora perché non l'hai fatto?} Per i non-temporal: M1 è un microbenchmark del solo map e l'output viene riletto nello scatter del modulo successivo, quindi il bypass cache andrebbe valutato nel contesto della pipeline, non in isolamento. Per il multi-thread: M1 è single-thread \emph{di proposito}, per isolare l'effetto SIMD puro; il parallelismo a thread è esattamente ciò che introduce M2.
+
+\D{AVX-512 ti darebbe il doppio (16 \texttt{uint32}/istruzione)?}
+\R No. Due motivi: (1) node09 è Zen~1 e \emph{non} ha AVX-512, quindi non è proprio un'opzione su quell'hardware; (2) anche dove ci fosse, il kernel è bandwidth-bound -- raddoppiare la larghezza SIMD raddoppia il throughput di calcolo, non la banda DRAM, che è il vincolo. L'impatto atteso è quindi $\approx$nullo. È l'esempio perfetto di ``ottimizzazione che sembra ovvia ma non tocca il collo''.
+
+\begin{theorybox}
+Concetti chiave dietro M1: roofline e intensità operazionale; livelli di SIMD (auto-vec vs intrinsics, slide L6--L7); allineamento e gestione della coda; SIMT/coalescing e PCIe (L8); STREAM/banda come tetto.
+\end{theorybox}
+% =============================================================
+\section{Modulo 2 -- C++ Threads: domande}
+% =============================================================
+
+\subsection{Esecuzione sul cluster}
+
+\D{Mostrami il dip NUMA a $p=20$ eseguendo sul cluster. Come fai a vedere che è la topologia NUMA?}
+\R Prima ispeziono la topologia, poi faccio uno sweep fine attorno al confine dei 16 core fisici:
+\begin{lstlisting}[style=bash]
+salloc --nodes=1 --ntasks=1 --cpus-per-task=32 --exclusive --time=00:20:00
+lscpu | grep -E "NUMA|Socket|Thread"     # 2 socket, 2 NUMA node, 16 fisici/32 logici
+numactl --hardware                        # distanze tra i due nodi NUMA
+for t in 12 14 16 18 20 22; do srun --cpus-per-task=32 ./hashjoin_par -nr 20000000 -ns 40000000 -seed 42 -max-key 1000000 -p 128 -t $t; done
+\end{lstlisting}
+Vedo lo speedup salire fino a $p=16$ ($7.5$--$7.6\times$), \emph{calare} a $p=20$, poi risalire. Il dip coincide col passaggio oltre i 16 core fisici (il team si sparpaglia sul 2\textsuperscript{o} socket).
+\Trap Attenzione a non dire ``è NUMA'' come fatto provato. È \emph{coerente con} l'accesso a memoria remota: il dip è più marcato per NR=20M (working set maggiore $\Rightarrow$ più traffico cross-socket). La prova rigorosa sarebbe \texttt{numastat -p <pid>} o contatori \texttt{perf} sugli accessi remoti; senza, è la spiegazione più plausibile, non una certezza.
+
+\D{Come verifichi che lo scatter è il $\sim$53\% del tempo, e non lo stai supponendo?}
+\R Il binario ha un timer interno per fase che stampa il breakdown su stderr (Histogram, Scatter, Join, ecc.). Lancio un run e leggo i tempi: a $p=1$ lo scatter $R+S$ è $\approx$409~ms su $\approx$769~ms totali. È una misura, non una stima. Posso anche rilanciare a $p$ diversi e vedere che lo scatter scala bene ($9.7\to13.7\times$ in regime HT) mentre l'histogram no.
+
+\D{Cosa cambia, e perché, se passi da \texttt{-p 128} a \texttt{-p 512}?}
+\R A $P=128$ ogni \texttt{FlatCountMap} occupa $\approx$4~MB; con 20 thread l'aggregato (80~MB) eccede la L3 (20~MB) $\Rightarrow$ il join resta DRAM-bound. A $P=512$ ogni tabella scende a $\approx$1~MB e l'insieme entra in L3: il join diventa cache-resident, la frazione seriale stimata $f$ scende da $0.078$ a $0.058$ ($S_\infty$ da $\sim$12.9 a $\sim$17$\times$) e lo speedup a $p=32$ sale da $\sim$8.6 a $11.4\times$. È il singolo parametro che sposta di più le prestazioni nel range sub-ottimale.
+
+\subsection{Giustificare le affermazioni del report}
+
+\D{Il report fitta Amdahl con $f=0.078$ e $S_\infty=12.9\times$, ma poi misuri solo $8.6\times$. Non è una contraddizione che invalida il fit?}
+\R No. Amdahl modella \emph{solo} la frazione seriale assumendo risorse parallele \emph{infinite e non condivise}. Qui il vincolo dominante a $p$ alto non è il codice seriale, è la \textbf{banda DRAM condivisa}: i 32 thread condividono lo stesso memory controller, e Amdahl non cattura quella saturazione. Il fit $f=0.078$ descrive bene la \emph{forma} della curva a $p$ basso/medio; il divario tra $S_\infty$ teorico e il picco misurato è proprio la firma della saturazione di banda. Detto altrimenti: il modello giusto a $p$ alto è il roofline, non Amdahl.
+
+\D{Nel report $S(1)>1.0$ (1.03--1.04). È super-linear scaling? Hai sbagliato qualcosa?}
+\R Non è super-linear. Sequenziale e parallelo sono \emph{eseguibili distinti}: il ``best of 5'' dei due minimi diverge sistematicamente di $\le 4\%$ mentre la varianza intra-run è $\le 3\%$. Quel $1.03$--$1.04$ a $p=1$ è un offset costante dovuto a differenze di compilazione/codice tra i due binari (il parallelo a 1 thread ha layout leggermente diverso), non un guadagno reale. L'ho dichiarato apertamente nel report invece di nasconderlo -- è il modo corretto di trattare un artefatto di misura.
+
+\D{Perché l'histogram scala così male ($2$--$3\times$) mentre lo scatter scala bene?}
+\R L'histogram fa \emph{un incremento di contatore per record da 8~B}: pochissimo calcolo, tutto dominato dal bus di memoria che legge l'input -- è bandwidth-bound e gli istogrammi privati per-thread non aumentano la banda, solo evitano la contesa. Lo scatter invece, pur essendo memory-bound, ha scritture casuali che beneficiano del \emph{memory-level parallelism}: più thread (anche HT) tengono più richieste DRAM in volo, quindi scala fino a $13.7\times$. Il join infine va in plateau in regime HT perché è compute-bound (le coppie HT condividono le porte ALU). Tre fasi, tre regimi diversi -- ed è questo a spiegare il gap con Amdahl.
+
+\subsection{Alternative e performance}
+
+\D{Difendi la scelta della barriera contro un thread pool. E se ti dico che un pool con work-stealing bilancerebbe meglio?}
+\R La pipeline è bulk-synchronous: ogni fase dipende dall'\emph{intera} fase precedente (histogram$\to$prefix-sum$\to$scatter$\to$join), quindi serve comunque una barriera completa a ogni confine -- non c'è lavoro di una fase successiva da rubare prima che la corrente finisca. Un pool con work-stealing aiuta quando ci sono task indipendenti di durata variabile \emph{dentro} una fase; qui dentro ogni fase il lavoro è già bilanciato (blocchi uguali, partizioni quasi uguali). Il pool aggiungerebbe solo overhead (submission, polling, wakeup) e indirezione, e la completion function della barriera mi dà gratis il punto in cui eseguire il prefix-sum seriale. Il work-stealing diventa utile in M3 con lo skew, ed è infatti lì che arriva (task + LPT).
+
+\D{Come elimineresti il dip NUMA? E perché non l'hai fatto in M2?}
+\R Con \textbf{thread affinity} (pinnare i thread ai core, \texttt{OMP\_PROC\_BIND=close}/\texttt{taskset}) e \textbf{first-touch}: inizializzare i buffer di output in parallelo con lo stesso partizionamento del futuro scatter, così ogni pagina finisce sul nodo NUMA del thread che vi scriverà. Non l'ho fatto in M2 per tenerlo minimale e isolare il modello a barriere; l'ho implementato in M3, dove infatti il dip a $p=20$ per NR=10M sparisce. Impatto atteso: scaling più liscio oltre i 16 core.
+
+\D{Il tuo join usa assegnazione ciclica. Se le partizioni fossero molto sbilanciate, crollerebbe? Di quanto?}
+\R Sì. Il ciclico è ottimo solo perché la hash di Fibonacci rende le partizioni quasi uguali. Sotto skew forte (come quello di M3: $\rho=0.9$, 4 partizioni calde con rapporto caldo/freddo $\sim$290$\times$), il ciclico assegnerebbe le partizioni pesanti a pochi thread che diventano lo straggler: l'efficienza crollerebbe verso $\sim H/T$ (con $H$ partizioni dominanti). Per questo M2 ha solo input uniforme, e la gestione dello skew (LPT + split intra-partizione) è il contributo di M3.
+\Inc{Allora il tuo M2 è ``barato'' perché evita lo skew?} No, è una scelta di \emph{scope}: M2 dimostra il parallelismo a thread su carico bilanciato; lo skew è un asse ortogonale che richiede un meccanismo di scheduling diverso, introdotto dove ha senso (OpenMP task). Dichiarare il limite è corretto; nasconderlo no.
+
+\begin{theorybox}
+Dietro M2: \texttt{std::thread}/\texttt{std::barrier} e RAII (L12--L13); false sharing e MESI; NUMA (L18); Amdahl/efficienza/strong vs weak scaling (L10); BSP come modello della pipeline a barriere.
+\end{theorybox}
+% =============================================================
+\section{Modulo 3 -- OpenMP: domande}
+% =============================================================
+
+\subsection{Esecuzione sul cluster}
+
+\D{Esegui lo schedule-sweep e dimostrami che \texttt{dynamic} batte \texttt{static} su skew, ma non su uniforme.}
+\R Uso il binario \texttt{runtime} (compilato \texttt{-DRUNTIME\_SCHEDULE}, legge \texttt{OMP\_SCHEDULE}) e confronto le policy a $T=8$ sui due workload:
+\begin{lstlisting}[style=bash]
+make hashjoin_omp_runtime
+for S in "static" "static,1" "dynamic,1" "dynamic,4" "guided,1"; do
+  OMP_NUM_THREADS=8 OMP_PROC_BIND=close OMP_PLACES=cores OMP_SCHEDULE="$S" \
+    srun --cpus-per-task=32 ./hashjoin_omp_runtime -nr 10000000 -ns 20000000 -seed 42 -max-key 5000000 -p 128 -t 8 -mode loop -skew 0.9 -hot 4
+done
+\end{lstlisting}
+Su \emph{skew}: \texttt{static}/\texttt{static,1}/\texttt{guided,1} si attestano sui $\sim$130~ms sul join, le due \texttt{dynamic} scendono a $\sim$80~ms ($-38\%$). Su \emph{uniforme} (rilancio senza \texttt{-skew}) tutte le policy stanno entro $\sim$1\%. Conclusione operativa: \texttt{dynamic,1} è non-dominata -- mai peggiore, molto meglio sotto skew -- quindi è il default compilato.
+
+\D{Setta l'affinity e spiega \emph{perché} quei valori, non solo quali.}
+\R \texttt{OMP\_PROC\_BIND=close} + \texttt{OMP\_PLACES=cores}. \texttt{PLACES=cores}: ogni ``place'' è un core fisico (non una coppia HT), così i thread si legano ai core. \texttt{PROC\_BIND=close}: i thread del team si impacchettano su core consecutivi, riempiendo un socket prima di sconfinare sull'altro. Questo è ciò che fa funzionare il first-touch: i primi $T\le16$ thread stanno su un socket, le loro pagine (toccate per prime in parallelo) finiscono sul nodo NUMA locale, e gli accessi restano locali. Con \texttt{spread} invece spargerei i thread sui due socket subito, aumentando il traffico cross-socket.
+
+\D{Mostra il vantaggio del task sul loop su input skewed.}
+\R Lancio le due varianti a parità di tutto, con skew:
+\begin{lstlisting}[style=bash]
+for M in loop task; do OMP_NUM_THREADS=8 OMP_PROC_BIND=close OMP_PLACES=cores \
+  srun --cpus-per-task=32 ./hashjoin_omp -nr 10000000 -ns 20000000 -seed 42 -max-key 5000000 -p 128 -mode $M -t 8 -skew 0.9 -hot 4; done
+\end{lstlisting}
+A $T=8$ il task chiude in $\sim$0.094~s contro $\sim$0.110~s del loop ($\sim$17\%): lì entra in gioco lo split intra-partizione. Sul solo join a $T=16$: $60.9$~ms (task) vs $72.5$~ms (loop).
+
+\subsection{Giustificare le affermazioni del report}
+
+\D{Il report dice che l'efficienza skewed è limitata a $H/T$. Dimostralo, e spiega come il tuo codice rompe quel limite.}
+\R Con $H$ partizioni ``calde'' che contengono quasi tutto il lavoro, e uno schema in cui \emph{una partizione = un'unità di lavoro indivisibile}, al massimo $H$ thread possono lavorare contemporaneamente sul carico pesante: gli altri $T-H$ restano inattivi. Quindi efficienza $\le H/T$ (con $H=4$, $T=16$: $25\%$) -- ed è un limite \emph{strutturale}, nessuno scheduling esterno (LPT incluso) lo supera, perché LPT riordina ma non spezza una partizione. Il codice lo rompe esponendo parallelismo \emph{dentro} la partizione calda: il \texttt{build} resta sequenziale (gli update su \texttt{FlatCountMap} sono race), ma il \texttt{probe} è read-only e viene spezzato in $K=\min(T,\lfloor w/\bar w\rfloor)$ sub-task dentro un \texttt{taskgroup} che tiene viva la tabella. Così fino a $T$ thread cooperano su una sola partizione calda, scavalcando $H/T$.
+
+\D{Derivami $f_\text{hot}=0.226$ e spiega perché è una conseguenza della scelta, non un parametro libero.}
+\R Il generatore è una mistura di Bernoulli: con prob.\ $\rho$ la chiave è una delle $H$ calde (uniformemente), con prob.\ $1-\rho$ è uniforme su $[0,\text{max\_key})$ e quindi cade su una qualsiasi delle $P$ partizioni. La frazione attesa di record su una singola partizione calda è
+\[ f_\text{hot} = \frac{\rho}{H} + \frac{1-\rho}{P} = \frac{0.9}{4} + \frac{0.1}{128} = 0.225 + 0.00078 \approx 0.226. \]
+Una fredda riceve $\approx (1-\rho)/P \approx 0.00078$. Il rapporto $\sim$290$\times$ tra calda e fredda non è una manopola che ho girato: è determinato da $(\rho,H,P)$. Per questo è una proprietà riproducibile del modello, non un valore scelto ad arte.
+
+\D{Il report attribuisce il salto scatter $85\to29$~ms al prefetch software. Come escludi che sia altro (es.\ un'allocazione diversa)?}
+\R Il confronto è contro M2 \emph{sullo stesso identico hardware e input}, con la stessa allocazione SLURM. Le differenze tra M2 e M3 sullo scatter sono due, isolabili: il prefetch software sullo slot di destinazione (assente in M2) e nient'altro nello scatter. L'histogram, separatamente, va $35\to9$~ms ma per un motivo diverso (la completion function della \texttt{std::barrier} di M2 serializza il merge, mentre l'\texttt{omp single} di M3 è parzialmente nascosto). Tenendo le fasi separate nel breakdown, attribuisco ciascun guadagno alla causa giusta. Se volessi prova ulteriore, ricompilerei M3 \emph{senza} le \texttt{\_\_builtin\_prefetch} e rimisurerei lo scatter -- è il test controllato che chiude la questione.
+
+\D{Perché su uniforme il task è fino al 31\% PEGGIORE del loop? Non è una sconfitta del tuo design ``furbo''?}
+\R È il prezzo, non una sconfitta. Su uniforme non c'è nulla da bilanciare: ogni partizione costa uguale. Il task paga la creazione/dispatch dei task su histogram e scatter (fasi regolari) senza alcun beneficio, mentre la worksharing \texttt{for}-loop del variante loop non paga nulla. Il punto del progetto è proprio mostrare il \emph{trade-off}: il loop vince su carico regolare, il task vince su irregolare. Avere entrambe le varianti e saper dire quando usare l'una o l'altra è il risultato, non un difetto.
+
+\subsection{Alternative e performance}
+
+\D{Parallelizzeresti anche il build delle partizioni calde? Valuta il trade-off.}
+\R Si potrebbe, ma con cautela. Il build muta la \texttt{FlatCountMap} (insert + increment con linear probing): scritture concorrenti richiederebbero CAS atomico sulla chiave dello slot e increment atomico del contatore. Sulle \emph{chiavi calde} -- pochissime chiavi distinte che ricevono moltissimi record -- la contesa atomica si concentrerebbe su pochi slot, e il cache-line bouncing potrebbe mangiare il guadagno. Alternativa più sicura: sub-tabelle per-thread costruite in parallelo e poi unite. Impatto atteso: utile solo ad alto $T$ dove il build (non il probe) diventa il long-pole; modesto, perché il probe domina il costo per-partizione. L'ho lasciato fuori perché il guadagno è incerto e la complessità alta.
+
+\D{Le distanze di prefetch (12 scatter, 8 probe) sono costanti hardcoded. È fragile?}
+\R Sì, è tarato su E5-2640~v2. La distanza ideale $\approx$ latenza-da-coprire / lavoro-per-iterazione. Lo scatter ha corpo leggero $\Rightarrow$ serve guardare più avanti (12) per coprire la latenza L1$\to$L2; il probe ha iterazioni più pesanti e mira a L2$\to$L3, bastano 8. Su un'altra microarchitettura andrebbero rimisurate con uno sweep. Il guadagno residuo da un tuning fine è single-digit \%, quindi non ho costruito un auto-tuner -- ma so che è il modo corretto di renderlo portabile.
+\Inc{E perché lo split usa $K=\min(T,\lfloor w/\bar w\rfloor)$ e non sempre $K=T$?} Perché spezzare una partizione moderatamente calda in $T$ sub-task creerebbe sub-task minuscoli, e l'overhead di creazione/scheduling supererebbe il lavoro. $K$ proporzionale al peso ($w/\bar w$) dà sub-task di taglia $\approx$ una partizione media; il clamp a $T$ evita di superare i thread disponibili, il clamp a 2 garantisce che ``calda'' implichi almeno una divisione.
+
+\begin{theorybox}
+Dietro M3: OpenMP loop (\texttt{schedule}, \texttt{reduction}, L19) e task (\texttt{taskgroup}, \texttt{single nowait}, tied/untied, L22); workload balancing e LPT (L14); affinity e NUMA first-touch (L18); prefetching e false sharing.
+\end{theorybox}
+% =============================================================
+\section{Modulo 4 -- MPI e ibrido: domande}
+% =============================================================
+
+\subsection{Esecuzione sul cluster}
+
+\D{Compila ed esegui M4 su 4 nodi in MPI puro e in ibrido. Spiega ogni differenza nei comandi.}
+\R
+\begin{lstlisting}[style=bash]
+module load openmpi5
+make cluster MPICXX=mpicxx CXX=g++          # -march=ivybridge (NON native!)
+
+# puro: 128 rank = 32 rank/nodo x 4 nodi
+salloc --partition=normal --nodes=4 --ntasks-per-node=32 --time=00:25:00 --exclusive
+srun --nodes=4 --ntasks=128 --ntasks-per-node=32 --mpi=pmix \
+     ./hashjoin_mpi -nr 50000000 -ns 100000000 -seed 42 -max-key 25000000 -p 256
+
+# ibrido: 1 rank/nodo x 32 thread -> 4 rank, 128 core
+salloc --partition=normal --nodes=4 --ntasks-per-node=1 --cpus-per-task=32 --time=00:25:00 --exclusive
+export OMP_NUM_THREADS=32 OMP_PROC_BIND=close OMP_PLACES=cores
+srun --nodes=4 --ntasks=4 --ntasks-per-node=1 --cpus-per-task=32 --mpi=pmix \
+     ./hashjoin_mpi_omp -nr 50000000 -ns 100000000 -seed 42 -max-key 25000000 -p 256 -t 32
+\end{lstlisting}
+Differenze: puro lancia 32 rank/nodo (\texttt{--ntasks-per-node=32}), ognuno single-thread; ibrido lancia 1 rank/nodo (\texttt{--ntasks-per-node=1}) con 32 core riservati per i suoi thread (\texttt{--cpus-per-task=32}) e l'ambiente OpenMP. \texttt{--mpi=pmix} è l'interfaccia con cui SLURM bootstrappa Open MPI 5 (necessaria). La differenza che conta: il puro fa una collettiva a 128 vie, l'ibrido a 4 vie.
+
+\D{Perché \texttt{-march=ivybridge} e non \texttt{-march=native}? Cosa succederebbe esattamente con native?}
+\R Il login node è Haswell e \emph{ha} AVX2; i nodi di calcolo sono Ivy Bridge e \emph{non} hanno AVX2. Se compilo \texttt{-march=native} sul login, GCC rileva Haswell ed emette istruzioni AVX2; quando quel binario gira sul nodo di calcolo, la prima istruzione AVX2 genera \texttt{SIGILL} (illegal instruction) e il programma crasha. \texttt{-march=ivybridge -mtune=ivybridge} fissa la baseline ISA ai nodi di calcolo, garantendo che il binario giri ovunque nel cluster. È un classico errore ``compila sul frontend, gira sui nodi''.
+
+\D{Mostra il collasso a 128 rank e come misuri il breakdown per fase.}
+\R Eseguo lo strong scaling a 1/2/4/8 nodi in MPI puro e guardo il \texttt{comm\_payload}:
+\begin{lstlisting}[style=bash]
+for N in 1 2 4 8; do salloc --nodes=$N --ntasks-per-node=32 --exclusive --time=00:15:00 \
+  srun --nodes=$N --ntasks=$((N*32)) --ntasks-per-node=32 --mpi=pmix \
+    ./hashjoin_mpi -nr 50000000 -ns 100000000 -seed 42 -max-key 25000000 -p 256; done
+\end{lstlisting}
+A 4 nodi (128 rank) il \texttt{comm\_payload} esplode e oscilla ($0.6$--$1.5$~s tra ripetizioni), mentre ogni altra fase è stabile. Il breakdown lo ottengo dalla \texttt{MPI\_Reduce} con \texttt{MPI\_MAX} dei tempi di fase: ogni fase riporta il \emph{rank più lento}, cioè il percorso critico.
+
+\subsection{Giustificare le affermazioni del report}
+
+\D{Affermi che il collasso a 128 rank dipende dal numero di rank, non dal numero di nodi. Come l'hai dimostrato?}
+\R Con due esperimenti di controllo. (1) Stessi 128 rank ma su \emph{8} nodi (16 rank/nodo) invece di 4: lo scambio resta lento e rumoroso uguale $\Rightarrow$ non è il numero di nodi. (2) Forzando l'algoritmo \emph{basic-linear} di Open MPI al posto di quello tunato, su un set di nodi fisso, lo scambio diventa \emph{stabile ma uniformemente lento} $\Rightarrow$ la varianza run-to-run viene dalla scelta d'algoritmo che la libreria fa in quel regime, mentre il costo di base è il fan-out a 128 vie. A 256 rank (8 nodi) ogni rank invia metà dati e lo scambio si riassesta a $\sim$0.5~s. Quindi: costo $\propto$ rank, varianza $\propto$ algoritmo della libreria.
+
+\D{Derivami col modello di Hockney perché in weak scaling l'ibrido tiene 0.58 e il puro crolla a 0.21.}
+\R Modello $t(m)=\alpha+\beta m$ ($\alpha$ latenza/start-up, $\beta$ inverso della banda). In un all-to-all ogni rank posta $\mathcal{R}-1$ messaggi di taglia $V/\mathcal{R}$ (con $V$ il volume per-rank, \emph{fisso} in weak scaling). Costo per-rank:
+\[ t \approx (\mathcal{R}-1)\,\alpha + \beta\,V. \]
+Il termine di banda $\beta V$ è \textbf{costante} per costruzione (weak scaling: volume per-rank fisso); ciò che cresce è il numero di start-up $(\mathcal{R}-1)\alpha$, \emph{lineare in $\mathcal{R}$}. L'ibrido tiene $\mathcal{R}=$ numero di nodi (1 rank/nodo): pochi start-up, resta bandwidth-bound $\Rightarrow$ WSE 0.58. Il puro moltiplica $\mathcal{R}$ per 32: il termine di start-up domina, diventa start-up-bound $\Rightarrow$ WSE 0.21. Numeri coerenti: da 2 a 8 nodi lo scambio ibrido cresce $1.5\times$, il puro $4.7\times$ (tracciando il suo conteggio di rank).
+
+\D{Il baseline skewed (2.30~s) è PIÙ VELOCE dell'uniforme (4.48~s) in sequenziale. Come può lo skew rendere più veloce?}
+\R Per \emph{località di memoria}, non per dimensione dell'output. Con $\rho=0.9$ e 4 chiavi calde, il 90\% dei record cade in 4 partizioni: (1) lo scatter scrive in pochi stream quasi-contigui invece di 256 sparsi $\Rightarrow$ molto meglio per cache e TLB (nel breakdown sequenziale lo scatter cala $\sim$3.4$\times$); (2) le hash table calde contengono pochissime chiavi distinte e restano cache-resident, quindi i probe sono quasi tutti hit in cache. L'uniforme invece tocca tutte le 256 partizioni e tabelle più popolate. È un punto sottile e contro-intuitivo: lo skew è ``buono'' per il \emph{sequenziale} (località) ma ``cattivo'' per il \emph{distribuito} (load imbalance non bilanciabile).
+
+\D{Dici che ``ulteriore speedup è communication-bound''. È un claim misurato o supposto?}
+\R Misurato. In \emph{ogni} configurazione multi-nodo il \texttt{comm\_payload} (\texttt{MPI\_Alltoallv}) è il singolo contributo maggiore al wall time, mentre le fasi locali scalano $7$--$8\times$ da 1 a 8 nodi (sono nei dati per-fase). La collettiva non scala coi nodi -- anzi anti-scala col fan-out. Da qui ``il prossimo collo è la comunicazione''. Non dico ``la rete è satura'' (sarebbe un claim non misurato sulla banda di bisezione): dico che \emph{il collettivo domina il wall time}, che è ciò che i breakdown mostrano.
+
+\subsection{Alternative e performance}
+
+\D{Implementeresti l'overlap con \texttt{Isend/Irecv}? Quanto guadagneresti davvero?}
+\R Si potrebbe sovrapporre lo scambio col lavoro post (histogram\_post, scatter\_post, join) avviando una partizione appena arrivano i suoi record. Ma il guadagno è limitato \emph{e l'ho quantificato}: il lavoro post è $\sim$100~ms su $\sim$1.3~s in MPI puro ($\sim$7\%) e $\sim$120~ms su 0.61~s nell'ibrido ($\sim$19\%). Quindi l'overlap rende al più quel 7--19\%, e per ottenerlo dovrei spezzare la singola collettiva tunata in scambi non bloccanti per-partizione, perdendo lo scheduling interno dell'all-to-all ottimizzato -- che potrebbe restituire parte del guadagno. Bilancio: guadagno limitato e incerto contro un certo aumento di complessità $\Rightarrow$ ho tenuto la collettiva bloccante e l'ho dichiarato come lavoro futuro condizionato (lo farei solo se comm $\ge 50\%$ del totale con lavoro indipendente da nascondere).
+
+\D{Come elimineresti il floor di load imbalance sotto skew in distribuito? Descrivi e quantifica il trade-off.}
+\R Con un \textbf{remap skew-aware}: da una histogram globale (Allgather degli istogrammi locali) individuo le partizioni calde e, invece di mapparle a un solo rank, \emph{replico il loro build side} su più rank e \emph{splitto il probe side} tra loro -- così il join pesante è condiviso e il carico per-rank torna vicino alla media. Costo: (1) più comunicazione, perché replicare il build mette gli stessi record su più rank, quindi parte del tempo di join risparmiato torna come traffico extra; (2) la singola \texttt{MPI\_Alltoallv} diventa una redistribuzione a due percorsi (regolari + pesanti); (3) un round globale extra per costruire il piano. Guadagno netto: \emph{incerto senza misura}, dipende da quanto è concentrato lo skew. È l'unica modifica che rimuoverebbe il floor (oggi ibrido $1.5\to2.5\times$), ma va misurata prima di dichiararla vincente -- non la presento come certezza.
+
+\D{RDMA / one-sided risolverebbe il problema dei 128 rank?}
+\R Aiuterebbe il \emph{sintomo}, non la \emph{causa}. \texttt{MPI\_Put}/\texttt{Get} su finestre elimina l'handshake a due lati (il sorgente scrive direttamente nella memoria remota), riducendo il costo di sincronizzazione per messaggio nel regime start-up-bound. Ma il collo a 128 rank è il \emph{fan-out a 128 vie}: RDMA lo rende più economico per messaggio, non lo annulla. La soluzione strutturale resta ridurre il numero di rank (l'ibrido) o una redistribuzione gerarchica. In più RDMA aggiunge gestione esplicita di finestre ed epoche (\texttt{Fence}/\texttt{Lock}), con correttezza più delicata.
+\Inc{E se avessi 100 nodi invece di 8?} L'ibrido diventa obbligatorio: fan-out 100 invece di 3200. Ma anche 100 rank in un all-to-all hanno start-up $\propto 100$, quindi a quella scala valuterei una redistribuzione \emph{gerarchica/a due livelli} (aggregazione intra-nodo, poi all-to-all tra rappresentanti) o uno schema sparso se il pattern di comunicazione non è davvero denso. E ricorderei che a quella scala la vera motivazione del distribuito è la \emph{capacità} (input che non entra in un nodo), non la velocità pura.
+
+\begin{theorybox}
+Dietro M4: MPI init/livelli di thread, collettive \texttt{Alltoall(v)}/\texttt{Allreduce}, \texttt{Barrier} (L24--L26); modello di costo $\alpha+\beta m$ di Hockney e computation-to-communication ratio (L23); load balancing distribuito e stato partizionato (L14); Amdahl applicato alla frazione non-scalabile (la collettiva).
+\end{theorybox}
+% =============================================================
+\section{Domande trasversali e di teoria}
+% =============================================================
+
+\D{Tutti i moduli si fermano a $8$--$12\times$ su 32 core invece di $32\times$. È colpa della frazione seriale di Amdahl o della banda? Distinguili rigorosamente.}
+\R È la \textbf{banda DRAM condivisa}, non $f$. Tre evidenze indipendenti, tutte misurate: (1) il \emph{dip NUMA} a $p=20$ -- se il limite fosse codice seriale non ci sarebbe una discontinuità legata alla topologia di memoria; (2) il \emph{plateau del join in regime HT} -- le coppie HT non aggiungono unità di calcolo ma condividono banda/porte, sintomo di saturazione di una risorsa condivisa; (3) passando a $P=512$ (tabelle in L3) lo speedup \emph{sale} da $8.6$ a $11.4\times$ -- avrei ridotto la pressione di banda, non la frazione seriale, eppure migliora. Se fosse $f$ a limitare, cambiare $P$ (che non tocca il codice seriale) non sposterebbe il tetto. Amdahl spiega la \emph{forma} a $p$ basso; la banda spiega il \emph{tetto} a $p$ alto. Il modello corretto a saturazione è il roofline, non Amdahl.
+
+\D{Disegna/descrivi il roofline del join COMPLETO (non solo del map di M1). Dov'è il ginocchio e dove cade il join?}
+\R Il join completo ha due regimi a seconda di dove sta la hash table. Se le \texttt{FlatCountMap} \emph{non} entrano in cache (P piccolo, tabelle grandi), i probe sono load casuali in DRAM: intensità bassa, il join è \emph{DRAM-bound}, sulla rampa di banda come M1. Se le tabelle entrano in L3 (P=512, $\approx$1~MB ciascuna), i probe diventano hit in cache: l'intensità effettiva sale (la ``memoria'' è ora la cache, banda molto più alta) e il join si sposta verso la regione \emph{compute-bound} (aritmetica dell'hash + linear probing). È esattamente perché a P=512 il join scala meglio: ho spostato il collo da DRAM a cache/ALU. Il ginocchio dipende dalla banda di riferimento (DRAM vs L3): cambiando P cambio quale tetto vedo.
+
+\D{Confronta l'overhead di sincronizzazione nei tre paradigmi: \texttt{std::barrier} (M2), barriere implicite OpenMP (M3), \texttt{MPI\_Barrier} (M4).}
+\R \textbf{M2}: una \texttt{std::barrier} con \emph{completion function} che gira su un thread tra le fasi -- la sincronizzazione è esplicita e serializza il merge degli istogrammi (a $T=8$ l'histogram pesa $\sim$35~ms). \textbf{M3}: le barriere sono \emph{implicite} nei costrutti worksharing (\texttt{parallel for}) e nei \texttt{taskgroup}; il merge in \texttt{omp single} è parzialmente nascosto dalla regione successiva ($\sim$9~ms). Stesso lavoro, ma OpenMP lo sovrappone meglio $\Rightarrow$ parte del vantaggio M3 vs M2. \textbf{M4}: \texttt{MPI\_Barrier} è una sincronizzazione \emph{globale tra processi} su nodi diversi, costosa, usata \emph{di proposito} prima di ogni collettiva cronometrata per misurare il costo della collettiva e non l'attesa di un rank in ritardo. Tre scale diverse: tra thread su core (ns--$\mu$s), tra thread con sovrapposizione, tra processi su rete ($\mu$s--ms).
+
+\D{Applica Amdahl E Gustafson ai risultati reali. Perché lo strong scaling cappa e il weak no?}
+\R \textbf{Amdahl} (problema fisso): $S(p)=1/(f+(1-f)/p)$, $S_\infty=1/f$. Con $f\approx0.078$ ($P=128$) il tetto teorico è $12.9\times$; il problema fisso non può sfuggire alla frazione seriale + (nel reale) alla banda condivisa, quindi lo strong scaling cappa. \textbf{Gustafson} (problema che cresce con $p$): WSE$=T(1)/T(p)$, l'idea è che ingrandendo il problema la frazione parallela cresce e l'efficienza si mantiene. M4 ibrido tiene WSE$=0.58$ perché in weak scaling il termine di banda di Hockney $\beta V$ è costante; ma anche il weak \emph{degrada} (non resta 1.0) perché un costo cresce comunque -- gli start-up della collettiva $(\mathcal{R}-1)\alpha$ -- ed è questo che fa crollare il puro a 0.21. Lezione: strong $\to$ Amdahl/banda; weak $\to$ Gustafson/Hockney; nessuno dei due dà scaling ideale qui, ma per ragioni diverse.
+
+\D{Mostrami come si annidano i quattro livelli di parallelismo su questo cluster. Qual è il pattern ``giusto''?}
+\R Gerarchia annidata, dal grosso al fine: \textbf{MPI tra i nodi} (M4) per la capacità $\to$ \textbf{OpenMP tra i core} di ogni nodo (M3, che M4 ibrido usa internamente per rank) $\to$ \textbf{SIMD dentro il core} (M1) per il map vettorizzabile $\to$ e sotto, \textbf{cache/NUMA locality} (first-touch, prefetch, padding). Il pattern ``giusto'' su questo problema: un rank MPI per nodo (minimizza il fan-out della collettiva), 32 thread OpenMP per rank con \texttt{PROC\_BIND=close} + first-touch, $P=512$ per tenere le tabelle in L3, prefetch sui flussi casuali, e SIMD dove serve. Il progetto è esattamente questa piramide costruita un livello alla volta.
+
+\D{Se dovessi massimizzare la performance ASSOLUTA su questo input e questo cluster, cosa useresti e perché?}
+\R Dipende dalla dimensione. Se l'input entra in un nodo (è il caso, $\sim$1.2~GB): \textbf{M3 OpenMP loop, 1 nodo, $P=512$, affinity + first-touch} -- è il punto migliore misurato ($10.1\times$ su uniforme, e su skew M3 batte tutto). Distribuire \emph{peggiora} il rapporto costo/beneficio perché aggiunge la collettiva che non scala. Userei M4 \emph{solo} se l'input non entrasse in un nodo, e in forma \emph{ibrida} per minimizzare il fan-out. Su input \emph{skewed} resterei in shared-memory comunque, perché solo lì \texttt{dynamic} può ribilanciare il volume delle partizioni calde -- in distribuito quel volume è pinnato ai rank.
+
+\D{Domanda secca di teoria: cos'è il false sharing, come si manifesta nel tuo codice e come l'hai eliminato?}
+\R Due thread scrivono variabili \emph{logicamente indipendenti} che però cadono nella stessa cache line da 64~B; per il protocollo di coerenza (MESI) ogni scrittura di un thread invalida la linea nella cache dell'altro, che deve ricaricarla -- ping-pong della linea, anche se non c'è vera condivisione di dato. Nel mio codice il rischio è sugli \emph{accumulatori di risultato per-thread} (\texttt{join\_count}, checksum). L'ho eliminato con \texttt{alignas(64)} su \texttt{PaddedResult} (in M3 con \texttt{static\_assert(sizeof==64)}), così ogni slot sta su una cache line distinta, e accumulando in una variabile locale sullo stack scritta \emph{una volta} a fine fase.
+
+\D{Perché hai scelto una hash table open-addressing custom (\texttt{FlatCountMap}) e non \texttt{std::unordered\_map}?}
+\R \texttt{std::unordered\_map} è una lista concatenata di nodi allocati sull'heap: ogni inserimento è una \texttt{malloc}, ogni lookup è pointer-chasing con cache miss garantiti. \texttt{FlatCountMap} è un singolo \texttt{vector} contiguo con linear probing: niente allocazioni per elemento, accesso a cache line prevedibile (slot da 16~B $\Rightarrow$ 4 per linea). Capacità a potenza di due $\ge 2|R_p|$ tiene il load factor $<50\%$, quindi la lunghezza di probe attesa è una piccola costante. Su una join hash-heavy con milioni di lookup, la differenza tra cache-resident contiguo e pointer-chasing su heap è enorme. Inoltre l'hash di slot è \emph{identity} (\texttt{key \& mask}): le chiavi sono già uniformi, e riusare la hash di Fibonacci creerebbe correlazione tra partizionamento e slot.
+
+\D{I checksum sono ordine-indipendenti. Perché è essenziale, e come lo garantisci?}
+\R Perché in parallelo (thread o task) le partizioni/match vengono processati in ordine non deterministico: se il checksum dipendesse dall'ordine, il parallelo darebbe un valore diverso dal sequenziale a ogni run e non potrei validare la correttezza. Lo garantisco usando \emph{somme} modulo $2^{64}$ di contributi \texttt{splitmix64(key)*m}: l'addizione è commutativa e associativa, quindi il totale è invariante rispetto all'ordine di completamento. Due moltiplicatori indipendenti (checksum1/checksum2) rendono trascurabile la probabilità di falso positivo. È ciò che permette il confronto seq$\equiv$par e loop$\equiv$task su input grandi.
+
+% =============================================================
+\section{Domande ``killer'' e trappole}
+% =============================================================
+
+\D{In una frase: qual è il vero collo di bottiglia dell'intero progetto?}
+\R In shared-memory la \textbf{banda DRAM condivisa} (il join fa probe casuali che 32 thread non possono assorbire perché la banda non si replica coi core); in distribuito il \textbf{fan-out della collettiva \texttt{MPI\_Alltoallv}} (costo $\propto$ numero di rank). Tutto il resto (sync, false sharing, NUMA) è secondario rispetto a questi due.
+
+\D{Qual è l'errore più facile da fare descrivendo M4, che ti smaschererebbe?}
+\R Dire che la pipeline ha \textbf{7 fasi}: il codice ne ha \textbf{8} cronometrate, perché \texttt{histogram\_post} e \texttt{scatter\_post} sono separate (la prosa di README/GUIDE le accorpa, il codice no). Altro errore: dire ``ho compilato con \texttt{-march=native}'' -- sui nodi di calcolo Ivy Bridge farebbe SIGILL; la risposta giusta è \texttt{-march=ivybridge}.
+
+\Trap Il prof potrebbe dire: ``il tuo scatter è lock-free, quindi non c'è sincronizzazione''. Risposta: lock-free sulle \emph{scritture} (regioni disgiunte pre-calcolate), ma c'è comunque una \textbf{barriera} tra fasi -- senza, gli offset non sarebbero pronti. Lock-free $\ne$ sync-free.
+
+\Trap ``Se aumenti i thread l'efficienza scende, quindi il tuo codice scala male.'' Risposta: l'efficienza scende perché il \emph{problema} è memory-bound e la banda è condivisa, non per un difetto del codice -- lo dimostra che a $P=512$ (meno pressione di banda) l'efficienza migliora a parità di codice. L'efficienza che cala è fisiologica per un kernel memory-bound, non una bocciatura dell'implementazione.
+
+\D{Se ti chiedo di eseguire una cosa qualsiasi sul cluster e non ricordi i flag, cosa fai?}
+\R Non invento. Uso \texttt{./hashjoin\_omp --help} (o leggo \texttt{usage} nel sorgente), \texttt{sinfo} per le partizioni disponibili, \texttt{lscpu}/\texttt{numactl --hardware} per la topologia, e parto da un'allocazione minima con \texttt{salloc} per testare un comando piccolo prima di scalarlo. Meglio una verifica in più che un flag inventato che fa fallire la demo davanti al prof.
+
+\begin{center}\itshape In bocca al lupo. Ricorda: distingui sempre misurato da inferito, riconduci ogni ``perché non scala'' a banda (shared) o fan-out (distribuito), e presenta le ottimizzazioni mancanti come trade-off quantificati, non come sviste.\end{center}
+
+\end{document}

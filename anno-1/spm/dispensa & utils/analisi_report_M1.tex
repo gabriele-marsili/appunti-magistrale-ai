@@ -1,0 +1,250 @@
+% =============================================================
+% ANALISI REPORT MODULO -- preambolo condiviso (v3, walkthrough)
+% =============================================================
+\documentclass[11pt,a4paper]{article}
+\usepackage{fontspec}
+\usepackage[english]{babel}
+\setmainfont{Latin Modern Roman}
+\setmonofont{Latin Modern Mono}
+\usepackage{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{float}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{microtype}
+\usepackage{parskip}
+\usepackage{tcolorbox}
+\tcbuselibrary{breakable}
+
+\geometry{top=2.3cm, bottom=2.3cm, left=2.3cm, right=2.3cm}
+\setlength{\headheight}{14pt}
+\setlength{\emergencystretch}{3em}
+
+\definecolor{codeblue}{rgb}{0.0,0.3,0.7}
+\definecolor{codegreen}{rgb}{0,0.5,0}
+\definecolor{backcolour}{rgb}{0.97,0.97,0.97}
+\definecolor{cmdback}{rgb}{0.95,0.97,1.0}
+
+\lstdefinestyle{cpp}{ backgroundcolor=\color{backcolour}, commentstyle=\color{codegreen}\itshape,
+  keywordstyle=\color{codeblue}\bfseries, basicstyle=\ttfamily\footnotesize, breaklines=true,
+  keepspaces=true, showstringspaces=false, tabsize=2, language=C++,
+  morekeywords={omp,pragma,parallel,task,schedule,reduction,uint64_t,uint32_t,size_t,alignas,
+    MPI_Alltoallv,MPI_Allreduce,constexpr,noexcept,__restrict__,__builtin_prefetch}}
+\lstdefinestyle{bash}{ backgroundcolor=\color{cmdback}, basicstyle=\ttfamily\footnotesize,
+  commentstyle=\color{codegreen}\itshape, breaklines=true, keepspaces=true, showstringspaces=false,
+  tabsize=2, language=bash, frame=single, framesep=4pt, rulecolor=\color{codeblue},
+  morekeywords={srun,salloc,sbatch,mpirun,mpicxx,make,g++,nvcc,export,numactl,perf,likwid}}
+\lstset{style=cpp}
+
+\pagestyle{fancy}\fancyhf{}
+\rhead{\leftmark}\lhead{Analisi Report -- SPM}\cfoot{\thepage}
+\renewcommand{\sectionmark}[1]{\markboth{#1}{}}
+
+\newtcolorbox{motiv}{breakable, colback=yellow!7!white, colframe=orange!80!black,
+  fonttitle=\small\bfseries, title={Motivazione della scelta}, before skip=6pt, after skip=6pt}
+\newtcolorbox{deriv}{breakable, colback=blue!4!white, colframe=codeblue,
+  fonttitle=\small\bfseries, title={Da dove viene il numero (derivazione)}, before skip=6pt, after skip=6pt}
+\newtcolorbox{espbox}{breakable, colback=purple!4!white, colframe=purple!60!black,
+  fonttitle=\small\bfseries, title={Esperimento di supporto}, before skip=6pt, after skip=6pt}
+\newtcolorbox{theorybox}{breakable, colback=green!5!white, colframe=green!50!black,
+  fonttitle=\small\bfseries, title={Collegamento alla teoria}, before skip=6pt, after skip=6pt}
+\newtcolorbox{difesa}{breakable, colback=red!4!white, colframe=red!55!black,
+  fonttitle=\small\bfseries, title={Come difenderlo all'orale}, before skip=6pt, after skip=6pt}
+\newtcolorbox{misura}{breakable, colback=teal!6!white, colframe=teal!70!black,
+  fonttitle=\small\bfseries, title={Risultato misurato (sandbox locale, non cluster)}, before skip=6pt, after skip=6pt}
+
+\newcommand{\espitem}[5]{\item \textbf{#1}\\ \emph{Come:} #2\\ \emph{Misura:} #3\\ \emph{Atteso:} #4\\ \emph{Dimostra:} #5}
+
+\hypersetup{colorlinks=true, linkcolor=codeblue, urlcolor=codeblue}
+
+\newcommand{\doctitle}[2]{%
+  \begin{titlepage}\centering\vspace*{2cm}
+  {\LARGE\bfseries Analisi del Report -- #1\\[0.6em]}
+  {\large\itshape #2}\\[1.5em]
+  {\large Partitioned Hash Join with Duplicates}\\[0.4em]
+  {\large SPM -- Università di Pisa -- Prof. M. Torquati -- A.A. 2025-2026}\\[2em]
+  \hrule\vspace{1em}
+  \begin{flushleft}\small \textbf{Walkthrough completo del report}, sezione per sezione dall'inizio alla fine, con la motivazione di ogni scelta, la derivazione di ogni numero, la lettura di ogni grafico/tabella, il confronto con baseline/modulo precedente, i \emph{risultati misurati} dove eseguibili senza cluster, e una sezione finale di ulteriori esperimenti. La struttura segue l'ordine del report originale, così puoi presentarlo scorrendo il PDF mentre mostri il documento al prof.\end{flushleft}
+  \end{titlepage}
+  \tableofcontents\newpage}
+
+\begin{document}
+\doctitle{Modulo 1 -- SIMD}{Walkthrough completo del report, sezione per sezione}
+
+\section*{Come usare questo documento}
+\addcontentsline{toc}{section}{Come usare questo documento}
+Segue l'ordine del report (Design Choices $\to$ Auto-vectorization $\to$ AVX2 Intrinsics $\to$ Performance Analysis $\to$ CUDA $\to$ Conclusions). Per ogni sezione: cosa dice il report, perché, da dove vengono i numeri, come difenderlo. I box \emph{Risultato misurato} contengono esperimenti che ho eseguito davvero (su una macchina sandbox, non sul cluster: i valori assoluti non sono quelli di node09, ma le \emph{conclusioni qualitative} -- es. bilanciamento della hash -- sono valide ovunque).
+
+% =============================================================
+\section{Design Choices (sezione 1 del report)}
+% =============================================================
+
+Il report apre dichiarando il compito: dati $N$ chiavi \texttt{uint64\_t} e $P$ partizioni (potenza di due), calcolare $\text{part\_id}[i]=h(\text{keys}[i])\in[0,P)$ per ogni chiave. È la sola \emph{partition mapping kernel}, isolata dal join.
+
+\begin{motiv}
+\textbf{Perché isolare il kernel.} Il join completo mescola fasi memory-bound (scatter) e compute-bound (probe in cache): misurando il solo map si ottiene un punto pulito sul roofline e si attribuisce ogni effetto SIMD senza confondersi con le altre fasi. È metodologia, da dichiarare.
+\end{motiv}
+
+\subsection{Mapping Function}
+
+Il report sceglie una Fibonacci multiply-shift hash su 32 bit:
+\[ h(k)=\bigl((k_\text{lo}\oplus k_\text{hi})\cdot A_{32}\bigr)\gg(32-\log_2 P),\quad A_{32}=\texttt{0x9E3779B9}=\lfloor 2^{32}/\varphi\rfloor. \]
+Il report cita Knuth (hashing by multiplication) e Ferragina (multiply-add-shift universal hashing, qui con $b=0$), e afferma che la costante aurea ha buone proprietà di dispersione dei bit.
+
+\begin{deriv}
+\textbf{$A_{32}$.} $\varphi=(1+\sqrt5)/2\approx1.6180339887$; $2^{32}/\varphi\approx2\,654\,435\,769.5\Rightarrow\lfloor\cdot\rfloor=\texttt{0x9E3779B9}$. È la stessa costante (a 64 bit) di \texttt{splitmix64}.
+\end{deriv}
+
+\begin{motiv}
+Tre ragioni, ognuna una possibile domanda: (1) \emph{dispersione} -- moltiplicare e prendere i bit \emph{alti} fa dipendere l'output da tutti i bit dell'input; (2) \emph{vettorizzabilità a 32 bit} -- \texttt{vpmulld} fa 8 mul \texttt{uint32} in una istruzione, mentre una mul a 64 bit andrebbe emulata con $\sim$3 \texttt{vpmuludq}+shift+add, rendendo l'AVX2 a 64 bit più lento dello scalare; (3) \emph{modulo gratuito} -- con $P$ pot.\ di due, $h\bmod P$ è un right-shift. Lo XOR-fold mescola i 32 bit alti nei bassi prima della mul.
+\end{motiv}
+
+Il report afferma che su $10^8$ chiavi con $P=256$ la distribuzione misurata dà $\max/\text{atteso}=1.005$.
+
+\begin{misura}
+Ho riprodotto la verifica del bilanciamento con la \emph{stessa} hash e lo \emph{stesso} generatore \texttt{splitmix64}, $N=10^8$, $P=256$:
+\begin{center}\small
+\begin{tabular}{@{}lcc@{}}\toprule
+chiavi & Fibonacci ($\max/\text{atteso}$, Gini) & $k\bmod P$ ($\max/\text{atteso}$, Gini) \\\midrule
+uniformi & \textbf{1.0035}, \;0.0009 & 1.0050, \;0.0009 \\
+strutturate (16 bit bassi a 0) & \textbf{1.0046}, \;0.0009 & \textbf{256.0}, \;0.996 \\\bottomrule
+\end{tabular}
+\end{center}
+Su chiavi uniformi entrambe vanno bene (riproduco il $\approx1.005$ del report). Su chiavi \emph{strutturate} Fibonacci resta bilanciata, mentre $k\bmod P$ collassa: tutte le $10^8$ chiavi in una sola partizione (Gini $\approx1$). \textbf{Questo è il motivo per cui si è scelta Fibonacci e non il reference $k\bmod P$}, ed è un risultato indipendente dall'hardware -- vale identico sul cluster.
+\end{misura}
+
+\subsection{Data Layout and P}
+
+Il report mette chiavi e \texttt{part\_id} in array separati contigui, stride unitario, allineati a 32~B (\texttt{posix\_memalign}); $P$ potenza di due.
+
+\begin{motiv}
+SoA + stride unitario $\Rightarrow$ ogni cache line caricata contiene solo byte utili e gli accessi sono contigui: condizione per load/store vettoriali allineate (\texttt{vmovdqa}). In un kernel bandwidth-bound non sprecare byte di linea = non sprecare banda. L'allineamento a 32~B evita le penalità di split-line sulle load AVX2; $P$ pot.\ di due rende il modulo uno shift.
+\end{motiv}
+
+% =============================================================
+\section{Auto-vectorization (sezione 2 del report)}
+% =============================================================
+
+Il report compila lo \emph{stesso} sorgente in due binari: baseline (\texttt{-fno-tree-vectorize}) e autovec (\texttt{-O3 -march=native -mavx2 -ftree-vectorize}), con \texttt{-fopt-info-vec-*} per la diagnostica. Riporta che GCC 12.2 vettorizza il loop emettendo due versioni -- una a 32~B (\texttt{ymm}, 8$\times$uint32) e una a 16~B (\texttt{xmm}, fallback SSE) -- e sceglie a runtime; vettorizza anche i loop di checksum e generazione. Il report \texttt{vec-missed} è \emph{vuoto}.
+
+\begin{difesa}
+``Perché GCC vettorizza?'' Condizioni soddisfatte: trip count noto, nessuna dipendenza loop-carried, nessuna chiamata nel corpo, \texttt{\_\_restrict\_\_} (no aliasing), stride unitario, mul a 32 bit nativa. \texttt{vec-missed} vuoto $\Rightarrow$ nessun loop tentato e fallito: il codice è scritto apposta per essere vettorizzabile.
+\end{difesa}
+
+% =============================================================
+\section{AVX2 Intrinsics (sezione 3 del report)}
+% =============================================================
+
+Il report descrive la kernel a mano che processa 8 chiavi/iterazione: due load \texttt{ymm} (4+4 chiavi), XOR-fold per lane, poi l'impacchettamento degli 8 valori a 32 bit con \texttt{permutevar8x32} (indici \texttt{[0,2,4,6,1,3,5,7]}) e \texttt{permute2x128} (selettore \texttt{0x20}), un \texttt{vpmulld}, un right-shift, una store a 256 bit; coda scalare per gli $N\bmod 8$. Verifica per checksum FNV-1a contro un riferimento scalare interno.
+
+\begin{difesa}
+\textbf{Perché le permute.} Dopo lo XOR-fold il valore utile è nei 32 bit bassi di ogni lane da 64; AVX2 non ha un narrowing 4$\times$64$\to$4$\times$32 economico, quindi \texttt{vpermd} porta i dword utili nella metà bassa e \texttt{vperm2i128} cuce le due metà in un \texttt{ymm} di 8 valori, pronti per \texttt{vpmulld}. La coda scalare usa la stessa \texttt{hash\_key} $\Rightarrow$ output identico bit a bit, ed è ciò che il checksum FNV-1a (ordine-sensibile) verifica.
+\end{difesa}
+
+% =============================================================
+\section{Performance Analysis (sezione 4 del report)}
+% =============================================================
+
+Setup: node09 (AMD EPYC 7301, Zen 1, DDR4-2666), allocazione SLURM esclusiva, 11 ripetizioni, mediana.
+
+\subsection{Results}
+
+\begin{table}[H]\centering\small
+\begin{tabular}{@{}rccc@{}}\toprule
+$N$ & Baseline (Mkeys/s) & Autovec ($S$) & AVX2 ($S$) \\\midrule
+$10^6$ & 929 & $1.48\times$ & $1.37\times$ \\
+$10^7$ & 915 & $1.39\times$ & $1.28\times$ \\
+$5{\times}10^7$ & 908 & $1.45\times$ & $1.29\times$ \\
+$10^8$ & 918 & $1.43\times$ & $1.31\times$ \\
+$2{\times}10^8$ & 908 & $1.46\times$ & $1.27\times$ \\\bottomrule
+\end{tabular}\caption{$P=256$. Throughput baseline $\sim$915 Mkeys/s, autovec $\sim$1.43$\times$, AVX2 $\sim$1.30$\times$.}
+\end{table}
+
+\subsection{Why the Speedup is Limited (il cuore del report)}
+
+Il report calcola $I=4/12\approx0.33$ ops/byte e colloca il kernel sulla rampa di banda del roofline; afferma che l'autovec raggiunge 15.7~GB/s, il 96\% del tetto single-core misurato ($\sim$16.4~GB/s).
+
+\begin{deriv}
+\textbf{Da throughput a banda.} 12 B/chiave (8 read + 4 write). Autovec: $1310\,\tfrac{\text{Mkeys}}{\text{s}}\times12\,\text{B}=15.7$~GB/s $\Rightarrow15.7/16.4\approx96\%$. Baseline $\approx11.0$~GB/s, AVX2 $\approx14.4$~GB/s. \textbf{Intensità}: $I=4/12\approx0.33$, sotto il ginocchio ($5$--$10$) $\Rightarrow$ memory-bound. Il SIMD accelera il compute, non la banda; lo speedup misura solo una migliore saturazione.
+\end{deriv}
+
+\subsection{Autovec vs AVX2 Intrinsics}
+
+Il report osserva (controintuitivo) che l'autovec batte l'AVX2 a mano (15.7 vs 14.4~GB/s).
+
+\begin{difesa}
+In regime memory-bound conta quanto bene riempi le richieste in volo (scheduling, unrolling, registri): GCC autovettorizzando ha libertà che le intrinsics rigide non danno. Prova: CoV 0.4\% (autovec) vs 3.5\% (AVX2). Le intrinsics convengono se compute-bound; qui no.
+\end{difesa}
+
+\subsection{Parameter Sweeps}
+
+Il report mostra tre sweep: \textbf{N} (speedup piatto $\Rightarrow$ memory-bound a ogni taglia), \textbf{P} (throughput indipendente da $P\in[2,1024]$, cambia solo lo shift), \textbf{key-space} (throughput invariante alla densità di duplicati).
+
+\begin{deriv}
+\textbf{Cos'è la ``densità'' (key\_space).} \texttt{key\_space} = ampiezza dell'universo chiavi; piccolo $\Rightarrow$ molti duplicati. La kernel è branchless, costo costante per chiave $\Rightarrow$ né traffico né calcolo cambiano: throughput invariante. \emph{Qui} la densità non conta (giusto); conterà nel \emph{join} dove decide quante coppie produci.
+\end{deriv}
+
+\subsection{Measurement Stability}
+
+Il report: tutti i 55 punti con CoV $<5\%$; autovec il più stabile (CoV medio 0.4\%), AVX2 più variabile (3.5\%) -- coerente con il fatto che lo scheduling di GCC produce accessi più deterministici. È la base statistica che legittima il confronto.
+
+% =============================================================
+\section{CUDA (sezione 5 del report)}
+% =============================================================
+
+\begin{table}[H]\centering\small
+\begin{tabular}{@{}lrrr@{}}\toprule
+Fase & Tempo (ms) & Banda (GB/s) & \% \\\midrule
+H$\to$D & 63.2 & 12.7 & 65\% \\ Kernel & 1.5 & 808 & 2\% \\ D$\to$H & 32.3 & 12.4 & 33\% \\\midrule
+End-to-end & 97.0 & --- & 100\% \\\bottomrule
+\end{tabular}\caption{$N=10^8$, A30, host pinned, 256 thread/blocco.}
+\end{table}
+
+\begin{deriv}
+\textbf{808 GB/s.} $12\text{B}\times10^8=1.2$~GB / 1.5~ms $=800$~GB/s $=81\%$ del picco HBM2 (993). PCIe $=95.5$~ms su 97 $=98\%$. End-to-end $10^8/97\text{ms}=1031$ Mkeys/s vs 918 baseline $\Rightarrow1.12\times$. La GPU non conviene: comp/comm ratio pessimo; rende solo con dati già on-device o pipeline successive su GPU.
+\end{deriv}
+
+% =============================================================
+\section{Conclusions (sezione 6 del report)}
+% =============================================================
+
+Il report chiude: kernel da manuale memory-bound; autovec al 96\% del tetto, niente margine single-thread; la scelta della hash a 32 bit (\texttt{vpmulld}) sopra una a 64 bit è stata critica -- con 64 bit l'AVX2 sarebbe stato più lento dello scalare.
+
+\begin{difesa}
+\textbf{Riassunto in 4 frasi.} (1) Memory-bound: $I=0.33$, autovec al 96\% del tetto (lo derivo dai Mkeys/s). (2) 32 bit per \texttt{vpmulld}; a 64 bit l'AVX2 sarebbe più lento dello scalare. (3) L'autovec batte le intrinsics perché in regime di banda conta lo scheduling del compilatore. (4) GPU inutile: PCIe = 98\% del tempo.
+\end{difesa}
+
+% =============================================================
+\section{Ulteriori esperimenti da fare}
+% =============================================================
+
+\begin{espbox}
+\begin{enumerate}[leftmargin=1.3em]
+\espitem{[FATTO, vedi sopra] Bilanciamento Fibonacci vs $k\bmod P$}
+  {istogramma occupazione su chiavi uniformi e strutturate}{max/atteso, Gini}
+  {Fibonacci $\approx$1.00 sempre; $k\bmod P$ collassa su chiavi strutturate}
+  {il perche' del cambio di mapping -- gia' eseguito, risultati nel box teal.}
+\espitem{Counterfactual hash 64 bit}{ricompila l'AVX2 con mul \texttt{64$\times$64} emulata}{Mkeys/s e GB/s vs scalare}
+  {AVX2 64-bit $\le$ scalare}{perche' si e' scelto 32 bit (richiede il cluster per i tempi).}
+\espitem{Ancorare il tetto di banda}{\texttt{likwid-bench -t copy} o STREAM single-core su node09}{GB/s di picco}
+  {$\approx$16.4 GB/s}{giustifica il ``96\% del tetto''.}
+\espitem{Non-temporal stores}{\texttt{\_mm256\_stream\_si256} sull'output}{GB/s}{guadagno $\lesssim$25\% sulle scritture}
+  {che anche l'ottimizzazione giusta e' limitata dal regime memory-bound.}
+\espitem{Multi-thread del map}{OpenMP su 1--16 core di un socket}{GB/s aggregati vs core}{plateau a banda satura}
+  {il tetto di banda dell'intero socket.}
+\espitem{Contatori HW}{\texttt{perf stat -e cache-misses,LLC-load-misses}}{miss rate, traffico LLC}{dominato dal DRAM}
+  {empiricamente il memory-bound.}
+\end{enumerate}
+\end{espbox}
+
+\begin{theorybox}
+Roofline e intensità operazionale; SIMD auto-vec vs intrinsics, allineamento, coda scalare (L6--L7); SIMT/coalescing e comp/comm ratio (L8); SoA vs AoS; STREAM come tetto.
+\end{theorybox}
+
+\end{document}

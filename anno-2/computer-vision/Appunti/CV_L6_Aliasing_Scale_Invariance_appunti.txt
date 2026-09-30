@@ -1,0 +1,1109 @@
+========================================================================
+COMPUTER VISION - LEZIONE 6
+"Aliasing and Scale-invariance"
+Antonio Carta - Universita di Pisa - 2026-09-24
+Appunti divisi per slide (64 slide) - pronti per copia-incolla su OneNote
+========================================================================
+
+Nota sull'uso: ogni blocco corrisponde a una pagina del PDF L6.pdf
+(SLIDE N = pagina N del PDF; tra parentesi il numero "x / 63" stampato
+in basso a destra sulla slide, che e sfasato di uno perche la copertina
+non e numerata). Le slide divisorie di sezione non hanno numero stampato.
+
+Convenzioni:
+  *        = convoluzione
+  x        = moltiplicazione
+  fs       = frequenza di campionamento, Ts = 1/fs periodo di campionamento
+  f0       = frequenza del segnale
+  sigma    = deviazione standard della gaussiana
+  g_k      = livello k della piramide gaussiana
+  l_k      = livello k della piramide laplaciana
+  b_n      = filtro binomiale di ordine n (n+1 coefficienti)
+  [DA VERIFICARE] = punto in cui la slide contiene un errore o una
+                    semplificazione discutibile (spiegato nel blocco)
+
+In fondo al file:
+  A. Guida allo studio (ordine, cosa sapere, domande tipo esame)
+  B. Guida al notebook 06-image-blending (con due bug da conoscere)
+
+
+========================================================================
+SLIDE 1 - Copertina
+========================================================================
+Aliasing and Scale-invariance. Antonio Carta, Universita di Pisa,
+2026-09-24.
+Sesta lezione: si usano gli strumenti di Fourier (L3) e i filtri gaussiani
+(L5) per rispondere a due domande pratiche: come si ridimensiona
+un'immagine senza rovinarla, e come si analizza un'immagine a piu scale.
+
+
+========================================================================
+SLIDE 2 - Recap and Roadmap  (1/63)
+========================================================================
+Contenuto:
+- In L5 molti filtri (gaussiana, derivate di gaussiana) dipendono da un
+  parametro di scala sigma.
+- Scale-space: famiglia continua e ben fondata di rappresentazioni
+  indicizzate dalla scala.
+- Piramidi di immagini: rappresentazioni multiscala discrete e
+  sottocampionate (efficienti).
+- Applicazioni: ricerca coarse-to-fine, template matching, image blending.
+- Le rappresentazioni multiscala sono ovunque in visione, da SIFT alle
+  reti profonde.
+
+Filo logico della lezione: per costruire piramidi bisogna sottocampionare;
+sottocampionare male produce aliasing; quindi prima si studia l'aliasing,
+poi si costruiscono le piramidi nel modo giusto.
+
+
+========================================================================
+SLIDE 3 - Sezione: Aliasing
+========================================================================
+Slide divisoria. Prima parte: cosa si perde (e cosa si inventa) quando
+si passa da un segnale continuo a campioni discreti.
+
+
+========================================================================
+SLIDE 4 - From Continuous to Discrete  (3/63)
+========================================================================
+Contenuto:
+- Le immagini sono segnali nel dominio continuo, ma noi lavoriamo con
+  misure discrete.
+- Le misure discrete hanno una risoluzione in frequenza limitata.
+- Bisogna sapere quale informazione si e persa.
+- Nella maggior parte delle pipeline di CV si sottocampionano
+  continuamente le immagini (resize, pooling, stride), quindi i limiti del
+  campionamento vanno capiti.
+Domande guida:
+- Data una frequenza di campionamento (misure al secondo o al metro), qual
+  e la frequenza massima del segnale che si puo rappresentare senza errori?
+- Cosa succede quando si fa upsampling o downsampling?
+
+Risposta anticipata: la frequenza massima e fs/2 (Nyquist, slide 11).
+
+
+========================================================================
+SLIDE 5 - Sampling Tradeoff  (4/63)
+========================================================================
+Desiderata in conflitto:
+- massimizzare l'informazione -> servono molti campioni;
+- minimizzare costo di calcolo e memoria -> di solito almeno lineari nel
+  numero di pixel.
+La frequenza di campionamento regola questo compromesso.
+- Si puo fare downsampling per ridurre il costo.
+- Non si puo fare upsampling per recuperare informazione persa.
+- Punto chiave: la bassa risoluzione non si limita a perdere informazione,
+  puo anche AGGIUNGERE artefatti (strutture false). Questo e l'aliasing.
+
+
+========================================================================
+SLIDE 6 - Moire Pattern  (5/63)  (figura)
+========================================================================
+Figura 1: a sinistra un'immagine ad alta risoluzione con righe diagonali
+sottili; a destra la sua versione sottocampionata, dove compaiono bande e
+pattern a scacchiera che nell'originale non esistono.
+
+Punto: le righe dell'originale hanno frequenza piu alta di quella che la
+griglia sottocampionata puo rappresentare, e "ricompaiono" come pattern a
+bassa frequenza con orientazione diversa (effetto moire).
+
+
+========================================================================
+SLIDE 7 - Aliasing Example  (6/63)  (figura)
+========================================================================
+Figura 2: sinusoide con f0 = 0.9 fs campionata a fs = 1. I campioni
+(punti rossi, uno per unita di tempo) cadono esattamente su una sinusoide
+lenta con f = 0.1 fs (tratteggio arancione).
+
+Conto da saper fare: alias = |f0 - k fs| con k intero che porta il
+risultato in [0, fs/2]. Qui |0.9 - 1| = 0.1.
+Verifica: cos(2 pi 0.9 n) = cos(2 pi n - 2 pi 0.1 n) = cos(2 pi 0.1 n)
+per n intero. Sui campioni le due sinusoidi sono identiche.
+
+
+========================================================================
+SLIDE 8 - Sampling a Sinusoid  (7/63)
+========================================================================
+Sia f(x) = cos(2 pi f0 x) campionata a fs:
+- se fs > 2 f0: i campioni identificano la sinusoide in modo univoco;
+- se fs < 2 f0: i campioni sono indistinguibili da una sinusoide a
+  frequenza piu bassa |f0 - k fs| per qualche intero k.
+  -> aliasing: contenuto ad alta frequenza misurato erroneamente come
+     bassa frequenza a causa di un fs troppo piccolo.
+Prior "slow-and-smooth": implicitamente si assume che la frequenza giusta
+sia la piu lenta compatibile con i campioni.
+- e come funzionano gli strumenti matematici (la ricostruzione sceglie la
+  soluzione in banda [-fs/2, fs/2]);
+- e coerente con il bias percettivo umano.
+
+Nota: il caso limite fs = 2 f0 e ambiguo (i campioni possono cadere tutti
+sugli zeri del coseno), per questo la condizione e una disuguaglianza
+stretta.
+
+
+========================================================================
+SLIDE 9 - Aliasing: Definition  (8/63)
+========================================================================
+- Aliasing = contenuto ad alta frequenza che si "traveste" da bassa
+  frequenza dopo il campionamento, a causa della sovrapposizione delle
+  repliche spettrali.
+- Si verifica quando fs < 2 x (frequenza massima presente nel segnale).
+- Una volta avvenuto, l'informazione ad alta frequenza non e
+  recuperabile: non e semplicemente persa, e mescolata alle basse
+  frequenze e non si puo piu separare.
+
+Perche "repliche spettrali": campionare = moltiplicare per un treno di
+impulsi di passo Ts. Nel dominio di Fourier questo diventa convoluzione
+con un treno di impulsi di passo fs, cioe lo spettro viene copiato ogni
+fs. Se lo spettro e piu largo di fs/2 da ciascun lato, le copie si
+sovrappongono e si sommano.
+
+
+========================================================================
+SLIDE 10 - Sezione: Sampling Theorem
+========================================================================
+Slide divisoria. Il teorema che dice quando il campionamento e innocuo.
+
+
+========================================================================
+SLIDE 11 - The Sampling Theorem (Nyquist-Shannon)  (10/63)
+========================================================================
+Teorema del campionamento:
+- sia l(t) un segnale a banda limitata con frequenza massima w_max;
+- sia ws = 2 pi / Ts la frequenza di campionamento (Ts = periodo);
+- allora l(t) si ricostruisce perfettamente se ws > 2 w_max
+  (condizione di Nyquist).
+In parole: la frequenza di campionamento deve essere piu del doppio
+della frequenza massima del segnale.
+- Frequenza di Nyquist: fs/2, la massima frequenza ricostruita
+  correttamente dato fs.
+
+Figura 3: spettro L(w) a banda limitata, nullo fuori da [-w_max, w_max].
+
+Note:
+- La slide mescola w (pulsazione, rad/s) e f (Hz): w = 2 pi f. La
+  condizione e la stessa in entrambe le unita.
+- "Ricostruzione perfetta" richiede il filtro passa-basso ideale
+  (interpolazione con sinc), che in pratica non si usa: vedi slide 26.
+- Per le immagini (1 campione per pixel) la frequenza di Nyquist e
+  0.5 cicli/pixel: un periodo non puo essere piu corto di 2 pixel.
+
+
+========================================================================
+SLIDE 12 - Aliasing and sampling theorem  (11/63)
+========================================================================
+- L'aliasing e una conseguenza del teorema del campionamento.
+- Quando la condizione di Nyquist non e soddisfatta non si perde solo
+  informazione: si ottiene aliasing.
+Figura 4: stessa coppia della slide 6 (originale e sottocampionata).
+
+
+========================================================================
+SLIDE 13 - Classic Examples  (12/63)
+========================================================================
+- Spaziale, pattern moire: griglie/texture fini sovrapposte (vestiti a
+  righe in foto, schermo fotografato da un altro schermo).
+- Temporale, effetto wagon-wheel: ruota o ventilatore che sembra girare
+  a una frequenza diversa (piu bassa, anche all'indietro) di quella reale,
+  perche il frame rate campiona la rotazione troppo lentamente.
+  Esempi: https://en.wikipedia.org/wiki/Wagon-wheel_effect
+
+Collegamento: il wagon-wheel e esattamente la slide 7 nel tempo; una
+ruota che fa quasi un giro per frame sembra muoversi di poco, e se ne fa
+poco piu di mezzo sembra girare al contrario.
+
+
+========================================================================
+SLIDE 14 - Aliasing in Images: Visual Artifacts  (13/63)
+========================================================================
+- Jaggies (bordi a scaletta): i bordi diagonali netti hanno contenuto
+  ad alta frequenza che finisce in pattern a scalini a bassa frequenza.
+- Texture aliasing: texture fini ripetute (mattoni, tessuti) producono
+  falsi pattern a bassa frequenza se sottocampionate senza filtrare.
+- Il resize ingenuo (nearest-neighbor downsampling) e il caso da manuale.
+
+
+========================================================================
+SLIDE 15 - Quantization vs. Sampling  (14/63)
+========================================================================
+- Campionamento: discretizzazione nello spazio/tempo (dove misuro).
+- Quantizzazione: discretizzazione in ampiezza, es. pixel a 8 bit
+  (con quale precisione rappresento ogni misura).
+- Sono indipendenti.
+- L'aliasing nasce dal campionamento, non dalla quantizzazione.
+  La quantizzazione produce altri artefatti (banding, rumore di
+  quantizzazione).
+
+
+========================================================================
+SLIDE 16 - Aliasing in CNNs  (15/63)
+========================================================================
+- Convoluzioni con stride e max/average pooling sono operazioni di
+  downsampling.
+- Il downsampling puo introdurre artefatti nelle rappresentazioni latenti.
+- Conseguenza: piccoli spostamenti dell'input possono cambiare molto le
+  feature map (perdita di shift-invariance/equivarianza).
+
+Approfondimento (non nelle slide, utile all'orale): e il motivo per cui
+una CNN puo cambiare predizione spostando l'immagine di 1 pixel. La
+soluzione standard e la stessa della slide 24: sfocare prima di
+sottocampionare ("anti-aliased CNN", BlurPool, Zhang 2019). Nota che
+average pooling e gia un (debole) filtro passa-basso, max pooling no.
+
+
+========================================================================
+SLIDE 17 - Aliasing Attack in CNNs  (16/63)  (figura)
+========================================================================
+Figura 5: in alto un'immagine di un uccello l_in[n,m], un pattern di
+rumore z[n,m] quasi invisibile e la loro somma l_in + 0.05 z, che a
+occhio e identica all'originale. In basso le versioni viste dopo il
+processing: la somma, una volta sottocampionata, mostra un segnale di
+STOP.
+
+Lettura: z e costruito ad alta frequenza in modo che, dopo un
+sottocampionamento senza prefiltraggio, faccia alias proprio
+nell'immagine bersaglio. L'umano vede l'uccello ad alta risoluzione, la
+rete (che lavora sull'input ridimensionato) vede lo STOP. E un attacco
+al resize, non alla rete in se: si difende prefiltrando.
+
+
+========================================================================
+SLIDE 18 - Summary  (17/63)
+========================================================================
+- La frequenza di campionamento limita la frequenza rappresentabile.
+- Se il segnale ha contenuto a frequenza piu alta, si ha aliasing.
+- L'aliasing riguarda quasi tutte le pipeline di CV, perche il resize
+  delle immagini e un'operazione comunissima.
+
+
+========================================================================
+SLIDE 19 - Sezione: Downsampling
+========================================================================
+Slide divisoria. Come si sottocampiona perdendo il meno possibile.
+
+
+========================================================================
+SLIDE 20 - Decimation  (19/63)
+========================================================================
+- Bisogna capire come sottocampionare minimizzando l'informazione persa.
+Decimazione: sottocampionare eliminando pixel
+  l_{down k}[n, m] = l[k n, k m]
+- Questo approccio ingenuo introduce aliasing.
+
+Nel dominio di Fourier (1D, per fissare le idee): decimare di k
+"allarga" lo spettro di un fattore k in frequenza normalizzata. Tutto
+cio che stava oltre pi/k (cioe oltre la nuova Nyquist) si ripiega
+dentro la banda.
+
+
+========================================================================
+SLIDE 21 - Example  (20/63)  (figura)
+========================================================================
+Figura 6: foto di un maglione a 128x128, 64x64, 32x32 ottenute per
+decimazione. A 64x64 la trama della maglia diventa un pattern a
+scacchiera regolare e falso; a 32x32 compaiono macchie di colore che non
+corrispondono a niente nell'originale.
+
+
+========================================================================
+SLIDE 22 - 2D Delta Train  (21/63)  (figura)
+========================================================================
+Figura 7: sopra, treni di impulsi 2D con passo diverso nel dominio
+spaziale (m, n); sotto, le loro DFT Delta_k[u, v].
+- Treno fitto nello spazio (passo 1) -> un solo impulso nell'origine in
+  frequenza.
+- Treno piu rado nello spazio (passo k piu grande) -> impulsi piu fitti
+  in frequenza (passo N/k).
+
+Perche serve: decimare = moltiplicare per questo treno (poi buttare gli
+zeri). Moltiplicazione nello spazio = convoluzione in frequenza, quindi
+lo spettro dell'immagine viene replicato in ogni impulso. Piu si
+sottocampiona, piu le repliche sono vicine e piu e facile che si
+sovrappongano.
+
+
+========================================================================
+SLIDE 23 - Clothing DFT  (22/63)  (figura)
+========================================================================
+Figura 8: il maglione l[n,m], poi moltiplicato per il treno di impulsi
+con k = 2 e k = 4, e sotto le rispettive DFT.
+- Originale: energia concentrata vicino all'origine ma con componenti
+  significative anche lontano (la trama fine).
+- k = 2, k = 4: compaiono repliche dello spettro; il quadrato verde e la
+  nuova banda utile [-N/2k, N/2k]. Dentro il quadrato cadono pezzi
+  delle repliche vicine: quello e l'aliasing, visto direttamente nello
+  spettro.
+
+E la slide da saper spiegare a voce: collega tutto (treno di impulsi,
+teorema di convoluzione, repliche, Nyquist).
+
+
+========================================================================
+SLIDE 24 - Anti-Aliasing Pre-Filtering  (23/63)
+========================================================================
+- Per rispettare il teorema quando l'input non e a banda limitata: filtro
+  passa-basso PRIMA di campionare.
+- Toglie le frequenze sopra la nuova Nyquist, cosi non possono
+  ripiegarsi (niente aliasing).
+- Le fotocamere hanno un filtro passa-basso ottico (anti-aliasing) davanti
+  al sensore proprio per questo.
+
+Regola pratica: per sottocampionare di k serve un passa-basso con taglio
+a circa pi/k (1/(2k) cicli/pixel). Con una gaussiana si usa di solito
+sigma proporzionale a k (valore tipico sigma circa k/2, dipende da
+quanto blur si tollera).
+Il prezzo: si perde il dettaglio fine, ma si perde in modo "onesto"
+(immagine sfocata invece di strutture false).
+
+
+========================================================================
+SLIDE 25 - Anti-Aliasing Pre-Filtering  (24/63)  (figura)
+========================================================================
+Figura 9: foto 512x512; downsample x8 senza prefiltro; blur gaussiano poi
+downsample x8.
+- Senza prefiltro: bordi seghettati, texture della tuta e della bandiera
+  rumorose e con pattern falsi.
+- Con prefiltro: immagine piu morbida ma pulita e fedele.
+
+
+========================================================================
+SLIDE 26 - Anti-Aliasing: Binomial Filter  (25/63)  (figura)
+========================================================================
+Figura 10: stessa immagine (cubo rosso) ricampionata con tre filtri:
+ideale, finestra di Hamming, binomiale.
+- Ideale (box in frequenza = sinc nello spazio): taglio perfetto, ma
+  genera ringing (aloni/oscillazioni vicino ai bordi, fenomeno di Gibbs),
+  perche la sinc ha lobi laterali lenti a decadere.
+- Hamming: sinc finestrata, ringing ridotto.
+- Binomiale: approssima una gaussiana, nessun ringing, ma taglio morbido
+  (lascia passare un po' di aliasing e attenua un po' le frequenze utili).
+
+Compromesso da ricordare: filtro ripido in frequenza = filtro lungo e
+oscillante nello spazio; filtro liscio nello spazio = taglio morbido in
+frequenza. In visione di solito si preferisce niente ringing.
+
+
+========================================================================
+SLIDE 27 - Example: Clothing  (26/63)  (figura)
+========================================================================
+Figura 11 (sopra): 128, 64, 32 per decimazione, con aliasing (come
+slide 21).
+Figura 12 (sotto): stessa sequenza con prefiltro. A 32x32 la trama non
+si vede piu, ma non compaiono pattern falsi: l'immagine resta un
+maglione sfocato.
+
+
+========================================================================
+SLIDE 28 - Demonstration: Zone Plate  (27/63)
+========================================================================
+- La zone plate (anelli concentrici con frequenza crescente) e un
+  pattern di test classico per visualizzare l'aliasing.
+- Sottocampionata senza filtro, gli anelli ad alta frequenza producono
+  pattern moire spuri a bassa frequenza.
+
+Perche e utile: contiene tutte le frequenze e tutte le orientazioni,
+ognuna in una posizione precisa. Dove la frequenza locale supera la
+Nyquist, si vede subito.
+
+
+========================================================================
+SLIDE 29 - Demonstration: Zone Plate  (28/63)  (figura)
+========================================================================
+Figura 13: zone plate 256x256; downsample x4 senza prefiltro; blur poi
+downsample x4.
+- Senza prefiltro: compaiono cerchi completi "nuovi" in posizioni dove
+  l'originale ha solo anelli fittissimi. Sono alias: frequenze alte
+  ripiegate in basse.
+- Con prefiltro: resta solo la parte centrale (basse frequenze), il
+  resto diventa grigio uniforme. Corretto: quelle frequenze non sono
+  rappresentabili alla nuova risoluzione.
+
+
+========================================================================
+SLIDE 30 - Sezione: Scale-Space
+========================================================================
+Slide divisoria. Seconda parte: come rappresentare un'immagine a tutte
+le scale.
+
+
+========================================================================
+SLIDE 31 - Scale Invariance  (30/63)  (figura)
+========================================================================
+Figura 14: stormo di uccelli in cielo, a distanze diverse dalla camera:
+lo stesso oggetto (uccello) compare con dimensioni molto diverse.
+
+Problema: un detector con un filtro di dimensione fissa trova solo
+oggetti di una certa dimensione. Serve invarianza alla scala.
+
+
+========================================================================
+SLIDE 32 - Multi-Scale Representation  (31/63)  (figura)
+========================================================================
+Figura 15: la stessa immagine a risoluzioni decrescenti (a)-(e). Un
+detector a finestra fissa (riquadri rossi) trova uccelli diversi a ogni
+livello: in (a) quelli piccoli, nei livelli ridotti quelli grandi, che
+ora "entrano" nella finestra.
+
+Idea: invece di cambiare il detector, si cambia l'immagine.
+
+
+========================================================================
+SLIDE 33 - Motivation: Subsampling for Efficiency  (32/63)
+========================================================================
+- Molti task vanno risolti a piu scale (es. volti piccoli e grandi).
+- Due modi di cercare fra le scale:
+  1. Immagine fissa, filtro di dimensione variabile (g_sigma per molti
+     sigma): e lo scale-space. Costoso: lavoro O(sigma) per pixel per
+     scala, e ogni scala e calcolata a piena risoluzione.
+  2. Filtro fisso, immagine di dimensione variabile (blur + downsample
+     ripetuti): e una piramide. Lo stesso filtro piccolo si riusa a ogni
+     livello, e ogni livello costa meno del precedente.
+- Le piramidi rinunciano a un po' di flessibilita (insieme discreto di
+  scale legate da un fattore fisso, di solito 2) in cambio di grossi
+  guadagni di velocita.
+
+
+========================================================================
+SLIDE 34 - From Multiscale Derivatives to Scale-Space  (33/63)
+========================================================================
+- Richiamo: scegliere sigma per le derivate di gaussiana = scegliere la
+  scala di analisi.
+- Rappresentazione scale-space di un'immagine:
+    L(x, y; sigma) = (g_sigma * l)(x, y),   sigma >= 0
+- L(., .; 0) = l (immagine originale); aumentando sigma si toglie
+  progressivamente il dettaglio fine.
+- Una singola immagine diventa un continuo di immagini indicizzate dalla
+  scala: le strutture compaiono/scompaiono/si fondono al crescere di
+  sigma.
+
+Nota: "compaiono" va inteso con cautela, vedi slide 35: l'idea dello
+scale-space e proprio che non nascano strutture nuove.
+
+
+========================================================================
+SLIDE 35 - Scale-Space and the Heat Equation  (34/63)
+========================================================================
+- La gaussiana e la funzione di Green dell'equazione di diffusione (L5).
+- L(x, y; sigma) soddisfa una PDE (equazione del calore).
+- Aumentare sigma = far "diffondere" l'immagine: l'intensita fluisce
+  dalle zone chiare a quelle scure, livellando la struttura in modo
+  monotono.
+- La PDE garantisce che al crescere di sigma non si crea struttura nuova
+  (estremi): e l'assioma che giustifica la gaussiana come kernel
+  canonico dello scale-space (altri kernel possono creare estremi locali
+  spuri).
+
+[DA VERIFICARE] La formula sulla slide e dL/dsigma = laplaciano(L) con
+t = sigma^2/2, ma cosi scritta non torna: la derivata va fatta rispetto
+a t, non a sigma. Forme corrette equivalenti:
+    dL/dt = laplaciano(L)          con t = sigma^2 / 2
+    dL/dsigma = sigma x laplaciano(L)
+(si ottiene da dt = sigma dsigma). Se all'esame scrivi la PDE, scrivi
+una di queste due.
+
+[DA VERIFICARE] "Nessun nuovo estremo" e esatto in 1D. In 2D a rigore
+possono nascere nuovi estremi locali; l'assioma corretto e la
+"non-enhancement" degli estremi (un massimo non cresce, un minimo non
+cala) o la causalita di Koenderink. A livello di corso basta l'idea:
+la gaussiana non inventa strutture.
+
+
+========================================================================
+SLIDE 36 - Scale-Space Axioms  (35/63)
+========================================================================
+La gaussiana e l'unico kernel che soddisfa tutti gli assiomi dello
+scale-space:
+- LSI: lineare e invariante per traslazione;
+- simmetria rotazionale;
+- componibile (semigruppo): sfocare due volte equivale a sfocare una
+  volta con una gaussiana;
+- non aggiunge nuova struttura (es. bordi);
+- piu altri che il corso non richiede.
+
+[DA VERIFICARE] La slide scrive g(g(l, s1), s2) = g(l, s1 + s2). E
+sbagliato: nella composizione si sommano le VARIANZE, non le deviazioni
+standard:
+    g_s2 * (g_s1 * l) = g_s * l   con   s = sqrt(s1^2 + s2^2)
+Esempio: due blur con sigma = 1 danno sigma = sqrt(2) ~ 1.41, non 2.
+Con la parametrizzazione t = sigma^2/2 della slide 35 invece si sommano
+i t: t = t1 + t2 (ed e per questo che quella parametrizzazione e comoda).
+
+
+========================================================================
+SLIDE 37 - Visualizing Scale-Space  (36/63)  (figura)
+========================================================================
+Figura 16: la stessa foto con sigma = 0, 1, 2, 4, 8.
+- La texture fine sparisce per prima; le strutture grandi (volto,
+  silhouette) sopravvivono piu a lungo.
+- Strutture diverse hanno scale "naturali" diverse.
+
+Collegamento a L7: i detector di keypoint (es. SIFT) cercano proprio la
+sigma alla quale una struttura risponde di piu (scale selection).
+
+
+========================================================================
+SLIDE 38 - Image Pyramids  (37/63)
+========================================================================
+- L(x, y; sigma) e definita per ogni sigma >= 0 sulla griglia a piena
+  risoluzione.
+- Calcolare e memorizzare L per molti sigma a piena risoluzione e uno
+  spreco: a sigma grande l'immagine e molto liscia e la sua informazione
+  sta gia in una risoluzione molto piu bassa.
+- Idea: una volta sfocata abbastanza da togliere il dettaglio a una
+  certa scala, l'immagine si puo sottocampionare senza perdere
+  informazione.
+
+E il ponte fra le due parti della lezione: il blur dello scale-space
+e proprio il prefiltro anti-aliasing della slide 24. Blur + downsample
+fatto bene = niente aliasing e niente spreco.
+
+
+========================================================================
+SLIDE 39 - Image Pyramids  (38/63)
+========================================================================
+- Una piramide e una pila di immagini {I_0, I_1, I_2, ...} dove I_0 e
+  l'originale e ogni I_{l+1} e una versione sfocata e sottocampionata
+  di I_l.
+- Ogni livello rappresenta l'immagine a una scala piu grossolana E su
+  una griglia piu rada: raddoppiare la sigma effettiva a ogni livello
+  corrisponde a dimezzare la risoluzione.
+Figura 17: faro a risoluzioni dimezzate successivamente.
+
+
+========================================================================
+SLIDE 40 - Octaves and Pyramid Notation  (39/63)
+========================================================================
+- Dimezzare la risoluzione (e raddoppiare sigma) si chiama ottava, per
+  analogia con il raddoppio di frequenza in musica.
+- Il livello l ha risoluzione W/2^l x H/2^l e scala effettiva
+  sigma_l = 2^l sigma_0.
+- Dimensione totale di una piramide con L livelli (ognuno 1/4 dei pixel
+  del precedente, in 2D):
+    sum_{l=0}^{L-1} W H / 4^l  <=  (4/3) W H
+- Una piramide completa (fino a 1x1) costa solo il 33% di memoria in
+  piu dell'immagine originale.
+- Questa efficienza e un motivo importante per cui le piramidi sono
+  ovunque.
+
+Da saper derivare: serie geometrica di ragione 1/4,
+  1 + 1/4 + 1/16 + ... = 1 / (1 - 1/4) = 4/3.
+In 1D sarebbe ragione 1/2 -> 2x (100% in piu).
+
+Precisazione su sigma_l = 2^l sigma_0: e vera asintoticamente. Se si
+applica sempre lo stesso kernel b (con sigma_b in pixel del livello
+corrente), le varianze si sommano (slide 36) e, misurate in pixel
+dell'immagine originale, danno
+  sigma_eff(l)^2 = sigma_b^2 (1 + 4 + 16 + ... + 4^(l-1))
+                 = sigma_b^2 (4^l - 1)/3
+cioe sigma_eff(l) ~ sigma_b 2^l / sqrt(3): raddoppia a ogni livello.
+
+
+========================================================================
+SLIDE 41 - Sezione: Gaussian Pyramid
+========================================================================
+Slide divisoria. Costruzione concreta della piramide piu semplice.
+
+
+========================================================================
+SLIDE 42 - Construction: Repeated Blur + Downsample  (41/63)
+========================================================================
+- La piramide gaussiana e la piramide piu semplice: a ogni livello si
+  sfoca con un kernel piccolo e fisso e si sottocampiona di 2 per
+  dimensione:
+    I_{l+1}[m, n] = (b * I_l)[2m, 2n]
+- b e un kernel piccolo e fisso (indipendente dal livello): applicarlo
+  ripetutamente a immagini sempre piu piccole approssima l'effetto di
+  gaussiane sempre piu grandi sull'originale (convoluzioni ripetute ->
+  circa gaussiana, teorema del limite centrale).
+- Promemoria: senza blur il downsampling produce aliasing invece di
+  evidenziare la struttura alle varie scale.
+
+
+========================================================================
+SLIDE 43 - Kernel: Binomial Filter  (42/63)
+========================================================================
+- Il filtro binomiale e la scelta standard per b: economico, a
+  coefficienti interi, separabile, regola di composizione esatta
+  b_n * b_n = b_2n.
+- Scelta comune: kernel 5x5 derivato dal binomiale (kernel di
+  "Burt-Adelson"), separabile come (1/16)[1, 4, 6, 4, 1] su ogni asse.
+
+Dettagli utili:
+- b_n = riga n del triangolo di Tartaglia / 2^n. b_4 = [1 4 6 4 1]/16.
+- La varianza di b_n e n/4: b_4 ha varianza 1, cioe sigma = 1 pixel.
+  Composizione: b_n * b_m = b_{n+m}, varianze n/4 + m/4 (coerente con la
+  correzione della slide 36).
+- 2D: kernel = prodotto esterno dei due vettori 1D (5x5, somma 1). Si
+  applica come due convoluzioni 1D: 10 moltiplicazioni per pixel invece
+  di 25.
+
+
+========================================================================
+SLIDE 44 - Matrix Form  (43/63)
+========================================================================
+- Tutte le operazioni sono lineari.
+- In forma matriciale, per un segnale 1D g_0:
+    g_{k+1} = D_k B_k g_k = G_k g_k
+- D_k: operatore di downsampling (matrice che seleziona una riga su due,
+  righe di identita con un 1 in colonna 0, 2, 4, 6).
+- B_k: operatore di blur (matrice a bande con [1 4 6 4 1]/16 su ogni
+  riga, troncata ai bordi: la prima riga e 6 4 1, cioe si e scelto uno
+  zero-padding).
+- Esempio sulla slide: G_0 = D_0 B_0 per un segnale di lunghezza 8, G_0 e
+  4 x 8.
+
+Perche la forma matriciale: rende ovvio che la piramide e un cambio di
+rappresentazione lineare, e permette di scrivere la laplaciana e la sua
+inversa in una riga (slide 49 e 51).
+
+
+========================================================================
+SLIDE 45 - Example: Gaussian Pyramid  (44/63)  (figura)
+========================================================================
+Figura 18: piramide gaussiana 256, 128, 64, 32, 16. Ogni livello e
+sfocato e sottocampionato di 2 dal precedente.
+- I livelli grossolani evidenziano le feature globali, utili per
+  l'object detection, che richiede anche feature su scala globale.
+
+
+========================================================================
+SLIDE 46 - Properties: Resolution vs. Memory Tradeoff  (45/63)
+========================================================================
+- Memoria totale <= 4/3 dell'immagine originale (slide 40).
+- Ogni livello dimezza risoluzione spaziale e contenuto in frequenza
+  rilevante, di un fattore 2 per dimensione.
+- Livelli grossolani: economici, catturano la struttura globale, perdono
+  il dettaglio.
+- Livelli fini: costosi, catturano dettaglio e texture, ma la struttura a
+  grande scala e difficile da rilevare in modo affidabile (un filtro
+  piccolo "vede" solo un pezzetto).
+
+
+========================================================================
+SLIDE 47 - Sezione: Laplacian Pyramid
+========================================================================
+Slide divisoria. Come non buttare via l'informazione tolta dal blur.
+
+
+========================================================================
+SLIDE 48 - Loss of Information  (47/63)
+========================================================================
+- La piramide gaussiana perde gradualmente informazione a ogni livello
+  (il blur toglie le alte frequenze, e da g_{k+1} non si torna a g_k).
+- Si puo affiancare un'altra piramide che codifica la differenza fra due
+  livelli consecutivi.
+Piramide laplaciana:
+- dati g_k e g_{k+1}, due livelli consecutivi della piramide gaussiana;
+- si riscala g_{k+1} alla dimensione di g_k;
+- si calcola la differenza.
+
+
+========================================================================
+SLIDE 49 - Laplacian Pyramid  (48/63)
+========================================================================
+  l_k = g_k - F_k g_{k+1} = (I_k - F_k G_k) g_k = L_k g_k
+- F_k = B_k U_k: upsampling U_k seguito da blur B_k.
+- U_k e l'upsampling ingenuo che inserisce zeri fra i campioni.
+- B_k e lo stesso blur usato per la gaussiana (es. il binomiale b_4).
+
+Cose da capire:
+- l_k contiene esattamente il dettaglio che si perde passando da g_k a
+  g_{k+1}: e una banda di frequenze (filtro passa-banda), non un
+  passa-alto puro.
+- Perche "laplaciana": differenza di due gaussiane (DoG) ~ laplaciano
+  di gaussiana, lo stesso operatore visto in L5. Infatti i livelli
+  hanno media circa zero e rispondono su bordi e dettagli.
+- Guadagno dopo lo zero-insertion: inserendo zeri la media si riduce di
+  2 in 1D e di 4 in 2D, quindi il blur di interpolazione va moltiplicato
+  per 2 (1D) o 4 (2D). La slide lo omette, il notebook lo fa (4*h).
+- l_k ha valori positivi e negativi: va tenuto in float (vedi guida al
+  notebook).
+
+
+========================================================================
+SLIDE 50 - Example  (49/63)  (figura)
+========================================================================
+Figura 19: piramide laplaciana del faro. Livelli grigi (zero = grigio
+medio) con i contorni evidenziati; i livelli fini contengono bordi
+sottili e texture, quelli grossolani le forme piu grandi. L'ultima
+immagine (piccola, a colori nelle versioni complete) e il residuo
+passa-basso g_N.
+
+
+========================================================================
+SLIDE 51 - Invertibility  (50/63)
+========================================================================
+Per costruzione si ricostruisce l'originale dalla piramide laplaciana
+piu l'ultimo livello della gaussiana (g_N):
+  l_k = g_k - F_k g_{k+1}
+  Inversione: g_k = l_k + F_k g_{k+1}
+Si parte da g_N e si risale livello per livello fino a g_0.
+
+Punti da orale:
+- La ricostruzione e esatta qualunque sia il filtro usato (anche un
+  filtro "sbagliato"), perche l_k e definito proprio come cio che manca:
+  basta usare lo stesso F_k in costruzione e ricostruzione.
+- La rappresentazione e sovracompleta: circa 4/3 dei campioni
+  dell'originale (stesso conto della slide 40). Non e una base ma un
+  frame.
+- Usi: compressione (i livelli laplaciani sono quasi tutti vicini a
+  zero, si quantizzano bene; e l'uso originale di Burt & Adelson 1983),
+  blending (slide 58), editing per banda.
+
+
+========================================================================
+SLIDE 52 - Sezione: Applications
+========================================================================
+Slide divisoria. Dove si usano le piramidi.
+
+
+========================================================================
+SLIDE 53 - Coarse-to-Fine Search  (52/63)
+========================================================================
+- Molti problemi richiedono una ricerca su uno spazio di parametri
+  grande (tutti gli spostamenti, tutte le scale).
+- Strategia coarse-to-fine: risolvere il problema (economico, a bassa
+  risoluzione) al livello piu grossolano, usare la soluzione per
+  restringere la ricerca al livello successivo, ripetere.
+- Riduce enormemente il calcolo: invece di una ricerca esaustiva a
+  piena risoluzione, basta una piccola ricerca locale a ogni livello
+  dopo il primo.
+
+Il rischio (da dire se chiesto): se al livello grossolano si sceglie la
+soluzione sbagliata, i livelli fini non la correggono, perche cercano
+solo in un intorno. Oggetti piccoli e sottili possono sparire proprio
+nei livelli grossolani.
+
+
+========================================================================
+SLIDE 54 - Coarse-to-Fine Search Example: Optical Flow  (53/63)
+========================================================================
+- Spostamenti grandi sono difficili da stimare direttamente a piena
+  risoluzione (un pixel puo finire fuori da una finestra di ricerca
+  piccola).
+- A un livello grossolano lo stesso spostamento, in pixel, e molto piu
+  piccolo: facile da stimare (al livello l si divide per 2^l).
+- Si stima il flow al livello piu grossolano, lo si porta al livello
+  successivo come stima iniziale (upsample e moltiplica per 2), si
+  raffina, si ripete fino alla piena risoluzione.
+- E la strategia di Lucas-Kanade piramidale (classico) e di metodi
+  moderni; il flow ottico sara trattato piu avanti nel corso.
+
+[DA VERIFICARE] La slide cita RAFT come esempio di coarse-to-fine. E
+impreciso: RAFT mantiene un unico campo di flow ad alta risoluzione
+(1/8) e lo aggiorna iterativamente; usa una piramide solo sul volume di
+correlazione, e il paper si presenta esplicitamente come alternativa al
+coarse-to-fine. Esempi deep realmente coarse-to-fine: SPyNet, PWC-Net.
+
+
+========================================================================
+SLIDE 55 - Pyramid-Based Template Matching  (54/63)
+========================================================================
+- Template matching ingenuo (far scorrere il template, calcolare la
+  similarita in ogni posizione): O(dimensione immagine x dimensione
+  template).
+- Coarse-to-fine: matching al livello piu grossolano (immagine e
+  template piccoli, economico), si tengono solo le posizioni candidate
+  migliori, si raffinano solo quelle al livello piu fine.
+- Evita la ricerca esaustiva a piena risoluzione e trova comunque il
+  match migliore globale, ammesso che il match grossolano sia un buon
+  punto di partenza.
+
+Stima del guadagno: scendere di un livello divide per 4 sia le
+posizioni sia i pixel del template, quindi il costo esaustivo di 16.
+L'ottimo globale NON e garantito (vedi rischio slide 53); tenere piu
+candidati (top-k) riduce il rischio.
+
+
+========================================================================
+SLIDE 56 - Coarse-to-Fine Alignment Example: Matching  (55/63)
+========================================================================
+- Anche l'allineamento/registrazione di immagini beneficia del
+  coarse-to-fine: trasformazione approssimata a bassa risoluzione, poi
+  raffinamento.
+- Si combina bene con il matching basato su feature: si rilevano
+  feature a piu livelli della piramide, si fa il match fra immagini, si
+  stima una trasformazione robusta alla scala a cui le feature sono state
+  trovate (anticipo di L7: SIFT fa esattamente questo).
+
+
+========================================================================
+SLIDE 57 - Image Blending  (56/63)
+========================================================================
+- Obiettivo: combinare due immagini A e B in una sola, con transizione
+  morbida al confine invece di un taglio netto.
+- Soluzione ingenua: scegliere una curva di confine, copiare A da un
+  lato e B dall'altro.
+- Problema: anche se A e B sono ben allineate, differenze di
+  esposizione, colore o dettaglio creano una cucitura visibile.
+- Serve una strategia che nasconda la cucitura preservando il dettaglio
+  di entrambe.
+
+Perche un semplice feathering (maschera sfocata) non basta: se la
+transizione e stretta, le differenze di colore/luminosita si vedono
+come gradino; se e larga, il dettaglio fine delle due immagini si
+sovrappone e si hanno "fantasmi" (doppi bordi). Non esiste un'unica
+larghezza giusta per tutte le frequenze.
+
+
+========================================================================
+SLIDE 58 - Multi-Band (Laplacian Pyramid) Blending  (57/63)
+========================================================================
+Multi-band blending (Burt & Adelson, 1983):
+- Piramidi laplaciane LP^A, LP^B delle due immagini.
+- Piramide gaussiana GP^alpha della maschera alpha (anche la maschera
+  viene sfocata e sottocampionata a ogni livello).
+- Blending per banda:
+    LP^I_l = GP^alpha_l x LP^A_l + (1 - GP^alpha_l) x LP^B_l
+  (moltiplicazione pixel per pixel), e lo stesso per il residuo
+  passa-basso g_N.
+- Ricostruire I dalla piramide laplaciana fusa (slide 51).
+Ogni banda di frequenza viene fusa con una transizione di larghezza
+proporzionale alla sua scala.
+
+E la risposta al problema della slide 57: basse frequenze (colore,
+illuminazione) fuse su una zona larga -> niente gradino; alte frequenze
+(texture, bordi) fuse su una zona stretta -> niente fantasmi.
+Esempio classico: "orapple" (meta mela, meta arancia), che e
+esattamente il notebook di questa lezione.
+
+
+========================================================================
+SLIDE 59 - CNN: Pyramids as Multi-Scale Feature Maps  (58/63)
+========================================================================
+- Una CNN con convoluzioni strided/pooling produce feature map a
+  risoluzione spaziale decrescente: concettualmente una piramide
+  appresa.
+- Primi layer (alta risoluzione): dettaglio fine, campo recettivo
+  piccolo, analoghi ai livelli fini.
+- Ultimi layer (bassa risoluzione): grossolani, campo recettivo grande
+  (sigma effettiva grande), analoghi ai livelli grossolani.
+- Valgono gli stessi compromessi scala/efficienza.
+
+Differenza importante con la piramide gaussiana: nella CNN il downsampling
+di solito NON e preceduto da un passa-basso garantito, quindi puo avere
+aliasing (slide 16). E aumentano i canali mentre cala la risoluzione.
+
+
+========================================================================
+SLIDE 60 - CNN: Feature Pyramid Networks (FPN)  (59/63)
+========================================================================
+- Detection/segmentazione devono trovare oggetti a molte scale (persona
+  vicina vs lontana).
+- L'ultimo layer di una CNN e troppo grossolano per oggetti piccoli; i
+  layer iniziali sono ad alta risoluzione ma senza l'informazione
+  semantica dei layer finali.
+- FPN (Lin et al., 2017): alla piramide bottom-up della CNN si aggiunge
+  un percorso top-down che fa upsampling delle feature grossolane e
+  semanticamente ricche e le somma (addizione) alle feature piu fini ad
+  alta risoluzione tramite connessioni laterali. Analogo diretto della
+  struttura upsample-and-combine della ricostruzione laplaciana.
+- Risultato: ogni livello e sia ad alta risoluzione sia semanticamente
+  ricco, e si usa per la detection alla scala adatta.
+
+Dettagli di FPN utili all'orale: la connessione laterale e una conv 1x1
+(per allineare i canali), l'upsampling e nearest-neighbor x2, dopo la
+somma c'e una conv 3x3 per ridurre gli artefatti dell'upsampling.
+Analogia con la laplaciana: g_k = l_k + F_k g_{k+1}, dove l_k e il
+contributo laterale e F_k g_{k+1} quello top-down.
+
+
+========================================================================
+SLIDE 61 - Sezione: Conclusions
+========================================================================
+Slide divisoria.
+
+
+========================================================================
+SLIDE 62 - Key Takeaways  (61/63)
+========================================================================
+- L'aliasing e un problema chiave in quasi tutte le pipeline di visione:
+  le frequenze sopra la Nyquist vengono ripiegate e introducono nuova
+  "struttura" falsa nell'immagine.
+- Il downsampling richiede un blur per evitare l'aliasing.
+- L'invarianza alla scala si ottiene con rappresentazioni multiscala
+  (piramide gaussiana, piramide laplaciana, o CNN apprese).
+
+
+========================================================================
+SLIDE 63 - Further Reading  (62/63)
+========================================================================
+- MIT Vision Book: https://visionbook.mit.edu/series.html
+  (capitoli su sampling/aliasing e su pyramids: da qui vengono quasi
+  tutte le figure della lezione).
+
+
+========================================================================
+SLIDE 64 - Preview  (63/63)
+========================================================================
+- Lezione 7: feature e descrittori, corner di Harris, SIFT, feature
+  locali apprese.
+Collegamento: SIFT costruisce una piramide di scale-space e cerca
+estremi della DoG (differenza di gaussiane, cioe quasi la piramide
+laplaciana di oggi) nello spazio e nella scala.
+
+
+########################################################################
+A. GUIDA ALLO STUDIO
+########################################################################
+
+Tempo stimato: 3-4 ore divise in quattro blocchi. Prerequisiti da
+ripassare prima (15 min): teorema di convoluzione (L3), gaussiana e
+derivate di gaussiana (L5).
+
+------------------------------------------------------------------------
+Blocco 1 - Aliasing (slide 3-18), circa 1 ora
+------------------------------------------------------------------------
+Obiettivo: saper spiegare PERCHE sottocampionare crea strutture false.
+- Rifai a mano il conto della slide 7 (0.9 fs -> 0.1 fs) e prova con
+  f0 = 0.6 fs (risposta: 0.4 fs) e f0 = 1.3 fs (risposta: 0.3 fs).
+- Disegna su OneNote, sotto la slide 9, lo spettro campionato: un
+  triangolo centrato in 0 e le sue copie ogni fs. Fai un disegno con
+  fs > 2 w_max (copie separate) e uno con fs < 2 w_max (copie che si
+  toccano). E il disegno che il docente probabilmente chiedera.
+- Controllo: sai dire in una frase perche l'aliasing e peggio della
+  semplice perdita di informazione? (Slide 9: l'errore si mescola alle
+  basse frequenze e non si puo piu togliere.)
+
+------------------------------------------------------------------------
+Blocco 2 - Downsampling e prefiltro (slide 19-29), circa 45 min
+------------------------------------------------------------------------
+Obiettivo: collegare treno di impulsi, repliche spettrali e prefiltro.
+- La slide 23 (Clothing DFT) e il cuore del blocco: spiegala a voce
+  senza guardare gli appunti.
+- Sotto la slide 26 scrivi il compromesso ideale/Hamming/binomiale in
+  due righe tue.
+- Controllo: perche le fotocamere hanno un filtro ottico anti-aliasing
+  e perche alcune (senza filtro) mostrano moire sui vestiti?
+
+------------------------------------------------------------------------
+Blocco 3 - Scale-space e piramidi (slide 30-51), circa 1.5 ore
+------------------------------------------------------------------------
+Obiettivo: saper costruire e invertire piramide gaussiana e laplaciana,
+con le formule.
+- Correggi subito su OneNote le due formule sbagliate (slide 35 e 36):
+  e l'errore piu facile da portarsi all'esame.
+- Deriva il 4/3 (slide 40) e il fatto che b_4 ha sigma = 1 (slide 43).
+- Scrivi a mano, senza guardare, costruzione e inversione della
+  laplaciana (slide 49 e 51). Devono venire in 4 righe.
+- Controllo: perche la ricostruzione e esatta anche se il blur non e un
+  passa-basso ideale?
+
+------------------------------------------------------------------------
+Blocco 4 - Applicazioni e notebook (slide 52-64 + notebook), circa 1 ora
+------------------------------------------------------------------------
+- Per ogni applicazione (flow, template matching, blending, FPN) sappi
+  dire: cosa si fa al livello grossolano, cosa si passa al livello fine,
+  qual e il guadagno, qual e il rischio.
+- Fai il notebook seguendo la parte B qui sotto.
+
+------------------------------------------------------------------------
+Domande tipo orale (con traccia di risposta)
+------------------------------------------------------------------------
+1. Enuncia il teorema del campionamento e spiega cos'e l'aliasing.
+   -> fs > 2 f_max; repliche spettrali ogni fs; se si sovrappongono,
+      alte frequenze ripiegate in basse, irrecuperabili.
+2. Una sinusoide a 70 Hz campionata a 100 Hz: che frequenza si vede?
+   -> |70 - 100| = 30 Hz.
+3. Perche prima di sottocampionare si sfoca? Con quale filtro e perche
+   non con il passa-basso ideale?
+   -> slide 24, 26: gaussiana/binomiale, niente ringing.
+4. Quanta memoria occupa una piramide gaussiana completa?
+   -> 4/3 dell'originale, serie geometrica di ragione 1/4.
+5. Perche la gaussiana e il kernel dello scale-space?
+   -> assiomi: LSI, isotropia, semigruppo (varianze che si sommano),
+      nessuna struttura nuova; soluzione dell'equazione del calore.
+6. Costruisci e inverti la piramide laplaciana. E sovracompleta?
+   -> l_k = g_k - F_k g_{k+1}; g_k = l_k + F_k g_{k+1}; si, ~4/3.
+7. Spiega il multi-band blending e perche e meglio del feathering.
+   -> slide 57-58: larghezza di transizione proporzionale alla scala.
+8. Che legame c'e fra piramidi e CNN? Cos'e FPN?
+   -> slide 59-60; aliasing nelle CNN (slide 16).
+9. Cosa ha di rischioso la ricerca coarse-to-fine?
+   -> errore al livello grossolano non recuperabile; oggetti piccoli
+      spariscono.
+
+
+########################################################################
+B. GUIDA AL NOTEBOOK 06-image-blending
+########################################################################
+
+Il notebook implementa l'orapple: meta mela e meta arancia fuse con il
+multi-band blending (slide 58). Struttura:
+- cella 4: laplacian_pyramid(image, levels) costruisce gaussiana e
+  laplaciana con kernel h = b_4 x b_4 (5x5), blur + [::2, ::2] per
+  scendere, zero-insertion + blur con guadagno 4 per risalire.
+- cella 5: img_from_pyramid(G, L) ricostruisce (slide 51).
+- cella 6: blend(...) costruisce la piramide della maschera, fonde banda
+  per banda e ricostruisce.
+- cella 7: taglio netto a meta (la variabile si chiama "mask" ma e il
+  confronto ingenuo, slide 57).
+
+Mentre lo fai, collega ogni riga a una slide: [::2, ::2] = D_k (slide
+44), zero-insertion = U_k e 4*h = B_k con guadagno (slide 49),
+"reco = upsampled + L[i]" = inversione (slide 51).
+
+Due bug che ho verificato eseguendo il notebook (utile saperli, perche
+spiegano i risultati strani):
+
+Bug 1 - Laplaciani in uint8 (cella 4).
+  Le immagini sono uint8 e "gaussian_pyramid[-2] - upsampled" viene
+  calcolato in uint8: i valori negativi vanno in overflow (-3 diventa
+  253). Circa un terzo dei pixel del primo livello laplaciano e sporcato
+  cosi. Per questo i laplaciani plottati sembrano rumore bianco e nero
+  invece di bordi su fondo grigio.
+  La ricostruzione della cella 5 viene comunque esatta (errore 0) solo
+  per caso: l'aritmetica uint8 e modulo 256, quindi l'overflow della
+  sottrazione si annulla con quello della somma.
+
+Bug 2 - Maschera che non si sfoca (cella 6).
+  La maschera e uint8 con valori 0/1. Il blur produce valori fra 0 e 1
+  che, riscritti in un array uint8, vengono troncati a 0: a ogni livello
+  la maschera resta binaria, quindi la transizione morbida per banda
+  (il punto del metodo) non c'e. In piu all'ultimo livello (4x4) la
+  maschera diventa tutta 0, quindi il residuo passa-basso viene preso
+  interamente dall'arancia: per questo nel risultato del notebook la
+  meta mela ha colori spostati verso l'arancione.
+
+Correzione minima: lavorare in float dall'inizio, e usare bordi
+simmetrici invece dello zero-padding (evita il bordo scuro):
+
+  h = np.outer([1,4,6,4,1], [1,4,6,4,1]) / 256
+  def blur(x, k):
+      return np.stack([convolve2d(x[..., c], k, mode='same',
+                       boundary='symm') for c in range(x.shape[2])], -1)
+  def pyramids(img, levels):
+      g = [img.astype(np.float64)]; l = []
+      for _ in range(levels):
+          g.append(blur(g[-1], h)[::2, ::2])
+          up = np.zeros_like(g[-2]); up[::2, ::2] = g[-1]
+          l.append(g[-2] - blur(up, 4*h))
+      return g, l
+  def reconstruct(base, l):
+      r = base
+      for li in reversed(l):
+          up = np.zeros_like(li); up[::2, ::2] = r
+          r = blur(up, 4*h) + li
+      return r
+  # blending
+  gA, lA = pyramids(apple, 7); gB, lB = pyramids(orange, 7)
+  gM, _ = pyramids(mask.astype(np.float64), 7)   # mask con 0/1
+  lb = [gM[i]*lA[i] + (1-gM[i])*lB[i] for i in range(7)]
+  base = gM[-1]*gA[-1] + (1-gM[-1])*gB[-1]
+  out = np.clip(reconstruct(base, lb), 0, 255).astype(np.uint8)
+  # per visualizzare un laplaciano: plt.imshow(lA[i][..., 0], cmap='gray')
+
+Il confronto fra taglio netto, notebook originale e versione corretta
+e nel file L6_blending_confronto.png; i laplaciani uint8 contro float
+in L6_laplaciani_confronto.png (entrambi in questa cartella Appunti).
+
+Esercizi sul notebook (in ordine di difficolta):
+1. Cambia LEVELS (1, 3, 7) e guarda come cambia la cucitura: con 1
+   livello e quasi un taglio netto, con molti la transizione dei colori
+   si allarga.
+2. Sostituisci la maschera verticale con un cerchio (es. occhio su una
+   mano): il metodo funziona con qualunque maschera.
+3. Prova ricostruzione con un filtro diverso (es. box 3x3) e verifica
+   che l'errore resta 0: e la proprieta della slide 51.
+4. Fai il downsample x4 dell'immagine della mela con e senza blur e
+   confronta: e la slide 25 sul tuo codice.

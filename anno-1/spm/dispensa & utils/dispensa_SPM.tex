@@ -1,0 +1,3271 @@
+% =============================================================
+% DISPENSA SPM – Parallel and Distributed Systems: Paradigms and Models
+% Università di Pisa – Corso di Laurea Magistrale in Informatica
+% Prof. Massimo Torquati – A.A. 2025-2026
+% =============================================================
+\documentclass[11pt,a4paper]{article}
+
+% --- Packages ---
+\usepackage{fontspec}
+\usepackage[english]{babel}
+\setmainfont{Latin Modern Roman}
+\setmonofont{Latin Modern Mono}
+\usepackage{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{float}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{microtype}
+\usepackage{parskip}
+
+\geometry{top=2.5cm, bottom=2.5cm, left=2.5cm, right=2.5cm}
+\setlength{\headheight}{14pt}
+
+% --- Code style ---
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{codeblue}{rgb}{0.0,0.3,0.7}
+\definecolor{codegreen}{rgb}{0,0.5,0}
+\definecolor{backcolour}{rgb}{0.97,0.97,0.97}
+
+\lstdefinestyle{cpp}{
+  backgroundcolor=\color{backcolour},
+  commentstyle=\color{codegreen}\itshape,
+  keywordstyle=\color{codeblue}\bfseries,
+  stringstyle=\color{codepurple},
+  numberstyle=\tiny\color{codegray},
+  basicstyle=\ttfamily\small,
+  breakatwhitespace=false,
+  breaklines=true,
+  captionpos=b,
+  keepspaces=true,
+  numbers=left,
+  numbersep=5pt,
+  showspaces=false,
+  showstringspaces=false,
+  showtabs=false,
+  tabsize=2,
+  language=C++,
+  morekeywords={auto,nullptr,constexpr,noexcept,decltype,override,final,
+    std,atomic,thread,mutex,lock_guard,unique_lock,scoped_lock,
+    condition_variable,shared_mutex,shared_lock,packaged_task,
+    promise,future,shared_future,memory_order,memory_order_relaxed,
+    memory_order_acquire,memory_order_release,memory_order_seq_cst,
+    memory_order_acq_rel,atomic_thread_fence,atomic_flag,
+    uint64_t,size_t,uint32_t,int32_t}
+}
+\lstdefinestyle{bash}{
+  backgroundcolor=\color{backcolour},
+  commentstyle=\color{codegreen}\itshape,
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  keepspaces=true,
+  showspaces=false,
+  showstringspaces=false,
+  showtabs=false,
+  tabsize=2,
+  language=bash,
+  morekeywords={srun,sbatch,mpirun,mpicxx,mpicc,taskset,numactl,lscpu}
+}
+\lstset{style=cpp}
+
+% --- Header/Footer ---
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{SPM Dispensa – A.A. 2025-2026}
+\lhead{Università di Pisa}
+\cfoot{\thepage}
+
+% --- Theorem environments ---
+\newtheorem{definizione}{Definizione}[section]
+\newtheorem{teorema}{Teorema}[section]
+\newtheorem{lemma}{Lemma}[section]
+\theoremstyle{remark}
+\newtheorem{nota}{Nota}[section]
+\newtheorem{esempio}{Esempio}[section]
+
+% --- Box per esercizi ---
+\usepackage{tcolorbox}
+\tcbuselibrary{breakable}
+\newenvironment{esercizio}[1][]{%
+  \begin{tcolorbox}[breakable,title={\textbf{Esercizio / Domanda d'esame}\ifx&#1&\else: #1\fi},
+    colback=yellow!5!white, colframe=orange!75!black, fonttitle=\small\bfseries]%
+}{%
+  \end{tcolorbox}%
+}
+
+\newenvironment{risposta}{%
+  \begin{tcolorbox}[breakable,title={\textbf{Risposta}},
+    colback=green!5!white, colframe=green!50!black, fonttitle=\small\bfseries]%
+}{%
+  \end{tcolorbox}%
+}
+
+% --- Hyperref setup ---
+\hypersetup{
+  colorlinks=true,
+  linkcolor=codeblue,
+  urlcolor=codeblue,
+  citecolor=codeblue,
+  pdfauthor={SPM course notes},
+  pdftitle={Dispensa SPM – Sistemi Paralleli e Distribuiti},
+}
+
+% =============================================================
+\begin{document}
+
+\begin{titlepage}
+\centering
+\vspace*{2cm}
+{\LARGE\bfseries Sistemi Paralleli e Distribuiti:\\[0.5em]
+Paradigmi e Modelli (SPM)\\[1em]}
+{\large\itshape Dispensa del corso}\\[2em]
+{\large Università di Pisa -- Corso di Laurea Magistrale in Informatica}\\[0.5em]
+{\large Prof. Massimo Torquati}\\[0.5em]
+{\large Anno Accademico 2025-2026}\\[4em]
+\hrule\vspace{1em}
+\begin{flushleft}\small
+Questo documento raccoglie in modo organico i contenuti delle lezioni del corso SPM, coprendo tutti gli argomenti
+trattati fino all'esame. Utilizza terminologia mista italiano/inglese come da convenzione del corso.
+Per ogni argomento sono incluse domande di approfondimento e tipici quesiti d'esame (midterm e scritto).
+\end{flushleft}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+% =============================================================
+\section{Introduzione e Motivazione}
+% =============================================================
+
+\subsection{Perché i sistemi paralleli?}
+
+Il progresso della microelettronica si è scontrato con il \emph{power wall}: aumentare la frequenza del clock oltre i 3-4 GHz porta a consumi e dissipazione di calore insostenibili. Pertanto, a partire dai primi anni 2000, i produttori di CPU hanno spostato la strategia verso chip con \emph{multiple cores}, ognuno operante a frequenza moderata.
+
+I moderni processori scalano il numero di core piuttosto che la frequenza. Le architetture parallele offrono:
+\begin{itemize}
+  \item \textbf{Scalabilità}: scale-out aggiungendo nodi, mantenendo l'efficienza accettabile.
+  \item \textbf{Efficienza energetica}: più performance per watt usando molti core a bassa frequenza e acceleratori specializzati (GPU, FPGA).
+  \item \textbf{Fault tolerance}: se un nodo cade, gli altri continuano a funzionare.
+\end{itemize}
+
+I supercomputer moderni usano componenti \emph{off-the-shelf} (CPU e GPU commerciali); il design personalizzato riguarda interconnessione, raffreddamento e software stack.
+
+\subsection{Il collo di bottiglia di von Neumann}
+
+L'architettura classica von Neumann separa CPU e memoria attraverso un bus. La CPU è ordini di grandezza più veloce della memoria DRAM: questo è il \textbf{von Neumann bottleneck}. Le gerarchie di cache mitigano parzialmente il problema.
+
+\subsection{Calcolo delle prestazioni di picco}
+
+\begin{equation}
+  R_{peak} = f_{clock} \times N_{core} \times FLOP_{cycle}
+\end{equation}
+
+Esempio su spmcluster (Intel Xeon E5-2650 v3):
+\[
+  R_{peak} = 2.3\,\text{GHz} \times 8\,\text{core} \times 2\,\text{socket} \times 16\,\text{FLOP/cycle} = 589\,\text{GFLOPS}
+\]
+(con AVX2 FMA: 8 float $\times$ 2 FMA $= 16$ FLOP/cycle per core)
+
+% =============================================================
+\section{Performance Engineering e Back-of-Envelope}
+% =============================================================
+
+\subsection{Confronto tra linguaggi (GEMM 1024×1024)}
+
+Il prodotto di matrici $C = A \times B$ di dimensione $1024 \times 1024$ richiede $\approx 2.1 \times 10^9$ FLOPs.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lrr}
+\toprule
+Linguaggio & Tempo (s) & GFLOPS ottenuti \\
+\midrule
+Python (naive) & 21042 & 0.0001 \\
+Java & 2738 & 0.00077 \\
+C (naive) & 1156 & 0.00182 \\
+C (ottimizzato) & $< 1$ & significativi \\
+\bottomrule
+\end{tabular}
+\caption{Confronto prestazioni GEMM naive (un thread)}
+\end{table}
+
+Python con $R_{peak} = 836$ GFLOPS ottiene lo 0.00075\% delle prestazioni di picco. Il gap nasce da interpretazione dinamica, overhead dell'interprete, boxing degli oggetti, ecc.
+
+\subsection{Ottimizzazione di GEMM}
+
+\paragraph{Versione naïve} L'ordine di cicli $ijk$ causa cache miss sistematici sulla colonna di $B$.
+
+\paragraph{Versione con scambio di cicli (ikj)} Accesso row-major a $B$: migliore località, $\approx 2\times$ di speedup.
+
+\paragraph{Versione con trasposizione di B} Si traspone $B$ prima del loop principale, poi si accede row-major a $B^T$. Trade-off: costo della trasposizione vs guadagno della località.
+
+\paragraph{Tiling (blocchi)} Si divide la matrice in blocchi di dimensione $T$ scelta in modo che tre blocchi ($A$, $B$, $C$) stiano in L1/L2 cache:
+\[
+  T \approx \sqrt{\frac{C_{cache}}{3 \times \text{sizeof}(\text{data})}}
+\]
+Il tiling riduce i cache miss da $O(n^3)$ a $O(n^3 / T)$.
+
+\begin{esercizio}
+Date due matrici $512 \times 512$ di float (4 byte ciascuno), quanto deve essere grande il tile $T$ per usare al massimo 32 KB di L1 cache?
+\end{esercizio}
+\begin{risposta}
+  Tre blocchi $T \times T$ di float: $3 \times T^2 \times 4 \leq 32768$, quindi $T^2 \leq 2730$, $T \leq 52$. In pratica si usa una potenza di 2, quindi $T=32$.
+\end{risposta}
+
+% =============================================================
+\section{Classificazione delle Architetture Parallele}
+% =============================================================
+
+\subsection{Tassonomia di Flynn (1966)}
+
+Flynn classifica le architetture in base al numero di flussi di istruzioni (IS) e dati (DS):
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lll}
+\toprule
+Categoria & Descrizione & Esempi \\
+\midrule
+\textbf{SISD} & 1 IS, 1 DS & Uniprocessore classico \\
+\textbf{SIMD} & 1 IS, $n$ DS & Unità vettoriali, GPU (a livello di warp) \\
+\textbf{MISD} & $n$ IS, 1 DS & Sistemi fault-tolerant (avionica) \\
+\textbf{MIMD} & $n$ IS, $n$ DS & CMP moderni, cluster, supercomputer \\
+\bottomrule
+\end{tabular}
+\caption{Tassonomia di Flynn}
+\end{table}
+
+SIMD: ogni PE esegue la stessa istruzione in lockstep su dati diversi.
+MIMD: ogni PE ha la propria unità di controllo; è il modello dominante.
+
+\subsection{Classificazione basata sulla memoria}
+
+\paragraph{Shared-Memory (SHM) -- Multiprocessori}
+Tutti i core hanno accesso diretto a uno spazio di indirizzamento condiviso. La comunicazione è \emph{implicita} (lettura/scrittura di variabili condivise); la sincronizzazione è \emph{esplicita} (mutex, barrier).
+
+\begin{itemize}
+  \item \textbf{UMA (SMP)}: accesso uniforme alla memoria; tutti i core condividono un unico controller di memoria.
+    Es.: Intel Xeon single-socket.
+  \item \textbf{NUMA}: accesso non uniforme; ogni socket/chiplet ha la propria memoria locale (LLC + DRAM) ma può accedere alla memoria degli altri socket tramite un interconnect (Network-on-Chip, HyperTransport, Infinity Fabric). L'OS alloca la memoria \emph{vicino} al thread allocante.
+    Es.: AMD EPYC (chiplets), spmcluster (2 NUMA nodes/socket).
+\end{itemize}
+
+\paragraph{Distributed-Memory (DM) -- Multicomputer}
+Ogni nodo ha memoria \emph{privata}; la comunicazione è \emph{esplicita} tramite messaggi (MPI: \texttt{MPI\_Send}, \texttt{MPI\_Recv}, \texttt{MPI\_Bcast}, \texttt{MPI\_Reduce}, \texttt{MPI\_AllReduce}, \dots).
+Es.: cluster, supercomputer. I nodi sono tipicamente SMP o NUMA multiprocessori.
+
+\subsection{Classificazione per scala}
+
+\begin{itemize}
+  \item $O(10^1\text{--}10^2)$ core: singolo chip multiprocessore (CMP) -- es. AMD EPYC 4a gen (64 core, 128 thread).
+  \item $O(10^2\text{--}10^3)$ core: multiprocessori SHM -- es. HPE Superdome Flex.
+  \item $O(10^3\text{--}10^5)$ core: cluster DM -- da piccoli cluster (16-128 nodi) a grandi cluster con GPU.
+  \item $O(10^5\text{--}10^7)$ core: supercomputer -- es. Leonardo, Fugaku, El Capitan.
+\end{itemize}
+
+\paragraph{Leonardo @CINECA}
+Data-Centric Module: 1536 nodi $\times$ 2 Intel Sapphire Rapids @2.0 GHz, 56 core = 172K core GP; $R_{peak} = 11.010$ PFLOPS.
+Booster Module: 3456 nodi con 4$\times$ NVIDIA A100 SXM4 64 GB; $R_{peak} > 306$ PFLOPS.
+
+\subsection{Sfide dei sistemi paralleli}
+
+\begin{tabular}{ll}
+\toprule
+SHM & DM \\
+\midrule
+Cache coherence & Routing dei messaggi \\
+Memory consistency & Latenza di rete \\
+False sharing & Bilanciamento del carico \\
+Sincronizzazione tra thread & Flow control \\
+\bottomrule
+\end{tabular}
+
+\begin{esercizio}
+Spiega la differenza tra UMA e NUMA, e descrivi il problema che NUMA introduce nella programmazione parallela.
+\end{esercizio}
+\begin{risposta}
+UMA: tutti i core hanno la stessa latenza di accesso alla RAM (ideale). NUMA: la latenza dipende da quale socket "possiede" il banco di memoria. Un thread che accede a memoria allocata da un altro socket paga una latenza maggiore (accesso remoto). Soluzione: usare politiche di allocazione NUMA-aware (es. \texttt{numactl}), avvicinare i dati ai thread che li usano.
+\end{risposta}
+
+% =============================================================
+\section{Cluster SLURM}
+% =============================================================
+
+\subsection{Architettura del cluster spmcluster}
+
+\texttt{spmcluster}: 1 login node + 9 compute nodes, collegati via 10GbE. Tre code (partizioni SLURM): \texttt{spmcluster} (max 30 min), altre configurabili.
+
+Nodo standard: Intel Xeon E5-2650 v3 @2.3 GHz, 2 socket $\times$ 8 core, hyperthreading 2-way $\to$ 40 thread logici, 2 NUMA nodes.
+\texttt{node09}: 2$\times$ AMD EPYC 7301 16-core, 2-way SMT $\to$ 64 thread logici.
+
+\subsection{Terminologia SLURM}
+
+\begin{itemize}
+  \item \textbf{Node}: server fisico.
+  \item \textbf{Task}: programma in esecuzione (processo MPI).
+  \item \textbf{CPU}: hardware thread/core logico.
+  \item \textbf{Job}: unità di lavoro sottomessa allo scheduler.
+\end{itemize}
+
+\subsection{Comandi principali}
+
+\begin{lstlisting}[language=bash,style=cpp,numbers=none]
+# Eseguire interattivo
+srun --nodes 1 --ntasks 4 --cpus-per-task 2 ./prog
+
+# Shell interattiva su nodo compute
+srun -n 1 --time=00:20:00 --pty bash -i
+
+# Job batch
+sbatch job.sh
+
+# Lista job in coda
+squeue -u $USER
+
+# Cancellare job
+scancel <jobid>
+
+# Info su nodo
+scontrol show node spmcluster1
+
+# Job MPI con OpenMPI v5.0.3
+srun --mpi=pmix --nodes N myprog
+# Compilazione MPI
+mpicc -O3 -o prog prog.c
+mpicxx -O3 -std=c++20 -o prog prog.cpp
+\end{lstlisting}
+
+\begin{esercizio}
+Scrivi un script SLURM per eseguire un programma MPI con 4 nodi, 8 task per nodo, 2 CPU per task, con tempo massimo di 20 minuti.
+\end{esercizio}
+\begin{risposta}
+\begin{lstlisting}[language=bash,style=cpp,numbers=none]
+#!/bin/bash
+#SBATCH --job-name=myjob
+#SBATCH --nodes=4
+#SBATCH --ntasks-per-node=8
+#SBATCH --cpus-per-task=2
+#SBATCH --time=00:20:00
+#SBATCH --partition=spmcluster
+srun --mpi=pmix ./myprog
+\end{lstlisting}
+\end{risposta}
+
+% =============================================================
+\section{Architettura Shared-Memory e Cache}
+% =============================================================
+
+\subsection{Gerarchia di memoria}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lrrl}
+\toprule
+Livello & Latenza & Dimensione & Note \\
+\midrule
+Registro & $<1$ ns & -- & Per core, privati \\
+L1 cache & 1 ns & 32-64 KB & Per core, privata \\
+L2 cache & 3-10 ns & 256 KB--1 MB & Per core o shared \\
+L3 (LLC) & 10-20 ns & 4-64 MB & Per socket, condivisa \\
+DRAM & 50-100 ns & 8-512 GB & Condivisa \\
+SSD/NVMe & $\sim10$ $\mu$s & TB & Persistente \\
+Rete 10GbE & $\sim100$ $\mu$s & -- & Cross-node \\
+\bottomrule
+\end{tabular}
+\caption{Gerarchia di memoria tipica}
+\end{table}
+
+La \emph{cache line} è l'unità minima di trasferimento: \textbf{64 byte} (tipicamente). Ogni accesso a una cache porta in cache una cache line intera.
+
+\subsection{Modello di prestazione della cache}
+
+Il CPI (Cicli Per Istruzione) con memoria è:
+\begin{equation}
+  CPI_{MEM} = HR \times CPI_{HIT} + (1-HR) \times CPI_{MISS}
+\end{equation}
+dove $HR$ è l'hit rate, $CPI_{HIT} \approx 1$ ciclo, $CPI_{MISS} \sim 50$--300 cicli.
+
+\subsection{Write policies}
+
+\begin{itemize}
+  \item \textbf{Write-through}: ogni scrittura va immediatamente in cache e in RAM. Semplice ma lento (bandwidth elevata verso RAM).
+  \item \textbf{Write-back}: le scritture restano in cache (il blocco è \emph{dirty}). La RAM viene aggiornata solo quando la cache line viene rimpiazzata. Il \emph{dirty bit} indica se la cache line è stata modificata.
+\end{itemize}
+
+\subsection{Cache coherence: protocollo MESI}
+
+In un sistema multicore con cache private, ogni cache line può essere in uno dei 4 stati MESI:
+
+\begin{itemize}
+  \item \textbf{M} (Modified): solo questa cache ha la copia, modificata rispetto alla RAM.
+  \item \textbf{E} (Exclusive): solo questa cache ha la copia, uguale alla RAM.
+  \item \textbf{S} (Shared): più cache hanno la copia, uguale alla RAM.
+  \item \textbf{I} (Invalid): la cache line non è valida.
+\end{itemize}
+
+Transizioni principali: un write su una cache line in stato S o E causa l'invio di un \emph{invalidate} agli altri core. Estensione MOESI aggiunge lo stato \textbf{O} (Owned): la cache possiede la copia "autorevole" e può soddisfare le richieste degli altri senza coinvolgere la RAM.
+
+\subsection{False sharing}
+
+Si verifica quando due thread accedono a variabili \emph{diverse} ma che risiedono sulla stessa cache line. Le scritture di un thread invalidano la cache line negli altri, causando traffico di coerenza inutile.
+
+\begin{lstlisting}
+// Esempio di false sharing
+struct Data {
+    int a; // thread 0 modifica a
+    int b; // thread 1 modifica b
+}; // a e b nella stessa cache line!
+
+// Soluzione: padding o alignas
+struct DataPadded {
+    alignas(64) int a;
+    alignas(64) int b;
+};
+// oppure usare std::hardware_destructive_interference_size
+\end{lstlisting}
+
+\subsection{Superscalar e ILP}
+
+I processori moderni sfruttano l'ILP (Instruction-Level Parallelism):
+\begin{itemize}
+  \item \textbf{Pipeline}: sovrapposizione delle fasi IF/ID/EX/MEM/WB di istruzioni diverse.
+  \item \textbf{Superscalar}: più unità di esecuzione, possibilità di emettere più istruzioni per ciclo.
+  \item \textbf{Out-of-order execution} (OOE): le istruzioni vengono riordinate per evitare stalli. Il \emph{reorder buffer} (ROB) garantisce che l'ordine architetturale sia rispettato al commit.
+  \item \textbf{Register renaming}: elimina le dipendenze WAR e WAW.
+  \item \textbf{Branch prediction}: il processore specula sul risultato di un branch.
+\end{itemize}
+
+\subsection{Hardware multi-threading}
+
+\begin{itemize}
+  \item \textbf{FMT (Fine-grain MT)}: switch di contesto a ogni ciclo tra thread HW.
+  \item \textbf{CMT (Coarse-grain MT)}: switch solo su eventi costosi (cache miss L2+).
+  \item \textbf{SMT (Simultaneous MT / Hyperthreading)}: più thread emettono istruzioni nello stesso ciclo condividendo le unità di esecuzione. Utile quando un thread è in stallo per memoria.
+\end{itemize}
+
+\subsection{Roofline Model}
+
+Il Roofline Model distingue tra applicazioni \emph{compute-bound} e \emph{memory-bound}:
+\begin{equation}
+  Performance \leq \min\!\Bigl(\text{Peak FLOP/s},\; \text{Bandwidth} \times \text{Arithmetic Intensity}\Bigr)
+\end{equation}
+dove \emph{Arithmetic Intensity} $I = \frac{\text{FLOPs}}{\text{Bytes trasferiti}}$.
+
+Esempio: GEMM ha $I \sim 2n/8$ FLOP/byte $\to$ compute-bound per matrici grandi; matrix-vector ha $I \approx 0.25$ FLOP/byte $\to$ memory-bound.
+
+\begin{esercizio}
+Cos'è il false sharing? Descrivi un esempio e come si risolve.
+\end{esercizio}
+\begin{risposta}
+Il false sharing si verifica quando thread diversi accedono a variabili separate che condividono la stessa cache line (64 byte). La scrittura di un thread invalida la cache line in tutti gli altri core, anche se stanno accedendo a variabili diverse. Soluzione: padding con \texttt{alignas(64)} o ristrutturare i dati (SOA invece di AOS).
+\end{risposta}
+
+% =============================================================
+\section{SIMD su CPU}
+% =============================================================
+
+\subsection{Unità vettoriali}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llll}
+\toprule
+ISA & Larghezza & Float 32-bit & FP64 \\
+\midrule
+SSE & 128 bit & 4 & 2 \\
+AVX/AVX2 & 256 bit & 8 & 4 \\
+AVX-512 & 512 bit & 16 & 8 \\
+ARM NEON & 128 bit & 4 & 2 \\
+ARM SVE & scalabile & variabile & variabile \\
+RISC-V RVV & scalabile & variabile & variabile \\
+\bottomrule
+\end{tabular}
+\caption{ISA SIMD principali}
+\end{table}
+
+Con AVX2 FMA: 8 FLOP (add) + 8 FLOP (mul) = 16 FLOP/ciclo per core.
+Con AVX-512 FMA: 32 FLOP/ciclo per core.
+
+\subsection{Livelli di programmazione SIMD}
+
+\begin{enumerate}
+  \item \textbf{Auto-vectorization}: il compilatore rileva pattern vettorizzabili nel codice scalare. Attivato con \texttt{-O2/-O3} e istruito con \texttt{-march=native}.
+  \item \textbf{Librerie ottimizzate}: BLAS (MKL, OpenBLAS), FFT (FFTW), ecc.
+  \item \textbf{DSL}: ISPC, Halide -- generazione automatica di codice SIMD.
+  \item \textbf{Intrinsics}: API C per istruzioni SIMD specifiche.
+  \item \textbf{Assembly}: massimo controllo, minima portabilità.
+\end{enumerate}
+
+\subsection{Naming convention degli intrinsics AVX2}
+
+\texttt{\_mm<bits>\_<op>\_<mod>}
+\begin{itemize}
+  \item \texttt{bits}: 128 (SSE), 256 (AVX/AVX2), 512 (AVX-512).
+  \item \texttt{op}: \texttt{add}, \texttt{sub}, \texttt{mul}, \texttt{div}, \texttt{load}, \texttt{store}, \texttt{cmp}, \texttt{blend}, \texttt{fmadd}, \dots
+  \item \texttt{mod}: \texttt{ps} (packed single), \texttt{pd} (packed double), \texttt{epi32} (packed int 32-bit), \texttt{epi64}, \dots
+\end{itemize}
+
+\subsection{Esempio: addizione vettoriale AVX2}
+
+\begin{lstlisting}
+#include <immintrin.h>
+void add_avx(float* a, float* b, float* c, int n) {
+    for (int i = 0; i < n; i += 8) {
+        __m256 va = _mm256_load_ps(&a[i]);  // load aligned
+        __m256 vb = _mm256_load_ps(&b[i]);
+        __m256 vs = _mm256_add_ps(va, vb);
+        _mm256_store_ps(&c[i], vs);
+    }
+}
+\end{lstlisting}
+
+Gli array devono essere allineati: SSE 16B, AVX 32B, AVX-512 64B. Si usa \texttt{aligned\_alloc(32, n*sizeof(float))} o \texttt{alignas(32)}.
+
+\subsection{FMA (Fused Multiply-Add)}
+
+\begin{lstlisting}
+// X = X + A[i][k] * B[k][j] per blocchi vettoriali
+__m256 Aik = _mm256_broadcast_ss(&A[i*N+k]);
+__m256 BV  = _mm256_load_ps(&B[k*N+j]);
+__m256 X   = _mm256_fmadd_ps(Aik, BV, X); // X = X + Aik*BV
+\end{lstlisting}
+
+\texttt{\_mm256\_fmadd\_ps(a,b,c)} = $c + a \times b$, eseguita in un solo ciclo (1 operazione invece di 2), senza arrotondamento intermedio.
+
+\subsection{Allineamento e allocazione}
+
+\begin{lstlisting}
+// C++17 aligned alloc
+float* a = static_cast<float*>(
+    std::aligned_alloc(32, n * sizeof(float)));
+// oppure
+alignas(32) float a[N];
+\end{lstlisting}
+
+\subsection{Gestione della divergenza (predication)}
+
+I branch all'interno di loop vettorizzati causano \emph{divergenza}: alcune lane eseguono un percorso, altre un altro. Soluzione: \emph{predication} con maschere.
+
+\begin{lstlisting}
+// Funzione condizionale: if (v[i] < 0) v[i] *= a; else v[i] /= b;
+__m256 zero = _mm256_setzero_ps();
+__m256 mask = _mm256_cmp_ps(v, zero, _CMP_LT_OS); // mask[i]=1 se v[i]<0
+__m256 neg  = _mm256_mul_ps(v, va);
+__m256 pos  = _mm256_div_ps(v, vb);
+__m256 res  = _mm256_blendv_ps(pos, neg, mask); // neg se mask, pos altrimenti
+\end{lstlisting}
+
+\subsection{Auto-vectorization}
+
+Il compilatore può auto-vettorizzare loop che rispettano:
+\begin{itemize}
+  \item Numero di iterazioni noto staticamente (o deducibile).
+  \item Nessuna dipendenza RAW inter-iterazione (no \texttt{A[i] = A[i-1] + ...}).
+  \item Nessuna chiamata a funzioni non inline.
+  \item Nessun aliasing di puntatori (usa \texttt{\_\_restrict\_\_}).
+\end{itemize}
+
+Pragmas utili:
+\begin{lstlisting}
+#pragma omp simd
+for (int i = 0; i < n; i++) c[i] = a[i] + b[i];
+
+// GCC: force vectorize
+#pragma GCC ivdep
+for (int i = 0; i < n; i++) ...
+\end{lstlisting}
+
+\subsection{AOS vs SOA}
+
+\textbf{AOS (Array of Structures)}: \texttt{struct \{float x,y,z;\} pts[N];}. Dati non contigui per componente; difficile da vettorizzare.
+
+\textbf{SOA (Structure of Arrays)}: \texttt{float xs[N], ys[N], zs[N];}. Dati contigui per componente; ideale per SIMD.
+
+\begin{esercizio}
+Quanti FLOP per ciclo riesce a eseguire un core Intel con AVX-512 e FMA? Quanti con AVX2?
+\end{esercizio}
+\begin{risposta}
+AVX-512 FMA: 16 float $\times$ 2 (mul+add) = 32 FLOP/ciclo. AVX2 FMA: 8 float $\times$ 2 = 16 FLOP/ciclo.
+\end{risposta}
+
+% =============================================================
+\section{SIMT su GPU (CUDA)}
+% =============================================================
+
+\subsection{Architettura GPU}
+
+La GPU ha molti core semplici (ordine delle migliaia), ottimizzati per throughput. Sono organizzati in \textbf{Streaming Multiprocessors (SM)}, ognuno con:
+\begin{itemize}
+  \item Registri per thread (molt abbondanti).
+  \item Shared memory (on-chip, latenza $\sim$1-4 cicli, tipicamente 48-96 KB/SM).
+  \item L1 cache.
+  \item CUDA Core e Tensor Core.
+\end{itemize}
+
+\subsection{Modello SIMT}
+
+\textbf{SIMT} = Single Instruction, Multiple Threads. I thread sono raggruppati in \textbf{warp} da 32 thread. Tutti i thread di un warp eseguono la stessa istruzione nello stesso ciclo su dati diversi (simile a SIMD, ma più flessibile).
+
+\subsection{Gerarchia di thread CUDA}
+
+\begin{itemize}
+  \item \textbf{Thread}: unità base.
+  \item \textbf{Block}: gruppo di thread (max 1024) con shared memory condivisa e \texttt{\_\_syncthreads()}.
+  \item \textbf{Grid}: insieme di block. Lanciato da un kernel.
+\end{itemize}
+
+Indice lineare del thread:
+\begin{lstlisting}
+int idx = threadIdx.x + blockIdx.x * blockDim.x;
+\end{lstlisting}
+
+\subsection{Kernel CUDA}
+
+\begin{lstlisting}
+// Addizione di vettori su GPU
+__global__ void vec_add(float* a, float* b, float* c, int n) {
+    int i = threadIdx.x + blockIdx.x * blockDim.x;
+    if (i < n) c[i] = a[i] + b[i];
+}
+
+// Lancio kernel
+int threads = 256;
+int blocks  = (n + threads - 1) / threads;
+vec_add<<<blocks, threads>>>(d_a, d_b, d_c, n);
+cudaDeviceSynchronize();
+\end{lstlisting}
+
+\subsection{Gerarchia di memoria GPU}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llll}
+\toprule
+Memoria & Scope & Latenza & Dimensione \\
+\midrule
+Registri & Per thread & 1 ciclo & 32-256K reg/SM \\
+Shared memory & Per block & 1-4 cicli & 48-96 KB/SM \\
+L1 cache & Per SM & $\sim$20 cicli & 32-128 KB/SM \\
+L2 cache & Intera GPU & $\sim$100 cicli & MB \\
+Global memory & Tutti & $\sim$400-600 cicli & GB (DRAM HBM) \\
+Constant memory & Read-only & -- (cached) & 64 KB \\
+\bottomrule
+\end{tabular}
+\caption{Gerarchia di memoria GPU}
+\end{table}
+
+\subsection{Memory coalescing}
+
+Per massimizzare la bandwidth, i thread di un warp devono accedere a posizioni di memoria \emph{contigue} e \emph{allineate}. Se il thread $i$ accede a \texttt{A[i]}, tutti i 32 thread del warp accedono a 32 float contigui $\to$ un solo transaction da 128 byte.
+
+Se invece il thread $i$ accede a \texttt{A[i*stride]}, ogni thread richiede una transaction separata $\to$ pessima bandwidth.
+
+\subsection{Occupancy}
+
+L'\emph{occupancy} è il numero di warp attivi per SM rispetto al massimo possibile. Dipende da:
+\begin{itemize}
+  \item Registri usati per thread.
+  \item Shared memory usata per block.
+  \item Dimensione del block (numero di thread).
+\end{itemize}
+
+Alta occupancy permette di nascondere la latenza di accesso alla global memory (latency hiding: mentre un warp aspetta dati, lo SM esegue un altro warp).
+
+\subsection{Divergenza nei warp}
+
+Se thread dello stesso warp prendono branch diversi, il warp li esegue entrambi in sequenza, mascherando i thread inattivi. Questo riduce l'efficienza.
+
+\begin{esercizio}
+Cos'è il memory coalescing? Perché è importante?
+\end{esercizio}
+\begin{risposta}
+Il memory coalescing avviene quando i 32 thread di un warp accedono a indirizzi contigui in global memory, permettendo di servire tutte le richieste con un unico transaction. Senza coalescing, servono 32 transaction separate, riducendo la bandwidth effettiva di un fattore 32.
+\end{risposta}
+
+% =============================================================
+\section{Metriche di Prestazione e Leggi di Scalabilità}
+% =============================================================
+
+\subsection{Metriche fondamentali}
+
+\begin{itemize}
+  \item \textbf{Latency} ($L$): tempo per completare un singolo task.
+  \item \textbf{Completion time} ($T_c$): tempo dalla prima all'ultima istruzione del programma.
+  \item \textbf{Service time} ($T_s$): tempo tra l'uscita di due output consecutivi in un sistema pipeline/stream.
+  \item \textbf{Throughput} ($\Phi$): $\Phi = 1/T_s$ (task completati per unità di tempo).
+  \item \textbf{Inter-arrival time} ($T_a$): tempo tra l'arrivo di due task consecutivi.
+  \item \textbf{Utilization} ($\rho$): $\rho = T_a / T_s$; per stabilità del sistema, $\rho < 1$.
+\end{itemize}
+
+\subsection{Speedup ed efficienza}
+
+\begin{align}
+  S(p) &= \frac{T_c^{seq}}{T_c(p)} & \text{Speedup con $p$ processori} \\
+  E(p) &= \frac{S(p)}{p} & \text{Efficienza (idealmente = 1)}
+\end{align}
+
+\subsection{Scalabilità forte e debole}
+
+\begin{itemize}
+  \item \textbf{Scalabilità forte (strong scaling)}: il problema è fisso, si aumentano i processori. Idealmente $T_c(p) = T_c(1)/p$.
+  \item \textbf{Scalabilità debole (weak scaling)}: la dimensione del problema scala proporzionalmente con i processori. Idealmente $T_c = \text{const}$.
+    \[
+      WSE(p) = \frac{T_c(PS(1),1)}{T_c(PS(p),p)}
+    \]
+\end{itemize}
+
+\subsection{Legge di Amdahl}
+
+Sia $f$ la frazione sequenziale (non parallelizzabile):
+\begin{equation}
+  \boxed{S(p) \leq \frac{1}{f + \frac{1-f}{p}}}
+\end{equation}
+
+Limite asintotico: $\lim_{p\to\infty} S(p) = 1/f$.
+
+La legge di Amdahl è \textbf{pessimistica}: con $f=0.01$ (1\% seriale) il massimo speedup è 100, anche con infinite CPU.
+
+\paragraph{Amdahl con overhead}
+\begin{equation}
+  S(p) \leq \frac{1}{(f + O(p)) + \frac{1-f}{p}}
+\end{equation}
+dove $O(p) = o \cdot p$ (overhead lineare, es. comunicazione). Esiste un numero ottimale $p_{opt}$ che massimizza lo speedup.
+
+\subsection{Legge di Gustafson}
+
+Gustafson osserva che nella pratica la dimensione del problema \emph{cresce} con il numero di processori (si usa tutto il tempo disponibile per un problema più grande):
+
+Sia $f$ la frazione seriale del programma parallelo:
+\begin{equation}
+  \boxed{S(p) \leq f + p \cdot (1-f) = p - f \cdot (p-1)}
+\end{equation}
+
+La legge di Gustafson è ottimistica: con $f=0.01$ e $p=100$, $S = 0.01 + 100 \times 0.99 = 99.01$.
+
+\paragraph{Differenza chiave}:
+\begin{itemize}
+  \item \textbf{Amdahl}: dimensione del problema fissa ($\sigma=1$, $\pi=1$), $\gamma = \pi/\sigma = 1$.
+  \item \textbf{Gustafson}: la parte parallela scala linearmente con $p$ ($\gamma = p$, $\delta = 1$).
+\end{itemize}
+
+\subsection{Legge dello Speedup Scalato (Scaled Speedup)}
+
+Generalizzazione: la parte sequenziale scala di un fattore $\sigma$, la parte parallela scala di un fattore $\pi$:
+\begin{equation}
+  S_{\sigma\pi}(p) \leq \frac{\sigma f + \pi (1-f)}{\sigma f + \frac{\pi (1-f)}{p}}
+\end{equation}
+
+\subsection{Rapporto Computation-to-Communication}
+
+In un sistema distribuito con $\alpha$ FLOPs e $\beta$ bytes di comunicazione:
+\[
+  \gamma = \alpha / \beta
+\]
+Per un'analisi con $2^k$ elementi e $2^q$ processori:
+\[
+  T_{\alpha,\beta}(2^q, 2^k) = 2\beta q + \alpha(2^{k-q} - 1 + q)
+\]
+Lo speedup ha un massimo: esiste $p_{opt}$ che lo massimizza.
+
+\begin{esercizio}
+Un programma ha il 5\% seriale. Qual è il massimo speedup con 32 processori? E con infiniti?
+\end{esercizio}
+\begin{risposta}
+Con 32 processori: $S(32) = 1/(0.05 + 0.95/32) = 1/(0.05 + 0.0297) \approx 12.5$.
+Limite: $1/0.05 = 20$.
+\end{risposta}
+
+\begin{esercizio}
+Si ottiene speedup 100 con 128 PE. Qual è la massima frazione seriale ammissibile con Amdahl? E con Gustafson?
+\end{esercizio}
+\begin{risposta}
+Amdahl: $100 = 1/(f + (1-f)/128)$, risolvendo: $f \leq 0.22\%$.\\
+Gustafson: $100 = f + 128(1-f) = 128 - 127f$, risolvendo: $f \leq 22\%$.
+\end{risposta}
+
+% =============================================================
+\section{Tipi di Parallelismo}
+% =============================================================
+
+\subsection{Parallelismo dei dati}
+
+Obiettivo: ridurre il tempo di completamento $T_c$.
+La stessa operazione su partizioni indipendenti.
+
+\begin{itemize}
+  \item \textbf{Map} $(f, \langle x_1,\ldots,x_n\rangle) = \langle f(x_1),\ldots,f(x_n)\rangle$: embarrassingly parallel, $\alpha \to \beta$.
+  \item \textbf{Reduce} $({\oplus}, \langle x_1,\ldots,x_n\rangle) = x_1 \oplus x_2 \oplus \cdots \oplus x_n$: necessario che $\oplus$ sia associativo (e preferibilmente commutativo). Realizzabile con albero binario in $O(\log n)$ passi.
+  \item \textbf{Stencil}: come map ma ogni output dipende da un intorno dell'input. Richiede halo exchange nei sistemi DM.
+  \item \textbf{Scan (prefix)}: $\text{scan}({\oplus}, \langle x_1,\ldots,x_n\rangle) = \langle x_1, x_1\oplus x_2, \ldots, x_1\oplus\cdots\oplus x_n\rangle$.
+  \item \textbf{Divide \& Conquer}: $isBc : \alpha \to \text{Bool}$, $solveBc : \alpha \to \beta$, $Divide : \alpha \to \langle\alpha\rangle$, $Conquer : \langle\beta\rangle \to \beta$.
+\end{itemize}
+
+\paragraph{Esempio Map (traduzione libro)}
+$k$ thread, $n$ pagine, $T_{page}$ tempo per pagina, $T_{split}$ e $T_{merge}$ overhead:
+\[
+  T_{par} = k \cdot (T_{split} + T_{merge}) + \frac{n}{k} \cdot T_{page}
+\]
+$S(k) \approx k$ per $n$ grande.
+
+\subsection{Parallelismo di stream}
+
+Obiettivo: ridurre il service time $T_s$.
+I task arrivano in un flusso; la pipeline processa task diversi in stage diversi contemporaneamente.
+
+\begin{itemize}
+  \item \textbf{Pipeline}: computa in parallelo la composizione di $k$ funzioni su elementi diversi dello stream.
+    \[
+      pipe(f,g)(\langle x_1,x_2,\ldots\rangle) = \langle g(f(x_1)), g(f(x_2)), \ldots\rangle
+    \]
+    $T_c^{pipe}(N, 4) \approx (N+3)(T_{task} + T_{move})$; $S(4) \approx 4$ per $N$ grande.
+  \item \textbf{Farm}: applica la stessa funzione a tutti gli elementi dello stream in parallelo con $n_w$ worker.
+    \[
+      farm(f)(\langle x_1,x_2,\ldots\rangle) = \langle f(x_1), f(x_2), \ldots\rangle
+    \]
+    Service time del farm: $T_s(Farm) = \max\!\left(t_E, \frac{t_W}{n_w}, t_C\right)$\\
+    dove $t_E$ = tempo emitter, $t_W$ = tempo worker, $t_C$ = tempo collector.\\
+    Numero minimo di worker per saturare: $n_w > \lceil t_W / \max(t_E, t_C) \rceil$.
+\end{itemize}
+
+\paragraph{Differenza Map vs Farm}
+Map è data-parallel: l'intera collezione è nota all'inizio. Farm è stream-parallel: i task arrivano nel tempo e l'ordering dell'output non è garantito.
+
+\subsection{Parallelismo di task}
+
+Obiettivo: ridurre $T_c$ sfruttando un grafo di dipendenze tra task.
+Il parallelismo nasce dai task indipendenti nel DAG.
+\[
+  T_c^{task}(N, k) \geq \max\!\Bigl(\frac{W + \Delta(k)}{k},\; T_{task} + T_a\Bigr)
+\]
+
+\subsection{Skeleton Normal Form}
+
+Nelle skeleton frameworks (es. FastFlow), il Service Time ottimale è:
+\begin{align*}
+  T_s(pipe(\Delta_1, \Delta_2)) &= \max\{T_s(\Delta_1), T_s(\Delta_2)\} \\
+  T_s(farm(\Delta)) &= \max\{T_{Emitter}, T_{Collector}, T_{Worker}/n_w\} \\
+  T_s(comp(\Delta_1, \Delta_2)) &= L(\Delta_1) + L(\Delta_2) \\
+  T_s(seq(C)) &= L(C)
+\end{align*}
+
+\paragraph{Rewriting rules}
+\begin{align*}
+  map(f) \circ map(g) &\equiv map(f \circ g) \quad \text{(map fusion)} \\
+  pipe(\Delta_1, \Delta_2) &\equiv pipe(farm(\Delta_1), farm(\Delta_2)) \equiv farm(pipe(\Delta_1, \Delta_2)) \\
+  \forall \Delta_i: farm(\Delta_i) &\equiv \Delta_i
+\end{align*}
+
+\begin{esercizio}
+Qual è la differenza tra stream parallelism e data parallelism?
+\end{esercizio}
+\begin{risposta}
+Il data parallelism riduce il tempo di completamento ($T_c$) di un singolo task scomponendolo in subtask paralleli. Lo stream parallelism non riduce la latenza del singolo task, ma aumenta il throughput processando task multipli in parallelo (pipeline o farm), riducendo il service time $T_s$ e quindi il completion time totale di una stream infinita.
+\end{risposta}
+
+\begin{esercizio}
+Un farm con $t_E = 2$ ms, $t_W = 40$ ms, $t_C = 3$ ms. Quanti worker servono affinché il farm non sia bottleneck rispetto all'emitter?
+\end{esercizio}
+\begin{risposta}
+Voglio $t_W/n_w \leq \max(t_E, t_C) = 3$ ms. $n_w > 40/3 \approx 13.3$, quindi $n_w \geq 14$.
+\end{risposta}
+
+% =============================================================
+\section{Modelli di Calcolo Parallelo}
+% =============================================================
+
+\subsection{Work-Span Model}
+
+Dato un DAG di calcolo:
+\begin{itemize}
+  \item $T_1$ (\emph{Work}): tempo su 1 processore (lavoro totale).
+  \item $T_\infty$ (\emph{Span} / critical path): tempo su infiniti processori.
+\end{itemize}
+
+\textbf{Teorema di Brent}:
+\begin{equation}
+  \frac{T_1}{p} \leq T_p \leq \frac{T_1 - T_\infty}{p} + T_\infty
+\end{equation}
+
+Speedup massimo teorico: $T_1 / T_\infty$.
+
+Il Work-Span model è più pessimistico di Amdahl: limita ulteriormente le possibilità di parallelizzazione per via della struttura del DAG.
+
+\subsection{PRAM (Parallel RAM)}
+
+Modello teorico: $n$ processori identici $P_0, \ldots, P_{n-1}$ operano in lockstep su memoria condivisa. Ogni step: Read $\to$ Compute $\to$ Write.
+
+Varianti per la gestione degli accessi concorrenti:
+\begin{itemize}
+  \item \textbf{EREW}: Exclusive Read Exclusive Write -- no conflitti.
+  \item \textbf{CREW}: Concurrent Read Exclusive Write -- più lettori, un solo scrittore.
+  \item \textbf{CRCW}: Concurrent Read Concurrent Write -- varianti:
+    \begin{itemize}
+      \item \textbf{Priority CW}: vince il processore con priorità massima.
+      \item \textbf{Arbitrary CW}: vince un processore casuale.
+      \item \textbf{Common CW}: write solo se tutti scrivono lo stesso valore.
+      \item \textbf{Combining CW}: i valori vengono combinati con op. associativa.
+    \end{itemize}
+\end{itemize}
+
+\paragraph{Prefix scan su PRAM}
+Algoritmo non cost-optimal: $O(n \log n)$ work, $O(\log n)$ span.
+Algoritmo cost-optimal: $O(n)$ work, $O(\log n)$ span (usando due fasi: up-sweep + down-sweep).
+
+\subsection{Modello BSP (Bulk Synchronous Parallel)}
+
+$BSP(p, r, g, l)$ dove:
+\begin{itemize}
+  \item $p$: numero di processori.
+  \item $r$: velocità computazionale (FLOPS).
+  \item $g$: costo per parola comunicata (gap).
+  \item $l$: costo di sincronizzazione (latency).
+\end{itemize}
+
+Un programma BSP è una sequenza di \emph{superstep}. Ogni superstep ha:
+\begin{itemize}
+  \item Fase computazionale locale.
+  \item Fase di comunicazione (h-relation: ogni processore invia/riceve al più $h$ parole).
+  \item Barrier di sincronizzazione.
+\end{itemize}
+
+Costo di un'h-relation: $T(h) = h \cdot g + l$.
+Costo di un superstep misto: $T(h) = w + h \cdot g + l$ dove $w$ = max lavoro locale.
+
+\begin{esercizio}
+Quali sono i 4 tipi di PRAM? Qual è il più potente e quale il più realistico?
+\end{esercizio}
+\begin{risposta}
+EREW, CREW, CRCW (Priority, Arbitrary, Common, Combining). CRCW-Priority è il più potente. EREW è il più realistico (corrisponde a un accesso senza conflitti, come nelle architetture reali con cache coherence).
+\end{risposta}
+
+% =============================================================
+\section{Bilanciamento del Carico (Workload Balancing)}
+% =============================================================
+
+\subsection{Data partitioning}
+
+Il data parallelism applica la stessa operazione su partizioni indipendenti. La sfida è distribuire il workload in modo uniforme tra i worker.
+
+\paragraph{Workload imbalance}: se alcuni thread finiscono prima, rimangono idle. Il tempo totale è determinato dal thread più lento (\emph{bottleneck}).
+
+\subsection{Distribuzioni statiche}
+
+\paragraph{Block distribution}
+Il task $t_i$ va al worker $\lfloor i \cdot p / m \rfloor$ (blocchi contigui di $\lceil m/p \rceil$ elementi).
+\emph{Pro}: massima località dei dati. \emph{Contro}: squilibrato se il costo varia con l'indice.
+
+\paragraph{Cyclic distribution}
+Il task $t_i$ va al worker $i \bmod p$ (round-robin elemento per elemento).
+\emph{Pro}: migliore bilanciamento per workload con variazione regolare. \emph{Contro}: peggiore località.
+
+\paragraph{Block-cyclic distribution}
+Chunk di dimensione $c$: il task $t_i$ va al worker $(i \div c) \bmod p$.
+Compromesso tra block (locality) e cyclic (balance). $c = 16$ (32-bit) o $c = 8$ (64-bit) è un buon default (copre una cache line).
+
+\subsection{Distribuzioni dinamiche}
+
+\paragraph{Work-sharing}
+Tutti i worker condividono una coda concorrente (MPMC). Ogni worker, quando idle, preleva il prossimo chunk dalla coda. Buono per task eterogenei; contention alta con molti thread e task piccoli.
+
+\paragraph{Work-stealing}
+Ogni worker ha una coda locale (deque). Worker idle rubano task \emph{in testa} dalla coda di un altro worker (mentre il proprietario lavora in coda). Migliore località e minor contention; overhead del furto è occasionale.
+
+\subsection{Esempio: Insieme di Mandelbrot}
+
+Il costo di ogni pixel dipende dal numero di iterazioni (i pixel neri richiedono il massimo). Con distribuzione block statica naiva, il thread centrale (con più pixel neri) è $\sim3\times$ più lento degli altri.
+
+Risultati con 128 thread su 64-core (128 logical threads):
+\begin{table}[H]
+\centering
+\begin{tabular}{llrrrr}
+\toprule
+Strategia & & $c=1$ & $c=4$ & $c=8$ & $c=16$ \\
+\midrule
+Block-Cyclic & Speedup & 1.96 & 2.38 & 3.6 & 6.94 \\
+Dynamic & Speedup & 1.93 & 2.32 & 3.55 & 6.91 \\
+ThreadPool & Speedup & 2.09 & 2.85 & 4.1 & 7.23 \\
+\bottomrule
+\end{tabular}
+\caption{Confronto strategie di scheduling per Mandelbrot set}
+\end{table}
+
+\subsection{Dimensione ottimale del chunk}
+
+\begin{itemize}
+  \item Chunk \emph{troppo piccoli}: alto overhead di sincronizzazione/scheduling.
+  \item Chunk \emph{troppo grandi}: scarso bilanciamento.
+  \item Il tempo totale ha un minimo in funzione della dimensione del chunk.
+\end{itemize}
+
+\begin{esercizio}
+Descrivi la differenza tra work-sharing e work-stealing. Quando è preferibile uno rispetto all'altro?
+\end{esercizio}
+\begin{risposta}
+Work-sharing: coda globale condivisa, alta contention con molti thread. Work-stealing: code locali, furto occasionale tra worker. Work-stealing è preferibile per task fine-grained e numero elevato di thread perché riduce la contention; work-sharing è più semplice e adeguato per task medio-grandi.
+\end{risposta}
+
+% =============================================================
+\section{C++ Moderno: Essenziali}
+% =============================================================
+
+\subsection{Type deduction: auto e decltype}
+
+\begin{lstlisting}
+auto x = 5;         // int
+auto& r = x;        // int& (reference)
+const auto& cr = x; // const int& (read-only reference)
+
+int y = 7;
+decltype(y) z;      // int (tipo esatto di y)
+decltype((y)) w = y;// int& (lvalue ref se espressione tra ())
+\end{lstlisting}
+
+\texttt{auto} elimina la const/ref top-level (drop). \texttt{decltype} le preserva.
+
+\subsection{Inizializzazione}
+
+\begin{lstlisting}
+std::vector<int> v{1,2,3};   // lista: preferisce initializer_list
+std::vector<int> w(3, 0);    // 3 elementi inizializzati a 0
+int a{5};      // narrowing check: errore se 5.5
+int b = 5.5;   // implicita: OK (narrowing silenzioso)
+\end{lstlisting}
+
+\subsection{Riferimenti e semantica}
+
+\begin{itemize}
+  \item \texttt{T\&}: lvalue reference (alias, no copia, può modificare).
+  \item \texttt{const T\&}: read-only, accetta lvalue e rvalue, evita copia.
+  \item \texttt{T\&\&}: rvalue reference (per move semantics).
+\end{itemize}
+
+\subsection{STL: Containers, Iterators, Algorithms}
+
+\begin{lstlisting}
+std::vector<int> v = {3,1,4,1,5};
+// Algoritmi su range
+std::sort(v.begin(), v.end());
+auto it = std::find(v.begin(), v.end(), 4);
+int sum = std::accumulate(v.begin(), v.end(), 0);
+std::transform(v.begin(), v.end(), out.begin(), f);
+std::inclusive_scan(v.begin(), v.end(), out.begin());
+
+// Counting iterator (C++20 iota_view)
+for (auto i : std::views::iota(0, n)) { ... }
+\end{lstlisting}
+
+Tipi di iteratori (dal meno al più potente): Output $<$ Input $<$ Forward $<$ Bidirectional $<$ Random-access $<$ Contiguous (C++20).
+
+\textbf{Attenzione}: \texttt{push\_back} può invalidare gli iteratori se causa riallocazione!
+
+\subsection{Functors e Lambdas}
+
+\begin{lstlisting}
+// Functor: oggetto con operator()
+struct Adder {
+    int val;
+    int operator()(int x) const { return x + val; }
+};
+
+// Lambda: [capture](params) mutable -> ret { body }
+int offset = 10;
+auto add_off = [offset](int x) { return x + offset; };    // cattura per valore
+auto add_ref = [&offset](int x) { return x + offset; };   // cattura per riferimento
+auto add_all = [=](int x) { return x + offset; };         // tutto per valore
+\end{lstlisting}
+
+\subsection{std::function e type erasure}
+
+\begin{lstlisting}
+std::function<int(int)> f = [](int x){ return x*2; };
+f = Adder{5}; // qualsiasi callable compatibile
+// Overhead: allocazione heap possibile, virtual dispatch
+\end{lstlisting}
+
+Usa template (polimorfismo a compile-time) quando la performance è critica.
+
+\subsection{RAII}
+
+\emph{Resource Acquisition Is Initialization}: le risorse vengono acquisite nel costruttore e rilasciate nel distruttore. Garantisce correttezza anche in presenza di eccezioni.
+
+\begin{lstlisting}
+struct File {
+    FILE* fp;
+    File(const char* path) : fp(fopen(path, "r")) {}
+    ~File() { if(fp) fclose(fp); }
+};
+\end{lstlisting}
+
+\subsection{Move semantics}
+
+\begin{lstlisting}
+std::string s1 = "Hello";
+std::string s2 = std::move(s1); // s1 in stato "valido ma non specificato"
+// s2 ora possiede le risorse, s1 e' vuota
+
+auto make_buffer() { return Buffer{}; } // copy elision (NRVO)
+Buffer b = make_buffer(); // nessuna copia!
+\end{lstlisting}
+
+Regole:
+\begin{itemize}
+  \item Le move operations richiedono \texttt{T\&\&} non-const.
+  \item Un oggetto \texttt{const} viene copiato, non mosso.
+  \item Una variabile nominata è sempre un lvalue dentro la funzione, anche se il suo tipo è \texttt{T\&\&}: usa \texttt{std::move} per forzare.
+\end{itemize}
+
+\subsection{Rule of Five e Rule of Zero}
+
+\paragraph{Rule of Five}: se una classe gestisce direttamente una risorsa raw (puntatore, file descriptor), deve definire/eliminare tutti e 5:
+\begin{enumerate}
+  \item Copy constructor: deep copy.
+  \item Copy assignment operator.
+  \item Move constructor: trasferisce il puntatore, pone \texttt{nullptr} nel sorgente.
+  \item Move assignment operator.
+  \item Destructor: libera la risorsa.
+\end{enumerate}
+
+\texttt{noexcept} sui move constructor/assignment: i container STL preferiscono i move ctor dichiarati \texttt{noexcept} per usare move anziché copy.
+
+\paragraph{Rule of Zero}: se la classe non gestisce risorse raw (usa \texttt{std::string}, \texttt{std::vector}, \texttt{std::unique\_ptr}), non definisce nulla. I member già gestiscono le risorse.
+
+\subsection{Forwarding references e perfect forwarding}
+
+\begin{lstlisting}
+template <typename T>
+void f(T&& x); // forwarding reference (T deduced)
+
+// std::forward<T>(x) preserva la value category
+template <typename T>
+void insertValue(T&& value) {
+    V.push_back(std::forward<T>(value)); // copia o move a seconda del tipo
+}
+\end{lstlisting}
+
+\texttt{std::move}: cast incondizionato a rvalue. \texttt{std::forward}: cast condizionale che preserva lvalue/rvalue.
+
+\begin{esercizio}
+Qual è la differenza tra la Rule of Five e la Rule of Zero?
+\end{esercizio}
+\begin{risposta}
+Rule of Five: se si definisce, elimina, o personalizza uno dei 5 special member functions, bisogna considerarli tutti (evitare inconsistenze). Rule of Zero: se i membri della classe usano già tipi RAII (\texttt{std::vector}, \texttt{std::unique\_ptr}, ecc.), non si definisce nessuno dei 5 -- il compilatore li genera correttamente.
+\end{risposta}
+
+% =============================================================
+\section{C++: Concorrenza di Base}
+% =============================================================
+
+\subsection{std::thread}
+
+\begin{lstlisting}
+#include <thread>
+#include <vector>
+
+void work(int id) { /* ... */ }
+
+// Creazione thread
+std::vector<std::thread> threads;
+for (int i = 0; i < 4; i++)
+    threads.emplace_back(work, i);  // emplace_back crea in-place
+
+// Join obbligatorio prima della distruzione
+for (auto& t : threads) t.join();
+
+// Passare per riferimento: usare std::ref
+int x = 0;
+std::thread t(func, std::ref(x));
+t.join();
+
+// Compilazione: g++ -O3 -std=c++20 file.cpp -o prog -pthread
+\end{lstlisting}
+
+\texttt{std::thread} è \emph{move-only}: non copiabile.
+
+\subsection{Mutex e lock RAII}
+
+\begin{lstlisting}
+#include <mutex>
+std::mutex mtx;
+
+// lock_guard: RAII, un mutex, nessun unlock manuale
+{
+    std::lock_guard<std::mutex> lock(mtx);
+    // sezione critica
+} // unlock automatico
+
+// unique_lock: flessibile, usato con condition_variable
+{
+    std::unique_lock<std::mutex> lock(mtx);
+    lock.unlock(); // unlock manuale possibile
+    lock.lock();   // re-lock
+}
+
+// scoped_lock: blocca più mutex senza deadlock (C++17)
+std::scoped_lock lock(mtx1, mtx2);
+\end{lstlisting}
+
+\subsection{Condition Variables}
+
+\begin{lstlisting}
+#include <condition_variable>
+std::mutex mtx;
+std::condition_variable cv;
+bool ready = false;
+
+// Producer thread
+{
+    std::lock_guard<std::mutex> lock(mtx);
+    ready = true;
+}
+cv.notify_one(); // o notify_all()
+
+// Consumer thread
+{
+    std::unique_lock<std::mutex> lock(mtx);
+    cv.wait(lock, []{ return ready; }); // evita spurious wakeup
+    // lavora con la risorsa
+}
+\end{lstlisting}
+
+\textbf{Spurious wakeup}: il thread può svegliarsi senza una \texttt{notify}. Per questo il predicato nel \texttt{wait} è obbligatorio.
+
+\subsection{Promise e Future}
+
+Canale single-assignment per trasferire un valore tra thread:
+
+\begin{lstlisting}
+#include <future>
+std::promise<int> p;
+std::future<int> f = p.get_future();
+
+std::thread t([&p]{ p.set_value(42); });
+int val = f.get(); // blocca fino a quando il valore è disponibile
+t.join();
+
+// Shared future: broadcast a più thread
+std::shared_future<int> sf = f.share();
+\end{lstlisting}
+
+\subsection{packaged\_task e make\_task}
+
+\begin{lstlisting}
+// Wrapping di una funzione con future associato
+auto make_task(auto&& func, auto&&... args) {
+    using Rtrn = std::result_of_t<decltype(func)(decltype(args)...)>;
+    auto task = std::packaged_task<Rtrn(void)>(
+        [f=std::forward<decltype(func)>(func),
+         ...a=std::forward<decltype(args)>(args)]()
+        { return f(a...); });
+    return task;
+}
+
+// Utilizzo con Fibonacci
+auto task = make_task(fibo, 42);
+auto fut  = task.get_future();
+std::thread t(std::move(task));
+auto result = fut.get();
+t.join();
+\end{lstlisting}
+
+\subsection{std::async}
+
+\begin{lstlisting}
+// Alta astrazione: lancia task async (o lazy, dipende dall'impl)
+auto fut = std::async(std::launch::async, fibo, 42);
+// std::launch::async garantisce un nuovo thread
+// senza ::async potrebbe eseguire lazy nel thread chiamante!
+
+// Attenzione: la distruzione del future BLOCCA se il task non è finito
+// Quindi NON fare:
+for (int i = 0; i < n; i++) {
+    auto fut = std::async(std::launch::async, work, i);
+} // fut distrutto qui -> serialize!
+
+// CORRETTO: conservare tutti i future
+std::vector<std::future<int>> futs;
+for (int i = 0; i < n; i++)
+    futs.emplace_back(std::async(std::launch::async, work, i));
+for (auto& f : futs) f.get(); // aspetta tutti
+\end{lstlisting}
+
+\subsection{Producer-Consumer}
+
+\begin{lstlisting}
+#include <deque>
+struct BoundedQueue {
+    std::deque<int> q;
+    std::mutex mtx;
+    std::condition_variable not_full, not_empty;
+    size_t max_size;
+
+    void push(int val) {
+        std::unique_lock<std::mutex> lock(mtx);
+        not_full.wait(lock, [&]{ return q.size() < max_size; });
+        q.push_back(val);
+        not_empty.notify_one();
+    }
+
+    int pop() {
+        std::unique_lock<std::mutex> lock(mtx);
+        not_empty.wait(lock, [&]{ return !q.empty(); });
+        int val = q.front(); q.pop_front();
+        not_full.notify_one();
+        return val;
+    }
+};
+\end{lstlisting}
+
+\subsection{Multiple-Reader Single-Writer (MRSW)}
+
+\begin{lstlisting}
+#include <shared_mutex>
+std::shared_mutex rw_mutex;
+
+// Lettori: accesso condiviso (non esclusivo)
+{ std::shared_lock<std::shared_mutex> lock(rw_mutex); /* read */ }
+
+// Scrittore: accesso esclusivo
+{ std::unique_lock<std::shared_mutex> lock(rw_mutex); /* write */ }
+\end{lstlisting}
+
+\begin{esercizio}
+Perché è necessario un predicato nella \texttt{cv.wait(lock, pred)}?
+\end{esercizio}
+\begin{risposta}
+A causa degli spurious wakeup: il thread può essere svegliato senza che sia arrivata una \texttt{notify}. Senza il predicato, il thread potrebbe procedere quando la condizione non è ancora vera, causando race condition. Con il predicato, \texttt{wait} controlla la condizione a ogni sveglia e ri-dorme se non è soddisfatta.
+\end{risposta}
+
+\begin{esercizio}
+Cos'è il deadlock? Come si può prevenire usando \texttt{std::scoped\_lock}?
+\end{esercizio}
+\begin{risposta}
+Il deadlock avviene quando thread A detiene il mutex M1 e aspetta M2, mentre thread B detiene M2 e aspetta M1. \texttt{std::scoped\_lock(m1, m2)} acquisisce entrambi i mutex in modo atomico (o con algoritmo deadlock-free), prevenendo il problema. Internamente usa l'algoritmo di Dijkstra o similar.
+\end{risposta}
+
+% =============================================================
+\section{Programmazione Lock-Free}
+% =============================================================
+
+\subsection{std::atomic}
+
+\begin{lstlisting}
+#include <atomic>
+std::atomic<uint64_t> counter(0);
+counter++;              // atomic fetch_add
+counter.fetch_add(1);  // equivalente
+uint64_t val = counter.load(std::memory_order_seq_cst);
+counter.store(42, std::memory_order_release);
+\end{lstlisting}
+
+Benefici rispetto a mutex: no deadlock, no priority inversion, meno overhead di context switch.
+Sfide: starvation (un thread non ottiene mai progresso), livelock (thread interferiscono ma nessuno avanza).
+
+\subsection{Garanzie di progresso}
+
+Dal più forte al più debole:
+\begin{itemize}
+  \item \textbf{Wait-freedom (WF)}: ogni thread completa in un numero finito di passi, indipendentemente dagli altri.
+  \item \textbf{Lock-freedom (LF)}: almeno un thread fa progresso in ogni momento (altri possono morire di fame).
+  \item \textbf{Obstruction-freedom (OF)}: un thread fa progresso se eseguito isolatamente.
+\end{itemize}
+
+\subsection{CAS (Compare-And-Swap)}
+
+\begin{lstlisting}
+// Atomic max reduction con CAS loop
+std::atomic<uint64_t> max_val(0);
+
+void update_max(uint64_t i) {
+    auto prev = max_val.load();
+    while (prev < i &&
+           !max_val.compare_exchange_weak(prev, i)) {
+        // prev aggiornato automaticamente a valore corrente
+    }
+}
+// compare_exchange_weak: puo' fallire spuriamente (OK in loop)
+// compare_exchange_strong: no spurious failure (migliore in if)
+\end{lstlisting}
+
+Benchmark: atomics $\approx 6\times$ più veloci del mutex per piccole sezioni critiche ad alta concorrenza.
+
+\subsection{Modello di consistenza della memoria}
+
+\paragraph{Sequential Consistency (SC, Lamport 1979)}
+Modello più restrittivo: esiste un unico ordine totale su tutte le operazioni di memoria coerente con l'ordine di programma di ogni thread. Preserva tutti e 4 gli ordinamenti: $W_X \to R_Y$, $R_X \to R_Y$, $R_X \to W_Y$, $W_X \to W_Y$.
+
+\paragraph{Total Store Order (TSO)}
+Rilassa $W_X \to R_Y$: un load può superare uno store precedente (write buffer). Usato da x86/x64.
+
+\paragraph{Partial Store Order (PSO)}
+Rilassa anche $W_X \to W_Y$: le scritture possono essere riordinate nel write buffer se hanno priorità diverse (es. una è una cache miss, l'altra un hit).
+
+\paragraph{Weak Ordering}
+Tutti gli ordinamenti possono essere rilassati. ARM e POWER usano modelli molto rilassati per migliori prestazioni (al costo di complessità di programmazione).
+
+\subsection{Happens-Before (HB)}
+
+L'ordine happens-before è una relazione d'ordine parziale transitiva:
+\begin{itemize}
+  \item \textbf{Sequenced-before}: intra-thread (ordine di programma).
+  \item \textbf{Synchronizes-with}: inter-thread: \texttt{unlock} $\to$ \texttt{lock}, \texttt{notify} $\to$ \texttt{wait}, \texttt{join}, atomic store-release $\to$ load-acquire sullo stesso oggetto.
+\end{itemize}
+
+\textbf{Data race} = due accessi concorrenti non-atomici, almeno uno write, senza HB $\to$ Undefined Behavior.
+
+\textbf{Garanzia DRF}: un programma Data-Race-Free ha comportamento SC.
+
+\subsection{C++ Memory Model: memory orders}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lll}
+\toprule
+Memory order & Operazioni & Semantica \\
+\midrule
+\texttt{seq\_cst} & Load, Store, RMW & SC globale (default, più costosa) \\
+\texttt{acquire} & Load, RMW & Nessun carico successivo può muoversi prima \\
+\texttt{release} & Store, RMW & Nessun carico/store precedente può muoversi dopo \\
+\texttt{acq\_rel} & RMW & Combinazione acquire+release \\
+\texttt{relaxed} & Tutti & Solo atomicità, nessun ordine \\
+\bottomrule
+\end{tabular}
+\caption{Memory orders in C++11}
+\end{table}
+
+\paragraph{Acquire-Release pattern}
+
+\begin{lstlisting}
+// Thread 1 (scrittore)
+data = 42;                          // scrittura ordinaria
+flag.store(true, memory_order_release); // release fence
+
+// Thread 2 (lettore) - spin
+while (!flag.load(memory_order_acquire)); // acquire fence
+// Qui: data == 42 e' garantito (HB chain)
+\end{lstlisting}
+
+Il release sincronizza con l'acquire che legge il valore scritto dal release. Tutto ciò che precede il release è visibile dopo l'acquire.
+
+\paragraph{Relaxed ordering}
+\begin{lstlisting}
+// fetch_add con relaxed: solo atomicita', nessun ordine
+counter.fetch_add(1, std::memory_order_relaxed);
+// Uso tipico: contatori senza dipendenze di dati
+\end{lstlisting}
+
+\subsection{Fences}
+
+\begin{lstlisting}
+#include <atomic>
+std::atomic_thread_fence(std::memory_order_release); // release fence
+std::atomic_thread_fence(std::memory_order_acquire); // acquire fence
+std::atomic_thread_fence(std::memory_order_seq_cst); // full barrier
+\end{lstlisting}
+
+I fences impongono vincoli di ordinamento senza modificare valori. Utili per raggruppare più operazioni rilassate con un singolo fence.
+
+\subsection{Spin-lock con atomic\_flag}
+
+\begin{lstlisting}
+class spinLock {
+    std::atomic_flag flag = ATOMIC_FLAG_INIT;
+public:
+    void lock() {
+        while (flag.test_and_set(std::memory_order_acquire))
+            while (flag.test(std::memory_order_relaxed)); // spin efficiente
+    }
+    void unlock() {
+        flag.clear(std::memory_order_release);
+    }
+};
+\end{lstlisting}
+
+\texttt{atomic\_flag} è garantito lock-free. Benchmarks: mutex 11-11.9s, spinlock 5.6-20.7s (variabile!), atomic CAS 0.8-1.3s per max-reduction.
+
+\subsection{SPSC Ring Buffer}
+
+Un ring buffer lock-free per Single Producer / Single Consumer:
+
+\begin{itemize}
+  \item \texttt{head} (consumer index) e \texttt{tail} (producer index) sono \texttt{atomic<size\_t>}.
+  \item Separati su cache line diverse (\texttt{alignas(hardware\_destructive\_interference\_size)}) per evitare false sharing.
+  \item Producer: scrive payload, poi \texttt{tail.store(next, memory\_order\_release)}.
+  \item Consumer: \texttt{tail.load(memory\_order\_acquire)}, legge payload.
+  \item Correctness: il release del producer synchronizes-with l'acquire del consumer.
+  \item Progress: wait-free (non-blocking API); oppure blocking con C++20 \texttt{wait}/\texttt{notify\_one}.
+\end{itemize}
+
+\subsection{Problema ABA}
+
+\begin{itemize}
+  \item Thread 1 legge valore A da una variabile atomica.
+  \item Thread 2 modifica la variabile: $A \to B \to A$ (ritorna ad A).
+  \item Thread 1 esegue CAS su A: ha successo, ma la struttura è cambiata nel mezzo!
+\end{itemize}
+
+Tipico delle strutture lock-free basate su puntatori (stack, liste).
+
+\paragraph{Soluzioni}:
+\begin{itemize}
+  \item \textbf{Version tag}: aggiungere un tag (numero di versione) alla variabile. Il CAS opera su $\langle pointer, version\rangle$. Richiede double-word CAS (CAS2).
+  \item \textbf{Hazard pointers}: ogni thread dichiara quali puntatori sta usando; il garbage collector non libera un nodo finché compare in qualche hazard list.
+  \item \textbf{Deferred reclamation}: rinviare la liberazione della memoria finché nessun thread potrebbe usarla.
+\end{itemize}
+
+\subsection{std::barrier (C++20)}
+
+\begin{lstlisting}
+#include <barrier>
+std::barrier sync(num_threads); // barrier riusabile
+
+// In ogni thread:
+do_local_work();
+sync.arrive_and_wait(); // attende tutti i thread
+do_next_phase();
+sync.arrive_and_wait();
+\end{lstlisting}
+
+La barrier è \emph{riusabile}: ideale per algoritmi iterativi con fasi.
+Se l'attesa è breve e prevedibile: spin-barrier (busy-wait) ha meno overhead di context switch.
+
+\begin{esercizio}
+Spiega il problema ABA nella programmazione lock-free. Come si risolve?
+\end{esercizio}
+\begin{risposta}
+Il problema ABA: T1 legge A, T2 modifica A→B→A, T1 fa CAS su A e riesce -- ma il cambiamento intermedio può rendere il dato non più valido (es. un nodo di lista riusato con lo stesso indirizzo). Soluzione: taggare il puntatore con un contatore di versione che viene incrementato a ogni modifica; il CAS opera sulla coppia (puntatore, versione).
+\end{risposta}
+
+\begin{esercizio}
+Qual è la differenza tra \texttt{memory\_order\_seq\_cst} e \texttt{memory\_order\_acquire}/\texttt{release}?
+\end{esercizio}
+\begin{risposta}
+\texttt{seq\_cst}: definisce un singolo ordine totale su tutte le operazioni SC in tutti i thread; è la più costosa perché richiede sincronizzazione globale. \texttt{acquire/release}: sincronizzazione \emph{pairwise} tra il thread che fa la release e quello che fa l'acquire; gli altri thread possono vedere ordini diversi. Meno costosa perché non richiede un ordine globale.
+\end{risposta}
+
+% =============================================================
+\section{Domande d'Esame Tipiche (Q\&A Riassuntivo)}
+% =============================================================
+
+\subsection{Architetture e concetti fondamentali}
+
+\begin{esercizio}
+Cosa sono AOS e SOA? Quando e perché si preferisce SOA?
+\end{esercizio}
+\begin{risposta}
+AOS (Array of Structures): ogni record è un \texttt{struct} con tutti i campi; gli array hanno stride uguale alla dimensione del record. SOA (Structure of Arrays): campo separato per ogni dimensione. SOA è preferibile per SIMD perché ogni array contiene valori contigui dello stesso tipo, permettendo caricamenti vettoriali senza stride. Esempio: coordinate 3D per $N$ punti: AOS = \texttt{struct\{float x,y,z;\} pts[N]}, SOA = \texttt{float xs[N], ys[N], zs[N]}.
+\end{risposta}
+
+\begin{esercizio}
+Cosa afferma il teorema di Brent (Work-Span)?
+\end{esercizio}
+\begin{risposta}
+Con $T_1$ = lavoro totale, $T_\infty$ = span (critical path), $T_p$ = tempo con $p$ processori:
+\[
+  \frac{T_1}{p} \leq T_p \leq \frac{T_1 - T_\infty}{p} + T_\infty
+\]
+Il lower bound è ideale (lavoro perfettamente distribuito). L'upper bound tiene conto del critical path irriducibile.
+\end{risposta}
+
+\begin{esercizio}
+Cos'è la scalabilità forte (strong scaling) e come si misura?
+\end{esercizio}
+\begin{risposta}
+Strong scaling: la dimensione del problema è fissa, si aumenta il numero di processori. Lo speedup ideale è $S(p) = p$ (linear scaling). La Weak Scaling Efficiency (WSE) misura la scalabilità debole: $WSE(p) = T_c(PS(1),1)/T_c(PS(p),p)$, idealmente = 1.
+\end{risposta}
+
+\begin{esercizio}
+Perché la Legge di Gustafson è più ottimistica di quella di Amdahl?
+\end{esercizio}
+\begin{risposta}
+Amdahl assume problema fisso: la parte seriale occupa sempre la stessa quantità di tempo, diventando il bottleneck assoluto. Gustafson osserva che nella pratica la dimensione del problema cresce con $p$ (si usa più tempo disponibile). La parte seriale rimane costante in tempo assoluto, ma diminuisce come frazione del tempo totale. Quindi lo speedup scala quasi linearmente con $p$.
+\end{risposta}
+
+\begin{esercizio}
+Cos'è il protocollo MESI? Descrivine gli stati.
+\end{esercizio}
+\begin{risposta}
+MESI è un protocollo di cache coherence usato nei processori multicore:
+\textbf{M}odified: copia unica, modificata (dirty). \textbf{E}xclusive: copia unica, uguale alla RAM. \textbf{S}hared: più copie, uguale alla RAM. \textbf{I}nvalid: cache line non valida.
+Una write su una cache line in stato S o E invalida le copie degli altri core (invio di invalidate).
+\end{risposta}
+
+\begin{esercizio}
+Descrivi il modello BSP e il costo di una h-relation.
+\end{esercizio}
+\begin{risposta}
+Il modello BSP è $BSP(p,r,g,l)$: $p$ processori, velocità $r$ FLOPS, costo per parola comunicata $g$, costo di sincronizzazione $l$. Un programma BSP è una sequenza di superstep (compute + communicate + sync). Una h-relation è un superstep di comunicazione dove ogni processore invia/riceve al più $h$ parole: $T(h) = h \cdot g + l$. Un superstep misto: $T(h) = w + h \cdot g + l$ dove $w$ è il massimo lavoro locale.
+\end{risposta}
+
+\begin{esercizio}
+Spiega la differenza tra un programma SISD e uno SIMD.
+\end{esercizio}
+\begin{risposta}
+SISD: un solo flusso di istruzioni su un solo flusso di dati (uniprocessore classico). SIMD: una singola istruzione opera su più dati simultaneamente (es. AVX2 somma 8 float in un ciclo). SIMD sfrutta il parallelismo a livello di dato, ideale per operazioni regolari su array.
+\end{risposta}
+
+% =============================================================
+\section{Il Progetto Modulare (Midterm)}
+% =============================================================
+
+\subsection{Modulo 1: Vectorization della Partition Mapping Kernel}
+
+Il progetto riguarda un \emph{partitioned hash join with duplicates}: trovare tutte le coppie $(r,s)$ con $r.key = s.key$.
+
+Il primo step è la \emph{partition mapping kernel}: data una chiave a 64-bit, calcola l'indice di partizione in $[0, P)$.
+
+\paragraph{Task del Modulo 1}:
+\begin{enumerate}
+  \item Implementazione C++ senza intrinsics (baseline), confronto con/senza auto-vectorization.
+  \item Implementazione con intrinsics AVX2 (su \texttt{node09}).
+  \item (Opzionale) Implementazione CUDA su GPU.
+\end{enumerate}
+
+\paragraph{Metodologia di benchmarking}:
+\begin{itemize}
+  \item $N$ \emph{grande} (decine di milioni) per timing stabile.
+  \item Più ripetizioni, riporta mediana e deviazione standard.
+  \item Report throughput (elements/s) e speedup rispetto a baseline.
+\end{itemize}
+
+\paragraph{Verifica della correttezza}:
+Implementare un checksum o hash sull'output per confrontare versioni diverse senza stampare l'intero array.
+
+% =============================================================
+\section{Riepilogo Formule Chiave}
+% =============================================================
+
+\subsection{Roofline e performance}
+
+\begin{align*}
+  R_{peak} &= f_{clock} \times N_{core} \times FLOP_{cycle} \\
+  Performance &\leq \min(R_{peak},\ B_{mem} \times I) \\
+  I &= \text{FLOP} / \text{Bytes}
+\end{align*}
+
+\subsection{Leggi di scalabilità}
+
+\begin{align*}
+  S_{Amdahl}(p) &\leq \frac{1}{f + (1-f)/p} \\
+  S_{Gustafson}(p) &\leq f + p(1-f) \\
+  S_{\sigma\pi}(p) &\leq \frac{\sigma f + \pi(1-f)}{\sigma f + \pi(1-f)/p}
+\end{align*}
+
+\subsection{Farm (stream parallelism)}
+
+\begin{align*}
+  T_s(Farm) &= \max\!\left(t_E,\ \frac{t_W}{n_w},\ t_C\right) \\
+  n_W &> \left\lceil \frac{t_W}{\max(t_E, t_C)} \right\rceil
+\end{align*}
+
+\subsection{BSP}
+
+\begin{align*}
+  T(h) &= h \cdot g + l \quad \text{(h-relation)} \\
+  T_{superstep} &= w + h \cdot g + l
+\end{align*}
+
+\subsection{Work-Span (Brent)}
+
+\begin{equation*}
+  \frac{T_1}{p} \leq T_p \leq \frac{T_1 - T_\infty}{p} + T_\infty
+\end{equation*}
+
+\subsection{Tiling GEMM}
+
+\begin{equation*}
+  T \approx \sqrt{\frac{C_{cache}}{3 \times \text{sizeof}(element)}}
+\end{equation*}
+
+\subsection{Cache miss}
+
+\begin{equation*}
+  CPI_{MEM} = HR \cdot CPI_{HIT} + (1-HR) \cdot CPI_{MISS}
+\end{equation*}
+
+% =============================================================
+\section{L18 -- Thread-to-Core Affinity}
+% =============================================================
+
+\subsection{Motivazioni}
+
+Le prestazioni su sistemi multicore dipendono non solo dal parallelismo, ma anche da \emph{dove} i thread vengono eseguiti. La \textbf{thread migration} (spostamento da parte dello scheduler OS) azzera la ``cache calda'' del thread. Su sistemi NUMA, posizionare un thread lontano dai propri dati aumenta la latenza di accesso.
+
+L'\textbf{affinity} vincola il posizionamento dei thread per migliorare la localita' e ridurre il jitter run-to-run. Non aumenta il throughput di picco ma riduce la variabilita'.
+
+\subsection{CPU Affinity su Linux}
+
+L'affinity e' espressa tramite una \textbf{affinity mask}: l'insieme delle CPU logiche su cui un thread puo' essere eseguito.
+
+\begin{itemize}
+  \item \textbf{Absent}: il thread puo' girare su qualsiasi CPU (default).
+  \item \textbf{Preferential}: il runtime cerca di preservare la localita', ma puo' migrare.
+  \item \textbf{Hard}: il thread e' limitato a un sottoinsieme specifico di CPU.
+\end{itemize}
+
+\textbf{Da shell:}
+\begin{lstlisting}[style=bash]
+taskset -c 0-2,8-10 ./myprogram    # esegui su CPU 0,1,2,8,9,10
+taskset -p <pid>                   # mostra mask corrente
+taskset -apc 2,4 <pid>             # applica a tutti i thread
+\end{lstlisting}
+
+\textbf{Programmaticamente (Linux/pthreads):}
+\begin{lstlisting}[style=cpp]
+cpu_set_t cpuset;
+CPU_ZERO(&cpuset);
+CPU_SET(cpu_id, &cpuset);
+pthread_setaffinity_np(thread, sizeof(cpu_set_t), &cpuset);
+\end{lstlisting}
+
+\subsection{Ispezione della Topologia}
+
+Prima di applicare l'affinity, ispezionare la topologia con: \texttt{numactl --hardware}, \texttt{lscpu}, \texttt{lstopo}. Un pinning sbagliato (es. due thread sullo stesso SMT sibling quando computano molto) puo' \emph{peggiorare} le prestazioni.
+
+\textbf{SPSC benchmark}: con \texttt{prod-work = cons-work = 0}, mettere producer e consumer sullo stesso SMT sibling puo' essere vantaggioso (comunicazione domina, cache condivisa). Con computazione locale, meglio core fisici separati.
+
+\subsection{ThreadPool con Cooperative Help e Worker Affinity}
+
+\textbf{Cooperative help}: il thread chiamante (invece di aspettare passivamente) aiuta ad eseguire i task in coda. Utile per pattern fork-join ricorsivi (es. mergesort).
+
+\textbf{Worker affinity}: ogni Worker viene pinnato a una CPU all'avvio (binding eseguito una volta sola prima del loop di elaborazione). Riduce lo scheduling noise.
+
+\begin{esercizio}
+Perche' la CPU affinity riduce il \emph{jitter} ma non necessariamente aumenta il throughput di picco?
+\end{esercizio}
+\begin{risposta}
+L'affinity evita la migrazione dei thread tra core, preservando la ``cache calda'' e riducendo la variabilita' nei tempi di risposta (jitter). Il throughput di picco dipende dalla quantita' di lavoro utile eseguibile in parallelo: se la computazione non e' memory-bound o dipende da sincronizzazioni, il pinning non cambia il limite superiore, ma elimina la variabilita' data dallo scheduler OS.
+\end{risposta}
+
+% =============================================================
+\section{L19 -- OpenMP Parte 1: Loop Parallelism}
+% =============================================================
+
+\subsection{Introduzione}
+
+OpenMP e' un'API per programmazione parallela a memoria condivisa per C, C++ e Fortran. Estende i linguaggi con:
+\begin{itemize}
+  \item \textbf{Direttive pragma}: \lstinline|#pragma omp ...|
+  \item \textbf{Routine di libreria}: \lstinline|omp_get_thread_num()|, \lstinline|omp_get_num_threads()|
+  \item \textbf{Variabili d'ambiente}: \texttt{OMP\_NUM\_THREADS}, \texttt{OMP\_SCHEDULE}, \texttt{OMP\_PROC\_BIND}
+\end{itemize}
+
+\textbf{Attenzione}: OpenMP \emph{non} e' un compilatore parallelizzante automatico. Il parallelismo va espresso esplicitamente. Compilare con \texttt{-fopenmp}.
+
+\subsection{Modello Fork-Join}
+
+L'esecuzione inizia con un singolo \textbf{primary thread}. Alla \lstinline|parallel region|, crea un team di Worker. Alla fine della region c'e' una \textbf{barriera implicita}; solo il primary thread continua. Il thread pool viene \emph{riutilizzato} per le successive regioni parallele.
+
+\begin{lstlisting}[style=cpp]
+#pragma omp parallel num_threads(4)
+{
+    int id = omp_get_thread_num();
+    printf("Thread %d\n", id);
+}  // barriera implicita
+\end{lstlisting}
+
+\subsection{Work-Sharing Constructs}
+
+\begin{itemize}
+  \item \lstinline|#pragma omp for|: partiziona le iterazioni del loop tra i thread.
+  \item \lstinline|#pragma omp sections|: blocchi di codice diversi eseguiti da thread diversi.
+  \item \lstinline|#pragma omp single|: un solo thread esegue il blocco (barriera implicita alla fine).
+  \item \lstinline|#pragma omp master|: solo il thread primario esegue il blocco (no barriera).
+\end{itemize}
+
+\textbf{Combinare parallel e for} (evita la ricreazione ripetuta dei thread):
+\begin{lstlisting}[style=cpp]
+#pragma omp parallel
+{
+    #pragma omp for nowait          // no barrier tra i due loop
+    for (int i = 0; i < N; i++) x[i] = i;
+
+    #pragma omp for
+    for (int i = 0; i < N; i++) y[i] = x[i] * 2.0;
+}
+// forma abbreviata:
+#pragma omp parallel for
+for (int i = 0; i < N; i++) z[i] = x[i] + y[i];
+\end{lstlisting}
+
+\subsection{Clausole di Data Scoping}
+
+\begin{itemize}
+  \item \textbf{\lstinline|shared(x)|}: tutti i thread accedono alla stessa variabile.
+  \item \textbf{\lstinline|private(x)|}: ogni thread ha una copia privata non inizializzata.
+  \item \textbf{\lstinline|firstprivate(x)|}: copia privata inizializzata con il valore pre-region.
+  \item \textbf{\lstinline|lastprivate(x)|}: come private, ma alla fine x assume il valore dell'ultima iterazione.
+  \item \textbf{\lstinline|default(none)|}: forza la specifica esplicita di tutte le variabili (best practice).
+\end{itemize}
+
+\subsection{Clausola \texttt{reduction}}
+
+\begin{lstlisting}[style=cpp]
+double sum = 0.0;
+#pragma omp parallel for reduction(+:sum)
+for (int i = 0; i < N; i++)
+    sum += a[i];
+// Operatori: +, *, |, ^, &&, ||, min, max
+\end{lstlisting}
+
+Ogni thread ha una copia locale inizializzata con l'elemento neutro (0 per +, 1 per *). Alla fine, le copie vengono combinate.
+
+\subsection{Clausola \texttt{schedule}}
+
+\begin{lstlisting}[style=bash]
+#pragma omp parallel for schedule(tipo[,chunksize])
+\end{lstlisting}
+
+\begin{itemize}
+  \item \textbf{\lstinline|static|}: distribuzione a blocchi (o block-cyclic se specificato chunksize). Overhead minimo.
+  \item \textbf{\lstinline|dynamic,c|}: assegnazione dinamica con chunk di c iterazioni. Buono per workload irregolari.
+  \item \textbf{\lstinline|guided,c|}: chunk di dimensione decrescente (parte grande, finisce a \textit{c}). Heuristica: $chunk = \max(\text{rimanenti}/\text{thread},\ c)$.
+  \item \textbf{\lstinline|runtime|}: usa \texttt{OMP\_SCHEDULE}. \textbf{\lstinline|auto|}: delega al compilatore.
+\end{itemize}
+
+Con 16 iterazioni e 4 thread: \lstinline|static| assegna 4 iterazioni contigue; \lstinline|static,1| assegna iterazioni in round-robin; \lstinline|static,2| assegna blocchi di 2 in round-robin.
+
+\subsection{Clausola \texttt{collapse}}
+
+Collassa un nest di loop annidati in un unico spazio di iterazione per aumentare il grano di parallelismo:
+\begin{lstlisting}[style=cpp]
+#pragma omp parallel for schedule(static) collapse(2)
+for (int i = 0; i < M; i++)
+    for (int j = 0; j < N; j++)
+        A[i][j] = f(i, j);
+\end{lstlisting}
+
+\subsection{Costrutti di Sincronizzazione}
+
+\begin{lstlisting}[style=cpp]
+#pragma omp barrier          // barriera esplicita
+#pragma omp critical [(name)] // sezione critica (mutex)
+#pragma omp atomic           // aggiornamento atomico (piu' efficiente di critical)
+#pragma omp ordered          // esecuzione nell'ordine sequenziale (dentro for)
+\end{lstlisting}
+
+\subsection{Thread Affinity in OpenMP}
+
+\begin{itemize}
+  \item \textbf{\texttt{OMP\_PROC\_BIND=close}}: thread figli vicini al padre (buono per localita' cache).
+  \item \textbf{\texttt{OMP\_PROC\_BIND=spread}}: thread distribuiti per massimizzare la distanza (buono per banda NUMA).
+  \item \textbf{\texttt{OMP\_PLACES=cores/threads/sockets}}: definisce l'insieme dei ``places''.
+  \item \textbf{Per-region}: \lstinline|#pragma omp parallel proc_bind(close)|
+\end{itemize}
+
+\textbf{First-touch policy}: su sistemi NUMA, allocare la memoria con gli stessi thread che la useranno durante il calcolo. Inizializzare con un loop parallelo prima del calcolo.
+
+\begin{esercizio}
+Con 40 thread su un cluster e il dataset MNIST (700s sequenziale), perche' \lstinline|schedule(dynamic,1)| e' piu' veloce di \lstinline|schedule(static)|?
+\end{esercizio}
+\begin{risposta}
+Il workload e' irregolare: il costo per riga della matrice all-pairs cresce con l'indice. Con \lstinline|static| (distribuzione a blocchi), l'ultimo thread riceve le righe piu' costose e diventa bottleneck. Con \lstinline|dynamic,1|, le righe vengono assegnate on-demand ai thread disponibili, bilanciando automaticamente il carico. Il risultato sperimentale: static=102s, dynamic,1=33s.
+\end{risposta}
+
+% =============================================================
+\section{L20 -- C++ Parallel STL (PSTL)}
+% =============================================================
+
+\subsection{STL: Struttura a Tre Livelli}
+
+La STL (Standard Template Library) e' organizzata in tre layer separati:
+\begin{itemize}
+  \item \textbf{Containers}: strutture dati (\lstinline|vector|, \lstinline|list|, \lstinline|map|, ...).
+  \item \textbf{Iterators}: localizzatori di elementi nei container (input, output, forward, bidirectional, random access).
+  \item \textbf{Algorithms}: operazioni definite in termini di iteratori (\lstinline|std::find|, \lstinline|std::sort|, \lstinline|std::transform|, ...).
+\end{itemize}
+
+\textbf{Gerarchia degli iteratori}: input $\subset$ forward $\subset$ bidirectional $\subset$ random access; output e' separato. Gli algoritmi paralleli richiedono \textbf{random access iterators}.
+
+\subsection{Execution Policies (C++17)}
+
+C++17 introduce le \textbf{execution policies} per eseguire gli algoritmi STL in parallelo:
+
+\begin{lstlisting}[style=cpp]
+#include <algorithm>
+#include <execution>
+
+std::vector<double> v = get_values();
+
+// Sequenziale (comportamento classico)
+auto it1 = std::find_if(v.begin(), v.end(), pred);
+
+// Sequenziale esplicito
+auto it2 = std::find_if(std::execution::seq, v.begin(), v.end(), pred);
+
+// Parallelo (usa thread, es. via TBB o OpenMP)
+auto it3 = std::find_if(std::execution::par, v.begin(), v.end(), pred);
+
+// Parallelo + vettorizzato (SIMD + thread)
+auto it4 = std::find_if(std::execution::par_unseq, v.begin(), v.end(), pred);
+
+// Solo vettorizzato (C++20)
+auto it5 = std::find_if(std::execution::unseq, v.begin(), v.end(), pred);
+\end{lstlisting}
+
+\textbf{Regola}: con \lstinline|par_unseq|, il functor non deve usare mutex o operazioni I/O (puo' causare deadlock con la vettorizzazione).
+
+\subsection{Algoritmi Paralleli Principali}
+
+\begin{lstlisting}[style=cpp]
+// Trasformazione parallela
+std::transform(std::execution::par, v.begin(), v.end(),
+               v.begin(), [](double x) { return x * x; });
+
+// Riduzione parallela
+double sum = std::reduce(std::execution::par, v.begin(), v.end(), 0.0);
+
+// Sort parallelo
+std::sort(std::execution::par, v.begin(), v.end());
+
+// Count condizionale parallelo
+auto n = std::count_if(std::execution::par, v.begin(), v.end(),
+                       [](double x) { return x > 0.0; });
+
+// Scan parallelo (prefix sum inclusivo, C++17)
+std::inclusive_scan(std::execution::par, v.begin(), v.end(), out.begin());
+std::exclusive_scan(std::execution::par, v.begin(), v.end(), out.begin(), 0.0);
+\end{lstlisting}
+
+\textbf{Combinazione} con views (C++20): evita copie intermedie usando lazy views prima dell'algoritmo parallelo terminale.
+
+\begin{esercizio}
+Qual e' la differenza tra \lstinline|std::execution::par| e \lstinline|std::execution::par_unseq|?
+\end{esercizio}
+\begin{risposta}
+\lstinline|par| abilita solo il parallelismo tra thread: l'implementazione puo' usare un thread pool per dividere il lavoro tra i core. \lstinline|par_unseq| abilita sia il parallelismo tra thread sia la vettorizzazione SIMD all'interno di ciascun thread: il functor puo' essere eseguito su piu' elementi contemporaneamente tramite istruzioni SIMD. Con \lstinline|par_unseq|, il functor non puo' acquisire lock (rischierebbe deadlock), ne' chiamare funzioni non rientranti. \lstinline|unseq| (C++20) abilita solo la vettorizzazione senza threading aggiuntivo.
+\end{risposta}
+
+% =============================================================
+\section{L21 -- C++ Ranges (C++20)}
+% =============================================================
+
+\subsection{Concetto di Range}
+
+Un \textbf{range} e' qualsiasi tipo che rappresenta una sequenza di elementi accessibile tramite \lstinline|begin()| e \lstinline|end()|:
+\begin{lstlisting}[style=cpp]
+template <typename T>
+concept range = requires(T& t) {
+    { std::ranges::begin(t) };
+    { std::ranges::end(t) };
+};
+\end{lstlisting}
+
+\textbf{Tassonomia dei range}: \lstinline|input_range|, \lstinline|output_range|, \lstinline|forward_range|, \lstinline|bidirectional_range|, \lstinline|random_access_range|, \lstinline|contiguous_range|, \lstinline|sized_range|.
+
+Gli algoritmi basati su range accettano direttamente il container (senza coppie di iteratori):
+\begin{lstlisting}[style=cpp]
+std::vector<double> v = get_vector();
+std::ranges::transform(v, v.begin(), [](double x) { return x * 2; });
+std::ranges::reverse(v);
+auto it = std::ranges::find_if(v, [](double x) { return x > 0.0; });
+\end{lstlisting}
+
+\subsection{Views}
+
+Una \textbf{view} e' un range leggero, tipicamente \emph{lazy} e \emph{non-owning}: non copia i dati, calcola gli elementi solo quando si accede.
+
+\begin{lstlisting}[style=cpp]
+std::vector<double> v = get_vector();
+
+// Crea una view delle prime 10 copie di v (lazy)
+auto v1 = std::views::take(v, 10);
+for (auto const& x : v1) std::println("{}", x);
+
+// Chaining con pipe operator |
+auto v3 = v
+    | std::views::filter([](double x) { return x > 0.0; })
+    | std::views::transform([](double x) { return x * 2; })
+    | std::views::take(10);
+for (auto const& x : v3) std::println("{}", x);
+\end{lstlisting}
+
+\textbf{Viste standard}: \lstinline|views::take|, \lstinline|views::drop|, \lstinline|views::filter|, \lstinline|views::transform|, \lstinline|views::reverse|, \lstinline|views::zip|, \lstinline|views::iota|.
+
+\subsection{Algoritmi Paralleli con Ranges (C++26)}
+
+\begin{lstlisting}[style=cpp]
+// C++17: algoritmo parallelo con iteratori
+auto it = std::find_if(std::execution::par, v.begin(), v.end(),
+                        [](double x) { return x > 0.0; });
+
+// C++26: algoritmo parallelo con range (no dangling reference!)
+auto compute = v
+    | std::views::transform([](double x) { return x * x; })
+    | std::views::reverse;
+// NB: salvare la view in una variabile evita dangling reference
+auto it2 = std::ranges::find_if(std::execution::par,
+                                 compute, [](double x) { return x > 100; });
+\end{lstlisting}
+
+\textbf{Attenzione}: passare direttamente una pipeline di views temporanee a un algoritmo parallelo puo' causare \emph{dangling reference}. Salvare la view in una variabile prima.
+
+\begin{esercizio}
+Qual e' il vantaggio principale delle views rispetto all'approccio classico con multipli algoritmi?
+\end{esercizio}
+\begin{risposta}
+Le views sono \emph{lazy}: non calcolano i risultati intermedii finche' non sono necessari. Con tre algoritmi separati (\lstinline|transform|, \lstinline|reverse|, \lstinline|find_if|), ogni fase materializza un vettore temporaneo e scorre l'intera collezione. Con una pipeline di views, il \lstinline|find_if| terminale tira gli elementi attraverso la catena uno alla volta, potendo terminare anticipatamente appena trova un match (short-circuit). Si evitano copie intermedie e si migliora la localita' della cache.
+\end{risposta}
+
+% =============================================================
+\section{L22 -- OpenMP Parte 2: Task Parallelism}
+% =============================================================
+
+\subsection{Costrutto \texttt{task}}
+
+I task OpenMP (introdotti in OpenMP 3.0) permettono il parallelismo irregolare non strutturato:
+\begin{lstlisting}[style=cpp]
+#pragma omp parallel
+#pragma omp single nowait          // un solo thread crea i task
+{
+    for (int i = 0; i < N; i++) {
+        #pragma omp task firstprivate(i)
+        process(i);
+    }
+}  // barriera implicita: attende tutti i task
+\end{lstlisting}
+
+\textbf{Ciclo di vita di un task}: \emph{created} $\to$ \emph{ready} (scheduling point) $\to$ \emph{running} $\to$ \emph{completed}. I \textbf{scheduling points} sono: \lstinline|task|, \lstinline|taskwait|, \lstinline|barrier|, \lstinline|taskgroup|, ecc.
+
+\textbf{tied vs untied}: un task tied rimane legato al thread che lo ha iniziato (default). Un task untied (\lstinline|untied|) puo' essere sospeso e ripreso da un thread diverso.
+
+\subsection{Sincronizzazione con Task}
+
+\begin{lstlisting}[style=cpp]
+#pragma omp taskwait     // attende il completamento di tutti i task figli diretti
+#pragma omp taskgroup { // attende tutti i task creati nel blocco (e i loro discendenti)
+    #pragma omp task { subtask1(); }
+    #pragma omp task { subtask2(); }
+}
+\end{lstlisting}
+
+\subsection{Dipendenze tra Task}
+
+\begin{lstlisting}[style=cpp]
+// A e B possono girare in parallelo; C aspetta entrambi
+#pragma omp task depend(out: x) { compute_x(x); }      // A: scrive x
+#pragma omp task depend(out: y) { compute_y(y); }      // B: scrive y
+#pragma omp task depend(in: x, y) { use(x, y); }       // C: legge x,y
+\end{lstlisting}
+
+Tipi di dipendenza: \lstinline|in|, \lstinline|out|, \lstinline|inout|.
+
+\subsection{Taskloop}
+
+\begin{lstlisting}[style=cpp]
+#pragma omp parallel
+#pragma omp single
+{
+    // Crea un task per ogni grainsize iterazioni
+    #pragma omp taskloop grainsize(100)
+    for (int i = 0; i < N; i++) process(i);
+
+    // Oppure specificare il numero di task
+    #pragma omp taskloop num_tasks(nthreads * 4)
+    for (int i = 0; i < N; i++) process(i);
+}
+\end{lstlisting}
+
+\subsection{Task Reduction}
+
+\begin{lstlisting}[style=cpp]
+double result = 0.0;
+#pragma omp parallel
+#pragma omp single
+{
+    #pragma omp taskloop reduction(+:result)
+    for (int i = 0; i < N; i++)
+        result += heavy_compute(i);  // ogni task ha copia privata
+}
+// result contiene la riduzione finale
+\end{lstlisting}
+
+\subsection{Clausole \texttt{if} e \texttt{final}}
+
+\begin{itemize}
+  \item \lstinline|if(expr)|: se falsa, il task e' eseguito immediatamente (merged) invece di essere schedulato. Utile per tagliare la ricorsione.
+  \item \lstinline|final(expr)|: se vera, il task e questo e tutti i suoi sottotask sono eseguiti immediatamente (no overhead di task creation).
+\end{itemize}
+
+\begin{lstlisting}[style=cpp]
+// Fibonacci con task (cutoff per tagliare la ricorsione)
+int fib(int n) {
+    if (n < 2) return n;
+    int x, y;
+    #pragma omp task shared(x) final(n < 20)
+    x = fib(n - 1);
+    #pragma omp task shared(y) final(n < 20)
+    y = fib(n - 2);
+    #pragma omp taskwait
+    return x + y;
+}
+\end{lstlisting}
+
+\begin{esercizio}
+Perche' e' necessaria la clausola \lstinline|final| (o un cutoff) nel Fibonacci parallelo con OpenMP task?
+\end{esercizio}
+\begin{risposta}
+Senza un cutoff, il numero di task creati cresce esponenzialmente con n (ogni chiamata crea 2 task). Con n=40, si genererebbero $\sim 2^{40}$ task, saturando la memoria e l'overhead di scheduling. La clausola \lstinline|final(n < soglia)| fa si' che, al di sotto della soglia, i sottotask vengano eseguiti direttamente (inline) senza aggiungere nuovi task alla coda. Questo taglia l'albero di ricorsione a una certa profondita', mantenendo il parallelismo utile ai livelli alti e riducendo l'overhead ai livelli bassi.
+\end{risposta}
+
+% =============================================================
+\section{L23 -- Background Sistemi Distribuiti}
+% =============================================================
+
+\subsection{Topologie di Rete di Interconnessione}
+
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Topologia} & \textbf{Diametro} & \textbf{Grado} & \textbf{Bisection BW} & \textbf{Note} \\
+\midrule
+Mesh 2D ($\sqrt{p} \times \sqrt{p}$) & $2(\sqrt{p}-1)$ & 4 & $\sqrt{p}$ links & Semplice \\
+Torus 2D & $\sqrt{p}$ & 4 & $2\sqrt{p}$ & Migliore del Mesh \\
+Ipercubo $d$-dim ($p=2^d$) & $d = \log_2 p$ & $d$ & $p/2$ & Ottimo BW, costo alto \\
+Fat Tree & $O(\log p)$ & variabile & $O(p)$ & Usato in HPC (es. InfiniBand) \\
+Dragonfly & $\leq 3$ & alto & alto & Scaling estremo (es. HPE Slingshot) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Metriche chiave}: \textbf{diametro} (lunghezza max percorso), \textbf{grado} (numero di link per nodo), \textbf{bisection bandwidth} (BW minimo tagliando la rete a meta').
+
+\textbf{RDMA (Remote Direct Memory Access)}: permette di leggere/scrivere la memoria di un nodo remoto senza coinvolgere la CPU del nodo remoto. Usato con InfiniBand/RoCE. Riduce drasticamente la latenza e il consumo CPU.
+
+\subsection{Modello di Costo della Comunicazione}
+
+\begin{equation}
+T_{comm}(n) = t_0 + n \cdot s
+\end{equation}
+
+dove $t_0$ e' la latenza base (startup cost, $\mu$s) e $s$ e' il tempo per byte ($1/\text{bandwidth}$). Il \textbf{computation-to-communication ratio} e' $\rho = T_{comp} / T_{comm}$.
+
+\subsection{PCAM: Metodologia di Progettazione Parallela}
+
+\begin{enumerate}
+  \item \textbf{Partitioning}: dividere il problema in task il piu' possibile fini.
+  \item \textbf{Communication}: analizzare le comunicazioni tra task.
+  \item \textbf{Agglomeration}: raggruppare task per ridurre overhead di comunicazione.
+  \item \textbf{Mapping}: assegnare gruppi di task ai processi/core.
+\end{enumerate}
+
+\subsection{Caso Studio: Jacobi Iterativo}
+
+Ogni iterazione: $A^{(k+1)}[i][j] = \frac{1}{4}\bigl(A^{(k)}[i-1][j] + A^{(k)}[i+1][j] + A^{(k)}[i][j-1] + A^{(k)}[i][j+1]\bigr)$
+
+\textbf{Partitioning 1D} (partiziona righe, $n \times n$ griglia, $p$ processi):
+\begin{equation}
+T_{comm}^{1D} \approx 2 \cdot (t_0 + n \cdot s) \quad \text{per iterazione}
+\end{equation}
+
+\textbf{Partitioning 2D} (ogni processo ha un blocco $n/\sqrt{p} \times n/\sqrt{p}$):
+\begin{equation}
+T_{comm}^{2D} \approx 4 \cdot \left(t_0 + \frac{n}{\sqrt{p}} \cdot s\right) \quad \text{per iterazione}
+\end{equation}
+
+Per $p$ grande, $T_{comm}^{2D} < T_{comm}^{1D}$ grazie al fattore $n/\sqrt{p}$ vs $n$. Il breakeven si trova risolvendo $T_{comm}^{1D} = T_{comm}^{2D}$.
+
+\begin{esercizio}
+Con una griglia $n=1024$, $p=64$ processi, $t_0 = 1\,\mu s$, $s = 10\,ns/\text{double}$: confronta il costo di comunicazione con partitioning 1D vs 2D per iterazione.
+\end{esercizio}
+\begin{risposta}
+1D: ogni processo ha $1024/64 = 16$ righe; scambia 2 righe di halo (1024 double = 8192 byte).
+$T_{comm}^{1D} = 2 \cdot (1\,\mu s + 1024 \cdot 8 \cdot 10\,ns) = 2 \cdot (1 + 81.92)\,\mu s \approx 166\,\mu s$.
+
+2D: ogni processo ha un blocco $128 \times 128$; scambia 4 halo di 128 double.
+$T_{comm}^{2D} = 4 \cdot (1\,\mu s + 128 \cdot 8 \cdot 10\,ns) = 4 \cdot (1 + 10.24)\,\mu s \approx 45\,\mu s$.
+
+Il partitioning 2D riduce di $\sim 3.7\times$ il costo di comunicazione.
+\end{risposta}
+
+% =============================================================
+\section{L24 -- MPI Parte 1: Comunicazione Punto-a-Punto}
+% =============================================================
+
+\subsection{Modello MPI}
+
+MPI (Message Passing Interface) e' lo standard per programmi a memoria distribuita. Ogni processo ha il proprio spazio di indirizzamento privato. La comunicazione e' esplicita (\textbf{two-sided}): un processo invia, un altro riceve.
+
+\textbf{SPMD} (Single-Program Multiple-Data): lo stesso eseguibile gira su tutti i processi; il comportamento dipende dal rank.
+
+\subsection{Inizializzazione e Communicator}
+
+\begin{lstlisting}[style=cpp]
+#include <mpi.h>
+int main(int argc, char* argv[]) {
+    MPI_Init(&argc, &argv);              // nessuna chiamata MPI prima
+    int rank, size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    // ... codice parallelo ...
+    MPI_Finalize();                      // nessuna chiamata MPI dopo
+}
+\end{lstlisting}
+
+Un \textbf{communicator} definisce un dominio di comunicazione (gruppo di processi + contesto). \lstinline|MPI_COMM_WORLD| contiene tutti i processi. I rank sono locali a un communicator (0 $\leq$ rank $<$ size).
+
+\subsection{Send e Receive Bloccanti}
+
+\begin{lstlisting}[style=cpp]
+// Blocking send: ritorna quando il buffer puo' essere riutilizzato
+MPI_Send(buf, count, MPI_DOUBLE, dest, tag, comm);
+
+// Blocking recv: ritorna quando i dati sono nel buffer
+MPI_Recv(buf, count, MPI_DOUBLE, source, tag, comm, MPI_STATUS_IGNORE);
+
+// Wildcards (solo lato receiver)
+MPI_Recv(buf, count, MPI_DOUBLE, MPI_ANY_SOURCE, MPI_ANY_TAG, comm, &status);
+int src = status.MPI_SOURCE;  // rank effettivo del mittente
+int t   = status.MPI_TAG;     // tag effettivo
+\end{lstlisting}
+
+\textbf{Tag}: etichetta intera per distinguere tipi logici di messaggi (es. \lstinline|DATA_TAG=0|, \lstinline|EOS_TAG=1|).
+
+\textbf{Datatype MPI primitivi}: \lstinline|MPI_INT|, \lstinline|MPI_DOUBLE|, \lstinline|MPI_FLOAT|, \lstinline|MPI_LONG|, \lstinline|MPI_BYTE|, ecc.
+
+\subsection{Sincrono vs Bloccante}
+
+\textbf{Sincrono}: il sender si blocca finche' il receiver non ha iniziato la receive (rendezvous). Usato da \lstinline|MPI_Ssend|.
+
+\textbf{Asincrono}: il sender puo' completare senza aspettare il receiver (buffering implicito). \lstinline|MPI_Send| standard: \emph{puo'} usare buffering per messaggi piccoli o rendezvous per messaggi grandi (implementation-defined).
+
+\textbf{Bloccante} $\neq$ \textbf{Sincrono}: una send bloccante ritorna quando il buffer e' riutilizzabile, non necessariamente quando il receiver ha ricevuto.
+
+\subsection{Deadlock e Come Evitarlo}
+
+\begin{lstlisting}[style=cpp]
+// DEADLOCK: entrambi bloccati sulla send, nessuno fa recv
+if (rank == 0) { MPI_Send(..., 1, ...); MPI_Recv(..., 1, ...); }
+if (rank == 1) { MPI_Send(..., 0, ...); MPI_Recv(..., 0, ...); }
+
+// SOLUZIONE 1: alternare send/recv
+if (rank % 2 == 1) { MPI_Send(...); MPI_Recv(...); }
+else               { MPI_Recv(...); MPI_Send(...); }
+
+// SOLUZIONE 2: MPI_Sendrecv (atomico, no deadlock)
+MPI_Sendrecv(sndbuf, sndcnt, MPI_DOUBLE, dest,   sndtag,
+             rcvbuf, rcvcnt, MPI_DOUBLE, source, rcvtag,
+             MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+\end{lstlisting}
+
+\subsection{Comunicazione Non-Bloccante}
+
+\begin{lstlisting}[style=cpp]
+MPI_Request req_s, req_r;
+MPI_Isend(sndbuf, count, MPI_DOUBLE, dest,   tag, comm, &req_s);
+MPI_Irecv(rcvbuf, count, MPI_DOUBLE, source, tag, comm, &req_r);
+// ... overlap: computazione locale ...
+MPI_Wait(&req_s, MPI_STATUS_IGNORE);    // blocca finche' send completata
+MPI_Wait(&req_r, MPI_STATUS_IGNORE);    // blocca finche' recv completata
+// ora i buffer sono sicuri
+
+// Test non-bloccante (polling)
+int flag;
+MPI_Test(&req_r, &flag, MPI_STATUS_IGNORE);  // flag=1 se completata
+
+// Attendere piu' operazioni
+MPI_Request reqs[2] = {req_s, req_r};
+MPI_Waitall(2, reqs, MPI_STATUSES_IGNORE);
+\end{lstlisting}
+
+\textbf{Regola fondamentale}: non accedere al buffer di una operazione non-bloccante prima che sia completata (\lstinline|MPI_Wait|/\lstinline|MPI_Test|). Viola la correttezza del programma.
+
+\textbf{Proprieta' di non-overtaking}: due messaggi con stesso source/dest/tag arrivano nell'ordine di invio (FIFO), ma il loro completamento locale puo' avvenire in ordine diverso.
+
+\begin{esercizio}
+Come si implementa in MPI un pattern producer-consumer dove il producer rank 0 invia un numero variabile di messaggi a consumer rank 1..P-1 usando tag \lstinline|DATA_TAG| e un segnale di terminazione con tag \lstinline|EOS_TAG|?
+\end{esercizio}
+\begin{risposta}
+Il producer invia con \lstinline|MPI_Send(data, n, dt, dest, DATA_TAG, ...)| per ogni messaggio dati, e poi \lstinline|MPI_Send(nullptr, 0, MPI_BYTE, dest, EOS_TAG, ...)| come terminatore. Ogni consumer usa \lstinline|MPI_Recv(buf, maxn, dt, 0, MPI_ANY_TAG, ..., &status)| e controlla \lstinline|status.MPI_TAG|: se e' \lstinline|EOS_TAG| termina, altrimenti processa i dati. Questa tecnica separa il flusso dati dal controllo senza bisogno di comunicare il numero di messaggi in anticipo.
+\end{risposta}
+
+% =============================================================
+\section{L25 -- MPI Parte 2: Comunicazioni Collettive}
+% =============================================================
+
+\subsection{Panoramica}
+
+Le collettive coinvolgono \emph{tutti} i processi in un communicator. Sono implementate in modo ottimizzato (algoritmi ad albero, pipeline, ecc.) e sono spesso piu' efficienti della comunicazione punto-a-punto equivalente.
+
+\begin{lstlisting}[style=cpp]
+// Sincronizzazione
+MPI_Barrier(MPI_COMM_WORLD);
+
+// Broadcast: rank root invia a tutti
+MPI_Bcast(buf, count, MPI_DOUBLE, root, comm);
+
+// Reduce: tutti inviano, root riceve il risultato aggregato
+MPI_Reduce(sndbuf, rcvbuf, count, MPI_DOUBLE, MPI_SUM, root, comm);
+
+// Allreduce: come reduce, ma tutti ricevono il risultato
+MPI_Allreduce(sndbuf, rcvbuf, count, MPI_DOUBLE, MPI_SUM, comm);
+
+// Scatter: root distribuisce porzioni distinte a ciascun processo
+MPI_Scatter(sndbuf, sndcnt, MPI_DOUBLE, rcvbuf, rcvcnt, MPI_DOUBLE, root, comm);
+
+// Gather: ogni processo invia al root, che raccoglie tutto
+MPI_Gather(sndbuf, sndcnt, MPI_DOUBLE, rcvbuf, rcvcnt, MPI_DOUBLE, root, comm);
+
+// Allgather: come gather, ma tutti ricevono il risultato
+MPI_Allgather(sndbuf, sndcnt, MPI_DOUBLE, rcvbuf, rcvcnt, MPI_DOUBLE, comm);
+
+// Alltoall: trasposizione completa (ogni proc invia a tutti e riceve da tutti)
+MPI_Alltoall(sndbuf, sndcnt, MPI_DOUBLE, rcvbuf, rcvcnt, MPI_DOUBLE, comm);
+
+// Scan (prefix scan inclusivo)
+MPI_Scan(sndbuf, rcvbuf, count, MPI_DOUBLE, MPI_SUM, comm);
+
+// Exscan (prefix scan esclusivo)
+MPI_Exscan(sndbuf, rcvbuf, count, MPI_DOUBLE, MPI_SUM, comm);
+\end{lstlisting}
+
+\textbf{Operatori MPI predefiniti}: \lstinline|MPI_SUM|, \lstinline|MPI_PROD|, \lstinline|MPI_MAX|, \lstinline|MPI_MIN|, \lstinline|MPI_MAXLOC|, \lstinline|MPI_MINLOC|, \lstinline|MPI_LAND|, \lstinline|MPI_LOR|, \lstinline|MPI_BAND|, \lstinline|MPI_BOR|, ecc.
+
+\textbf{Varianti con conteggi variabili}: \lstinline|MPI_Scatterv|, \lstinline|MPI_Gatherv| (ogni processo riceve/invia quantita' diverse; richiedono array di counts e displacements).
+
+\textbf{Varianti non-bloccanti} (MPI-3): \lstinline|MPI_Ibcast|, \lstinline|MPI_Iallreduce|, ecc. Richiedono \lstinline|MPI_Wait|/\lstinline|MPI_Test| per completamento.
+
+\subsection{Pattern Map-Reduce con MPI}
+
+\begin{lstlisting}[style=cpp]
+// Distribuire il vettore
+MPI_Scatter(global_vec, local_n, MPI_DOUBLE,
+            local_vec, local_n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+// Computazione locale
+double local_sum = 0;
+for (int i = 0; i < local_n; i++) local_sum += f(local_vec[i]);
+// Riduzione globale
+double global_sum;
+MPI_Allreduce(&local_sum, &global_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+\end{lstlisting}
+
+\begin{esercizio}
+Qual e' la differenza tra \lstinline|MPI_Scan| e \lstinline|MPI_Exscan|? Con 4 processi che contribuiscono $[1,2,3,4]$, qual e' il risultato di ciascuno?
+\end{esercizio}
+\begin{risposta}
+\lstinline|MPI_Scan| e' un prefix scan \textbf{inclusivo}: il processo $i$ riceve la somma degli elementi dei processi $0, 1, \ldots, i$. Con input $[1,2,3,4]$: risultati $[1, 3, 6, 10]$.
+\lstinline|MPI_Exscan| e' un prefix scan \textbf{esclusivo}: il processo $i$ riceve la somma degli elementi dei processi $0, 1, \ldots, i-1$. Il processo 0 riceve valore indefinito. Con input $[1,2,3,4]$: risultati $[-, 1, 3, 6]$.
+\end{risposta}
+
+% =============================================================
+\section{L26 -- MPI Parte 3: Topologie, Tipi Derivati, MPI+OpenMP}
+% =============================================================
+
+\subsection{Gruppi e Communicator}
+
+\begin{lstlisting}[style=cpp]
+// Ottenere il gruppo da un communicator
+MPI_Group world_group;
+MPI_Comm_group(MPI_COMM_WORLD, &world_group);
+
+// Creare un sottogruppo con certi rank
+int ranks[] = {0, 2, 4};
+MPI_Group sub_group;
+MPI_Group_incl(world_group, 3, ranks, &sub_group);
+MPI_Comm new_comm;
+MPI_Comm_create(MPI_COMM_WORLD, sub_group, &new_comm);
+
+// Split: divide MPI_COMM_WORLD in gruppi basati su color
+int color = rank / 4;   // tutti i rank con stesso color vanno nello stesso comm
+MPI_Comm row_comm;
+MPI_Comm_split(MPI_COMM_WORLD, color, rank, &row_comm);
+\end{lstlisting}
+
+\textbf{Usato in SUMMA}: per formare i communicator di riga e colonna della griglia di processi:
+\begin{lstlisting}[style=cpp]
+MPI_Comm_split(MPI_COMM_WORLD, myId/gridDim, myId%gridDim, &rowComm);
+MPI_Comm_split(MPI_COMM_WORLD, myId%gridDim, myId/gridDim, &colComm);
+\end{lstlisting}
+
+\subsection{Topologie Virtuali Cartesiane}
+
+\begin{lstlisting}[style=cpp]
+int dims[2] = {4, 4}, periods[2] = {0, 0};
+MPI_Comm cart_comm;
+MPI_Cart_create(MPI_COMM_WORLD, 2, dims, periods, 1, &cart_comm);
+// Trovare i vicini
+int north, south, east, west;
+MPI_Cart_shift(cart_comm, 0, 1, &north, &south);  // shift lungo dim 0
+MPI_Cart_shift(cart_comm, 1, 1, &west,  &east);   // shift lungo dim 1
+\end{lstlisting}
+
+\subsection{Derived Datatypes}
+
+\begin{lstlisting}[style=cpp]
+// Inviare una colonna di una matrice row-major (n_rows x n_cols)
+MPI_Datatype col_type;
+MPI_Type_vector(n_rows,           // count: quanti blocchi
+                1,                // blocklength: 1 elemento per blocco
+                n_cols,           // stride: salto tra blocchi (in elementi)
+                MPI_DOUBLE, &col_type);
+MPI_Type_commit(&col_type);
+MPI_Send(&A[0][col_j], 1, col_type, dest, tag, comm);
+MPI_Type_free(&col_type);
+
+// Tipo struct per dati eterogenei
+MPI_Datatype struct_type;
+int lens[2] = {1, 1};
+MPI_Aint disps[2] = {offsetof(MyStruct, x), offsetof(MyStruct, y)};
+MPI_Datatype types[2] = {MPI_DOUBLE, MPI_INT};
+MPI_Type_create_struct(2, lens, disps, types, &struct_type);
+MPI_Type_commit(&struct_type);
+\end{lstlisting}
+
+\textbf{Regola}: ogni tipo derivato deve essere committato con \lstinline|MPI_Type_commit| prima dell'uso e liberato con \lstinline|MPI_Type_free| quando non piu' necessario.
+
+\subsection{Jacobi con Halos Non-Bloccante}
+
+\begin{lstlisting}[style=cpp]
+// Avvio comunicazioni non-bloccanti
+MPI_Request reqs[4];
+MPI_Isend(&A[1][0],      N, MPI_DOUBLE, rank-1, 0, comm, &reqs[0]); // invia prima riga
+MPI_Isend(&A[local_n][0],N, MPI_DOUBLE, rank+1, 1, comm, &reqs[1]); // invia ultima riga
+MPI_Irecv(&A[0][0],       N, MPI_DOUBLE, rank-1, 1, comm, &reqs[2]); // recv halo top
+MPI_Irecv(&A[local_n+1][0],N,MPI_DOUBLE, rank+1, 0, comm, &reqs[3]); // recv halo bot
+
+// Computazione delle celle interne (overlap con comunicazione)
+jacobi_update_interior(A, B, 2, local_n-1);
+
+// Attesa completamento comunicazioni
+MPI_Waitall(4, reqs, MPI_STATUSES_IGNORE);
+
+// Computazione dei bordi (dipendono dagli halo appena ricevuti)
+jacobi_update_border(A, B, 1, local_n);
+\end{lstlisting}
+
+\subsection{MPI + Thread (MPI\_Init\_thread)}
+
+\begin{lstlisting}[style=cpp]
+int provided;
+MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &provided);
+if (provided < MPI_THREAD_FUNNELED) {
+    fprintf(stderr, "MPI threading not supported\n"); MPI_Abort(...);
+}
+// Livelli di threading MPI:
+// MPI_THREAD_SINGLE      : solo un thread (no OpenMP)
+// MPI_THREAD_FUNNELED    : solo il thread che ha chiamato MPI_Init chiama MPI
+// MPI_THREAD_SERIALIZED  : chiamate MPI serializzate (un thread alla volta)
+// MPI_THREAD_MULTIPLE    : chiamate MPI concorrenti (overhead maggiore)
+\end{lstlisting}
+
+\textbf{Pattern ibrido MPI+OpenMP (consigliato)}: usare \lstinline|MPI_THREAD_FUNNELED|; il thread primario fa tutte le comunicazioni MPI, mentre l'OpenMP parallelizza i loop di calcolo.
+
+\begin{lstlisting}[style=cpp]
+// Pattern ibrido: un processo MPI per nodo, OpenMP su tutti i core del nodo
+MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &provided);
+// comunicazioni MPI nel thread primario
+exchange_halos_MPI(A, ...);
+// calcolo parallelo con tutti i core del nodo
+#pragma omp parallel for
+for (int i = 1; i <= local_n; i++)
+    for (int j = 0; j < N; j++)
+        B[i][j] = 0.25 * (A[i-1][j]+A[i+1][j]+A[i][j-1]+A[i][j+1]);
+\end{lstlisting}
+
+\begin{esercizio}
+Nell'algoritmo SUMMA per la moltiplicazione di matrici distribuita ($C = A \times B$, matrici $n\times n$ distribuite su una griglia $\sqrt{p} \times \sqrt{p}$ di processi), quante operazioni MPI collettive vengono eseguite e qual e' il costo di comunicazione totale?
+\end{esercizio}
+\begin{risposta}
+SUMMA esegue $\sqrt{p}$ step. Ad ogni step, un processo per riga fa broadcast del suo blocco $A$ lungo la riga (costo: $\log(\sqrt{p}) \cdot (t_0 + n^2/p \cdot s)$), e un processo per colonna fa broadcast del suo blocco $B$ lungo la colonna. In totale: $2\sqrt{p}$ broadcast. Costo totale:
+$T_{comm}^{SUMMA} \approx 2\sqrt{p} \cdot (t_0 + \frac{n^2}{p} \cdot s \cdot \log\sqrt{p})$.
+Ogni processo riceve $\sqrt{p}$ blocchi di A e $\sqrt{p}$ blocchi di B, eseguendo $\sqrt{p}$ DGEMM locali da $n/\sqrt{p} \times n/\sqrt{p}$.
+\end{risposta}
+
+% =============================================================
+\section{L27 -- Programmazione Parallela Strutturata}
+% =============================================================
+
+\subsection{Motivazioni e Terminologia}
+
+La \textbf{programmazione parallela strutturata} compone applicazioni parallele da un insieme ristretto di \emph{pattern ricorrenti} (pipeline, farm, map, reduce, stencil). Obiettivo: separare la logica applicativa dalla gestione della concorrenza.
+
+\begin{itemize}
+  \item \textbf{Pattern paralleli}: astrazioni di alto livello che descrivono strutture comuni (es. map, pipeline, farm).
+  \item \textbf{Scheletri algoritmici (Algorithmic Skeletons)}: implementazioni concrete di pattern, spesso ottimizzate per specifiche architetture.
+  \item \textbf{Paradigmi paralleli}: framework concettuali (shared-memory, distributed-memory, dataflow, BSP, Actor).
+\end{itemize}
+
+\subsection{Metriche di Prestazione}
+
+\begin{itemize}
+  \item \textbf{Latenza ($L$)}: tempo dall'arrivo di un input alla consegna dell'output.
+  \item \textbf{Completion time ($T_c$)}: tempo totale per elaborare tutti gli $n$ task (makespan).
+  \item \textbf{Service time ($T_s$)}: tempo tra due completamenti consecutivi a regime.
+  \item \textbf{Throughput}: $1/T_s$ task per unita' di tempo.
+  \item \textbf{Inter-arrival time ($T_a$)}: tempo medio tra arrivi consecutivi.
+\end{itemize}
+
+\subsection{Pipeline}
+
+Una pipeline divide la computazione $F = f_k \circ \cdots \circ f_1$ in $k$ stadi, eseguiti concorrentemente su task diversi dello stream.
+
+\textbf{Formule (stadi bilanciati, $T_s^{stage}$ = service time di ogni stadio):}
+\begin{align*}
+T_s^{pipe,k} &= \max_i\bigl(T_s^{stage_i} + T_{comm}\bigr) & \text{(service time)} \\
+L_{pipe,k} &= T_s^{seq}(F) + (k-1) \cdot T_{comm} & \text{(latenza 1 task)} \\
+T_c^{pipe,k}(n) &\approx L_{pipe,k} + (n-1) \cdot T_s^{pipe,k} & \text{(completion time)}
+\end{align*}
+
+\textbf{Nota}: la pipeline aumenta il throughput ma \emph{peggiora} la latenza per singolo task.
+
+\textbf{Numero minimo di stadi} (per non avere bottleneck con inter-arrival time $T_a$):
+\begin{equation}
+k_{min} = \left\lceil \frac{T_s^{seq}(F)}{T_a} \right\rceil
+\end{equation}
+
+\subsection{Farm (Task Farm)}
+
+Una farm replica la stessa funzione stateless $F$ su $k$ Worker per aumentare il throughput.
+
+\begin{equation}
+T_s^{farm,k}(F) = \max\!\left(\frac{T_s^{W,comm}(F)}{k},\ T_s^E,\ T_s^C\right)
+\end{equation}
+
+dove $T_s^{W,comm} = T_s^W + T_{comm}$ (senza overlap) o $\max(T_s^W, T_{comm})$ (con overlap).
+
+\textbf{Latenza farm}: $L_{farm} = T_s^E + T_s^{W,comm}(F) + T_s^C$
+
+\textbf{Numero minimo di Worker}:
+\begin{equation}
+k_{min} = \left\lceil \frac{T_s^{W,comm}(F)}{T_a} \right\rceil
+\end{equation}
+
+\textbf{Scheduling}: Round-Robin (workload uniforme) o On-Demand (workload variabile).
+
+\textbf{Farm stateful}: se $F$ ha stato partizionabile, usare hashing per assegnare task allo stesso Worker (es. deep-packet inspection: \lstinline|worker = hash(flow_key) % k|).
+
+\subsection{Annidamento: Pipeline di Farm}
+
+La \textbf{forma normale} (farm singola su $F$ composta) e' spesso piu' efficiente della pipeline di farm per $F$ non-bottleneck:
+
+\begin{align*}
+k_{opt}^{farm\;singola} &= \left\lceil \frac{T_s^{seq}(F) + T_{comm}}{T_a} \right\rceil \quad (\text{meno risorse, meno latenza, maggiore efficienza})
+\end{align*}
+
+\subsection{Parallelismo sui Dati: Map, Reduce, Stencil, Scan}
+
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Pattern} & \textbf{Card. in:out} & \textbf{Esempio} \\
+\midrule
+Map & $N:N$ & conversione temperatura, moltiplicazione elemento-per-elemento \\
+Reduce & $N:1$ & somma, massimo, conteggio \\
+Stencil & $N:N$ & convoluzione 2D, Jacobi \\
+Scan & $N:N$ & prefix sum inclusivo/esclusivo \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Costo del Map} (con $k$ Worker, modello di comunicazione $t_0 + n/k \cdot s$):
+\begin{align*}
+T_c^{map}(n,k) &= T_{scatter} + T_{worker} + T_{gather} \\
+k_{opt} &= \sqrt{\frac{n \cdot (T_F + s)}{t_0}}
+\end{align*}
+
+\begin{esercizio}
+Dato un programma sequenziale con stadi \texttt{readFile}(100 ut), $F$(250 ut), $G$(600 ut), \texttt{writeFile}(80 ut), $T_{comm}=20$ ut, $n$ grande: quante risorse minime servono per portare il completion time a $n \times 120$ ut?
+\end{esercizio}
+\begin{risposta}
+La farm singola con $F+G$ composte: $T_s^{W,comm} = (250+600+20) = 870$ ut, $T_a = 120$ ut (dettato da readFile). $k_{min} = \lceil 870/120 \rceil = 8$ Worker. Totale risorse: 1 (readFile) + 8 (Farm F+G) + 1 (writeFile) = 10. Speedup $S(10) = n\cdot 1030 / (n\cdot 120) \approx 8.6$, efficienza $\approx 86\%$. Rispetto alla pipeline di farm (3 Worker per F + 6 per G = 12 totali), la forma normale usa meno risorse con la stessa completion time e latenza minore.
+\end{risposta}
+
+% =============================================================
+\section*{Formule Aggiuntive (L18--L27)}
+\addcontentsline{toc}{section}{Formule Aggiuntive (L18--L27)}
+% =============================================================
+
+\subsection{Pipeline}
+\begin{align*}
+T_s^{pipe,k} &= \max_i T_{s,comm}^{stage_i} \\
+L_{pipe,k} &= T_s^{seq}(F) + (k-1) \cdot T_{comm} \\
+k_{min} &= \left\lceil T_s^{seq}(F) / T_a \right\rceil
+\end{align*}
+
+\subsection{Farm}
+\begin{align*}
+T_s^{farm,k} &= \max\!\left(\frac{T_s^W + T_{comm}}{k},\ T_s^E,\ T_s^C\right) \\
+k_{min} &= \left\lceil (T_s^W + T_{comm}) / T_a \right\rceil \\
+L_{farm} &= T_s^E + T_s^W + T_{comm} + T_s^C
+\end{align*}
+
+\subsection{Map}
+\begin{align*}
+T_c^{map}(n,k) &\approx (k+1)(t_0 + \tfrac{n}{k} s) + \tfrac{n}{k} T_F \\
+k_{opt} &= \sqrt{n(T_F + s) / t_0}
+\end{align*}
+
+\subsection{Jacobi Distribuito}
+\begin{align*}
+T_{comm}^{1D} &\approx 2(t_0 + n \cdot s) \\
+T_{comm}^{2D} &\approx 4\!\left(t_0 + \tfrac{n}{\sqrt{p}} \cdot s\right)
+\end{align*}
+
+\subsection{Comunicazione MPI}
+\begin{equation}
+T_{comm}(n) = t_0 + n \cdot s
+\end{equation}
+
+% =============================================================
+
+
+% ###### PROGETTO MODULARE (M1-M4) -- append automatico ######
+\clearpage
+
+% =============================================================
+% PROGETTO MODULARE -- Implementazione completa (M1--M4)
+% Append generato per integrare la dispensa con i moduli del progetto.
+% =============================================================
+
+\section{Progetto Modulare: Partitioned Hash Join (M1--M4)}
+\label{sec:progetto-moduli}
+
+Il progetto consiste in un \emph{partitioned hash join with duplicates}: date due relazioni $R$ ed $S$, trovare tutte le coppie $(r,s)$ con $r.\text{key}=s.\text{key}$. Le chiavi possono ripetersi (relazione molti-a-molti), quindi l'output \`e potenzialmente $O(N^2)$ e l'algoritmo accumula \emph{conteggi} di match e checksum invece di materializzare tutte le coppie.
+
+L'algoritmo \`e identico nei quattro moduli; cambia solo il \emph{paradigma di parallelismo}. La struttura \`e in tre fasi logiche (cinque nello scheletro implementato):
+
+\begin{enumerate}
+  \item \textbf{Partition / Scatter}: ogni chiave a 64 bit viene mappata in una delle $P$ partizioni (potenza di due) con la \emph{Fibonacci multiply-shift hash} su 32 bit:
+  \[
+    h(k) = \bigl((k_\text{lo}\oplus k_\text{hi})\cdot A_{32}\bigr)\gg(32-\log_2 P),\qquad A_{32}=\lfloor 2^{32}/\varphi\rfloor=\texttt{0x9E3779B9}.
+  \]
+  La fase passa per \emph{histogram} (conteggio per partizione), \emph{prefix-sum} (offset esclusivi) e \emph{scatter} (riscrittura dei record in buffer contigui per partizione).
+  \item \textbf{Build}: per ogni partizione di $R$ si costruisce una hash table (open addressing con linear probing, \texttt{FlatCountMap}, capacit\`a $2|R_p|$ arrotondata a potenza di due $\Rightarrow$ load factor $<50\%$).
+  \item \textbf{Probe}: ogni record di $S_p$ sonda la tabella di $R_p$ e accumula i match.
+\end{enumerate}
+
+La scelta della \emph{hash di Fibonacci} (anzich\'e il banale $k\bmod P$) \`e trasversale a tutti i moduli: la moltiplicazione decorrela chiavi adiacenti e concentra entropia nei bit alti usati per la selezione di partizione, cos\`i un input uniforme produce partizioni di dimensione quasi uguale (su $10^8$ chiavi, $P=256$: $\max/\text{atteso}=1.005$), mentre lo skew dell'input resta skew su poche partizioni hashate. Su 32 bit la moltiplicazione \`e una singola istruzione AVX2 (\texttt{vpmulld}), il che la rende vettorizzabile (Modulo~1).
+
+I quattro moduli sono: \textbf{M1} kernel di partitioning con SIMD/CUDA; \textbf{M2} join completo con \texttt{std::thread}; \textbf{M3} reimplementazione OpenMP (loop vs task); \textbf{M4} versione distribuita MPI e ibrida MPI+OpenMP.
+
+% =============================================================
+\section{Modulo 1 -- SIMD: Vectorization del Partition Kernel}
+\label{sec:m1}
+% =============================================================
+
+\subsection{Descrizione e scelte implementative}
+
+Il Modulo~1 isola e ottimizza la sola \emph{partition mapping kernel}: dati $N$ chiavi \texttt{uint64\_t} e $P$ partizioni, calcolare \texttt{part\_id[i]}$=h(\text{keys}[i])\in[0,P)$. \`E un microbenchmark del solo scatter-mapping, non del join completo. Le quattro varianti confrontate sono:
+
+\begin{itemize}
+  \item \texttt{plain\_baseline}: C++ scalare con \texttt{-fno-tree-vectorize};
+  \item \texttt{plain\_autovec}: stesso sorgente con \texttt{-O3 -march=native -mavx2 -ftree-vectorize};
+  \item \texttt{avx2}: intrinsics AVX2 esplicite (8 chiavi per iterazione);
+  \item \texttt{cuda\_kernel}: un thread per chiave (opzionale).
+\end{itemize}
+
+\paragraph{Scelta cruciale: hash a 32 bit invece di 64.} La chiave a 64 bit viene ripiegata con \texttt{xor} delle due met\`a (\texttt{k\_lo $\oplus$ k\_hi}) e moltiplicata in 32 bit. Il motivo \`e la compatibilit\`a SIMD: \texttt{\_mm256\_mullo\_epi32} (\texttt{vpmulld}) moltiplica 8 \texttt{uint32} in una sola istruzione, mentre un prodotto a 64 bit in AVX2 richiede 3 \texttt{vpmuludq} pi\`u shift e add per elemento. In regime bandwidth-bound questa decomposizione rende l'AVX2 a 64 bit \emph{pi\`u lenta dello scalare}: la scelta a 32 bit \`e ci\`o che rende il SIMD competitivo. Lo XOR-fold preserva l'informazione di entrambe le met\`a prima della moltiplicazione.
+
+\paragraph{Layout dei dati.} Chiavi e \texttt{part\_id} in array separati, contigui, a stride unitario (il layout pi\`u adatto alla vettorizzazione, cfr.\ AOS vs SOA in dispensa). Memoria allineata a 32 byte (\texttt{posix\_memalign}) per le load allineate AVX2. $P$ potenza di due cos\`i che il modulo diventa un right-shift.
+
+\paragraph{Struttura della kernel AVX2.} Due load \texttt{ymm} portano 4+4 chiavi \texttt{uint64}; ogni chiave \`e XOR-foldata nei 32 bit bassi della propria lane; \texttt{permutevar8x32} con indici \texttt{[0,2,4,6,1,3,5,7]} e \texttt{permute2x128} con selettore \texttt{0x20} impaccano gli 8 valori a 32 bit in un solo \texttt{ymm}; un \texttt{vpmulld} esegue le 8 moltiplicazioni di Fibonacci, un right-shift estrae i \texttt{part\_id}, una store a 256 bit scrive il risultato. I $N\bmod 8$ elementi residui sono gestiti da un tail scalare.
+
+\begin{lstlisting}[style=bash, caption={Build e run del Modulo 1.}]
+make all          # baseline, autovec, avx2, dataset_creator
+./bin/avx2 100000000 256 42      # N=1e8, P=256, seed=42
+make test_correctness            # confronto checksum FNV-1a, N=16
+\end{lstlisting}
+
+\paragraph{Verifica di correttezza.} Le varianti confrontano un checksum FNV-1a sull'output con un riferimento scalare (compilato \texttt{-fno-tree-vectorize}); per $N\le 32$ stampano anche il confronto elemento per elemento. Cos\`i si validano implementazioni diverse senza stampare interi array (back-of-envelope: $10^8$ interi sarebbero 400~MB di output).
+
+\subsection{Ottimizzazioni implementate}
+
+\begin{enumerate}
+  \item \textbf{Hash a 32 bit} (vedi sopra): abilita \texttt{vpmulld} a singola istruzione. Impatto teorico: trasforma una kernel non vettorizzabile in modo efficiente in una in cui il compute per chiave \`e $\sim$4 op intere su 8 lane.
+  \item \textbf{Allineamento a 32 byte + \texttt{\_\_restrict\_\_}}: load/store allineate e assenza di aliasing presunto, condizioni necessarie perch\'e GCC vettorizzi (trip count noto, niente dipendenze loop-carried, niente chiamate nel corpo, stride unitario).
+  \item \textbf{Layout SOA} di chiavi e output: massimizza l'utilizzo della cache line e il coalescing (su GPU).
+  \item \textbf{Branchless}: nessun ramo nella kernel $\Rightarrow$ nessuna divergenza (rilevante su SIMD/SIMT, cfr.\ predication in dispensa).
+\end{enumerate}
+
+\subsection{Ottimizzazioni NON implementate (per l'orale)}
+
+\begin{itemize}
+  \item \textbf{AVX-512}: raddoppierebbe la larghezza a 16 \texttt{uint32}/istruzione. \emph{Perch\'e no}: node09 (Zen~1) non supporta AVX-512; e comunque, essendo la kernel bandwidth-bound, l'impatto atteso \`e nullo (il compute non \`e il collo).
+  \item \textbf{Non-temporal stores} (\texttt{\_mm256\_stream\_si256}): bypasserebbero la cache per le scritture dei \texttt{part\_id}, evitando read-for-ownership. \emph{Impatto stimato}: potenzialmente un guadagno marginale di banda effettiva sulle scritture (4 B/chiave su 12 B totali), ma rischioso perch\'e l'output verrebbe poi riletto nello scatter del join.
+  \item \textbf{Software prefetching}: gli accessi sono sequenziali e l'hardware prefetcher li copre gi\`a; non implementato qui (lo sar\`a nel Modulo~3, dove c'\`e un flusso ad accesso casuale).
+  \item \textbf{Multi-threading}: il Modulo~1 \`e single-thread per isolare l'effetto SIMD; il parallelismo a thread arriva da M2 in poi.
+\end{itemize}
+
+\subsection{Analisi critica dei risultati}
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{@{}rccc@{}}
+\toprule
+$N$ & Baseline (Mkeys/s) & Autovec ($S$) & AVX2 ($S$) \\
+\midrule
+$10^6$            & 929 & $1.48\times$ & $1.37\times$ \\
+$10^7$            & 915 & $1.39\times$ & $1.28\times$ \\
+$5{\times}10^7$   & 908 & $1.45\times$ & $1.29\times$ \\
+$10^8$            & 918 & $1.43\times$ & $1.31\times$ \\
+$2{\times}10^8$   & 908 & $1.46\times$ & $1.27\times$ \\
+\bottomrule
+\end{tabular}
+\caption{Throughput e speedup vs baseline, $P=256$, node09 (AMD EPYC 7301, Zen~1, DDR4-2666).}
+\label{tab:m1}
+\end{table}
+
+\paragraph{Speedup limitato e roofline.} Ogni chiave richiede 12 byte di traffico (8 B read + 4 B write) e solo $\sim$4 operazioni intere: l'intensit\`a operazionale \`e $I=4/12\approx 0.33$ ops/byte, ben dentro la regione \emph{bandwidth-bound} del roofline. La banda single-core misurata su node09 \`e $\sim$16.4~GB/s; l'autovec raggiunge 15.7~GB/s, il 96\% del tetto. Il SIMD accelera il \emph{compute}, ma i trasferimenti di memoria, che dominano, restano invariati: lo speedup di $1.43\times$ viene da un uso pi\`u efficiente della banda, non da calcolo pi\`u veloce. Lo speedup \`e stabile su tutti gli $N$ (conferma del regime memory-bound) e indipendente da $P$ (cambia solo la costante di shift) e dalla key-space size (hash branchless a costo costante).
+
+\paragraph{Anomalia: autovec batte l'AVX2 a mano (15.7 vs 14.4 GB/s).} Controintuitivo. Poich\'e la kernel \`e limitata dalla memoria, le differenze marginali di scheduling delle istruzioni, unrolling e allocazione dei registri che GCC applica si traducono in un utilizzo di banda leggermente migliore; le intrinsics impongono una sequenza rigida che il compilatore non pu\`o riordinare. Lezione d'esame: il SIMD scritto a mano non \`e automaticamente pi\`u veloce; in regime memory-bound il compilatore vince.
+
+\paragraph{CUDA: kernel velocissima, end-to-end inutile.} La kernel GPU raggiunge 808~GB/s (81\% del picco HBM2 dell'A30, 993~GB/s), ma i trasferimenti PCIe valgono il 98\% del tempo end-to-end, dando solo $1.12\times$. Conclusione: offloadare una kernel isolata cos\`i leggera non conviene; la GPU rende solo con dati gi\`a on-device o con stadi successivi della pipeline anch'essi su GPU (cfr.\ computation-to-communication ratio in dispensa).
+
+\subsection{Domande teoriche collegate}
+
+\begin{esercizio}[M1 -- Roofline]
+Perch\'e lo speedup SIMD si ferma a $\sim 1.4\times$ invece di $\sim 8\times$ (8 lane)?
+\end{esercizio}
+\begin{risposta}
+La kernel ha intensit\`a operazionale $I=0.33$ ops/byte, sotto il punto di ginocchio del roofline: \`e bandwidth-bound. Il SIMD aumenta il throughput di calcolo (8 lane) ma non la banda DRAM, che \`e il vincolo. Lo speedup misura solo la migliore saturazione della banda (96\% del tetto), non un calcolo $8\times$ pi\`u veloce.
+\end{risposta}
+
+\begin{esercizio}[M1 -- AOS vs SOA]
+Perch\'e chiavi e \texttt{part\_id} sono in array separati?
+\end{esercizio}
+\begin{risposta}
+Layout SOA: stride unitario su ciascun array, load/store vettoriali contigue, massimo uso della cache line e (su GPU) memory coalescing. Un layout AOS con record misti impedirebbe le load \texttt{ymm} dirette e forzerebbe gather/scatter.
+\end{risposta}
+
+\begin{esercizio}[M1 -- Auto-vectorization]
+Quali condizioni deve soddisfare un loop perch\'e GCC lo vettorizzi?
+\end{esercizio}
+\begin{risposta}
+Trip count noto a runtime, nessuna dipendenza loop-carried, nessuna chiamata di funzione nel corpo (o inlining), nessun aliasing tra puntatori (\texttt{\_\_restrict\_\_}), accesso a stride unitario. GCC emette due versioni (ymm 32 B e xmm 16 B di fallback) e sceglie a runtime in base al supporto AVX2.
+\end{risposta}
+
+\subsection{Confronto: M1 come fondamento}
+
+Il Modulo~1 non ha un predecessore. Stabilisce per\`o i mattoni riusati ovunque: la hash di Fibonacci, il fatto che lo scatter \`e \emph{memory-bound} e che la fase di partitioning satura la banda gi\`a su un core. Questo spiega in anticipo perch\'e nei moduli successivi la fase di scatter scala bene con i thread (pi\`u memory-level parallelism) ma l'efficienza complessiva resta limitata dalla banda DRAM condivisa.
+
+
+% =============================================================
+\section{Modulo 2 -- C++ Threads: Hash Join Parallelo}
+\label{sec:m2}
+% =============================================================
+
+\subsection{Descrizione e scelte implementative}
+
+Il Modulo~2 implementa l'intero join parallelo con \texttt{std::thread} (C++20). La pipeline ha cinque fasi: \emph{Histogram}, \emph{Prefix-Sum}, \emph{Scatter}, \emph{Join Local}, \emph{Accumulation} finale. Ogni fase ha caratteristiche di calcolo/memoria diverse che ne determinano la strategia.
+
+\paragraph{Team di thread persistente + \texttt{std::barrier}.} Un solo team di $k$ thread viene creato una volta e riusato tra le fasi, sincronizzato da una \texttt{std::barrier} a ogni confine di fase. \`E la scelta chiave del modulo. La struttura del problema \`e \emph{bulk-synchronous} (cfr.\ BSP in dispensa): tutti i thread devono finire una fase prima che inizi la successiva, per le dipendenze dati histogram$\to$prefix-sum$\to$scatter$\to$join. Una barriera modella esattamente questo. L'alternativa con thread pool + coda di task introdurrebbe indirezione inutile (submission, polling, wakeup latency) senza alcun vantaggio, dato che una barriera completa serve comunque. Creare/distruggere thread a ogni fase gonfierebbe la frazione seriale $f$ di Amdahl di $O(k)$ cicli spawn/join per fase. La \emph{completion function} della barriera fa eseguire a un solo thread delegato il prefix-sum sequenziale e il calcolo degli offset di scatter per-thread.
+
+\paragraph{Thread count adattivo.} Per evitare che la sincronizzazione domini su input piccoli, $k=\min(k_{\max},\lfloor\min(N_R,N_S)/T_{\min}\rfloor)$ con $T_{\min}=8192$ record/thread. Sotto soglia, il costo della barriera e del traffico inter-thread supera il guadagno. Nei benchmark ($N_R\ge 10^6$) la soglia non si attiva mai.
+
+\paragraph{Histogram con istogrammi privati.} Ogni thread elabora un blocco contiguo di $\lceil N/k\rceil$ record e incrementa il proprio istogramma privato di taglia $P$: zero contesa in scrittura. Dopo la barriera il delegato fonde i $k$ istogrammi locali in $O(P\cdot k)$, esegue il prefix-sum $O(P)$ e calcola gli offset. La distribuzione a blocchi statici d\`a buona localit\`a spaziale (slice contigue).
+
+\paragraph{Scatter lock-free.} Gli offset per-thread sono determinati durante la barriera: il thread $t$ scrive la partizione $p$ a partire da
+\[
+  \text{off}[t][p]=\text{global\_begin}[p]+\sum_{j=0}^{t-1}\text{local\_hist}[j][p].
+\]
+Ogni thread scrive cos\`i in regioni \emph{disgiunte e pre-calcolate}, senza alcuna sincronizzazione a runtime. \`E memory-bound (scritture casuali guidate dall'hash) ma senza contesa.
+
+\begin{lstlisting}[style=cpp, caption={Scatter lock-free: cursore locale sullo stack.}]
+auto cursor = offsets_R[t];        // copia locale
+for (size_t i = r_start; i < r_end; ++i) {
+    uint32_t pid = hash_key(R[i].key, shift);
+    out_R[cursor[pid]++] = R[i];
+}
+\end{lstlisting}
+
+\paragraph{Join Local: \texttt{FlatCountMap} + assegnazione ciclica.} Ogni partizione si unisce indipendentemente (embarrassingly parallel): si costruisce una hash table open-addressing su $R_p$ e si sonda con $S_p$. Le partizioni sono distribuite \emph{ciclicamente} (thread $t$ possiede $t, t{+}k, t{+}2k,\dots$): nessuna logica di scheduling, nessun atomico. Poich\'e l'hash di Fibonacci rende le partizioni quasi-uguali, l'assegnazione ciclica ottiene lo stesso bilanciamento di LPT a costo zero (LPT richiederebbe un sort $O(P\log P)$ inutile su taglie uniformi). Gli accumulatori per-thread sono \texttt{alignas(64)} per evitare false sharing.
+
+\paragraph{Correttezza.} Per input piccoli ($\le 500$) confronto automatico con un join naive $O(N^2)$ su \texttt{join\_count} e due checksum con moltiplicatori indipendenti; per input grandi, output sequenziale $\equiv$ parallelo su tutti i $k$. Verifica fuori dalla regione misurata.
+
+\subsection{Ottimizzazioni implementate}
+
+\begin{enumerate}
+  \item \textbf{Team persistente + barriera} invece di spawn/join per fase: elimina $O(k)$ cicli di creazione thread per fase dalla frazione seriale.
+  \item \textbf{Istogrammi privati per-thread}: azzerano la contesa in scrittura nella fase histogram; il merge \`e $O(Pk)$ sequenziale ma trascurabile.
+  \item \textbf{Scatter lock-free} con offset pre-calcolati: parallelismo senza lock n\'e atomici a runtime.
+  \item \textbf{Padding \texttt{alignas(64)}} sugli accumulatori: elimina il false sharing tra le cache line dei risultati per-thread.
+  \item \textbf{Assegnazione ciclica delle partizioni}: bilanciamento equivalente a LPT su input uniforme, senza overhead di scheduling.
+  \item \textbf{Tuning di $P$}: $P=512$ \`e l'ottimo di throughput, perch\'e ogni \texttt{FlatCountMap} ($\approx$1~MB) entra nella L3 condivisa da 20~MB.
+\end{enumerate}
+
+\subsection{Ottimizzazioni NON implementate (per l'orale)}
+
+\begin{itemize}
+  \item \textbf{NUMA-aware thread affinity / first-touch}: il modulo non fissa l'affinit\`a n\'e applica first-touch. \emph{Conseguenza misurata}: il \emph{dip} di speedup a $p=20$ (passaggio al secondo socket) \`e proprio l'accesso a memoria remota. \emph{Impatto stimato}: l'affinit\`a \texttt{close}/\texttt{cores} e l'allocazione first-touch (implementate poi in M3) eliminano il dip per $N_R=10$M. Non fatto qui per tenere il modulo minimale.
+  \item \textbf{Software prefetching} su scatter e probe: lo stream ad accesso casuale non \`e coperto dal prefetcher hardware. \emph{Impatto stimato (misurato in M3)}: scatter da $\sim$85~ms a $\sim$29~ms a $T=8$, cio\`e $\sim$56~ms risparmiati. \`E la singola ottimizzazione che pi\`u distanzia M3 da M2.
+  \item \textbf{LPT / gestione dello skew}: con partizioni uniformi non serve; ma su input skewed l'assegnazione ciclica statica lascia un thread sul percorso critico. M2 non ha generatore skewed.
+  \item \textbf{Hash table lock-free / two-pass partitioning}: si \`e preferito il partizionamento single-pass con istogrammi privati; un two-pass radix ridurrebbe i conflitti di cache ma raddoppierebbe le passate sulla memoria (memory-bound).
+\end{itemize}
+
+\subsection{Analisi critica dei risultati}
+
+Hardware: nodo \texttt{spmcluster}, Intel Xeon E5-2640~v2, 2 socket $\times$ 8 core (16 fisici, 32 con HT), 2 nodi NUMA, L3 20~MB. Default: $N_S=2N_R$, $P=128$.
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{@{}rcccc@{}}
+\toprule
+ & \multicolumn{2}{c}{$N_R=10$M} & \multicolumn{2}{c}{$N_R=20$M} \\
+$p$ & $S(p)$ & $E(p)$ & $S(p)$ & $E(p)$ \\
+\midrule
+2  & 1.40 & 70\% & 1.45 & 72\% \\
+4  & 2.61 & 65\% & 2.60 & 65\% \\
+8  & 4.46 & 56\% & 4.49 & 56\% \\
+16 & 7.49 & 47\% & 7.59 & 47\% \\
+20 & 7.41 & 37\% & 7.33 & 37\% \\
+32 & 8.64 & 27\% & 9.64 & 30\% \\
+\bottomrule
+\end{tabular}
+\caption{Strong scaling, $P=128$. Il dip $p{=}16\to20$ \`e l'effetto NUMA.}
+\label{tab:m2strong}
+\end{table}
+
+\paragraph{Amdahl e saturazione di banda.} Il fit di Amdahl $S(p)=1/(f+(1-f)/p)$ d\`a $f\approx 0.078$, quindi $S_\infty=1/f\approx 12.9\times$. I picchi misurati sono $8.64\times$ (10M) e $9.64\times$ (20M) a $p=32$: il divario rispetto alla predizione di Amdahl \`e dovuto alla \emph{saturazione della banda DRAM}, non a una frazione seriale pi\`u grande. A $P=512$ le tabelle entrano in L3, $f$ scende a $\approx 0.058$ ($S_\infty\approx 17\times$) e lo speedup sale a $11.4\times$.
+
+\paragraph{Il dip NUMA a $p=20$.} A $p=16$ (ultimo punto su core fisici) lo speedup \`e $7.49\times$; a $p=20$ \emph{cala} a $7.41\times$ prima di risalire. \`E coerente con thread sul secondo socket che accedono a memoria remota a latenza maggiore (dip pi\`u marcato per 20M, working set maggiore). Da $p=16$ a $p=32$ il tempo end-to-end migliora solo del $\sim$13\%: $p=12$--$16$ (soli core fisici) \`e il \emph{sweet spot} pratico.
+
+\paragraph{Breakdown per fase.} Scatter domina il baseline ($\approx$53\%, 409~ms) e scala bene anche in regime HT ($9.7\to 13.7\times$ da $p=20$ a $p=32$): \`e memory-bound e i thread HT aggiungono memory-level parallelism. Join Local ($\approx$309~ms) scala fino a $p=14$ ($8.4\times$) poi plateau: \`e compute-bound, e le coppie HT condividono le porte di esecuzione (ALU), non aggiungono capacit\`a. Histogram \`e il peggiore ($2$--$3\times$): un incremento per record da 8~B, bus di memoria saturo.
+
+\paragraph{Skew (duplicate density).} A $P=128$ ogni \texttt{FlatCountMap} occupa $\approx$4~MB; con 20 thread l'aggregato (80~MB) eccede la L3, quindi il join resta DRAM-bound a qualsiasi densit\`a di chiavi: lo speedup \`e robusto ($6.4$--$7.5\times$) ma non migliora con tabelle pi\`u sparse. A $P=512$ (tabelle $\approx$1~MB) la L3 aiuta e lo speedup sale.
+
+\subsection{Domande teoriche collegate}
+
+\begin{esercizio}[M2 -- Barriera vs thread pool]
+Perch\'e una \texttt{std::barrier} e non un thread pool con coda di task?
+\end{esercizio}
+\begin{risposta}
+La pipeline \`e bulk-synchronous: ogni fase dipende dall'intera fase precedente, quindi serve comunque una barriera completa a ogni confine. Un thread pool aggiungerebbe overhead (submission, polling, wakeup) senza poter sovrapporre fasi. La barriera modella direttamente la struttura BSP; la sua completion function esegue il prefix-sum seriale tra le fasi.
+\end{risposta}
+
+\begin{esercizio}[M2 -- False sharing]
+Dove pu\`o nascere false sharing e come lo si evita?
+\end{esercizio}
+\begin{risposta}
+Negli accumulatori dei risultati per-thread: se due contatori di thread diversi cadono nella stessa cache line da 64~B, ogni scrittura invalida la linea dell'altro (protocollo MESI). Soluzione: \texttt{alignas(64)} su ogni slot, cos\`i ciascuno sta su una linea distinta.
+\end{risposta}
+
+\begin{esercizio}[M2 -- Scatter lock-free]
+Come fa lo scatter a essere parallelo senza lock?
+\end{esercizio}
+\begin{risposta}
+Gli offset di scrittura per-thread/per-partizione sono calcolati a priori dal prefix-sum degli istogrammi locali. Ogni thread scrive in un intervallo disgiunto e predeterminato dell'array di output: non esistono scritture sovrapposte, quindi nessun lock o atomico serve a runtime.
+\end{risposta}
+
+\begin{esercizio}[M2 -- Hyper-Threading]
+Perch\'e lo scatter migliora con HT ma il join no?
+\end{esercizio}
+\begin{risposta}
+Lo scatter \`e memory-bound: i thread HT aumentano il memory-level parallelism (pi\`u richieste DRAM in volo), quindi aiutano. Il join \`e compute-bound: le coppie HT condividono le porte ALU dello stesso core fisico, quindi contendono risorse di calcolo invece di aggiungerne, e il join va in plateau.
+\end{risposta}
+
+\subsection{Confronto con il Modulo 1}
+
+\textbf{Cosa si guadagna}: M2 passa dalla sola kernel di partitioning al join completo e introduce il parallelismo a thread, raggiungendo $\sim$8--$9\times$ su 32 logici. \textbf{Cosa si perde}: complessit\`a (sincronizzazione, correttezza concorrente, false sharing) e una nuova classe di colli di bottiglia (NUMA, contesa di banda condivisa) assenti nel single-thread di M1. \textbf{Quando preferire M1}: mai in alternativa a M2 (sono fasi diverse); M1 dimostra per\`o perch\'e lo scatter di M2 \`e memory-bound e satura presto la banda.
+
+
+% =============================================================
+\section{Modulo 3 -- OpenMP: Loop vs Task e Gestione dello Skew}
+\label{sec:m3}
+% =============================================================
+
+\subsection{Descrizione e scelte implementative}
+
+Il Modulo~3 reimplementa l'identico algoritmo di M2 in OpenMP, con due varianti parallele che condividono struttura a tre fasi, layout della hash table e funzione di mapping, ma parallelizzano \emph{ogni} fase con un costrutto diverso. Tenere il costrutto coerente tra le fasi isola il costo del costrutto stesso invece di mescolare due modelli.
+
+\paragraph{Variante loop-level.} Pattern canonico \texttt{parallel for}. Histogram con istogrammi privati \texttt{alignas(64)}; merge e prefix-sum dentro un \texttt{\#pragma omp single}. Scatter \texttt{schedule(static)} (lavoro per-tupla costante). Join:
+
+\begin{lstlisting}[style=cpp, caption={Join loop-level: dynamic,1 + reduction.}]
+#pragma omp parallel for schedule(dynamic,1) \
+    default(none) shared(P, Rpart, Spart)    \
+    reduction(+: join_count, checksum1, checksum2)
+for (uint32_t pid = 0; pid < P; ++pid) {
+    JoinResult r = join_one_partition(Rpart, Spart, pid);
+    join_count += r.join_count;
+    checksum1  += r.checksum1;
+    checksum2  += r.checksum2;
+}
+\end{lstlisting}
+
+\texttt{schedule(dynamic,1)} affronta il costo per-iterazione irregolare: sotto skew una partizione calda contiene $\approx$22.6\% dei record e una fredda $\approx$0.078\%, un rapporto $\sim$290$\times$. Qualsiasi distribuzione statica lascia sul percorso critico il thread che pesca le partizioni pesanti; il dispatch a runtime di \texttt{dynamic,1} consegna una partizione alla volta e lascia che un thread libero prenda una fredda mentre le calde sono ancora in volo.
+
+\paragraph{Variante task con LPT.} Histogram e scatter emessi come $T$ task espliciti per fase (uno per chunk), che riproducono \texttt{schedule(static)} ma passando per la coda dei task: su carico regolare la variante \emph{paga} l'overhead di creazione senza beneficio, e il confronto lo fa emergere. Il join \`e un task loop:
+
+\begin{lstlisting}[style=cpp, caption={Join task-based: emissione in ordine LPT.}]
+#pragma omp parallel default(none) shared(P, order, Rpart, Spart, ...)
+{
+  #pragma omp single nowait
+  for (uint32_t idx = 0; idx < P; ++idx) {
+    uint32_t pid = order[idx];   // ordine LPT
+    #pragma omp task firstprivate(pid) shared(Rpart, Spart, thr_results)
+    { /* cold: build+probe; hot: probe split in taskgroup annidato */ }
+  }
+}
+\end{lstlisting}
+
+Il \texttt{nowait} \`e necessario: senza, i $T-1$ worker attenderebbero alla barriera implicita di \texttt{single} la fine dell'emissione, invece di consumare task mentre il master li crea. L'array \texttt{order} ordina le partizioni per $|R_p|+|S_p|$ decrescente: \`e l'euristica \emph{Longest Processing Time First} (Graham 1969, makespan entro $4/3-1/(3m)$ dell'ottimo), appropriata perch\'e il costo per-partizione \`e lineare nella taglia dei due input. Le partizioni pesanti entrano in coda per prime e difficilmente finiscono sul percorso critico; le piccole riempiono i buchi. Task \emph{tied} (default): ogni corpo legge \texttt{omp\_get\_thread\_num()} una volta, senza scheduling point tra lettura e uso, quindi l'indice \`e stabile.
+
+\subsection{Ottimizzazioni implementate}
+
+\begin{enumerate}
+  \item \textbf{Software prefetching} su scatter e probe. Entrambi i loop hanno uno stream sequenziale (coperto dal prefetcher HW) e uno ad accesso casuale (non coperto). Due \texttt{\_\_builtin\_prefetch} mascherano la latenza sul lato casuale: scatter prefetcha lo slot destinazione \emph{12} iterazioni avanti (latenza L1$\to$L2), probe lo slot della hash table \emph{8} iterazioni avanti (latenza L2$\to$L3, iterazione pi\`u pesante). Impatto: scatter $R{+}S$ da $\sim$85~ms (M2) a $\sim$29~ms a $T=8$.
+  \item \textbf{Parallelismo intra-partizione per le partizioni calde}. L'efficienza skewed \`e limitata strutturalmente a $\le H/T$: nessuno scheduler esterno (LPT incluso) pu\`o estrarre pi\`u parallelismo del numero $H$ di partizioni pesanti. Il limite si rompe esponendo parallelismo \emph{dentro} una partizione calda: il build resta sequenziale (gli update concorrenti su \texttt{FlatCountMap} richiederebbero contatori atomici) ma il probe \`e read-only e si parallelizza. Una partizione \`e ``calda'' se $|R_p|+|S_p|>8\bar w$; il suo probe \`e spezzato in $K=\min(T,\lfloor w/\bar w\rfloor)$ sub-task (clamp a 2) dentro un \texttt{taskgroup} che mantiene viva la tabella condivisa. Cos\`i fino a $T$ thread cooperano su una partizione calda, recuperando il parallelismo che LPT da solo non poteva estrarre.
+  \item \textbf{NUMA first-touch}. L'allocatore custom di \texttt{PartitionedRelation::data} fa \texttt{resize} senza toccare le pagine (\texttt{Record} banalmente costruibile); un successivo \texttt{parallel for schedule(static)} di zero-init \`e il primo write su ogni pagina, cos\`i sotto la politica first-touch di Linux la pagina finisce sul nodo NUMA del thread che vi far\`a scatter.
+  \item \textbf{Padding \texttt{alignas(64)}} su \texttt{PaddedResult thr\_results[T]} (validato da \texttt{static\_assert}): elimina il false sharing.
+  \item \textbf{Affinit\`a}: \texttt{OMP\_PROC\_BIND=close}, \texttt{OMP\_PLACES=cores}.
+\end{enumerate}
+
+\subsection{Ottimizzazioni NON implementate (per l'orale)}
+
+\begin{itemize}
+  \item \textbf{Build parallelo delle partizioni calde}: richiederebbe contatori atomici su \texttt{FlatCountMap}, il cui costo (contesa + cache-line bouncing) probabilmente supererebbe il guadagno; si \`e parallelizzato solo il probe (read-only). Impatto stimato: limitato, perch\'e il build \`e una frazione minore del costo per-partizione rispetto al probe.
+  \item \textbf{Task untied}: avrebbero permesso il work-stealing a met\`a task, ma alla granularit\`a di queste partizioni non offrono vantaggio e complicano la stabilit\`a dell'indice di thread.
+  \item \textbf{Tuning della distanza di prefetch per microarchitettura}: 12/8 iterazioni sono valori fissi tarati su E5-2640~v2; su un'altra gerarchia di cache andrebbero rimisurati.
+  \item \textbf{Schedule \texttt{guided}}: lo sweep mostra che \texttt{guided,1} si comporta come \texttt{static} sotto skew (paga il penalty sulle partizioni pesanti), quindi scartato a favore di \texttt{dynamic,1}.
+\end{itemize}
+
+\subsection{Analisi critica dei risultati}
+
+Hardware identico a M2 (E5-2640~v2, 32 logici, 2 NUMA). Baseline sequenziale condiviso $T_\text{seq}=0.802$~s. Default $N_R=10^7$, $N_S=2{\cdot}10^7$, $P=128$.
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{@{}rcccc@{}}
+\toprule
+$T$ & loop unif.\ [s] & task unif.\ [s] & loop skew [s] & task skew [s] \\
+\midrule
+4  & 0.164 & 0.178 & 0.168 & 0.147 \\
+8  & 0.112 & 0.127 & 0.110 & 0.094 \\
+16 & 0.070 & 0.092 & 0.097 & 0.087 \\
+32 & 0.086 & 0.088 & 0.114 & 0.089 \\
+\bottomrule
+\end{tabular}
+\caption{Tempi medi, $N_R{=}10^7$, $N_S{=}2{\cdot}10^7$, $P{=}128$.}
+\label{tab:m3strong}
+\end{table}
+
+\paragraph{Uniforme: vince il loop.} Le for-loop di worksharing non pagano overhead di task sulle fasi regolari; il divario col task cresce con $T$, da $\sim$8\% a $T=4$ a $\sim$31\% a $T=16$ ($0.070$ vs $0.092$~s). Il breakdown localizza l'overhead in histogram e scatter (dispatch + allocazione per-task), mentre sul join le due varianti restano nel rumore. Il loop raggiunge $11.46\times$ a $T=16$ (eff.\ $\sim$72\% sul baseline condiviso), degrada a $T=20$ (team a cavallo tra core fisici e SMT) e recupera a $T=32$ dove il kernel \`e gi\`a bandwidth-bound.
+
+\paragraph{Skewed: si inverte, vince il task.} A $T=4$ il task chiude in $0.147$~s contro $0.168$~s del loop ($\sim$14\% da LPT); il vantaggio culmina a $T=8$ ($\sim$17\%) quando lo split intra-partizione entra in gioco, resta $\sim$12\% a $T=16$ e si riallarga a $\sim$28\% a $T=32$, dove il loop \emph{stalla} sul collo delle 4 partizioni mentre il task continua a scalare. Sul join a $T=16$: $60.9$~ms (task) vs $72.5$~ms (loop). Lo split delle partizioni calde \`e ci\`o che scavalca il tetto $H/T$.
+
+\paragraph{Schedule sensitivity.} A $T=8$, su uniforme tutte e cinque le policy stanno entro $\sim$1\% (con $P/T=16$ ogni thread ha lo stesso carico). Su skewed \texttt{static}, \texttt{static,1}, \texttt{guided,1} si attestano sui $130$~ms sul join, mentre le due \texttt{dynamic} scendono a $\sim$80~ms ($-38\%$): \texttt{static} assegna le 4 partizioni calde a chi possiede il loro range e quel thread diventa il percorso critico; \texttt{dynamic} le riassegna a domanda. Questo giustifica \texttt{dynamic,1} come default: mai peggiore delle altre.
+
+\paragraph{Prefetch: pi\`u utile nel probe o nello scatter?} Entrambi ne beneficiano (stream casuale), ma le distanze diverse (12 scatter, 8 probe) riflettono che il probe ha iterazioni pi\`u pesanti e una latenza-target maggiore (L2$\to$L3): bastano meno iterazioni di anticipo per coprirla. Il guadagno assoluto pi\`u visibile \`e sullo scatter (da 85 a 29~ms vs M2), perch\'e lo scatter $R{+}S$ \`e una frazione grande del tempo.
+
+\subsection{Domande teoriche collegate}
+
+\begin{esercizio}[M3 -- Loop vs Task su skew]
+Perch\'e la variante task supera la loop-level su input skewed?
+\end{esercizio}
+\begin{risposta}
+Due meccanismi. (1) LPT: emettendo le partizioni pesanti per prime, riduce la probabilit\`a che finiscano sul percorso critico. (2) Split intra-partizione: il probe di una partizione calda viene spezzato in $K$ sub-task cooperanti, scavalcando il tetto strutturale $H/T$ (con $H$ partizioni pesanti e $T$ thread) che nessuno scheduling esterno pu\`o superare. La loop-level, con una partizione = una iterazione \texttt{dynamic}, lascia un solo thread a macinare ogni partizione calda.
+\end{risposta}
+
+\begin{esercizio}[M3 -- \texttt{nowait} su \texttt{single}]
+Perch\'e serve \texttt{nowait} nel \texttt{single} che emette i task?
+\end{esercizio}
+\begin{risposta}
+Senza \texttt{nowait}, i $T-1$ worker resterebbero bloccati alla barriera implicita di \texttt{single} finch\'e il master non finisce di emettere tutti i task, invece di iniziare a consumarli subito. Con \texttt{nowait} master ed esecutori lavorano in parallelo: emissione e consumo si sovrappongono.
+\end{risposta}
+
+\begin{esercizio}[M3 -- dynamic,1]
+Perch\'e \texttt{schedule(dynamic,1)} sul join e non \texttt{static}?
+\end{esercizio}
+\begin{risposta}
+Il costo per partizione \`e irregolare (sotto skew rapporto $\sim$290$\times$ tra calda e fredda). \texttt{static} fissa l'assegnazione e il thread con le partizioni pesanti diventa il critical path; \texttt{dynamic,1} consegna una partizione alla volta e lascia che i thread liberi rubino lavoro. Su uniforme costa quanto le altre ($\le$1\%), quindi \`e sempre la scelta non-dominata.
+\end{risposta}
+
+\begin{esercizio}[M3 -- NUMA first-touch]
+Come garantisce il first-touch la localit\`a NUMA?
+\end{esercizio}
+\begin{risposta}
+Linux alloca una pagina fisica sul nodo NUMA del thread che la \emph{tocca per primo}, non a \texttt{malloc}. L'allocatore fa \texttt{resize} senza toccare le pagine; un \texttt{parallel for schedule(static)} di zero-init le tocca per prima volta con lo stesso partizionamento del successivo scatter, cos\`i ogni pagina finisce sul nodo del thread che vi scriver\`a, riducendo gli accessi remoti.
+\end{risposta}
+
+\subsection{Confronto con il Modulo 2}
+
+\textbf{Cosa si guadagna}: a parit\`a di hardware e baseline, M3 loop raggiunge $11.46\times$ a $T=16$ contro $7.86\times$ di M2. Il divario viene da due fasi: lo scatter (prefetch software: $\sim$29 vs $\sim$85~ms a $T=8$) e l'histogram ($\sim$9 vs $\sim$35~ms, perch\'e la completion function della \texttt{std::barrier} di M2 serializza il merge mentre l'\texttt{omp single} di M3 \`e parzialmente nascosto dalla regione successiva). M3 aggiunge inoltre la gestione esplicita dello skew (assente in M2). \textbf{Cosa si perde}: meno controllo esplicito del modello di sincronizzazione (le barriere sono implicite nei costrutti); l'overhead dei task sulle fasi regolari (per cui su uniforme conviene il loop). \textbf{Convergenza}: a $T=32$ M2, M3-loop e M3-task si incontrano ($9.01$, $9.33$, $9.11\times$): la banda di memoria diventa il vincolo dominante e la primitiva di sincronizzazione passa in secondo piano. \textbf{Quando preferire l'uno o l'altro}: OpenMP loop su carichi regolari (meno overhead, codice pi\`u corto); OpenMP task quando c'\`e skew o irregolarit\`a (LPT + split); i \texttt{std::thread} di M2 quando serve controllo fine del ciclo di vita dei thread e della sincronizzazione.
+
+
+% =============================================================
+\section{Modulo 4 -- MPI e MPI+OpenMP Ibrido}
+\label{sec:m4}
+% =============================================================
+
+\subsection{Descrizione e scelte implementative}
+
+Il Modulo~4 porta il join in memoria distribuita. L'algoritmo non cambia: $R$ ed $S$ partizionate con la stessa hash, join locale per partizione, una collettiva finale combina i risultati per-rank. Con i dati sparsi tra i nodi, il join locale ora compete con la \emph{comunicazione} che porta le partizioni corrispondenti sullo stesso rank.
+
+\paragraph{Assegnazione partizione$\to$rank.} $\text{dest}(p)=p\bmod\mathcal{R}$ con indice locale $\ell=p\,\text{div}\,\mathcal{R}$; il vincolo $P\bmod\mathcal{R}=0$ tiene esattamente bilanciato il \emph{numero} di partizioni per rank. Ogni rank genera solo la propria slice di $R$ ed $S$ con skip-ahead di \texttt{splitmix64}: nessun nodo detiene l'intera relazione, non c'\`e scatter iniziale, e la concatenazione delle slice locali \`e byte-per-byte l'output del generatore sequenziale.
+
+\paragraph{Pipeline a 8 fasi misurate.} \emph{histogram\_local} $\to$ \emph{scatter\_local} (record nel send buffer in ordine dest-major) $\to$ \emph{comm\_sizes} (\texttt{MPI\_Alltoall} dei conteggi) $\to$ \emph{comm\_payload} (\texttt{MPI\_Alltoallv} dei record) $\to$ \emph{histogram\_post} $\to$ \emph{scatter\_post} (rilayout in ordine per-partizione, cos\`i la kernel di M3 \`e riusata invariata) $\to$ \emph{join\_local} $\to$ \emph{reduce\_final} (\texttt{MPI\_Allreduce} delle 3 aggregate, $O(\log\mathcal{R})$). Ogni fase di comunicazione \`e preceduta da \texttt{MPI\_Barrier} e il timer parte dopo: cos\`i si misura il costo dello scambio, non l'attesa di un rank in ritardo. Ogni tempo \`e ridotto col massimo tra i rank (riporta il rank pi\`u lento).
+
+\paragraph{Scelta della primitiva di redistribuzione.} Si usa \texttt{MPI\_Alltoallv} (collettiva bloccante). Uno schema non bloccante \texttt{Isend/Irecv} potrebbe sovrapporre lo scambio col lavoro post (histogram\_post, scatter\_post, join), ma il breakdown mostra quanto poco ci sia da guadagnare: su 4 nodi il lavoro post \`e $\sim$100~ms su $\sim$1.3~s in MPI puro ($\sim$7\%) e $\sim$120~ms su 0.61~s nell'ibrido ($\sim$19\%). Spezzare la singola collettiva in scambi non bloccanti per-partizione perderebbe lo scheduling interno dell'all-to-all tunato: guadagno limitato e incerto contro un certo aumento di complessit\`a. Si \`e tenuta la collettiva bloccante.
+
+\paragraph{Ibrido MPI+OpenMP.} Un rank per nodo, \texttt{OMP\_NUM\_THREADS=32}, \texttt{OMP\_PROC\_BIND=close}, \texttt{OMP\_PLACES=cores}. \emph{Ogni} fase locale \`e OpenMP-parallel (riusa la logica di M3): istogrammi privati + merge, scatter con offset per-thread, join \texttt{parallel for schedule(dynamic)} + reduction. MPI \`e inizializzato con \texttt{MPI\_THREAD\_FUNNELED}: pi\`u thread possono girare, ma solo il main emette chiamate MPI (qui tutte le collettive sono fuori dalle regioni OpenMP). \`E sufficiente: \texttt{MPI\_THREAD\_MULTIPLE} farebbe proteggere lo stato interno della libreria con lock su ogni chiamata, overhead inutile qui.
+
+\begin{lstlisting}[style=bash, caption={Run del Modulo 4 (locale).}]
+mpirun -n 4 ./hashjoin_mpi      -nr 1000000 -ns 2000000 -seed 42 -p 32
+mpirun -n 2 ./hashjoin_mpi_omp  -nr 1000000 -ns 2000000 -seed 42 -p 32 -t 4
+\end{lstlisting}
+
+\subsection{Ottimizzazioni implementate}
+
+\begin{enumerate}
+  \item \textbf{Generazione locale con skip-ahead} (\texttt{splitmix64}): elimina lo scatter iniziale della relazione; ogni rank produce solo la sua slice, riproducendo bit-a-bit il generatore sequenziale.
+  \item \textbf{Ibrido un-rank-per-nodo}: riduce drasticamente il fan-out della collettiva (da $32\mathcal{R}$ a $\mathcal{R}$ rank). Su 8 nodi l'\texttt{MPI\_Alltoallv} passa da $0.53$~s (256 rank) a $0.18$~s (8 rank), $3\times$ a pari payload.
+  \item \textbf{Parallelizzazione di TUTTE le fasi locali nell'ibrido}: una prima versione parallelizzava solo il join e girava in $6.25$~s su un nodo (peggio del sequenziale), Amdahl-bound sulle passate seriali histogram/scatter. Parallelizzandole tutte, l'ibrido a 1 nodo scende a $1.61$~s ($3.9\times$) e rende monotona la curva multi-nodo.
+  \item \textbf{Barriera prima di ogni collettiva}: misura pulita del costo di comunicazione, separato dal load imbalance delle fasi locali.
+  \item \textbf{Riuso della kernel di M3} (prefetch, padding, first-touch) dentro ogni rank dell'ibrido.
+\end{enumerate}
+
+\subsection{Ottimizzazioni NON implementate (per l'orale)}
+
+\begin{itemize}
+  \item \textbf{Overlap comunicazione/calcolo} con \texttt{Isend/Irecv} non bloccanti: come sopra, guadagno stimato $\le$7\% (MPI puro) perch\'e il lavoro post \`e piccolo, contro la perdita dello scheduling interno dell'all-to-all tunato. Trade-off aperto, non implementato.
+  \item \textbf{Remapping skew-aware delle partizioni calde}: invece di mappare ogni partizione calda su un solo rank, replicarne il build su pi\`u rank e spezzarne il probe tra loro, cos\`i il join pesante \`e condiviso. \emph{Costo}: pi\`u comunicazione (build replicato) e una redistribuzione a due percorsi (regolari + pesanti). \emph{Impatto stimato}: incerto senza misura, perch\'e dipende da quanto \`e concentrato lo skew; \`e la \emph{sola} modifica che rimuoverebbe il floor di load imbalance distribuito. Non implementato per tenere semplice la redistribuzione.
+  \item \textbf{RDMA / one-sided (\texttt{MPI\_Put}/\texttt{Get})}: sostituire la collettiva a due lati con scritture remote dirette ridurrebbe la sincronizzazione di handshake; vantaggioso nel regime start-up-bound (molti rank), ma cambia il modello di consistenza e richiede gestione esplicita delle finestre.
+  \item \textbf{Topologie cartesiane / communicator gerarchici}: per un all-to-all generico non aiutano; aiuterebbero se la comunicazione fosse a stencil (cfr.\ Jacobi distribuito in dispensa).
+\end{itemize}
+
+\subsection{Analisi critica dei risultati}
+
+Setup: $P=256$, $N_R=50$M, $N_S=100$M (strong), per-rank fisso $2$M$\times$4M (weak). Baseline sequenziale: $4.48$~s uniforme, $2.30$~s skewed. MPI puro: 32 rank/nodo; ibrido: 1 rank/nodo $\times$ 32 thread.
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+Nodi & 1 & 2 & 4 & 8 \\
+\midrule
+MPI puro (unif.) $S$  & 6.9$\times$ & 7.6$\times$ & 3.0$\times$ & 7.1$\times$ \\
+Ibrido (unif.) $S$    & 2.8$\times$ & --- & --- & 12.0$\times$ \\
+MPI puro (skew) $S$   & 2.2$\times$ & --- & 1.2$\times$ & 1.4$\times$ \\
+Ibrido (skew) $S$     & 1.5$\times$ & --- & --- & 2.5$\times$ \\
+\bottomrule
+\end{tabular}
+\caption{Speedup vs baseline sequenziale (4.48~s unif., 2.30~s skew).}
+\label{tab:m4}
+\end{table}
+
+\paragraph{Il collasso di MPI puro a 4 nodi (128 rank).} Su uniforme, MPI puro picca a $7.6\times$ su 2 nodi (64 rank), \emph{collassa} a $3.0\times$ su 4 nodi (128 rank) e recupera a $7.1\times$ su 8 (256 rank). Il dip \`e tutto nel \emph{comm\_payload}: a 128 rank l'\texttt{MPI\_Alltoallv} \`e lento e erratico ($0.6$--$1.5$~s tra ripetizioni), mentre ogni altra fase \`e stabile. La causa \`e il \emph{conteggio di rank}, non di nodi: gli stessi 128 rank su 8 nodi (16/nodo) mostrano lo stesso scambio lento. Forzare l'algoritmo basic-linear al posto di quello tunato rende lo scambio stabile ma uniformemente lento: la varianza viene dalla scelta d'algoritmo della libreria in quel regime, il costo dal fan-out a 128 vie. A 256 rank ogni rank invia met\`a dati e lo scambio si assesta a $\sim$0.5~s.
+
+\paragraph{Weak scaling e modello di Hockney.} Su uniforme l'ibrido tiene $0.58$ di efficienza a 8 nodi, MPI puro scende a $0.21$. Con un rank per nodo l'\texttt{MPI\_Alltoallv} cresce da 1 a 8 rank e il suo tempo mediano sale solo da $15$ a $52$~ms; con 32 rank/nodo il conteggio va da 32 a 256 e il payload sale da $0.12$ a $3.17$~s. Col modello latenza--banda $\alpha+\beta m$, un rank in all-to-all posta $\mathcal{R}-1$ messaggi di taglia $V/\mathcal{R}$, costo per-rank $\approx(\mathcal{R}-1)\alpha+\beta V$: in weak scaling il termine di banda $\beta V$ \`e costante per costruzione, ci\`o che cresce \`e il numero di \emph{start-up} dei messaggi, lineare in $\mathcal{R}$. L'ibrido tiene $\mathcal{R}=$ numero di nodi e resta bandwidth-bound; MPI puro lo moltiplica per 32 e diventa start-up-bound.
+
+\paragraph{Skew: il floor di load imbalance distribuito.} Su skewed MPI puro non guadagna mai dai nodi ($2.2\to 1.4\times$), l'ibrido sale poco ($1.5\to 2.5\times$). Le 4 partizioni calde restano fissate a pochi rank che reggono $90\%$ dei record; il passo globale aspetta il pi\`u carico. \`E il problema classico di un \emph{partitioned-state farm con hashing}: l'hash bilancia il \emph{numero} di partizioni per rank, non il loro \emph{volume}. Dove M3 risolveva con \texttt{dynamic} (ogni thread vede ogni partizione nello stesso spazio d'indirizzi), qui le partizioni sono in memoria privata pinnata a un rank: nessun rank pu\`o cedere la sua partizione calda senza muovere dati. Lo stesso imbalance che lo scheduling dinamico nasconde in memoria condivisa diventa un floor rigido sotto distribuzione.
+
+\subsection{Domande teoriche collegate}
+
+\begin{esercizio}[M4 -- Computation-to-communication ratio]
+Qual \`e il rapporto calcolo/comunicazione di M4 e come influisce sull'efficienza?
+\end{esercizio}
+\begin{risposta}
+Su uniforme a 4 nodi MPI puro spende $88\%$ del tempo nell'\texttt{MPI\_Alltoallv} e solo $\sim$0.07~s nelle 4 fasi locali (ogni rank tratta $1/128$ dell'input): rapporto calcolo/comunicazione bassissimo, quindi efficienza dominata dalla comunicazione. L'ibrido riequilibra: fasi locali a decine di ms e comm\_payload al $44\%$ del tempo, perch\'e la collettiva a 8 rank \`e molto pi\`u economica della 128-rank. In weak scaling, per Hockney, il costo di start-up cresce con $\mathcal{R}$: tenere $\mathcal{R}$ piccolo (ibrido) mantiene il ratio favorevole.
+\end{risposta}
+
+\begin{esercizio}[M4 -- MPI vs MPI+OpenMP]
+Perch\'e l'ibrido batte MPI puro da 4 nodi in poi?
+\end{esercizio}
+\begin{risposta}
+Il fan-out della collettiva. MPI puro usa $32\mathcal{R}$ rank, quindi l'\texttt{MPI\_Alltoallv} diventa start-up-bound (numero di messaggi $\propto$ rank). L'ibrido usa $\mathcal{R}$ rank (uno per nodo) e parallelizza le fasi locali con OpenMP: paga un po' di pi\`u in locale ma esegue una collettiva molto pi\`u economica (su 8 nodi: $0.18$ vs $0.53$~s). Il punto di crossover \`e dove il risparmio sulla comunicazione supera il costo locale aggiuntivo.
+\end{risposta}
+
+\begin{esercizio}[M4 -- THREAD\_FUNNELED]
+Perch\'e \texttt{MPI\_THREAD\_FUNNELED} e non \texttt{MPI\_THREAD\_MULTIPLE}?
+\end{esercizio}
+\begin{risposta}
+Tutte le chiamate MPI sono emesse dal solo thread main, fuori dalle regioni OpenMP. FUNNELED garantisce esattamente questo contratto. MULTIPLE permetterebbe a qualsiasi thread di chiamare MPI concorrentemente, ma costringe la libreria a proteggere il suo stato interno con lock su ogni chiamata: overhead puro che questo codice non sfrutta.
+\end{risposta}
+
+\begin{esercizio}[M4 -- RDMA]
+Come cambierebbe il design con RDMA al posto di \texttt{MPI\_Send/Recv}?
+\end{esercizio}
+\begin{risposta}
+RDMA / one-sided (\texttt{MPI\_Put}/\texttt{Get} su finestre) elimina l'handshake a due lati: il rank sorgente scrive direttamente nella memoria remota senza che il destinatario posti una receive. Nel regime start-up-bound (molti rank) ridurrebbe il costo di sincronizzazione per messaggio. Costo: gestione esplicita delle finestre e della consistenza (epoche \texttt{Fence}/\texttt{Lock}), e correttezza pi\`u delicata. Il vantaggio reale dipende dal fatto che il collo qui \`e il fan-out a 128 vie, che RDMA riduce ma non annulla.
+\end{risposta}
+
+\subsection{Confronto con il Modulo 3}
+
+\textbf{Cosa si guadagna}: capacit\`a. M4 distribuisce un input troppo grande per un nodo; entro 8 nodi l'ibrido raggiunge $12.0\times$ su uniforme. \textbf{Cosa si perde}: su uniforme 8 nodi ($12.0\times$) battono di poco M3 su 1 nodo ($10.1\times$) -- $8\times$ l'hardware per $\sim$1.2$\times$ di speedup -- perch\'e la collettiva non si riduce con i nodi mentre il join locale, gi\`a economico, s\`i (argomento di Amdahl). Su skewed il divario si \emph{inverte}: M3 con \texttt{dynamic} su 1 nodo fa $6.2\times$, l'ibrido M4 su 8 nodi solo $2.5\times$, perch\'e M4 non pu\`o ribilanciare le partizioni calde pinnate ai rank. \textbf{Quando preferire l'uno o l'altro}: M3 (memoria condivisa) quando i dati entrano in un nodo, specie sotto skew; M4 (distribuito) solo quando la \emph{capacit\`a} lo impone, e preferibilmente in forma ibrida per minimizzare il fan-out della collettiva.
+
+
+% =============================================================
+\section{Confronto tra Moduli e Domande d'Esame}
+\label{sec:confronto-moduli}
+% =============================================================
+
+I quattro moduli implementano lo \emph{stesso} algoritmo cambiando solo il paradigma di parallelismo: questo li rende un banco di prova ideale per confrontare SIMD, thread, OpenMP e MPI sullo stesso problema, sullo stesso hardware e con lo stesso baseline sequenziale.
+
+\subsection{Tabella riassuntiva}
+
+\begin{table}[H]
+\centering\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\textwidth}{@{}llcclX@{}}
+\toprule
+\textbf{Mod} & \textbf{Paradigma} & \textbf{Speedup tip.} & \textbf{Efficienza} & \textbf{Caso d'uso ottimale} & \textbf{Limitazione principale} \\
+\midrule
+M1 & SIMD (AVX2/autovec) & $1.4\times$ vs scalare & 96\% banda & kernel compute leggero, dati in cache/streaming & bandwidth-bound: $I{=}0.33$ ops/B, il SIMD non aiuta la memoria \\
+M2 & C++ threads & $8.6$--$9.6\times$ (32 log.) & 47\% @16, 27\% @32 & join in shared-memory, controllo fine della sincronizzazione & banda DRAM condivisa, dip NUMA, no skew handling \\
+M3 & OpenMP loop/task & $11.5\times$ @16 (loop) & 72\% @16 (loop) & shared-memory, carichi regolari (loop) o skewed (task+LPT) & banda DRAM a saturazione; overhead task su carichi regolari \\
+M4 & MPI / MPI+OpenMP & $12.0\times$ (8 nodi, ibrido) & 0.58 weak (ibrido) & input troppo grande per un nodo (capacit\`a) & \texttt{MPI\_Alltoallv} fan-out; skew non ribilanciabile \\
+\bottomrule
+\end{tabularx}
+\caption{Sintesi dei quattro moduli. Speedup uniformi salvo dove indicato; baseline sequenziale comune.}
+\label{tab:confronto}
+\end{table}
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{@{}lrr@{}}
+\toprule
+Implementazione & Tempo [s] & Speedup \\
+\midrule
+Sequenziale                       & 4.48 & $1.0\times$ \\
+M2 C++ threads (32t, 1 nodo)      & 0.53 & $8.4\times$ \\
+M3 OpenMP loop (32t, 1 nodo)      & 0.44 & $10.1\times$ \\
+M4 MPI puro (1 nodo, 32 rank)     & 0.65 & $6.9\times$ \\
+M4 MPI puro (2 nodi, 64 rank)     & 0.59 & $7.6\times$ \\
+M4 ibrido (8 nodi, 256 core)      & 0.37 & $12.0\times$ \\
+\bottomrule
+\end{tabular}
+\caption{Cross-module su input uniforme ($N_R{=}50$M), stesso baseline 4.48~s.}
+\label{tab:xmod-unif}
+\end{table}
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{@{}lrr@{}}
+\toprule
+Implementazione (skewed, $\rho{=}0.9$) & Tempo [s] & Speedup \\
+\midrule
+Sequenziale                      & 2.30 & $1.0\times$ \\
+M3 OpenMP loop (16t, 1 nodo)     & 0.37 & $6.2\times$ \\
+M4 MPI puro (1 nodo, 32 rank)    & 1.03 & $2.2\times$ \\
+M4 ibrido (8 nodi, 256 core)     & 0.90 & $2.5\times$ \\
+\bottomrule
+\end{tabular}
+\caption{Cross-module su input skewed. M3 in shared-memory domina: lo scheduling dinamico ribilancia il volume delle partizioni calde, cosa impossibile sotto distribuzione.}
+\label{tab:xmod-skew}
+\end{table}
+
+\subsection{Confronto qualitativo: quando scegliere ciascuno}
+
+\textbf{SIMD (M1)} \`e ortogonale agli altri: agisce \emph{dentro} un thread, sul singolo core. Conviene quando la kernel ha intensit\`a operazionale alta abbastanza da non essere memory-bound; qui non lo \`e, e infatti rende solo $1.4\times$. Va sempre abilitato (autovec costa nulla) ma non risolve un problema memory-bound.
+
+\textbf{Threads (M2)} d\`a il massimo controllo: ciclo di vita esplicito, scelta della primitiva di sincronizzazione, layout della memoria. \`E la scelta quando serve un modello di esecuzione su misura (qui una barriera BSP). Costo: pi\`u codice e pi\`u modi di sbagliare (race, false sharing, NUMA).
+
+\textbf{OpenMP (M3)} \`e il punto dolce in shared-memory: stesso speedup di M2 e oltre, con molto meno codice, e due modelli pronti (worksharing per carichi regolari, task+LPT per irregolari). Le ottimizzazioni di basso livello (prefetch, first-touch, padding) restano sotto il controllo del programmatore. \`E la scelta di default su un singolo nodo.
+
+\textbf{MPI (M4)} si giustifica per \emph{capacit\`a}, non per velocit\`a: quando l'input non entra in un nodo. La forma \emph{ibrida} MPI+OpenMP \`e quasi sempre preferibile al MPI puro, perch\'e minimizza il fan-out delle collettive (un rank per nodo invece di uno per core), che \`e il collo dominante.
+
+\paragraph{Come si combinano.} La gerarchia \`e annidabile e il progetto la esibisce: \textbf{M4 ibrido usa M3 internamente} come layer OpenMP dentro ogni rank, e M3 riusa la kernel di M2, che a sua volta usa la hash vettorizzabile di M1. Il pattern canonico di un cluster moderno \`e MPI tra i nodi $+$ OpenMP tra i core $+$ SIMD dentro il core: i quattro moduli sono i quattro livelli di questa piramide.
+
+\subsection{Legge di Amdahl applicata ai risultati reali}
+
+In M2/M3 il fit di Amdahl $S(p)=1/(f+(1-f)/p)$ d\`a $f\approx 0.078$ a $P=128$ ($S_\infty\approx 12.9\times$) e $f\approx 0.058$ a $P=512$ ($S_\infty\approx 17\times$). I picchi misurati ($8.6$--$11.5\times$) restano \emph{sotto} la predizione di Amdahl: il modello assume risorse infinite, ma il vincolo reale \`e la \emph{banda DRAM condivisa}, che Amdahl non cattura. Riduurre $f$ (tabelle che entrano in L3 a $P=512$) sposta il tetto verso l'alto, ma la banda resta il limite asintotico.
+
+In M4 Amdahl spiega perch\'e la distribuzione rende poco su uniforme: la parte ``parallelizzabile'' (il join locale) si riduce coi nodi, ma la collettiva \texttt{MPI\_Alltoallv} \`e una frazione che \emph{non} si riduce (anzi cresce col fan-out), comportandosi come un $f$ effettivo che cappa lo speedup. Per questo 8 nodi ($12.0\times$) battono di poco 1 nodo OpenMP ($10.1\times$).
+
+\[
+  S_\infty=\frac{1}{f},\qquad
+  E(p)=\frac{S(p)}{p},\qquad
+  \text{WSE}=\frac{T(1)}{T(p)}\ \text{(Gustafson)}.
+\]
+
+Su \emph{weak scaling} la lettura corretta \`e Gustafson, non Amdahl: M4 ibrido tiene WSE $=0.58$ a 8 nodi perch\'e il termine di banda $\beta V$ del modello di Hockney \`e costante; MPI puro crolla a $0.21$ perch\'e il termine di start-up $(\mathcal{R}-1)\alpha$ cresce linearmente coi rank.
+
+\subsection{Domande d'esame trasversali}
+
+\begin{esercizio}[1 -- Task vs loop su skew]
+Perch\'e il Modulo 3 task-based supera il loop-level su input skewed?
+\end{esercizio}
+\begin{risposta}
+LPT emette le partizioni pesanti per prime (riducendo il rischio che siano sul percorso critico) e, soprattutto, lo split intra-partizione spezza il probe di una partizione calda in pi\`u sub-task cooperanti, scavalcando il tetto strutturale $H/T$. La variante loop, con una partizione per iterazione \texttt{dynamic}, lascia un solo thread su ciascuna calda. Su uniforme invece vince il loop, perch\'e i task pagano overhead di dispatch su histogram/scatter senza beneficio.
+\end{risposta}
+
+\begin{esercizio}[2 -- Computation-to-communication ratio di M4]
+Qual \`e il rapporto calcolo/comunicazione del Modulo 4 e come influisce sull'efficienza?
+\end{esercizio}
+\begin{risposta}
+Molto sbilanciato verso la comunicazione in MPI puro multi-nodo: a 4 nodi/128 rank l'\texttt{MPI\_Alltoallv} \`e $88\%$ del tempo, il calcolo locale $\sim$0.07~s. Efficienza dominata dalla collettiva. L'ibrido riporta il calcolo locale al $\sim$50\% riducendo il fan-out. Modello di Hockney $\alpha+\beta m$: in weak scaling il termine banda \`e costante, cresce solo lo start-up $\propto$ rank; tenere pochi rank (ibrido) preserva un ratio favorevole.
+\end{risposta}
+
+\begin{esercizio}[3 -- Prefetch: scatter o probe?]
+Il prefetching del Modulo 3 \`e pi\`u utile in fase scatter o probe? Perch\'e distanze diverse (12 vs 8)?
+\end{esercizio}
+\begin{risposta}
+Entrambe ne traggono beneficio perch\'e entrambe hanno uno stream ad accesso casuale non coperto dal prefetcher HW. Il guadagno \emph{assoluto} pi\`u grande \`e sullo scatter (da $\sim$85 a $\sim$29~ms vs M2), perch\'e lo scatter $R{+}S$ pesa molto sul totale. Le distanze differiscono per la latenza-target: lo scatter punta a coprire L1$\to$L2 (12 iterazioni), il probe -- con iterazioni pi\`u pesanti -- punta a L2$\to$L3 e basta meno anticipo (8 iterazioni).
+\end{risposta}
+
+\begin{esercizio}[4 -- Overhead di sincronizzazione M2 vs M3]
+Comparando M2 (C++ threads) e M3 (OpenMP), quali differenze di overhead di sincronizzazione?
+\end{esercizio}
+\begin{risposta}
+M2 usa una \texttt{std::barrier} la cui completion function \emph{serializza} il merge degli istogrammi (a $T=8$ histogram $\sim$35~ms). M3 fa lo stesso merge in un \texttt{omp single} il cui costo \`e parzialmente nascosto dalla regione successiva ($\sim$9~ms). M3 aggiunge il prefetch software sullo scatter (M2 non ce l'ha). Risultato: a $T=16$ M3-loop $11.46\times$ vs M2 $7.86\times$. A $T=32$ convergono ($\sim$9$\times$): la banda DRAM diventa il vincolo e la primitiva di sincronizzazione passa in secondo piano.
+\end{risposta}
+
+\begin{esercizio}[5 -- RDMA in M4]
+Come cambierebbe il design del Modulo 4 con RDMA al posto di \texttt{MPI\_Send/Recv}?
+\end{esercizio}
+\begin{risposta}
+RDMA / one-sided (\texttt{MPI\_Put}/\texttt{Get} su finestre) elimina l'handshake a due lati: la sorgente scrive direttamente nella memoria remota. Nel regime start-up-bound (molti rank) ridurrebbe la sincronizzazione per messaggio. Costo: gestione esplicita di finestre ed epoche di sincronizzazione, consistenza pi\`u delicata. Non risolverebbe il fan-out a 128 vie alla radice, che \`e il vero collo: l'ibrido (meno rank) lo affronta meglio.
+\end{risposta}
+
+\begin{esercizio}[6 -- Perch\'e nessun modulo raggiunge speedup lineare?]
+Tutti i moduli plateau a $8$--$12\times$ su 32 core invece di $32\times$. Perch\'e?
+\end{esercizio}
+\begin{risposta}
+Il join \`e \emph{memory-bound}: i probe casuali nelle hash table generano traffico DRAM che i 32 thread \emph{condividono} (la banda non si replica coi core). \`E un tetto strutturale del roofline, non una frazione seriale. Lo confermano: il dip NUMA a $p=20$, il plateau del join compute-bound in regime HT, e il fatto che ridurre $f$ (P=512, tabelle in L3) alza il tetto ma non porta a $32\times$.
+\end{risposta}
+
+\begin{esercizio}[7 -- Skew: shared vs distribuito]
+Perch\'e lo skew \`e gestibile in M3 ma diventa un floor rigido in M4?
+\end{esercizio}
+\begin{risposta}
+In M3 tutte le partizioni vivono nello stesso spazio d'indirizzi: \texttt{schedule(dynamic)} lascia che qualsiasi thread libero dreni una partizione calda, bilanciando il \emph{volume}. In M4 dopo l'all-to-all ogni rank possiede le sue partizioni in memoria \emph{privata}: un rank che riceve le partizioni calde non pu\`o cederle senza muovere dati. L'hash bilancia il numero di partizioni, non il volume, e il passo globale aspetta il rank pi\`u carico. Solo un remapping skew-aware (replica del build + split del probe) rimuoverebbe il floor.
+\end{risposta}
+
+\begin{esercizio}[8 -- Ibrido vs MPI puro]
+Perch\'e l'ibrido MPI+OpenMP \`e quasi sempre preferibile al MPI puro su questo problema?
+\end{esercizio}
+\begin{risposta}
+Il collo \`e l'\texttt{MPI\_Alltoallv}, il cui costo cresce col numero di rank (start-up $\propto\mathcal{R}$, modello di Hockney). MPI puro usa $32\mathcal{R}$ rank e diventa start-up-bound, con un collasso a 128 rank. L'ibrido usa $\mathcal{R}$ rank (uno per nodo) e parallelizza le fasi locali con OpenMP: collettiva $3\times$ pi\`u economica (0.18 vs 0.53~s su 8 nodi) e weak efficiency 0.58 vs 0.21. Paga un costo locale single-node maggiore, recuperato gi\`a da 2 nodi.
+\end{risposta}
+
+\begin{esercizio}[9 -- SIMD a mano vs autovettorizzazione]
+Perch\'e in M1 l'AVX2 scritto a mano \`e pi\`u lento dell'auto-vettorizzato?
+\end{esercizio}
+\begin{risposta}
+Perch\'e la kernel \`e memory-bound. GCC, autovettorizzando, ha libert\`a di scheduling, unrolling e allocazione registri e raggiunge una saturazione di banda leggermente migliore (15.7 vs 14.4~GB/s). Le intrinsics impongono una sequenza rigida non riordinabile. Lezione: il SIMD manuale conviene solo se il collo \`e il compute, non la memoria.
+\end{risposta}
+
+\begin{esercizio}[10 -- Scelta di $P$]
+Come influisce il numero di partizioni $P$ sulle prestazioni, e perch\'e $P=512$ \`e l'ottimo?
+\end{esercizio}
+\begin{risposta}
+$P$ controlla la taglia di ogni \texttt{FlatCountMap}. A $P$ piccolo (16) ogni tabella \`e $\sim$32~MB e spilla in DRAM (join DRAM-bound). A $P=512$ ogni tabella \`e $\sim$1~MB ed entra nella L3 condivisa da 20~MB: il join diventa cache-resident, $f$ scende da 0.078 a 0.058 e lo speedup sale da $\sim$8.6 a $11.4\times$. Oltre $P=1024$ cresce l'overhead di costruzione/distruzione ripetuta delle tabelle e la pressione TLB. L'ottimo \`e $P\in[512,1024]$.
+\end{risposta}
+
+
+\clearpage
+\section*{Conclusioni}
+\addcontentsline{toc}{section}{Conclusioni}
+% =============================================================
+
+Questa dispensa copre i principali argomenti del corso SPM: dalle architetture parallele (Flynn, SHM/DM, NUMA) ai modelli teorici (BSP, Work-Span, PRAM), passando per l'ottimizzazione bassa (cache, SIMD, GPU), le metriche di prestazione (Amdahl, Gustafson), il bilanciamento del carico (block/cyclic/dynamic), gli strumenti di programmazione in C++ moderno (thread, mutex, CV, atomics, lock-free), i paradigmi di programmazione parallela (OpenMP, MPI, PSTL, Ranges) e la programmazione parallela strutturata (pipeline, farm, map, reduce).
+
+Per l'esame, e' fondamentale:
+\begin{enumerate}
+  \item Saper calcolare speedup, efficienza, e applicare le leggi di Amdahl/Gustafson a scenari concreti.
+  \item Comprendere la gerarchia di memoria e le sue implicazioni (cache, false sharing, NUMA).
+  \item Saper progettare programmi paralleli corretti con thread C++, OpenMP e MPI.
+  \item Capire il modello di memoria C++ (happens-before, memory orders) e i pattern lock-free.
+  \item Scegliere la strategia di distribuzione del workload appropriata (statica vs dinamica).
+  \item Calcolare i modelli di costo di pipeline, farm e map; trovare $k_{min}$ e $k_{opt}$.
+  \item Saper progettare programmi MPI con comunicazioni punto-a-punto e collettive, evitando deadlock.
+  \item Usare OpenMP task per parallelismo irregolare (ricorsivo, dipendenze tra task).
+\end{enumerate}
+
+\end{document}

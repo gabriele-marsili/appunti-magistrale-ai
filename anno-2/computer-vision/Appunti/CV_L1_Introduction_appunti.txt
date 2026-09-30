@@ -1,0 +1,778 @@
+========================================================================
+COMPUTER VISION - LEZIONE 1
+"Introduction, Structure and Organization of the Course"
+Antonio Carta - Universita di Pisa - 2026-09-01
+Appunti divisi per slide (61 slide) - pronti per copia-incolla su OneNote
+========================================================================
+
+Nota sull'uso: ogni blocco corrisponde a una slide del PDF L1-intro.pdf.
+Le slide composte solo da immagini sono segnalate: in quei casi gli appunti
+descrivono il concetto che la figura illustra, non il testo della slide.
+
+
+========================================================================
+SLIDE 1 - Copertina
+========================================================================
+Computer Vision - Introduction, Structure and Organization of the Course.
+Docente: Antonio Carta (antonio.carta@unipi.it), Universita di Pisa.
+Data: 2026-09-01.
+Lezione introduttiva: cosa e la CV, perche e difficile, temi unificanti,
+organizzazione del corso ed esame.
+
+
+========================================================================
+SLIDE 2 - Sezione: What is Computer Vision?
+========================================================================
+Slide divisoria. Inizia la prima parte della lezione: definizione di
+computer vision, livelli di elaborazione (low/mid/high level), applicazioni
+e ragioni per cui il problema e intrinsecamente difficile.
+
+
+========================================================================
+SLIDE 3 - Computer Vision (citazione di David Marr)
+========================================================================
+Citazione: "What does it mean, to see? The plain man's answer (and
+Aristotle's, too) would be, to know what is where by looking." - David Marr.
+
+Spiegazione:
+- La definizione di Marr contiene gia i due obiettivi della visione:
+  "what" (identita/semantica: cosa c'e) e "where" (geometria: dove si trova).
+- Tutto il corso ruota attorno a questi due assi: riconoscere e localizzare.
+- Fonte della figura: visionbook (Torralba et al.).
+
+
+========================================================================
+SLIDE 4 - What is Computer Vision? Definition and Scope
+========================================================================
+Contenuto:
+- Computer vision: lo studio di come far estrarre alle macchine significato,
+  struttura e decisioni a partire da dati visivi (immagini, video, depth,
+  multi-view).
+- Copre un enorme spettro di task che estraggono struttura 2D e 3D dalle
+  immagini.
+- Campi correlati:
+  - image processing: segnale in ingresso, segnale in uscita;
+  - computer graphics: sintesi di immagini;
+  - robotica: azione nel mondo;
+  - machine learning: la cassetta degli attrezzi moderna.
+
+Nota: la differenza chiave con image processing e che la CV produce una
+descrizione simbolica/strutturata, non un'altra immagine.
+
+
+========================================================================
+SLIDE 5 - The MIT Summer Vision Project
+========================================================================
+Contenuto:
+- Nel 1966 Seymour A. Papert al MIT propose la computer vision come
+  "summer project for students".
+- Obiettivo finale dichiarato: OBJECT IDENTIFICATION, cioe nominare gli
+  oggetti facendo matching con un vocabolario di oggetti noti.
+- Link: https://dspace.mit.edu/entities/publication/3f820aef-49d5-4d97-9faa-2ac178d4da00
+
+Punto della slide: 60 anni dopo stiamo ancora cercando di risolvere quel
+"progetto estivo". E l'aneddoto classico che mostra quanto la visione sia
+stata sottovalutata: cio che per un umano e immediato e computazionalmente
+molto difficile (paradosso di Moravec).
+
+
+========================================================================
+SLIDE 6 - Low-level Vision
+========================================================================
+Contenuto:
+- Low-level: denoising, edge detection, optical flow.
+- Si lavora direttamente sui pixel e sulle loro variazioni locali, senza
+  alcuna nozione di "oggetto".
+
+Spiegazione:
+- Sono operazioni prevalentemente locali e spesso lineari (filtri,
+  convoluzioni), oggetto della prima parte del corso.
+- Output: ancora immagini o mappe dense (mappa di bordi, campo di moto).
+
+
+========================================================================
+SLIDE 7 - Mid-Level
+========================================================================
+Contenuto:
+- Mid-level: segmentazione, stima di profondita (depth), corrispondenze,
+  ricostruzione 3D.
+
+Spiegazione:
+- Si passa da pixel a strutture: regioni, superfici, relazioni geometriche
+  fra piu viste.
+- E il livello in cui entra in gioco la geometria multi-vista (seconda parte
+  del corso: keypoint, omografie, stereo, calibrazione).
+
+
+========================================================================
+SLIDE 8 - High-Level
+========================================================================
+Contenuto:
+- High-level: recognition, detection, captioning, generation, vision-language
+  reasoning.
+
+Spiegazione:
+- Output semantico: etichette, frasi, risposte, immagini generate.
+- E il livello dominato oggi dal deep learning (CNN, ViT, modelli
+  vision-language, diffusion models), terza parte del corso.
+
+
+========================================================================
+SLIDE 9 - Cat-Bag (slide con sola immagine)
+========================================================================
+Immagine generata con ChatGPT: un'immagine ambigua in cui un gatto puo
+essere letto come una borsa (o viceversa).
+
+Punto: il riconoscimento ad alto livello non e una funzione deterministica
+dei pixel. La stessa configurazione di pixel puo supportare interpretazioni
+diverse; serve contesto e conoscenza a priori per disambiguare.
+
+
+========================================================================
+SLIDE 10 - Applications
+========================================================================
+Contenuto:
+- Telefoni: sblocco con il volto, ricerca nelle foto, filtri.
+- Auto: rilevamento corsie, rilevamento pedoni, stima della profondita,
+  SLAM per la guida autonoma.
+- Imaging medicale: segmentazione di tumori, registrazione fra scansioni
+  diverse, supporto alla diagnosi.
+- AR/VR: tracking a 6 gradi di liberta (6-DoF), ricostruzione della scena,
+  stima della posa di mani e corpo.
+
+Schema comune a tutti i sistemi: pixel grezzi in ingresso, informazione
+strutturata in uscita, spesso con vincoli stringenti di latenza e accuratezza.
+
+
+========================================================================
+SLIDE 11 - Perception vs. Graphics
+========================================================================
+Contenuto:
+- Graphics (modello diretto/forward): descrizione della scena -> immagine.
+  - Date geometria, materiali, illuminazione e camera, si renderizza
+    un'immagine.
+  - Problema ben posto: lo stesso input produce sempre lo stesso output.
+- Vision (problema inverso): immagine -> descrizione della scena.
+  - Dai pixel si devono recuperare geometria, materiali, illuminazione,
+    camera, semantica.
+  - Problema mal posto (ill-posed): molte scene diverse possono produrre
+    la stessa immagine.
+
+Frase chiave: la visione e la grafica "eseguita al contrario", ma e
+l'inversione la parte difficile.
+
+
+========================================================================
+SLIDE 12 - Why Vision is Hard: Ill-Posedness and Ambiguity
+========================================================================
+Contenuto:
+- Problema mal posto: un problema che, dai soli dati disponibili, non ammette
+  una soluzione unica e stabile.
+- Esempio classico: una singola immagine 2D e compatibile con infinite
+  scene 3D.
+  - Stessa silhouette -> forme diverse (ambiguita di profondita).
+  - Stesso pattern di shading -> combinazioni diverse di forma, materiale e
+    illuminazione.
+- Conseguenza: gli algoritmi di visione hanno bisogno di prior per scegliere
+  una risposta plausibile fra le tante possibili.
+
+Definizione formale utile (Hadamard): ben posto = esistenza + unicita +
+stabilita rispetto ai dati. Nella visione mancano quasi sempre le ultime due.
+
+
+========================================================================
+SLIDE 13 - Why Vision is Hard: Illumination Changes
+========================================================================
+Contenuto:
+- Lo stesso oggetto/scena puo apparire drasticamente diverso sotto
+  illuminazioni diverse.
+  - La direzione della luce cambia ombreggiatura e ombre portate.
+  - La temperatura colore cambia i colori registrati (white balance).
+  - I riflessi speculari si spostano con il punto di vista e con la
+    posizione della luce.
+- Un sistema robusto deve separare "cosa e cambiato nella scena" da "cosa e
+  cambiato a causa della luce".
+
+Collegamento: questo problema verra formalizzato nella Lezione 2 come
+color constancy, r(lambda) = k * l_in(lambda) * s(lambda).
+
+
+========================================================================
+SLIDE 14 - Why Vision is Hard: Viewpoint/Pose Changes
+========================================================================
+Contenuto:
+- Lo stesso oggetto visto da angoli diversi produce proiezioni 2D molto
+  differenti.
+  - Auto-occlusione: parti dell'oggetto ne nascondono altre.
+  - Foreshortening (scorcio): le forme appaiono compresse.
+  - Dimensione apparente e aspect ratio cambiano con distanza e angolo.
+- Riconoscimento e matching devono essere (almeno parzialmente) invarianti
+  al punto di vista.
+
+
+========================================================================
+SLIDE 15 - Why Vision is Hard: Occlusion
+========================================================================
+Contenuto:
+- Nel mondo reale gli oggetti si occludono a vicenda e occludono se stessi.
+- L'occlusione crea dati mancanti: parti della scena semplicemente non sono
+  osservate in una data immagine.
+- Gli algoritmi devono ragionare su cio che e nascosto, usando contesto,
+  prior o viste multiple.
+
+Nota: l'occlusione non e rumore, e assenza di misura. Non si puo "filtrare",
+va ricostruita per inferenza.
+
+
+========================================================================
+SLIDE 16 - Why Vision is Hard: Scale and Intra-Class Variation
+========================================================================
+Contenuto:
+- Variazione di scala: lo stesso oggetto puo apparire con dimensioni molto
+  diverse a seconda della distanza dalla camera.
+- Variazione intra-classe: oggetti della stessa categoria (es. "uccello")
+  variano enormemente in forma, colore, texture, posa.
+- Una rappresentazione utile deve generalizzare lungo entrambi gli assi
+  contemporaneamente.
+- Soluzione: elaborazione multi-scala e rappresentazioni invarianti apprese.
+
+Anticipazione: il multi-scala sara trattato con le piramidi di immagini
+(Lezione 6), l'invarianza appresa con CNN e ViT nella terza parte.
+
+
+========================================================================
+SLIDE 17 - Humans vs ML Systems
+========================================================================
+Contenuto:
+- Gli umani risolvono task di visione senza sforzo, in millisecondi.
+  - Si appoggiano a un'enorme quantita di conoscenza a priori implicita e
+    di calcolo (corteccia visiva, decenni di "dati di addestramento").
+- I sistemi di deep learning moderni, addestrati su grandi dataset, oggi
+  eguagliano o superano gli umani su molti task di visione ristretti.
+- Attenzione: le modalita di fallimento del ML (esempi avversari,
+  distribution shift) sono diverse da quelle umane.
+
+Punto da ricordare: "superare l'uomo su un benchmark" non significa
+"vedere come un uomo"; i due sistemi sbagliano su cose diverse.
+
+
+========================================================================
+SLIDE 18 - The Issue of Robustness and Generalization
+========================================================================
+Contenuto:
+- Sia i sistemi appresi sia quelli classici hanno limiti.
+- I sistemi appresi possono non generalizzare a oggetti e scene nuove.
+  - Esempio: cosa succede quando un classificatore vede un oggetto
+    sconosciuto? E quando vede un oggetto noto in un contesto nuovo?
+- In generale i sistemi appresi sono piu robusti a cambi drastici di
+  viewpoint/scena.
+  - Pero i limiti dei sistemi classici sono piu facili da capire, mentre le
+    DNN sono piu "black box" ed e piu difficile prevedere dove falliranno.
+  - E fondamentale capire quando una tecnica funziona bene e quando no:
+    il mio modello funzionera con una camera a bassa risoluzione? E con
+    immagini scattate in cattive condizioni di luce?
+
+Questo e un criterio di valutazione ricorrente nei lab e all'orale: saper
+dire dove un metodo si rompe.
+
+
+========================================================================
+SLIDE 19 - Brief History of Computer Vision: Classical Era to Deep Learning
+========================================================================
+Contenuto (cronologia):
+- Anni 1960-1980: primi lavori su edge detection, blocks-world scene
+  understanding, optical flow, stereo.
+- Anni 1990-2000: feature progettate a mano e geometria: SIFT, Harris
+  corners, RANSAC, structure-from-motion, geometria multi-vista ben
+  sviluppata.
+- Anni 2010: rivoluzione del deep learning; le CNN dominano il
+  riconoscimento (ImageNet), poi detection e segmentazione.
+- Dal 2017 a oggi: transformer/ViT, self-supervised learning, foundation
+  model, modelli vision-language.
+
+Osservazione: il corso segue grosso modo questa cronologia (segnali ->
+geometria -> rappresentazioni apprese -> applicazioni avanzate).
+
+
+========================================================================
+SLIDE 20 - Sezione: Human Perception
+========================================================================
+Slide divisoria. Seconda parte della lezione: come funziona la percezione
+umana, quanto e "costruita" dal cervello, e perche questo motiva l'uso di
+prior nei sistemi artificiali.
+
+
+========================================================================
+SLIDE 21 - Looking at Pixels (slide con sole immagini)
+========================================================================
+Due figure da visionbook che mostrano la stessa immagine vista come griglia
+di numeri e come immagine percepita.
+
+Punto: per il calcolatore un'immagine e solo una matrice di intensita. Non
+c'e nulla di "ovvio" nei numeri: oggetti, bordi e superfici sono
+interpretazioni, non dati.
+
+
+========================================================================
+SLIDE 22 - Looking at Pixels (slide con sola immagine)
+========================================================================
+Prosecuzione della slide precedente (figura da visionbook).
+
+Punto: guardando i valori numerici di una regione e quasi impossibile per un
+umano capire cosa rappresenta; il significato emerge solo dalla struttura
+spaziale complessiva.
+
+
+========================================================================
+SLIDE 23 - Human prior (slide con sola immagine)
+========================================================================
+Figura da visionbook che illustra un'illusione percettiva legata ai prior.
+
+Punto: la percezione umana non e una misura, e un'inferenza. Il cervello
+applica assunzioni forti (sulla luce, sulle superfici, sulla continuita) che
+possono essere ingannate.
+
+
+========================================================================
+SLIDE 24 - Human prior (slide con sola immagine)
+========================================================================
+Secondo esempio di prior percettivo (figura da visionbook).
+
+Punto da ricordare: le illusioni ottiche non sono difetti, sono la prova che
+il sistema visivo sta risolvendo un problema mal posto usando prior. Quando
+il prior e sbagliato per quell'immagine, l'inferenza sbaglia.
+
+
+========================================================================
+SLIDE 25 - Blind spot test
+========================================================================
+Contenuto:
+- La percezione visiva umana e il risultato di un'elaborazione pesante da
+  parte del cervello.
+- Esempio: abbiamo un punto cieco nell'occhio (dove il nervo ottico entra
+  nella retina) che viene sempre interpolato.
+
+Punto: parte di cio che "vediamo" non e mai stata misurata. Il cervello
+riempie il buco in modo coerente con il contesto, e noi non ce ne accorgiamo.
+
+
+========================================================================
+SLIDE 26 - Perception vs Measurement (slide con sola immagine)
+========================================================================
+Figura da visionbook, tipicamente l'illusione degli scacchi di Adelson o
+analoga: due patch con lo stesso valore di pixel appaiono di luminosita
+diversa.
+
+Punto: la percezione non restituisce il valore misurato, restituisce la
+stima della proprieta della superficie dopo aver scontato l'illuminazione.
+Questo tema torna nella Lezione 2 (color constancy).
+
+
+========================================================================
+SLIDE 27 - 3D Perception (slide con sola immagine)
+========================================================================
+Figura da visionbook sulla percezione della struttura 3D da un'immagine 2D.
+
+Punto: dal 2D ricostruiamo automaticamente una scena 3D plausibile usando
+cues come ombre, occlusioni, prospettiva, dimensione familiare degli oggetti.
+
+
+========================================================================
+SLIDE 28 - 3D Perception: Motion Blur (slide con sola immagine)
+========================================================================
+Figura da visionbook sul motion blur.
+
+Punto: il blur da movimento non e solo un artefatto, e un'informazione. Il
+sistema visivo (e un algoritmo) puo usarlo per inferire velocita e direzione
+del moto, cioe per recuperare una dimensione temporale da una singola
+immagine.
+
+
+========================================================================
+SLIDE 29 - Summary (percezione umana)
+========================================================================
+Contenuto:
+- La percezione umana usa automaticamente l'informazione contestuale e
+  sconta i fattori di disturbo (nuisances), ad esempio gli effetti della
+  luce.
+- Per costruire sistemi robusti servono prior analoghi.
+- I sistemi appresi sono la soluzione principale usata oggi per costruire
+  tali prior.
+
+Filo logico della lezione: problema mal posto -> servono prior -> gli umani
+li hanno impliciti -> il deep learning li impara dai dati.
+
+
+========================================================================
+SLIDE 30 - Sezione: Unifying Themes in Computer Vision
+========================================================================
+Slide divisoria. Terza parte: i quattro temi trasversali che ricorrono in
+tutto il corso e che permettono di organizzare metodi molto diversi.
+
+
+========================================================================
+SLIDE 31 - Unifying Themes in Computer Vision
+========================================================================
+I quattro temi unificanti:
+- Correspondence: trovare "lo stesso punto" fra immagini diverse.
+- Geometric constraints: modelli di camera e geometria multi-vista.
+- Representation learning: feature ed embedding.
+- Temporal consistency: video e movimento.
+
+Utile come scaletta di risposta all'orale: quasi ogni metodo del corso si
+puo collocare in uno o piu di questi quattro temi.
+
+
+========================================================================
+SLIDE 32 - Correspondence
+========================================================================
+Contenuto:
+- Correspondence: date due (o piu) immagini della stessa scena, trovare
+  quale pixel/regione di una corrisponde a quale pixel/regione dell'altra.
+- Usato in:
+  - panorama stitching (allineare foto sovrapposte);
+  - stereo e depth (accoppiare vista sinistra e destra);
+  - tracking (seguire un oggetto fra frame di un video);
+  - structure-from-motion / SLAM (matching su molte viste per recuperare
+    il 3D).
+- Approccio classico: individuare keypoint distintivi, descriverli, fare
+  matching per similarita.
+- Approccio moderno: matcher appresi, densi o sparsi.
+
+
+========================================================================
+SLIDE 33 - Correspondence Example: Matching Points Between Two Photos
+========================================================================
+Figura: keypoint corrispondenti rilevati e messi in corrispondenza fra due
+foto sovrapposte.
+
+Punto: il matching produce inevitabilmente anche falsi accoppiamenti
+(outlier). Serve poi una verifica geometrica (es. RANSAC + omografia) per
+tenere solo le corrispondenze coerenti con un modello di camera: e il
+collegamento diretto con il tema successivo.
+
+
+========================================================================
+SLIDE 34 - Geometric Constraints
+========================================================================
+Contenuto:
+- Le camere seguono un modello geometrico (proiezione prospettica).
+- La prospettiva impone vincoli forti su come i punti possono spostarsi fra
+  le viste:
+  - le proiezioni di un punto 3D in due immagini sono legate dalla geometria
+    delle camere (vincolo epipolare);
+  - le proiezioni di una scena planare sono legate da una singola matrice
+    (omografia).
+- Questi vincoli permettono di passare da corrispondenze 2D alla struttura
+  3D, e di scartare i match errati (geometric verification).
+
+
+========================================================================
+SLIDE 35 - Geometry Example: Triangulation and 3D from 2D
+========================================================================
+Contenuto:
+- Dato lo stesso punto 3D visto da due camere calibrate, le sue due
+  proiezioni 2D piu le posizioni delle camere determinano univocamente il
+  punto 3D (a meno del rumore).
+- Questa e la triangolazione: l'inverso geometrico della proiezione, reso
+  ben posto usando due viste invece di una.
+- Si generalizza a molte viste: structure-from-motion, stereo depth.
+
+Punto concettuale: la seconda vista e esattamente l'informazione aggiuntiva
+che trasforma un problema mal posto in uno ben posto. E il rimedio
+"geometrico" all'ambiguita, alternativo ai prior appresi.
+
+
+========================================================================
+SLIDE 36 - Representation Learning
+========================================================================
+Contenuto:
+- Una rappresentazione (feature/embedding) e una trasformazione dei pixel
+  grezzi in un vettore piu utile per un task a valle.
+- Una buona rappresentazione e:
+  - invariante ai fattori di disturbo (illuminazione, viewpoint, scala) che
+    non dovrebbero cambiare la risposta;
+  - discriminativa per i fattori che invece devono cambiarla (identita
+    dell'oggetto, categoria).
+- Classico: si progetta a mano la trasformazione (es. SIFT: istogrammi di
+  gradienti progettati per essere invarianti a rotazione e scala).
+- Moderno: si impara la trasformazione dai dati (feature CNN/ViT, embedding
+  contrastivi/self-supervised).
+- Entrambi risolvono lo stesso problema di fondo (una descrizione compatta e
+  invariante dell'aspetto locale), con filosofie di progetto diverse.
+
+
+========================================================================
+SLIDE 37 - Temporal Consistency
+========================================================================
+Contenuto:
+- Nei video i frame consecutivi sono fortemente correlati: oggetti e camera
+  si muovono in modo continuo.
+- Consistenza temporale: gli output devono essere coerenti nel tempo
+  (identita, posizione ed etichetta di un oggetto non devono "sfarfallare"
+  in modo arbitrario da un frame all'altro).
+- Collega la correspondence al tempo: si mettono in corrispondenza
+  punti/oggetti fra frame invece che fra punti di vista statici.
+
+
+========================================================================
+SLIDE 38 - Sezione: Samples of State-of-the-art Methods
+========================================================================
+Slide divisoria. Rassegna di risultati recenti, utile per vedere dove e
+arrivato lo stato dell'arte nei vari livelli (low, mid, high).
+
+
+========================================================================
+SLIDE 39 - Computational Photography
+========================================================================
+Riferimento: Google Photos, riduzione di rumore e blur.
+https://research.google/blog/take-all-your-pictures-to-the-cleaners-with-google-photos-noise-and-blur-reduction/
+
+Esempio di low-level vision in produzione: denoising e deblurring su
+dispositivi consumer. Collegamento diretto con la deconvoluzione e
+l'inversione regolarizzata viste nella Lezione 2.
+
+
+========================================================================
+SLIDE 40 - BiomedParse
+========================================================================
+Riferimento: https://github.com/microsoft/BiomedParse
+
+Modello per il parsing di immagini biomediche (segmentazione, detection e
+riconoscimento congiunti guidati dal testo). Esempio di applicazione
+verticale in ambito medicale.
+
+
+========================================================================
+SLIDE 41 - Segment Anything V2
+========================================================================
+Riferimento: https://ai.meta.com/research/sam2/
+
+Foundation model per la segmentazione promptable, esteso ai video.
+Esempio di mid-level vision risolta in modo generale e zero-shot, con
+tracking temporale delle maschere (tema della consistenza temporale).
+
+
+========================================================================
+SLIDE 42 - Depth Anything V2
+========================================================================
+Riferimento: https://depth-anything-v2.github.io/
+
+Stima monoculare della profondita con un modello generalista. Interessante
+perche affronta proprio l'ambiguita size/depth della singola immagine
+usando prior appresi su larghissima scala.
+
+
+========================================================================
+SLIDE 43 - DINOv3
+========================================================================
+Riferimento: https://ai.meta.com/research/dinov3/
+
+Rappresentazioni visive apprese in modo self-supervised (senza etichette),
+usabili come feature generiche per molti task a valle. Esempio del tema
+"representation learning".
+
+
+========================================================================
+SLIDE 44 - Robotics Control
+========================================================================
+Riferimenti:
+https://research.google/blog/rt-1-robotics-transformer-for-real-world-control-at-scale/
+https://research.google/blog/palm-e-an-embodied-multimodal-language-model/
+
+Visione usata per il controllo: dai pixel direttamente alle azioni del
+robot, con modelli multimodali che uniscono linguaggio e percezione.
+
+
+========================================================================
+SLIDE 45 - D4RT: Efficiently Reconstructing Dynamic Scenes
+========================================================================
+Best paper CVPR 2026: https://d4rt-paper.github.io/
+
+Ricostruzione efficiente di scene dinamiche (geometria 3D che cambia nel
+tempo). Unisce geometria multi-vista e consistenza temporale, i due temi
+unificanti visti prima.
+
+
+========================================================================
+SLIDE 46 - Sezione: Course Organization
+========================================================================
+Slide divisoria. Ultima parte: programma, docenti, prerequisiti, esame,
+laboratori, software e testi.
+
+
+========================================================================
+SLIDE 47 - Course Outline: Signals and Images (Parte 1)
+========================================================================
+Argomenti della prima parte:
+- formazione dell'immagine, camera e colori;
+- convoluzione e trasformata di Fourier;
+- blur e derivate di immagini;
+- aliasing e rappresentazioni multi-scala;
+- laboratori.
+
+Corrisponde alle lezioni 2, 3, 4, 5, 6.
+
+
+========================================================================
+SLIDE 48 - Course Outline: Correspondence and Geometry (Parte 2)
+========================================================================
+Argomenti della seconda parte:
+- keypoint detection;
+- matching e omografie;
+- modelli di camera e prospettiva;
+- calibrazione della camera;
+- principi della visione stereo;
+- laboratori.
+
+
+========================================================================
+SLIDE 49 - Course Outline: Learned Visual Representations (Parte 3)
+========================================================================
+Argomenti della terza parte:
+- CNN;
+- ViT (Vision Transformer);
+- detection e segmentazione;
+- self-supervised learning;
+- modelli vision-language;
+- diffusion model;
+- laboratori in PyTorch.
+
+
+========================================================================
+SLIDE 50 - Course Outline: Advanced Applications and Challenges (Parte 4)
+========================================================================
+Argomenti della quarta parte:
+- personalizzazione di modelli pre-addestrati;
+- adattamento continuo (continual adaptation);
+- deployment;
+- robustezza;
+- incertezza e open world detection.
+
+
+========================================================================
+SLIDE 51 - Lecturers
+========================================================================
+- Docenti: Antonio Carta e Donald Shenaj.
+- Ufficio presso il Dipartimento di Informatica.
+- Per il ricevimento: scrivere una email per prenotare uno slot.
+
+
+========================================================================
+SLIDE 52 - Prerequisites
+========================================================================
+Nessun prerequisito formale, ma si da per acquisita familiarita con i corsi
+del primo anno:
+- algebra lineare e ottimizzazione;
+- probabilita;
+- machine learning;
+- concetti base di deep learning;
+- familiarita di base con PyTorch e capacita di addestrare una semplice DNN.
+
+
+========================================================================
+SLIDE 53 - Exam
+========================================================================
+- Solo esame orale.
+- Possibile test preliminare a risposta multipla (es. 5 domande semplici).
+- Quest'anno non ci sono prove intermedie (no midterm).
+
+
+========================================================================
+SLIDE 54 - Lab Sessions
+========================================================================
+Contenuto:
+- I lab sono notebook pratici (hands-on).
+- Obiettivo: esplorare e sperimentare per capire i limiti dei metodi e
+  vedere applicazioni semplici e ricette di codice.
+  - Scrivere le proprie considerazioni prima e dopo ogni esperimento
+    (ipotesi e analisi).
+  - Esplorare i notebook, cambiare gli iperparametri e osservare cosa
+    cambia nei risultati.
+- L'obiettivo non e memorizzare API o imparare librerie specifiche.
+- I lab non sono valutati. E permesso usare qualsiasi strumento di AI.
+
+
+========================================================================
+SLIDE 55 - Software Tools
+========================================================================
+- scipy/numpy: image processing classico in Python (filtri, trasformate,
+  feature detection).
+- OpenCV: libreria standard per CV classica e geometria della camera
+  (C++/Python); nel corso si usano i binding Python.
+- Kornia: computer vision differenziabile in PyTorch; operazioni classiche
+  (filtri, geometria, feature) implementate come operazioni tensoriali
+  differenziabili e adatte alla GPU.
+- PyTorch/timm: framework di deep learning e libreria di modelli di visione
+  pre-addestrati (CNN, ViT).
+
+
+========================================================================
+SLIDE 56 - Books on Deep Learning
+========================================================================
+- Goodfellow, Bengio, Courville, "Deep Learning"
+  https://www.deeplearningbook.org/
+  - buon riferimento per i metodi DL standard fino alle CNN (fino al 2016);
+    non contiene i metodi recenti (es. ViT e diffusion model);
+  - vanno conosciute molto bene le Parti 1 e 2; la Parte 3 non serve;
+  - utile come ripasso del background DL.
+- Simon J. D. Prince, "Understanding Deep Learning"
+  https://udlbook.github.io/udlbook/
+  - libro DL piu moderno, PDF gratuito;
+  - il sito fornisce diversi notebook.
+
+
+========================================================================
+SLIDE 57 - Books on Computer Vision
+========================================================================
+Le slide sono il riferimento principale.
+- Torralba et al., "Foundations of Computer Vision"
+  https://visionbook.mit.edu/
+  - versione web gratuita;
+  - riferimento principale per tutta la visione classica (con poche
+    eccezioni);
+  - indicato come "visionbook" nelle slide.
+- Szeliski, "Computer Vision: Algorithms and Applications" (2a ed.)
+  https://szeliski.org/Book/
+  - PDF gratuito sul sito; buono come riferimento, leggero sui dettagli.
+- Per approfondire la geometria multi-vista (non necessario per il corso):
+  Hartley & Zisserman, "Multiple View Geometry in Computer Vision",
+  riferimento definitivo per la geometria della Parte 2 (opzionale,
+  avanzato).
+
+
+========================================================================
+SLIDE 58 - Sezione: Conclusion
+========================================================================
+Slide divisoria. Chiusura della lezione con i takeaway e le letture.
+
+
+========================================================================
+SLIDE 59 - Key Takeaways
+========================================================================
+- La computer vision e il problema inverso della grafica: recuperare
+  struttura e significato della scena dalle immagini; e un problema
+  intrinsecamente mal posto che richiede prior.
+- La visione e difficile a causa di illuminazione, punto di vista,
+  occlusione, scala e variazione intra-classe, tutti insieme.
+- La nostra comprensione intuitiva delle immagini deriva da prior forti,
+  uso del contesto e pesante pre-elaborazione.
+- I metodi di CV sfruttano: corrispondenza, vincoli geometrici,
+  representation learning e consistenza temporale.
+
+
+========================================================================
+SLIDE 60 - Further Reading
+========================================================================
+- visionbook Cap. 1.
+- (opzionale) visionbook Cap. 2, per un esempio pratico di cosa le tecniche
+  classiche possono e non possono fare in un contesto giocattolo.
+
+
+========================================================================
+SLIDE 61 - Next Lecture
+========================================================================
+Prossima lezione: Image formation.
+- Modello diretto (forward model) e formazione dell'immagine.
+- Il modello della camera a foro stenopeico (pinhole).
+- Luce e colore.

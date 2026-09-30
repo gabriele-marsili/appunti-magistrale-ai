@@ -1,0 +1,218 @@
+# Computer Vision, Lezione 7 (laboratorio)
+
+Fourier sulle immagini, filtraggio in frequenza, classificazione con banchi di filtri fissi.
+Materiale: notebook in `lab/` (`demo.ipynb` e `filter_bank.ipynb` datati 28/09/2026). Versione impaginata con figure: `Appunti_L7_Lab.pdf`.
+
+## Indice
+
+1. [Panoramica e struttura della cartella](#1-panoramica-e-struttura-della-cartella)
+2. [demo.ipynb: Fourier e convoluzione sulle immagini](#2-demoipynb-fourier-e-convoluzione-sulle-immagini)
+3. [filter_bank.ipynb: classificare con banchi di filtri](#3-filter_bankipynb-classificare-con-banchi-di-filtri)
+4. [06-image-blending](#4-06-image-blending)
+5. [Errori e imprecisioni nei notebook](#5-errori-e-imprecisioni-nei-notebook)
+6. [Domande tipo esame](#6-domande-tipo-esame)
+7. [Stato della verifica e come rieseguire](#7-stato-della-verifica-e-come-rieseguire)
+
+## 1. Panoramica e struttura della cartella
+
+| Notebook | Tema | Ordine |
+|---|---|---|
+| `lab/demo.ipynb` | spettro 2D, traslazione, bordi, passa-basso/alto, notch, compressione | 1 |
+| `lab/filter_bank.ipynb` | Fashion-MNIST con filtri fissi + non linearità + pooling + classificatore lineare | 2 |
+| `lab/06-image-blending/` | identico a quello di L6 (stesso MD5) | 3 |
+
+```
+L7/
+  Appunti_L7_Lab.md / .pdf   questi appunti
+  lab/                       notebook (prima si chiamava lab-images/)
+    corrupted_photo.npy      dati dell'esercizio 1 di demo
+    data/                    Fashion-MNIST, scaricato dal notebook (30 MB)
+    06-image-blending/
+  appunti_src/               sorgente LaTeX, figs.py, script di verifica, risultati
+```
+
+Collegamenti (file in `../../Appunti/`): L3 per convoluzione e teorema di convoluzione, L6 per piramidi, aliasing e blending, L4 per la FFT 1D.
+
+Nei notebook sono state aggiunte celle markdown che iniziano con **[Appunti L7]** (celle originali non modificate).
+
+## 2. `demo.ipynb`: Fourier e convoluzione sulle immagini
+
+Immagine: `camera` di scikit-image, ritaglio 256x256.
+
+### 2.1 Coordinate di Fourier (rieseguito)
+
+| Cosa | Valore |
+|---|---|
+| `fftfreq(W)` | cicli/pixel nell'ordine della FFT (0, positive, negative) |
+| `F[0,0]/(H*W)` | media = 0.3984 |
+| Parseval `sum f^2 = sum abs(F)^2/(HW)` | 16143.14 = 16143.14 |
+| errore di `ifft2(fft2(img))` | 5.6e-16 (salvato 6.66e-16) |
+
+### 2.2 Onde
+
+- `cos(2 pi (kx x/W + ky y/H))`, kx e ky interi: due picchi in +-(ky, kx), modulo HW/2 = 32768 (verificato).
+- Il vettore (kx/W, ky/H) è perpendicolare alle strisce.
+- kx = 12.5 (non intero): leakage, 256 bin sopra l'1% del massimo contro 2.
+- Somma di onde: somma degli spettri (FFT lineare).
+
+### 2.3 Traslazione
+
+Shift circolare (`np.roll`) = moltiplicare F per `exp(-2 pi i (fy dy + fx dx))`. Il modulo non cambia, cambia solo la fase (asserzioni del notebook passano).
+
+### 2.4 Bordi (`convolve2d`, `boundary=`)
+
+| `boundary` | Estensione | angolo bianco (0,0) | bordo nero (8,15) |
+|---|---|---|---|
+| `fill` | zeri | 0.318 | 0.005 |
+| `wrap` | periodica | 0.563 | 0.437 |
+| `symm` | specchio, ripete il bordo (= `np.pad` `symmetric`, verificato) | 0.993 | 0.007 |
+
+Filtrare con la FFT equivale a `wrap` (la DFT considera l'immagine periodica).
+
+### 2.5 Passa-basso ideale e gaussiano
+
+- Ideale: 1 se r <= 0.08 (tiene il 2.0% dei coefficienti).
+- Gaussiano: `exp(-2 pi^2 sigma^2 r^2)`, sigma = 2 = std del kernel spaziale corrispondente (verificato: 2.000).
+- Su un bordo: ideale in [-0.091, 1.091] (ringing, overshoot 9%), gaussiano in [0, 1].
+- Passa-alto = immagine - passa-basso; media 0 (verificato).
+
+### 2.6 Notch contro interferenza periodica
+
+Onda di ampiezza 0.20 a (kx, ky) = (37, 21). MSE (rieseguito = salvato): corrotta 0.020000, notch 0.000001, passa-basso 0.004886. 0.02 = A^2/2.
+
+### 2.7 Esercizio 1: `corrupted_photo.npy` (risolto)
+
+1. Picco fuori dal centro (r > 0.05): una sola coppia in (ky, kx) = +-(-43, 29), circa 400 volte sopra i vicini, ampiezza 0.181.
+2. `notch_mask(obs.shape, 29/256, -43/256, width=1/256)`.
+3. `ifft2(Fo * notch).real`.
+4. Immagine pulita = `data.coffee()` in grigio a 256x256. MSE: osservata 0.0162, notch 1.8e-6, gaussiano 0.0034.
+
+### 2.8 Esercizio 2: compressione (Fig 16.8 visionbook, risolto)
+
+Si tengono i coefficienti di modulo maggiore.
+
+| Tenuti | Coefficienti | MSE | PSNR |
+|---|---|---|---|
+| 20% | 13107 | 0.00068 | 31.7 dB |
+| 5% | 3276 | 0.00267 | 25.8 dB |
+| 1% | 655 | 0.00776 | 21.1 dB |
+| 0.2% | 131 | 0.01674 | 17.8 dB |
+
+## 3. `filter_bank.ipynb`: classificare con banchi di filtri
+
+Pipeline: `x -> x * w_k -> rho -> pooling -> StandardScaler + RidgeClassifier(alpha=1)`.
+Dati: Fashion-MNIST, train 20000, val 10000, test 10000. Feature = filtri x (28/p)^2 (49 per filtro con pool 4).
+
+Le soluzioni sono state tolte dal notebook ma gli output del docente sono rimasti. Taratura: le celle Gabor (codice completo) differiscono dai valori salvati al massimo di 0.0004, per versioni diverse delle librerie.
+
+### 3.1 Soluzioni usate
+
+```python
+box = np.ones((3, 3)) / 9
+sobel_x = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], float); sobel_y = sobel_x.T
+sobel_d45  = np.array([[0, 1, 2], [-1, 0, 1], [-2, -1, 0]], float)
+sobel_d135 = np.array([[-2, -1, 0], [-1, 0, 1], [0, 1, 2]], float)
+laplacian  = np.array([[0, 1, 0], [1, -4, 1], [0, 1, 0]], float)
+gd_bank = [identity] + per ogni sigma: [G, Gx, Gy, Gxx, Gyy, Gxy]
+random_bank(n) = n kernel 5x5 standard_normal (rng seed 0)
+```
+
+### 3.2 Risultati (validazione)
+
+| Banco | Feature | Salvato | Rieseguito |
+|---|---|---|---|
+| pixel grezzi | 784 | 0.8128 | 0.8129 |
+| baseline (id, box, sobel x/y) | 196 | 0.8376 | 0.8381 |
+| baseline senza identity | 147 | | 0.8343 |
+| solo identity, abs, pool 4 | 49 | | 0.7498 |
+| + diagonali | 294 | 0.8573 | 0.8600 |
+| + laplaciano | 245 | 0.8456 | 0.8484 (4-vicini) / 0.8460 (8-vicini) |
+| + diagonali + laplaciano | 343 | 0.8638 | 0.8641 |
+| derivate gaussiane s=1 | 343 | 0.8583 | 0.8634 |
+| derivate gaussiane s=2 | 343 | 0.8562 | 0.8605 |
+| derivate gaussiane s=1,2 | 637 | 0.8748 | 0.8809 |
+| derivate gaussiane s=0.7,1,2,3 | 1225 | 0.8865 | 0.8905 |
+| Gabor 2 / 4 / 8 orientazioni | 441 / 833 / 1617 | 0.8673 / 0.8865 / 0.8949 | 0.8675 / 0.8867 / 0.8945 |
+| random 4 / 13 / 34 | 196 / 637 / 1666 | 0.8349 / 0.8714 / 0.8922 | 0.8361 / 0.8774 / 0.8925 |
+
+Ipotesi: la differenza di circa 0.5 punti sulle derivate gaussiane viene da un banco del docente un po' diverso.
+
+### 3.3 Non linearità e pooling (banco a 7 filtri 3x3, rieseguito)
+
+| Non linearità, pool 4 | val | | Pool (abs, media) | feature | val |
+|---|---|---|---|---|---|
+| none | 0.8092 | | 1 | 5488 | 0.8644 |
+| abs | 0.8641 | | 2 | 1372 | 0.8809 |
+| square | 0.8461 | | 4 | 343 | 0.8641 |
+| rectify | 0.8646 | | 7 | 112 | 0.8192 |
+| abs + power 0.5 | 0.8715 | | 14 / 28 | 28 / 7 | 0.7026 / 0.5238 |
+
+- Max pooling: 0.8777 / 0.8531 / 0.7746 (pool 2 / 4 / 7), sempre sotto la media.
+- Senza non linearità non si supera il pixel grezzo: 0.8127 (none, pool 1) contro 0.8129. Convoluzione e pooling medio sono lineari.
+- Pooling: tolleranza a piccoli spostamenti e meno feature, si perde la posizione.
+- power 0.5: comprime i valori grandi (spiegazione standard, non misurata).
+
+### 3.4 Challenge (salvati, non rieseguiti) e test (rieseguito)
+
+Salvati: energia di Gabor 8x2, power .5: 0.8884 (882 feature); Gabor 8, power .5: 0.9002 (1666); Gabor 8x3 + derivate gaussiane, power .5: 0.9094 (3038).
+
+Test, riallenando su train + val: pixel 0.8101, baseline 0.8383, baseline power .5 0.8557, Gabor 8 + identity power .5 **0.8983** (val 0.9055).
+
+## 4. `06-image-blending`
+
+Identico al notebook di L6 (stesso MD5). Spiegazione e due bug in `Appunti/CV_L6_Aliasing_Scale_Invariance_appunti.txt`, parte B.
+
+## 5. Errori e imprecisioni nei notebook
+
+Numeri di cella = numerazione del notebook originale, prima delle celle aggiunte.
+
+### 5.1 `filter_bank`: `'ReLU'` non esiste
+
+Il testo (cella 5) chiama la non linearità `'ReLU'`, il dizionario usa `'rectify'`: `nonlinearity="ReLU"` dà `KeyError`.
+
+### 5.2 `filter_bank`: banco finale
+
+`FINAL_BANK = baseline_bank  # best validation entry`: il commento chiede il banco migliore, il codice mette la baseline.
+
+### 5.3 `filter_bank`: output da esecuzioni diverse
+
+Cella 32 salvata con `NameError` (`baseline_bank` non definito), ma cella 34 con grafico.
+
+### 5.4 `filter_bank`: `show_responses`
+
+Usa sempre `pool(..., 4).reshape(7, 7)`, ignora il `pool_size` provato.
+
+### 5.5 `demo`: figura vuota e shift circolare
+
+- Cella 2: `plt.figure()` prima di `plt.matshow` lascia una figura vuota.
+- "Lo shift cambia solo la fase" vale esatto solo per lo shift circolare (`np.roll`).
+
+## 6. Domande tipo esame
+
+1. **Dove sono i picchi di un'onda 2D?** In +-(ky, kx), modulo HW/2, perpendicolari alle strisce.
+2. **Cosa fa uno shift allo spettro?** Modulo invariato, fase moltiplicata per una rampa.
+3. **Perché il passa-basso ideale dà ringing?** Taglio netto = sinc nello spazio. Overshoot 9% su un bordo.
+4. **Come si toglie un disturbo periodico?** Notch sui due picchi coniugati (MSE 1e-6 contro 5e-3 del passa-basso).
+5. **Che bordo usa il filtraggio con FFT?** Periodico (`wrap`).
+6. **Perché serve la non linearità in un banco di filtri?** Senza, tutto resta lineare nei pixel: 0.8127 contro 0.8129.
+7. **Pro e contro del pooling?** Invarianza a piccoli spostamenti e meno feature contro perdita di posizione.
+8. **Cosa manca rispetto a una CNN?** Filtri appresi e più strati.
+
+## 7. Stato della verifica e come rieseguire
+
+**Rieseguito:** tutte le celle di `demo.ipynb` (numeri uguali agli output salvati), i due esercizi di `demo`, tutti gli esperimenti di `filter_bank` con colonna "Rieseguito", test finale.
+
+**Non rieseguito:** tabella della challenge (output salvati). Le soluzioni di `filter_bank` sono ricostruite: coincidono con i salvati per numero di feature, per accuratezza entro 0.6 punti.
+
+**Ambiente:** numpy 2.5.3, scipy 1.18.1, scikit-image 0.26.0, scikit-learn 1.9.1, matplotlib 3.11.2 (venv nello scratchpad della sessione).
+
+Pacchetti necessari: `numpy scipy matplotlib scikit-image scikit-learn` (il Python di sistema non ha `skimage`). Per il PDF: `xelatex` con font TeX Gyre Pagella e Menlo.
+
+Per rieseguire, da `appunti_src/`:
+
+```
+python verifica_demo.py
+python verifica_filter_bank.py A   # parti A..E, scrive risultati_filter_bank_<parte>.json
+python figs.py                      # figure in fig/
+xelatex L7_appunti.tex              # due volte
+```

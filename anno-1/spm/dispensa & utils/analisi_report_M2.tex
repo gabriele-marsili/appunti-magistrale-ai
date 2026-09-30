@@ -1,0 +1,242 @@
+% =============================================================
+% ANALISI REPORT MODULO -- preambolo condiviso (v3, walkthrough)
+% =============================================================
+\documentclass[11pt,a4paper]{article}
+\usepackage{fontspec}
+\usepackage[english]{babel}
+\setmainfont{Latin Modern Roman}
+\setmonofont{Latin Modern Mono}
+\usepackage{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{float}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{microtype}
+\usepackage{parskip}
+\usepackage{tcolorbox}
+\tcbuselibrary{breakable}
+
+\geometry{top=2.3cm, bottom=2.3cm, left=2.3cm, right=2.3cm}
+\setlength{\headheight}{14pt}
+\setlength{\emergencystretch}{3em}
+
+\definecolor{codeblue}{rgb}{0.0,0.3,0.7}
+\definecolor{codegreen}{rgb}{0,0.5,0}
+\definecolor{backcolour}{rgb}{0.97,0.97,0.97}
+\definecolor{cmdback}{rgb}{0.95,0.97,1.0}
+
+\lstdefinestyle{cpp}{ backgroundcolor=\color{backcolour}, commentstyle=\color{codegreen}\itshape,
+  keywordstyle=\color{codeblue}\bfseries, basicstyle=\ttfamily\footnotesize, breaklines=true,
+  keepspaces=true, showstringspaces=false, tabsize=2, language=C++,
+  morekeywords={omp,pragma,parallel,task,schedule,reduction,uint64_t,uint32_t,size_t,alignas,
+    MPI_Alltoallv,MPI_Allreduce,constexpr,noexcept,__restrict__,__builtin_prefetch}}
+\lstdefinestyle{bash}{ backgroundcolor=\color{cmdback}, basicstyle=\ttfamily\footnotesize,
+  commentstyle=\color{codegreen}\itshape, breaklines=true, keepspaces=true, showstringspaces=false,
+  tabsize=2, language=bash, frame=single, framesep=4pt, rulecolor=\color{codeblue},
+  morekeywords={srun,salloc,sbatch,mpirun,mpicxx,make,g++,nvcc,export,numactl,perf,likwid}}
+\lstset{style=cpp}
+
+\pagestyle{fancy}\fancyhf{}
+\rhead{\leftmark}\lhead{Analisi Report -- SPM}\cfoot{\thepage}
+\renewcommand{\sectionmark}[1]{\markboth{#1}{}}
+
+\newtcolorbox{motiv}{breakable, colback=yellow!7!white, colframe=orange!80!black,
+  fonttitle=\small\bfseries, title={Motivazione della scelta}, before skip=6pt, after skip=6pt}
+\newtcolorbox{deriv}{breakable, colback=blue!4!white, colframe=codeblue,
+  fonttitle=\small\bfseries, title={Da dove viene il numero (derivazione)}, before skip=6pt, after skip=6pt}
+\newtcolorbox{espbox}{breakable, colback=purple!4!white, colframe=purple!60!black,
+  fonttitle=\small\bfseries, title={Esperimento di supporto}, before skip=6pt, after skip=6pt}
+\newtcolorbox{theorybox}{breakable, colback=green!5!white, colframe=green!50!black,
+  fonttitle=\small\bfseries, title={Collegamento alla teoria}, before skip=6pt, after skip=6pt}
+\newtcolorbox{difesa}{breakable, colback=red!4!white, colframe=red!55!black,
+  fonttitle=\small\bfseries, title={Come difenderlo all'orale}, before skip=6pt, after skip=6pt}
+\newtcolorbox{misura}{breakable, colback=teal!6!white, colframe=teal!70!black,
+  fonttitle=\small\bfseries, title={Risultato misurato (sandbox locale, non cluster)}, before skip=6pt, after skip=6pt}
+
+\newcommand{\espitem}[5]{\item \textbf{#1}\\ \emph{Come:} #2\\ \emph{Misura:} #3\\ \emph{Atteso:} #4\\ \emph{Dimostra:} #5}
+
+\hypersetup{colorlinks=true, linkcolor=codeblue, urlcolor=codeblue}
+
+\newcommand{\doctitle}[2]{%
+  \begin{titlepage}\centering\vspace*{2cm}
+  {\LARGE\bfseries Analisi del Report -- #1\\[0.6em]}
+  {\large\itshape #2}\\[1.5em]
+  {\large Partitioned Hash Join with Duplicates}\\[0.4em]
+  {\large SPM -- Università di Pisa -- Prof. M. Torquati -- A.A. 2025-2026}\\[2em]
+  \hrule\vspace{1em}
+  \begin{flushleft}\small \textbf{Walkthrough completo del report}, sezione per sezione dall'inizio alla fine, con la motivazione di ogni scelta, la derivazione di ogni numero, la lettura di ogni grafico/tabella, il confronto con baseline/modulo precedente, i \emph{risultati misurati} dove eseguibili senza cluster, e una sezione finale di ulteriori esperimenti. La struttura segue l'ordine del report originale, così puoi presentarlo scorrendo il PDF mentre mostri il documento al prof.\end{flushleft}
+  \end{titlepage}
+  \tableofcontents\newpage}
+
+\begin{document}
+\doctitle{Modulo 2 -- C++ Threads}{Walkthrough completo del report, sezione per sezione}
+
+\section*{Come usare questo documento}
+\addcontentsline{toc}{section}{Come usare questo documento}
+Segue l'ordine del report (Parallelization Strategy $\to$ Correctness $\to$ Performance Results $\to$ Discussion). Prima però due note che il report dà per scontate ma il prof chiederà: i \textbf{due cambi di baseline} rispetto al codice del docente (Fibonacci al posto di $k\bmod P$; \texttt{FlatCountMap} al posto di \texttt{unordered\_map}). I box \emph{Risultato misurato} sono esperimenti che ho eseguito davvero.
+
+% =============================================================
+\section{I due cambi di baseline (da spiegare prima del report)}
+% =============================================================
+
+\subsection{FlatCountMap al posto di unordered\_map}
+
+\begin{lstlisting}[style=cpp]
+struct Slot{ uint64_t key=~0ULL; uint32_t cnt=0; uint32_t _p=0; };  // 16 B esatti, 4/cache-line
+FlatCountMap(size_t r){ n=1; while(n<r*2) n<<=1; slots.assign(n,{}); mask=n-1; } // load factor <50%
+// slot_of(k)=k&mask (IDENTITY); increment/count con linear probing
+\end{lstlisting}
+
+\begin{motiv}
+\texttt{unordered\_map} è una lista concatenata di nodi su heap: ogni insert una \texttt{malloc}, ogni lookup pointer-chasing (cache miss). \texttt{FlatCountMap} è un solo \texttt{vector} contiguo, linear probing: zero allocazioni per elemento, \texttt{Slot} 16~B $\Rightarrow$ 4/cache-line, capacità $\ge2|R_p|$ $\Rightarrow$ load factor $<50\%$. Hash di slot \emph{identity} perché le chiavi sono già uniformi e riusare Fibonacci correlerebbe partizione e slot.
+\end{motiv}
+
+\begin{deriv}
+Load factor $<50\%$ $\Rightarrow$ sonde attese $\approx\frac12(1+\frac{1}{1-\alpha})=1.5$ per $\alpha=0.5$, indipendenti dalla taglia.
+\end{deriv}
+
+\begin{misura}
+Ho riprodotto \texttt{FlatCountMap} vs \texttt{unordered\_map<uint64,uint32>} (build $5$M, probe $10$M, output \emph{identico}):
+\begin{center}\small
+\begin{tabular}{@{}lccc@{}}\toprule
+caso & FlatCountMap & unordered\_map & rapporto \\\midrule
+near-unique (max\_key 5M) & 0.43~s & 0.89~s & \textbf{FlatCountMap 2.0$\times$ più veloce} \\
+molti duplicati (max\_key 100k) & 0.11~s & 0.06~s & unordered\_map 1.9$\times$ più veloce \\\bottomrule
+\end{tabular}
+\end{center}
+\textbf{Lettura onesta} (e proprio per questo forte all'orale): nel regime che conta -- molte chiavi distinte, tabella grande, cache-unfriendly -- \texttt{FlatCountMap} vince nettamente ($2\times$), che è il punto del cambio di baseline. \emph{Ma} con pochissime chiavi distinte \texttt{FlatCountMap} perde, perché si dimensiona su $|R|$ (numero di \emph{record}) e non sul numero di chiavi \emph{distinte}: alloca una tabella enorme e sparsa che fa thrashing di cache, mentre \texttt{unordered\_map} cresce solo fino alle chiavi distinte. È un trade-off reale e dichiarabile -- e suggerisce un'ottimizzazione (dimensionare su una stima delle distinte). I valori assoluti sono sandbox, non cluster; conta il rapporto.
+\end{misura}
+
+\subsection{Fibonacci al posto di $k\bmod P$}
+
+\begin{motiv}
+$k\bmod P$ ($P$ pot.\ di due) guarda solo i $\log_2 P$ bit bassi: su chiavi strutturate concentra su poche partizioni $\Rightarrow$ il join ciclico produce uno straggler. Fibonacci prende i bit alti del prodotto $\Rightarrow$ partizioni quasi uguali. I due cambi si tengono: partizioni bilanciate sono ciò che rende ottimo (e gratis) il ciclico. (La verifica quantitativa del bilanciamento è nel documento M1: Fibonacci 1.00 anche su chiavi strutturate, $k\bmod P$ collassa a 256.)
+\end{motiv}
+
+% =============================================================
+\section{Parallelization Strategy (sezione 1 del report)}
+% =============================================================
+
+Il report descrive la pipeline a 5 fasi (Histogram, Prefix-Sum, Scatter, Join Local, Accumulation) e la scelta di un \emph{team persistente} a barriere.
+
+\subsection{Thread Team and Barrier Synchronization}
+
+\begin{motiv}
+La pipeline è bulk-synchronous: ogni fase dipende dall'intera precedente $\Rightarrow$ serve comunque una barriera completa a ogni confine. Un thread pool aggiungerebbe overhead (submission, polling, wakeup) senza sovrapporre nulla; spawn/join per fase gonfierebbe $f$ di $O(k)$ cicli. La \emph{completion function} della \texttt{std::barrier} (\texttt{noexcept}, niente alloc) gira su un thread tra le fasi: merge istogrammi $O(Pk)$, prefix-sum $O(P)$, calcolo offset.
+\end{motiv}
+
+\subsection{Adaptive thread count}
+
+\begin{deriv}
+$k=\min(k_{\max},\lfloor\min(N_R,N_S)/T_{\min}\rfloor)$, $T_{\min}=8192$ record/thread. Sotto soglia, barriera e traffico inter-thread superano il guadagno. Nei benchmark ($N_R\ge10^6$) non si attiva mai.
+\end{deriv}
+
+\subsection{Histogram, Scatter, Join Local}
+
+Il report: istogrammi privati per-thread (zero contesa), merge nella completion; scatter lock-free; join con \texttt{FlatCountMap} e assegnazione ciclica.
+
+\begin{deriv}
+\textbf{Scatter lock-free.} Offset per thread $t$ e partizione $p$: $\text{off}[t][p]=\text{global\_begin}[p]+\sum_{j<t}\text{local\_hist}[j][p]$. Intervalli disgiunti predeterminati $\Rightarrow$ nessun lock/atomico a runtime. \textbf{Attenzione}: lock-free sulle scritture, ma la barriera c'è (rende pronti gli offset). \textbf{Ciclico vs LPT}: con partizioni uniformi il round-robin bilancia come LPT a costo zero (LPT richiederebbe un sort $O(P\log P)$ inutile). \textbf{Padding \texttt{alignas(64)}}: accumulatori su cache line distinte, scritti una volta sola $\Rightarrow$ niente false sharing.
+\end{deriv}
+
+% =============================================================
+\section{Correctness Verification (sezione 2 del report)}
+% =============================================================
+
+Il report: per input piccoli ($\le500$) confronto automatico con un join naive $O(N^2)$ su \texttt{join\_count} e due checksum (moltiplicatori indipendenti); per input grandi, output seq $\equiv$ par su tutti i $k$. Verifica fuori dalla regione misurata.
+
+\begin{difesa}
+I checksum sono \emph{ordine-indipendenti} (somme modulo $2^{64}$ di \texttt{splitmix64(key)$\cdot m$}): invarianti rispetto all'ordine di completamento dei thread, quindi seq e par devono dare lo stesso valore -- è ciò che rende la verifica valida in parallelo.
+\end{difesa}
+
+% =============================================================
+\section{Performance Results (sezione 3 del report)}
+% =============================================================
+
+Setup: Xeon E5-2640 v2, 2$\times$8 core (16 fisici/32 HT), 2 NUMA, L3 20~MB; $N_S=2N_R$, $P=128$, best of 5.
+
+\subsection{Strong Scaling}
+
+\begin{table}[H]\centering\small
+\begin{tabular}{@{}rcccc@{}}\toprule
+$p$ & $S$(10M) & $E$(10M) & $S$(20M) & $E$(20M) \\\midrule
+2 & 1.40 & 70\% & 1.45 & 72\% \\ 8 & 4.46 & 56\% & 4.49 & 56\% \\
+16 & 7.49 & 47\% & 7.59 & 47\% \\ 20 & 7.41 & 37\% & 7.33 & 37\% \\ 32 & 8.64 & 27\% & 9.64 & 30\% \\\bottomrule
+\end{tabular}\caption{$P=128$. Shaded nel report: $p>16$ regime HT. Dip a $p=20$.}
+\end{table}
+
+\subsection{Weak Scaling e Phase Breakdown}
+
+Weak (NR $=1$M$\times p$): WSE da 0.74 ($p{=}2$) a 0.33 ($p{=}32$). Breakdown: scatter $\approx53\%$ (409~ms), join 309~ms, histogram 51~ms; scatter scala bene anche in HT ($9.7\to13.7\times$), join plateau, histogram $2$--$3\times$.
+
+% =============================================================
+\section{Discussion (sezione 4 del report)}
+% =============================================================
+
+\subsection{Strong Scaling and Amdahl's Law}
+
+Il report fitta Amdahl ottenendo $f\approx0.078$, $S_\infty\approx12.9\times$, e spiega il divario col picco misurato ($8.64\times$) con la saturazione di banda.
+
+\begin{deriv}
+\textbf{Come si calcola $f$ (Karp--Flatt).} Da $S(p)=1/(f+(1-f)/p)$: $f=\dfrac{1/S(p)-1/p}{1-1/p}$. $S(16)=7.49\Rightarrow f=0.0758$; $S(32)=8.64\Rightarrow f=0.0872$. Il fit su tutti i punti dà $\approx0.078$; $S_\infty=1/f\approx12.9$. \textbf{Picco $<S_\infty$ non è contraddizione}: Amdahl assume risorse infinite non condivise; il vincolo reale è la banda DRAM condivisa. Firma: $f$ \emph{cresce} con $p$ ($0.076\to0.087$) -- overhead crescente (banda), non frazione seriale costante.
+\end{deriv}
+
+\subsection{Weak Scaling and WSE / Effetto di P}
+
+Il report attribuisce il calo della WSE allo scatter (scritture casuali, banda condivisa), e mostra che a $P=512$ il quadro migliora.
+
+\begin{deriv}
+\textbf{Perché $P=512$ è l'ottimo.} A $P=128$ ogni \texttt{FlatCountMap} $\approx4$~MB, aggregato (20 thread) 80~MB $>$ L3 20~MB $\Rightarrow$ DRAM-bound. A $P=512$ tabella $\approx1$~MB, insieme in L3: $f\to0.058$, $S_\infty\to17\times$, speedup a $p=32$ da 8.6 a 11.4$\times$. La WSE a $p=32$ migliora da 0.33 a 0.45.
+\end{deriv}
+
+\subsection{Phase-Level Analysis}
+
+Il report spiega i tre regimi: histogram bus-bound (un incremento per record da 8~B), scatter memory-bound che sfrutta il memory-level parallelism dell'HT, join compute-bound che va in plateau perché le coppie HT condividono le porte ALU.
+
+\subsection{Partition Count Sensitivity}
+
+\begin{deriv}
+\textbf{Il bump non-monotono a $P=32$.} A $P{=}16<p{=}20$ il ciclico lascia 4 thread inattivi; a $P{=}32$ tutti attivi ma 12 thread processano due partizioni con due malloc da 16~MB -- stesso carico massimo di $P{=}16$ ma con un ciclo malloc/free extra senza beneficio di cache. Da $P{=}64$ le tabelle scendono sotto 8~MB e iniziano a stare in L3, ripristinando la monotonia. Minimo in $P\in[512,1024]$ ($\approx86$~ms).
+\end{deriv}
+
+\subsection{Duplicate Density}
+
+\begin{deriv}
+\textbf{La densità nel join.} \texttt{max\_key} = chiavi distinte; piccolo $\Rightarrow$ molti duplicati. Cambia (a) quante coppie produci (match $\times$ molteplicità) e (b) quanto sono popolate le tabelle. Misure del report: picco a \texttt{max\_key}$=10$K ($7.5\times$); cala a $100$ ($6.4\times$: 100 distinte per 128 partizioni $\Rightarrow$ sbilanciamento); $6.9\times$ a $10$M (near-unique, tabelle DRAM-bound a $P{=}128$). Il mio microbench (box sopra) conferma la stessa fisica: con pochissime distinte la tabella sovradimensionata soffre.
+\end{deriv}
+
+\begin{difesa}
+\textbf{$S(1)>1$ (1.03--1.04): non super-linear.} Seq e par sono eseguibili distinti; minimi best-of-5 divergono $\le4\%$, varianza intra-run $\le3\%$. Offset di misura, dichiarato.
+\end{difesa}
+
+% =============================================================
+\section{Ulteriori esperimenti da fare}
+% =============================================================
+
+\begin{espbox}
+\begin{enumerate}[leftmargin=1.3em]
+\espitem{[FATTO] FlatCountMap vs unordered\_map}
+  {microbench build+probe}{tempo e correttezza}{FlatCountMap 2$\times$ su near-unique, perde su molti duplicati}
+  {il guadagno del cambio di struttura e il suo limite (sovradimensionamento) -- risultati nel box teal.}
+\espitem{Eliminare il dip NUMA col pinning}{\texttt{OMP\_PROC\_BIND=close} + first-touch parallelo}{speedup a $p=16$--$22$}
+  {il dip a $p=20$ si attenua}{che il dip e' NUMA e che M3 lo risolve cosi' (richiede cluster).}
+\espitem{Provare il dip remoto}{\texttt{numastat -p}, \texttt{perf -e node-load-misses} a $p=20$ vs $16$}{accessi remoti}
+  {crescita a $p=20$}{la prova diretta dell'ipotesi NUMA.}
+\espitem{FlatCountMap dimensionata sulle distinte}{stima le chiavi distinte (es. con l'istogramma) e dimensiona la tabella su quella}{tempo su input ad alta densita' di duplicati}
+  {recupera il caso in cui oggi perde}{che il limite misurato nel box teal e' fixabile.}
+\espitem{ThreadSanitizer}{\texttt{make hashjoin\_par\_tsan}}{report race}{nessuna race}
+  {che lo scatter lock-free e la barriera sono corretti.}
+\end{enumerate}
+\end{espbox}
+
+\begin{theorybox}
+\texttt{std::thread}/\texttt{std::barrier}, RAII (L12--L13); BSP; cache, false sharing, MESI; NUMA (L18); Amdahl + \textbf{Karp--Flatt}, strong vs weak (L10).
+\end{theorybox}
+
+\end{document}

@@ -1,0 +1,245 @@
+========================================================================
+COMPUTER VISION - LEZIONE 4 (LABORATORIO)
+Signal processing con audio, classificazione spettrale, convoluzione 2D
+Materiale: 3 notebook in Lessons/L4/lab (file datati 21/09/2026)
+Appunti pronti per copia-incolla su OneNote
+========================================================================
+
+Cosa contiene il laboratorio (in ordine consigliato):
+  1. demo.ipynb            audio, FFT, filtri in frequenza, convoluzione 1D
+  2. classification.ipynb  feature spettrali + k-NN sulle cifre parlate
+  3. 15lif.ipynb           convoluzione e cross-correlazione scritte a mano,
+                           template matching (capitolo 15 del visionbook)
+
+Collegamenti con le lezioni: teoria in CV_L3_Signal_Processing_appunti.txt
+(convoluzione slide 14-31, teorema di convoluzione slide 63-66, cross-
+correlazione vs convoluzione slide 28, bordi slide 27). Il limite di
+Nyquist e l'aliasing sono in CV_L6_Aliasing_Scale_Invariance_appunti.txt.
+
+Convenzioni: * = convoluzione, f in cicli/campione salvo dove scritto Hz,
+SR = frequenza di campionamento, H(f) = risposta in frequenza di un kernel.
+
+Commenti: gli stessi punti sono stati aggiunti nei notebook come celle
+markdown che iniziano con "[Appunti L4]" (celle originali non toccate;
+backup dei file originali nella cartella scratchpad della sessione).
+
+Stato della verifica (vale per tutto il file):
+  - VERIFICATO eseguendo codice: risultati numerici di 15lif e demo
+    (convoluzione, cross-correlazione, template matching, risposte in
+    frequenza dei kernel, lunghezze di np.convolve).
+  - Numeri di classification.ipynb: presi dagli output salvati nel
+    notebook, NON rieseguiti (il dataset non è presente in Lessons/L4).
+  - Audio non ascoltato, grafici non guardati: sono descritti dal codice.
+
+
+========================================================================
+1. demo.ipynb - Signal processing con audio
+========================================================================
+
+1.1 Segnale di partenza
+- Accordo di La minore: sinusoidi a 220 (A3), 261.63 (C4), 329.63 (E4) Hz
+  più rumore a banda larga. SR = 22050 Hz, durata 2 s, 44100 campioni.
+
+1.2 FFT (np.fft.rfft)
+- Segnale reale di N campioni: rfft dà N/2 + 1 valori (qui 22051).
+- Asse in Hz: np.fft.rfftfreq(n, d=1/SR).
+- Risoluzione in frequenza = SR/N = 1/durata = 0.5 Hz per bin. Per
+  distinguere frequenze vicine serve durata maggiore, non SR maggiore.
+- Ultimo bin = SR/2 = 11025 Hz (Nyquist).
+- Scala log: fa vedere il rumore di fondo e picchi di ordini di grandezza
+  diversi. Nelle immagini si userà quasi sempre la scala log.
+
+1.3 Filtro in frequenza in 3 passi (funzione freq_filter)
+  rfft -> moltiplica per maschera (0/1) -> irfft.
+- Passa-basso 240 Hz: resta solo A3.
+- Passa-alto 300 Hz: resta E4 più rumore.
+- Passa-banda 245-280 Hz: resta solo C4.
+- Maschera a 0/1 = filtro ideale (taglio netto). Nel tempo diventa una
+  sinc che oscilla (ringing). Nel codice reale audio non si fa
+  fft -> filtro -> ifft, per vincoli di tempo reale (dal testo).
+
+1.4 Separare due segnali
+- Accordo (sotto 400 Hz) + melodia (D5 587.33, E5 659.25 Hz, sopra 500 Hz):
+  passa-basso a 400 e passa-alto a 500 li separano perché le bande non si
+  sovrappongono. Con strumenti veri (armoniche) la separazione è
+  imperfetta.
+- Nel codice il commento dice "band-pass" ma i filtri sono passa-basso e
+  passa-alto.
+
+1.5 Convoluzione 1D con np.convolve
+- mode='full': len(x)+len(h)-1 (qui 66); 'same': len(x) (60);
+  'valid': len(x)-len(h)+1 (54). Valori stampati dal notebook.
+- Tre kernel:
+  * box (media su 7 campioni): sfoca, passa-basso con lobi laterali
+    (ringing);
+  * gaussiana (15 campioni, std 2.5): passa-basso pulito;
+  * derivata [-1, 0, 1]/2: evidenzia i bordi, amplifica il rumore.
+- Teorema di convoluzione: F{x * h} = F{x} . F{h}. La FFT del kernel è
+  la sua risposta in frequenza: dice quali frequenze passano.
+
+1.6 Cose da sapere (verificate eseguendo il codice)
+- SEGNO DELLA DERIVATA: np.convolve ribalta il kernel. Con [-1,0,1]/2 il
+  picco sul fronte di salita è -0.5 e sul fronte di discesa +0.5. Con
+  np.correlate (senza ribaltamento) la salita dà +0.5.
+- FORMA DELLA RISPOSTA DELLA DERIVATA: il testo del notebook dice
+  "cresce verso Nyquist (passa-alto)". In realtà |H(f)| = |sin(2 pi f)|:
+  0 in DC, massimo 1 a f = 0.25, di nuovo 0 a Nyquist (0.5). È un
+  passa-alto solo per f < 0.25; nel complesso è un passa-banda.
+- Valore a Nyquist (normalizzato a DC = 1): box 0.143, gaussiana 0.0015,
+  derivata 0.0000.
+- Refuso nel notebook: "Band-pass filte" (manca la "r").
+
+
+========================================================================
+2. classification.ipynb - cifre parlate con feature spettrali
+========================================================================
+
+Idea: parole diverse hanno vocali e consonanti diverse, separabili in
+frequenza. Una rete convoluzionale per audio fa comunque analisi in
+frequenza (teorema di convoluzione).
+
+2.1 Dati
+- Free Spoken Digit Dataset: 3000 WAV, 10 cifre x 6 parlanti x 50
+  ripetizioni, 8 kHz. Da scaricare (GitHub Jakobovski/free-spoken-digit-
+  dataset) in Lessons/L4/data/free-spoken-digit-dataset-master/recordings.
+  NON è presente nella cartella del corso.
+- Ogni clip è portata a 8000 campioni (1 s): pad con zeri o taglio.
+  FFT di 8000 campioni = 4001 bin.
+
+2.2 Feature spettrali
+- Centroide: media delle frequenze pesata con la magnitudo.
+- Rolloff (85%): frequenza sotto cui sta l'85% della somma cumulata.
+  ATTENZIONE: il testo dice "energia" ma il codice accumula la magnitudo,
+  non la magnitudo al quadrato.
+- ZCR (zero-crossing rate): frazione di coppie di campioni consecutivi che
+  cambiano segno. Misura la "brillantezza" nel tempo.
+- Intervalli osservati (output): centroide 572-2218 Hz, rolloff 717-3669
+  Hz, ZCR 0.014-0.425.
+
+2.3 k-NN (k = 5), normalizzazione media 0 e deviazione 1 (serve perché la
+    distanza è euclidea)
+  Risultati dagli output salvati (split casuale 80/20, stratificato):
+  - 3 feature:                train 63.8%, test 49.8% (caso = 10%)
+  - 3 feature + log-spettro:  train 92.9%, test 88.0%
+- Log-spettro = np.log(|FFT| + 1): il +1 evita -inf dove la magnitudo è ~0.
+- Le 3 feature sono 3 colonne su 4004: dopo la normalizzazione pesano
+  come ogni altra colonna.
+- Difetto lieve: media e deviazione sono calcolate su tutto il dataset
+  prima dello split (leakage). La cella di valutazione finale usa una
+  pipeline e lo evita.
+
+2.4 Parlante escluso (leave-one-speaker-out) - il punto principale
+  Accuratezza media dagli output salvati:
+  - 3 feature:               split casuale 49.7%, parlante escluso 28.7%
+  - 3 feature + log-spettro: split casuale 88.2%, parlante escluso 32.2%
+- Lo split casuale è ingannevole: per ogni clip di test ci sono decine
+  di clip della stessa persona e cifra nel train.
+- Spiegazione suggerita dal notebook (non verificata da me): lo spettro di
+  tutta la clip contiene anche voce, volume, microfono e stanza. Il k-NN
+  li sfrutta finché il parlante è nel train e non li ha più quando è
+  escluso.
+- Valori per singolo parlante: solo nel grafico, non stampati.
+
+2.5 Esercizio (generalizzare a parlanti nuovi)
+  Obiettivo dichiarato: circa 60% sul parlante escluso usando solo NumPy.
+  Hint del notebook:
+  1. togliere il volume: un guadagno moltiplica lo spettro, dopo il log è
+     una costante additiva, quindi si sottrae la media del log-spettro;
+  2. poche decine di bande larghe (più fitte a basse frequenze) al posto
+     dei 4001 bin, con media della potenza per banda;
+  3. tagliare il silenzio, dividere la parte parlata in pochi pezzi
+     consecutivi e calcolare le bande per ogni pezzo (conserva l'ordine).
+  Cenno finale: gli MFCC sono la versione standard di queste idee.
+  Non implementato né provato (dataset assente).
+
+
+========================================================================
+3. 15lif.ipynb - convoluzione, cross-correlazione, template matching
+========================================================================
+
+3.1 Convoluzione 1D scritta a mano (conv1d_zeropad)
+- out[n] = somma su k di l[k] * h[n-k], zeri fuori dai bordi.
+- Lunghezza = len(l) + len(h) - 1. Esempio l = [1,2,3,4], h = [-1,-2,-3]:
+  [-1 -4 -10 -16 -17 -12], uguale a np.convolve (verificato).
+
+3.2 Cross-correlazione 1D (crosscorr1d_zeropad)
+- out[n] = somma su k di h[k] * l[n+k]. Il kernel NON è ribaltato.
+- Uscita lunga come l; kernel agganciato al suo primo elemento; a destra
+  si assumono zeri (nel codice: "TODO: boundary").
+- Stesso esempio: [-14 -20 -11 -4]. I primi due = np.correlate(l, h,
+  'valid') (verificato).
+- Convoluzione = cross-correlazione con kernel ribaltato.
+
+3.3 Versioni 2D
+- Convoluzione: uscita (H+h-1) x (W+w-1). Cross-correlazione: uscita H x W,
+  kernel agganciato all'angolo in alto a sinistra. Quattro cicli annidati:
+  leggibili ma lente.
+
+3.4 Impulso (verificato eseguendo le funzioni)
+- Convoluzione con un impulso in (10,10): copia del kernel, non ribaltato.
+- Cross-correlazione con lo stesso impulso: kernel ribaltato di 180 gradi,
+  che occupa righe 8-10 e colonne 6-10.
+
+3.5 Template matching
+- Pattern: triangolo 3x5. Immagine con due triangoli giusti in (10,10) e
+  (15,20) e uno capovolto in (5,20).
+- Cross-correlazione: massimo 9 (= somma dei quadrati del kernel) in
+  (10,10) e (15,20), angolo in alto a sinistra del pattern. Sul capovolto
+  vale 5 (risposta parziale, non nulla).
+- Convoluzione: massimo 9 in (7,24), sul triangolo capovolto, con indice
+  spostato di (2,4) = dimensioni del kernel meno 1. Trova il pattern
+  ribaltato: per cercare un pattern serve la cross-correlazione.
+- Problema: la cross-correlazione non è normalizzata. Un rettangolo pieno
+  di 1 dà 9 come il pattern vero (falso positivo).
+- template_matching: (1) kernel con media 0 e deviazione 1; (2) risposta
+  divisa per la deviazione standard del pezzo di immagine sotto il kernel.
+  Risultati eseguiti: pattern giusti 15.00 e 15.00, capovolto -1.67,
+  rettangolo 0.00 (cross-correlazione semplice negli stessi punti:
+  9, 9, 5, 9).
+- Limiti (dal notebook): non gestisce scala, rotazione, illuminazione
+  non uniforme, variazioni tra istanze della stessa classe. Ai bordi il
+  pezzo è troncato (TODO nel codice).
+
+3.6 Esercizi proposti dal notebook
+  - padding e condizioni al contorno diverse (es. circolare: np.pad con
+    mode='wrap');
+  - riconoscere caratteri in un'immagine di testo con template di un
+    singolo carattere; provare font e grassetto diversi;
+  - trovare gli uccelli in Fig 15.5 del visionbook con un template
+    ritagliato a mano; ridurre la risoluzione (scipy.ndimage.zoom) se il
+    rilevatore è rumoroso.
+
+
+========================================================================
+4. Domande tipo esame (risposte brevi)
+========================================================================
+
+1. Quanto vale la risoluzione in frequenza di una FFT e da cosa dipende?
+   SR/N = 1/durata. Dipende dalla durata del segnale.
+2. Perché un filtro a taglio netto in frequenza dà ringing?
+   Nel tempo è una sinc, che oscilla e non decade subito.
+3. Differenza tra convoluzione e cross-correlazione?
+   Il kernel è ribaltato nella convoluzione. Per cercare un pattern serve
+   la cross-correlazione.
+4. Perché la cross-correlazione semplice sbaglia nel template matching?
+   Dà punteggi alti dove l'immagine è luminosa (il punteggio dipende dalla
+   luminosità, non dalla somiglianza). Si corregge con kernel a media 0 e
+   divisione per il contrasto locale.
+5. Perché lo split casuale sovrastima l'accuratezza nel notebook delle
+   cifre?
+   Le clip della stessa persona finiscono sia nel train sia nel test.
+   Con parlante escluso l'accuratezza scende (88.2% -> 32.2% con il
+   log-spettro).
+6. Che filtro è [-1, 0, 1]/2 in frequenza?
+   |H(f)| = |sin(2 pi f)|: zero in DC e a Nyquist, massimo a f = 0.25.
+
+
+========================================================================
+5. Come rieseguire
+========================================================================
+- demo.ipynb e 15lif.ipynb: servono numpy, scipy, matplotlib (installati
+  qui: numpy 2.2.6, scipy 1.16.1, matplotlib 3.10.5).
+- classification.ipynb: in più scikit-learn (1.7.1 installato) e il
+  dataset in Lessons/L4/data/... come da sezione 2.1.
+- Non ho rieseguito i notebook per intero: ho rieseguito a parte, in uno
+  script, le parti numeriche citate come "verificato".

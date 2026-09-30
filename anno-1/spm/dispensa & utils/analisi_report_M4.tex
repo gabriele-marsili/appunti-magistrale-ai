@@ -1,0 +1,223 @@
+% =============================================================
+% ANALISI REPORT MODULO -- preambolo condiviso (v3, walkthrough)
+% =============================================================
+\documentclass[11pt,a4paper]{article}
+\usepackage{fontspec}
+\usepackage[english]{babel}
+\setmainfont{Latin Modern Roman}
+\setmonofont{Latin Modern Mono}
+\usepackage{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{float}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{microtype}
+\usepackage{parskip}
+\usepackage{tcolorbox}
+\tcbuselibrary{breakable}
+
+\geometry{top=2.3cm, bottom=2.3cm, left=2.3cm, right=2.3cm}
+\setlength{\headheight}{14pt}
+\setlength{\emergencystretch}{3em}
+
+\definecolor{codeblue}{rgb}{0.0,0.3,0.7}
+\definecolor{codegreen}{rgb}{0,0.5,0}
+\definecolor{backcolour}{rgb}{0.97,0.97,0.97}
+\definecolor{cmdback}{rgb}{0.95,0.97,1.0}
+
+\lstdefinestyle{cpp}{ backgroundcolor=\color{backcolour}, commentstyle=\color{codegreen}\itshape,
+  keywordstyle=\color{codeblue}\bfseries, basicstyle=\ttfamily\footnotesize, breaklines=true,
+  keepspaces=true, showstringspaces=false, tabsize=2, language=C++,
+  morekeywords={omp,pragma,parallel,task,schedule,reduction,uint64_t,uint32_t,size_t,alignas,
+    MPI_Alltoallv,MPI_Allreduce,constexpr,noexcept,__restrict__,__builtin_prefetch}}
+\lstdefinestyle{bash}{ backgroundcolor=\color{cmdback}, basicstyle=\ttfamily\footnotesize,
+  commentstyle=\color{codegreen}\itshape, breaklines=true, keepspaces=true, showstringspaces=false,
+  tabsize=2, language=bash, frame=single, framesep=4pt, rulecolor=\color{codeblue},
+  morekeywords={srun,salloc,sbatch,mpirun,mpicxx,make,g++,nvcc,export,numactl,perf,likwid}}
+\lstset{style=cpp}
+
+\pagestyle{fancy}\fancyhf{}
+\rhead{\leftmark}\lhead{Analisi Report -- SPM}\cfoot{\thepage}
+\renewcommand{\sectionmark}[1]{\markboth{#1}{}}
+
+\newtcolorbox{motiv}{breakable, colback=yellow!7!white, colframe=orange!80!black,
+  fonttitle=\small\bfseries, title={Motivazione della scelta}, before skip=6pt, after skip=6pt}
+\newtcolorbox{deriv}{breakable, colback=blue!4!white, colframe=codeblue,
+  fonttitle=\small\bfseries, title={Da dove viene il numero (derivazione)}, before skip=6pt, after skip=6pt}
+\newtcolorbox{espbox}{breakable, colback=purple!4!white, colframe=purple!60!black,
+  fonttitle=\small\bfseries, title={Esperimento di supporto}, before skip=6pt, after skip=6pt}
+\newtcolorbox{theorybox}{breakable, colback=green!5!white, colframe=green!50!black,
+  fonttitle=\small\bfseries, title={Collegamento alla teoria}, before skip=6pt, after skip=6pt}
+\newtcolorbox{difesa}{breakable, colback=red!4!white, colframe=red!55!black,
+  fonttitle=\small\bfseries, title={Come difenderlo all'orale}, before skip=6pt, after skip=6pt}
+\newtcolorbox{misura}{breakable, colback=teal!6!white, colframe=teal!70!black,
+  fonttitle=\small\bfseries, title={Risultato misurato (sandbox locale, non cluster)}, before skip=6pt, after skip=6pt}
+
+\newcommand{\espitem}[5]{\item \textbf{#1}\\ \emph{Come:} #2\\ \emph{Misura:} #3\\ \emph{Atteso:} #4\\ \emph{Dimostra:} #5}
+
+\hypersetup{colorlinks=true, linkcolor=codeblue, urlcolor=codeblue}
+
+\newcommand{\doctitle}[2]{%
+  \begin{titlepage}\centering\vspace*{2cm}
+  {\LARGE\bfseries Analisi del Report -- #1\\[0.6em]}
+  {\large\itshape #2}\\[1.5em]
+  {\large Partitioned Hash Join with Duplicates}\\[0.4em]
+  {\large SPM -- Università di Pisa -- Prof. M. Torquati -- A.A. 2025-2026}\\[2em]
+  \hrule\vspace{1em}
+  \begin{flushleft}\small \textbf{Walkthrough completo del report}, sezione per sezione dall'inizio alla fine, con la motivazione di ogni scelta, la derivazione di ogni numero, la lettura di ogni grafico/tabella, il confronto con baseline/modulo precedente, i \emph{risultati misurati} dove eseguibili senza cluster, e una sezione finale di ulteriori esperimenti. La struttura segue l'ordine del report originale, così puoi presentarlo scorrendo il PDF mentre mostri il documento al prof.\end{flushleft}
+  \end{titlepage}
+  \tableofcontents\newpage}
+
+\begin{document}
+\doctitle{Modulo 4 -- MPI e MPI+OpenMP}{Walkthrough completo del report, sezione per sezione}
+
+\section*{Come usare questo documento}
+\addcontentsline{toc}{section}{Come usare questo documento}
+Segue l'ordine del report (Introduction $\to$ Distributed Algorithm $\to$ Validation $\to$ Experimental Evaluation $\to$ Discussion $\to$ Hybrid MPI+OpenMP $\to$ Conclusions).
+
+% =============================================================
+\section{Introduction (sezione 1)}
+% =============================================================
+
+Il report dichiara: il join va in memoria distribuita, l'algoritmo non cambia ($R$ e $S$ partizionate con la stessa hash, join locale, una collettiva combina i risultati); con i dati sparsi, il join locale compete con la comunicazione che porta le partizioni sullo stesso rank. Due implementazioni che riusano kernel e generatore: MPI puro (\texttt{Alltoallv}) e ibrido (1 rank/nodo, fasi locali OpenMP).
+
+\begin{difesa}
+\textbf{8 fasi cronometrate, non 7.} histogram\_local, scatter\_local, comm\_sizes, comm\_payload, histogram\_post, scatter\_post, join\_local, reduce\_final. La prosa accorpa histogram\_post/scatter\_post; il codice (struct \texttt{PhaseTimingMPI}) le separa.
+\end{difesa}
+
+% =============================================================
+\section{Distributed Algorithm (sezione 2)}
+% =============================================================
+
+\subsection{Partitioning and Rank Assignment}
+
+\begin{motiv}
+Hash invariata; \texttt{dest=pid\%R}, \texttt{lp=pid/R}; vincolo \texttt{P\%R==0} (ogni rank lo stesso numero di partizioni). Lo scatter usa il remap dest-major \texttt{pid'=dest$\cdot$P\_per\_rank+lp} $\Rightarrow$ send buffer già contiguo per destinazione = zero-copy sul lato invio dell'\texttt{Alltoallv}.
+\end{motiv}
+
+\subsection{Pipeline}
+
+Il report elenca le 8 fasi e dice che ogni rank genera \emph{solo} la sua slice con skip-ahead di \texttt{splitmix64} (niente scatter iniziale), che ogni fase di comunicazione è preceduta da \texttt{MPI\_Barrier}, e che i tempi sono ridotti col massimo tra i rank.
+
+\begin{motiv}
+\textbf{Skip-ahead.} \texttt{state += GOLDEN} per chiamata $\Rightarrow$ stato dopo $k$ draw $=$ \texttt{seed+GOLDEN$\cdot$k}. Ogni rank genera la sua slice, ma la concatenazione è byte-per-byte uguale al generatore sequenziale $\Rightarrow$ niente \texttt{Scatterv} iniziale, costo zero fuori dalla regione cronometrata, baseline onesta. \textbf{Barriera prima del timer}: senza, un rank lento farebbe aspettare i veloci \emph{dentro} la collettiva, attribuendo alla fase un imbalance a monte. \textbf{Rank-max}: il breakdown riporta il rank più lento = percorso critico.
+\end{motiv}
+
+\begin{deriv}
+\textbf{Displs dell'Alltoallv.} Prima \texttt{MPI\_Alltoall} di 1 int (ogni rank sa quanti record riceverà). Poi \texttt{send\_displs[j]} = prefix-sum esclusivo dei counts = offset del primo elemento per il rank $j$, dove lo scatter dest-major l'ha messo. Tipo \texttt{MPI\_UINT64\_T} (Record = 8 B densi). R e S in due \texttt{Alltoallv}.
+\end{deriv}
+
+\subsection{Choice of the Redistribution Primitive}
+
+\begin{difesa}
+\textbf{Alltoallv bloccante vs Isend/Irecv (quantificato nel report).} L'overlap nasconderebbe lo scambio dietro il lavoro post; ma il post è $\sim$100~ms su $\sim$1.3~s in puro ($\sim$7\%) e $\sim$120~ms su 0.61~s nell'ibrido ($\sim$19\%): guadagno al più 7--19\%, e spezzeresti la collettiva tunata in scambi per-partizione perdendone lo scheduling interno. Trade-off aperto, collettiva bloccante mantenuta.
+\end{difesa}
+
+% =============================================================
+\section{Validation (sezione 3)}
+% =============================================================
+
+Il report: tripla \texttt{(join\_count, ck1, ck2)} a taglie piccola/media/grande; per le piccole anche join naive $O(N_R N_S)$ indipendente dal kernel (se danno la stessa tripla, il kernel è quasi certamente corretto); confronto contro \texttt{hashjoin\_seq}; rank range $\{1,2,4,8,32,64,128\}$. 46 configurazioni passano.
+
+% =============================================================
+\section{Experimental Evaluation (sezione 4)}
+% =============================================================
+
+Setup: $P=256$, seed 42, \texttt{max\_key}$=N_R/2$, 5 ripetizioni, mediana. Strong: $N_R=50$M, $N_S=100$M. Weak: per-rank 2M$\times$4M. Puro: 32 rank/nodo. Ibrido: 1 rank/nodo, \texttt{OMP\_NUM\_THREADS=32}. Baseline seq compilato \texttt{-march=ivybridge} su nodo dedicato (i compute node non hanno l'AVX2 del login).
+
+\subsection{Strong Scaling}
+
+\begin{table}[H]\centering\small
+\begin{tabular}{@{}lrrrr@{}}\toprule
+Fase & N=1 & N=2 & N=4 & N=8 \\\midrule
+scatter\_local & 0.130 & 0.065 & 0.033 & 0.017 \\
+comm\_payload & 0.092 & 0.293 & \textbf{1.35} & 0.532 \\
+join\_local & 0.239 & 0.121 & 0.063 & 0.032 \\
+totale & 0.65 & 0.59 & \textbf{1.47} & 0.63 \\\bottomrule
+\end{tabular}\caption{MPI puro, per-fase [s], uniforme.}
+\end{table}
+
+\begin{difesa}
+Ogni fase locale scala $7$--$8\times$; \texttt{comm\_payload} anti-scala, picca a 4 nodi/128 rank ($1.35$~s, $\approx92\%$ del totale). Speedup uniforme: ibrido $2.8\to12.0\times$; puro picco $7.6\times$(2 nodi), collasso $3.0\times$(4 nodi), recupero $7.1\times$(8 nodi/256 rank). \textbf{Prova rank-vs-nodi}: (1) 128 rank su 8 nodi (16/nodo) $\to$ stesso scambio lento; (2) forzando l'algoritmo basic-linear $\to$ stabile ma lento. Costo $\propto$ rank, varianza $\propto$ algoritmo della libreria.
+\end{difesa}
+
+\subsection{Weak Scaling}
+
+\begin{deriv}
+\textbf{Hockney: ibrido 0.58 vs puro 0.21.} $t(m)=\alpha+\beta m$. In all-to-all ogni rank posta $\mathcal{R}-1$ messaggi di taglia $V/\mathcal{R}$ ($V$ fisso): $t\approx(\mathcal{R}-1)\alpha+\beta V$. $\beta V$ costante; cresce $(\mathcal{R}-1)\alpha$, lineare in $\mathcal{R}$. Ibrido $\mathcal{R}=$ nodi: bandwidth-bound. Puro $\mathcal{R}=32\times$nodi: start-up-bound. Conferma: con 1 rank/nodo lo scambio mediano sale da 15 a 52~ms (1$\to$8 nodi); con 32/nodo da 0.12 a 3.17~s (32$\to$256 rank).
+\end{deriv}
+
+\subsection{Phase Breakdown e Skewed Workload}
+
+\begin{deriv}
+\textbf{Baseline skewed (2.30~s) più veloce dell'uniforme (4.48~s).} Per località: 90\% dei record in 4 partizioni $\Rightarrow$ scatter in pochi stream quasi-contigui (cala $\sim$3.4$\times$ nel breakdown seq) e tabelle calde cache-resident. Lo skew è ``buono'' per il seq, ``cattivo'' per il distribuito.
+\end{deriv}
+
+\begin{difesa}
+\textbf{Il floor distribuito.} Skew: puro $2.2\to1.4\times$, ibrido $1.5\to2.5\times$. Le 4 calde pinnate a pochi rank in memoria privata: nessun rank le cede senza muovere dati. Partitioned-state farm con hashing: l'hash bilancia il \emph{numero} di partizioni, non il \emph{volume}. In M3 \texttt{dynamic} ribilanciava; qui no.
+\end{difesa}
+
+% =============================================================
+\section{Discussion: Comparison with previous modules (sezione 5)}
+% =============================================================
+
+\begin{table}[H]\centering\small
+\begin{tabular}{@{}lrr|lrr@{}}\toprule
+\multicolumn{3}{c|}{Uniforme (seq 4.48 s)} & \multicolumn{3}{c}{Skewed (seq 2.30 s)} \\
+Impl. & s & $S$ & Impl. & s & $S$ \\\midrule
+M2 (32t,1n) & 0.53 & $8.4\times$ & M3 loop (16t) & 0.37 & $6.2\times$ \\
+M3 loop (32t) & 0.44 & $10.1\times$ & M4 puro (32r) & 1.03 & $2.2\times$ \\
+M4 ibr.(8n) & 0.37 & $12.0\times$ & M4 ibr.(8n) & 0.90 & $2.5\times$ \\\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{difesa}
+\textbf{Cosa dimostra.} Uniforme: 8 nodi ($12.0\times=4.48/0.37$) battono di poco M3 su 1 nodo ($10.1\times=4.48/0.44$) -- $8\times$ l'hardware per $\sim$1.2$\times$, perché la collettiva non si riduce coi nodi mentre il join locale sì (Amdahl: la collettiva è la frazione non-scalabile). Skew: il divario si \emph{inverte}, M3 ($6.2\times$) batte M4 ibrido ($2.5\times$). \textbf{La vera giustificazione del distribuito è la capacità}, non la velocità; questo workload da $\sim$1.2~GB non la esercita.
+\end{difesa}
+
+% =============================================================
+\section{Hybrid MPI+OpenMP (sezione 6)}
+% =============================================================
+
+\begin{motiv}
+1 rank/nodo, \texttt{MPI\_THREAD\_FUNNELED} (solo il main chiama MPI, fuori dalle regioni OpenMP $\Rightarrow$ FUNNELED basta; MULTIPLE aggiungerebbe lock interni inutili). \emph{Ogni} fase locale è OpenMP. \textbf{Due numeri chiave}: (1) parallelizzare \emph{tutte} le fasi locali porta la prima versione solo-join da 6.25~s (peggio del seq, Amdahl-bound) a 1.61~s ($3.9\times$); (2) ridurre il fan-out da 256 a 8 rank porta l'\texttt{Alltoallv} da 0.53 a 0.18~s ($3\times$). L'\texttt{Allreduce} resta $<$1~ms.
+\end{motiv}
+
+% =============================================================
+\section{Conclusions (sezione 7)}
+% =============================================================
+
+Il report chiude: entro 8 nodi l'ibrido raggiunge $12.0\times$ (WSE 0.58) contro $7.6\times$/0.21 del puro; il prossimo collo è la comunicazione (\texttt{Alltoallv}); le gains sono reali ma bounded -- su uniforme 8 nodi $\approx$ M3 su 1, su skew M3 resta avanti; la vera giustificazione del distribuito è la capacità, che questo workload non esercita.
+
+% =============================================================
+\section{Ulteriori esperimenti da fare}
+% =============================================================
+
+\begin{espbox}
+\begin{enumerate}[leftmargin=1.3em]
+\espitem{Rank vs nodi}{128 rank su 4 nodi e su 8 nodi (16/nodo); \texttt{probe\_alltoallv.sh}}{tempo e varianza di comm\_payload}
+  {stesso scambio lento in entrambi}{che il collo e' il numero di rank, non di nodi.}
+\espitem{Algoritmo della collettiva}{\texttt{--mca coll\_tuned\_alltoallv\_algorithm} basic-linear}{tempo e varianza}
+  {stabile ma lento}{che la varianza viene dall'algoritmo, il costo dal fan-out.}
+\espitem{Ibrido 1 vs 2 rank/nodo}{1$\times$32 thread vs 2$\times$16 (1/socket)}{Alltoallv e join locale}
+  {1/nodo collettiva piu' economica; 2/nodo meno contesa NUMA}{il trade-off fan-out vs NUMA.}
+\espitem{Overlap Isend/Irecv (prototipo)}{avvia il join sulle partizioni gia' arrivate}{tempo a 4 nodi}
+  {guadagno $\le7$--$19\%$}{empiricamente perche' non valeva la complessita'.}
+\espitem{Remap skew-aware (prototipo)}{replica build delle calde + split probe tra rank}{tempo skewed e traffico extra}
+  {join scende, comunicazione sale}{se/quando conviene rompere il floor.}
+\espitem{Verifica determinismo skip-ahead}{confronta la concatenazione delle slice col generatore seq, byte a byte}{checksum}
+  {identici}{che ``niente scatter iniziale'' non altera l'input.}
+\end{enumerate}
+\end{espbox}
+
+\begin{theorybox}
+MPI -- \texttt{Init\_thread}/livelli di thread, \texttt{Alltoall}/\texttt{Alltoallv}/\texttt{Allreduce}, \texttt{Barrier} (L24--L26); \textbf{Hockney} $\alpha+\beta m$, comp/comm ratio (L23); load balancing distribuito (L14); Amdahl sulla collettiva.
+\end{theorybox}
+
+\end{document}

@@ -1,0 +1,1145 @@
+========================================================================
+COMPUTER VISION - LEZIONE 3
+"Signal Processing for Images: Fourier and Convolution"
+Antonio Carta - Universita di Pisa - 2026-09-17
+Appunti divisi per slide (77 slide) - pronti per copia-incolla su OneNote
+========================================================================
+
+Nota sull'uso: ogni blocco corrisponde a una slide del PDF L3.pdf.
+Le formule sono in testo Unicode leggibile. Convenzioni usate:
+  *        = convoluzione (non moltiplicazione)
+  x        = moltiplicazione
+  sum      = sommatoria
+  j        = unita immaginaria (visionbook usa j al posto di i)
+  F{.}     = trasformata di Fourier,  F^-1{.} = antitrasformata
+  sigma    = deviazione standard della gaussiana
+  delta[n] = impulso (delta di Kronecker)
+Le slide composte solo da immagini sono segnalate.
+
+
+========================================================================
+SLIDE 1 - Copertina
+========================================================================
+Signal Processing for Images - Fourier and Convolution.
+Antonio Carta, Universita di Pisa, 2026-09-17.
+Terza lezione: si cambia punto di vista sulle immagini, da output di un
+processo fisico (Lezione 2) a segnali da analizzare e manipolare.
+
+
+========================================================================
+SLIDE 2 - Goal of the Day
+========================================================================
+Obiettivi della lezione:
+- Pensare alle immagini come segnali, e applicare a esse gli strumenti di
+  signal processing 1D/2D.
+- Costruire gli strumenti (convoluzione, trasformata di Fourier) che stanno
+  alla base di filtraggio, campionamento, compressione e progettazione
+  delle CNN.
+
+Da tenere presente: e la lezione piu matematica della prima parte, ma serve
+a rendere semplici (moltiplicazioni punto per punto) operazioni che nello
+spazio dei pixel sono complicate.
+
+
+========================================================================
+SLIDE 3 - Outline
+========================================================================
+Struttura della lezione:
+- immagini come segnali;
+- convoluzione;
+- trasformata di Fourier.
+
+
+========================================================================
+SLIDE 4 - Sezione: Images as Signals
+========================================================================
+Slide divisoria. Prima parte: definizione di immagine come segnale
+discreto, i due domini (spaziale e frequenziale) e le proprieta di
+invarianza che motivano tutto il resto.
+
+
+========================================================================
+SLIDE 5 - Images as Discrete Signals
+========================================================================
+Contenuto:
+- Un'immagine e una funzione f(x, y) campionata su una griglia:
+  f[m, n], con m = 0, ..., M-1 e n = 0, ..., N-1.
+- I valori dei pixel sono campioni di una scena sottostante:
+  scena -> ottica -> immagine continua -> griglia di pixel
+  campionata e quantizzata.
+- Due viste complementari:
+  - dominio spaziale: trasformazioni invarianti alla traslazione;
+  - dominio frequenziale: immagini come sovrapposizione di onde.
+- Le due viste sono connesse dal teorema di convoluzione:
+  convoluzione nel dominio spaziale = moltiplicazione punto per punto nel
+  dominio frequenziale.
+
+
+========================================================================
+SLIDE 6 - Images as Superposition of Waves (figura)
+========================================================================
+Figura: dominio spaziale contro dominio frequenziale. Vengono mostrate
+un'immagine di sola bassa frequenza, una di sola alta frequenza e una
+miscela, ciascuna con il proprio spettro di magnitudine di Fourier.
+
+Punto: qualunque immagine puo essere scritta come somma pesata di onde
+sinusoidali 2D; lo spettro dice quanto pesa ciascuna onda.
+
+
+========================================================================
+SLIDE 7 - Two Views: Spatial vs. Frequency
+========================================================================
+Contenuto:
+- Stessa immagine, due rappresentazioni equivalenti legate dalla trasformata
+  di Fourier:
+  - dominio spaziale (griglia di pixel);
+  - dominio frequenziale (oscillazioni).
+- Le CNN operano nel dominio spaziale, ma ogni filtro convoluzionale ha una
+  risposta in frequenza, quindi la rete esegue implicitamente
+  un'elaborazione selettiva in frequenza.
+  - esempio: i bordi sono contenuto ad alta frequenza;
+  - esempio: il rumore e (spesso) contenuto ad alta frequenza.
+- Passare dallo spazio alla frequenza puo rendere molto piu facili certe
+  operazioni (filtraggio) o certe proprieta (periodicita, scala).
+  - esempio: il blur rimuove/attenua il contenuto ad alta frequenza;
+  - esempio: l'aliasing e rumore ad alta frequenza conseguenza di alcune
+    operazioni sulle immagini (es. downsampling ingenuo).
+
+
+========================================================================
+SLIDE 8 - Fourier Transform as a Change of Basis
+========================================================================
+Contenuto:
+- Anche se dominio spaziale e frequenziale sembrano molto diversi, passare
+  fra le due rappresentazioni (trasformata di Fourier) e un'operazione
+  lineare.
+  - puo essere vista come un cambio di base: rappresentare il segnale in
+    coordinate in cui l'operazione diventa semplice;
+  - questa base e molto conveniente: la convoluzione diventa una
+    moltiplicazione punto per punto nello spazio delle frequenze.
+
+Idea guida di tutta la lezione: scegliere la base giusta per rendere banale
+un'operazione difficile (come diagonalizzare una matrice).
+
+
+========================================================================
+SLIDE 9 - Translation Invariance
+========================================================================
+Contenuto:
+- Un uccello e sempre un uccello, indipendentemente da dove si trova
+  nell'immagine.
+- L'invarianza alla traslazione e una proprieta fondamentale di molti task
+  di visione.
+
+Nota terminologica (importante): la convoluzione e equivariante alla
+traslazione (se trasli l'input, l'output trasla uguale); l'invarianza vera e
+propria si ottiene solo aggiungendo un'aggregazione, es. pooling globale.
+
+
+========================================================================
+SLIDE 10 - Linearity
+========================================================================
+Contenuto:
+- Molte operazioni interessanti sono anche lineari: l'output e una
+  combinazione lineare degli input.
+- Domanda posta dalla slide: quali delle operazioni mostrate nell'immagine
+  sono lineari? (ovvero quali possono essere implementate come
+  convoluzioni?)
+- Nota: le immagini mostrate sono a colori, ma quasi tutto quello che vediamo
+  oggi vale per immagini in scala di grigi. Si puo trattare ogni canale
+  separatamente.
+
+
+========================================================================
+SLIDE 11 - Linear, Shift-Invariant (LSI) Systems
+========================================================================
+Definizioni:
+- Un sistema T e lineare se:
+    T[a*f1 + b*f2] = a*T[f1] + b*T[f2]
+- Un sistema e shift-invariant (invariante alla traslazione) se traslando
+  l'input l'output trasla in modo identico:
+    l_out[n - n_0, m - m_0] = f(l_in[n - n_0, m - m_0])
+- Una convoluzione e un sistema LSI.
+
+Figura: esempi di operatori LSI su immagini (blur, sharpen, filtro di bordo).
+
+Risultato fondamentale (slide 18): vale anche il viceversa, ogni sistema LSI
+e una convoluzione.
+
+
+========================================================================
+SLIDE 12 - Summary (immagini come segnali)
+========================================================================
+- Le immagini sono segnali.
+  - conseguenze (da vedere): problemi legati al campionamento discreto.
+- I sistemi LSI sono una classe semplice di operazioni che possiamo
+  analizzare in profondita.
+  - (da vedere) molte comuni operazioni di preprocessing sono LSI;
+  - possiamo analizzarle sia nel dominio spaziale (kernel di convoluzione)
+    sia nel dominio frequenziale (Fourier).
+
+
+========================================================================
+SLIDE 13 - Sezione: Convolution
+========================================================================
+Slide divisoria. Seconda parte: definizione di convoluzione, kernel comuni,
+proprieta algebriche e implicazioni computazionali.
+
+
+========================================================================
+SLIDE 14 - 2D Discrete Convolution
+========================================================================
+Definizione:
+
+  (f * h)[m, n] = sum_i sum_j  f[i, j] * h[m - i, n - j]
+
+- Si usa l'operatore * per la convoluzione, non per la moltiplicazione.
+- Per kernel finiti, la somma e sul supporto del kernel (es. 3x3, 5x5).
+- E l'operazione matematica alla base del filtraggio di immagini e dei layer
+  "convolutivi" delle CNN.
+  - nelle DNN si usa in realta la cross-correlazione (senza flip del
+    kernel), ma le due sono equivalenti per kernel appresi.
+
+
+========================================================================
+SLIDE 15 - Continuous Convolution
+========================================================================
+Convoluzione continua 1D:
+
+  (f * h)(x) = integrale da -inf a +inf di  f(tau) * h(x - tau) d(tau)
+
+- h e il kernel.
+- L'output in x e una somma pesata dei valori dell'input vicini.
+
+Convoluzione continua 2D:
+
+  (f * h)(x, y) = doppio integrale di  f(tau, sigma) * h(x - tau, y - sigma)
+                  d(tau) d(sigma)
+
+
+========================================================================
+SLIDE 16 - 1D Example
+========================================================================
+Esempio numerico (da saper rifare a mano):
+Segnale f = [1, 2, 3, 4], kernel h = [1, 0, -1], convoluzione "full":
+- Si ribalta h -> [-1, 0, 1].
+- Si fa scorrere e si calcolano i prodotti scalari a ogni shift.
+- Risultato (modalita full, zero-padding, lunghezza 4 + 3 - 1 = 6):
+
+    f * h = [1, 2, 2, 2, -3, -4]
+
+Interpretazione: questo kernel e un'approssimazione della derivata discreta.
+Si ottiene una risposta grande dove il segnale cambia (bordi) e vicina a
+zero nelle regioni piatte.
+
+
+========================================================================
+SLIDE 17 - 2D example (slide con sola immagine)
+========================================================================
+Figura da visionbook: esempio di convoluzione 2D con il kernel che scorre
+sulla griglia di pixel.
+
+Punto: la stessa finestra di pesi viene applicata identica in ogni
+posizione. E proprio la condizione di shift-invarianza, ed e anche il motivo
+per cui le CNN condividono i pesi (weight sharing).
+
+
+========================================================================
+SLIDE 18 - What Operations Are LSI?
+========================================================================
+Contenuto:
+- Molti filtri di immagine sono operazioni LSI: blurring, sharpening, edge
+  detection, qualunque kernel di convoluzione fisso.
+- Non sono LSI: thresholding, correzione gamma (non lineari),
+  cropping/resizing (non shift-invarianti), la maggior parte delle
+  nonlinearita delle CNN (ReLU, ecc.).
+- Un sistema e LSI se e solo se puo essere scritto come y = h * x per un
+  qualche kernel fisso h.
+
+Questo "se e solo se" e il teorema che rende la convoluzione lo strumento
+universale per questa classe di sistemi.
+
+
+========================================================================
+SLIDE 19 - LSI Operations (slide con sola immagine)
+========================================================================
+Figura da visionbook con esempi di operazioni LSI e non LSI applicate alla
+stessa immagine.
+
+Utile per l'orale: saper classificare al volo un'operazione come LSI o no,
+verificando separatamente linearita e shift-invarianza.
+
+
+========================================================================
+SLIDE 20 - Blur as an LSI Operation
+========================================================================
+Contenuto:
+- Sfocare un'immagine significa sostituire ogni pixel con una media pesata
+  dei suoi vicini.
+- La stessa regola di media e applicata in ogni posizione (shift-invariante)
+  e il risultato e una somma pesata degli input (lineare), quindi il blur e
+  LSI, cioe una convoluzione.
+- Il pattern dei "pesi" (es. una gaussiana) e esattamente il kernel di
+  convoluzione h.
+
+Collegamento con la Lezione 2: il pinhole reale sfocato aveva matrice A
+vicina all'identita con dispersione sui vicini; era proprio un blur.
+
+
+========================================================================
+SLIDE 21 - 2D Example: Gaussian Blur
+========================================================================
+Kernel gaussiano:
+
+  h(x, y) = 1 / (2*pi*sigma^2) * exp( -(x^2 + y^2) / (2*sigma^2) )
+
+- Esempio: convoluzione con un kernel gaussiano 5x5 con sigma = 2.
+- Il risultato e un'immagine sfocata: i bordi netti diventano una rampa
+  morbida su qualche pixel.
+- Un sigma piu grande implica un supporto del kernel piu ampio e quindi piu
+  smoothing.
+
+Regola pratica: il supporto del kernel va scelto circa 3*sigma per lato (o
+6*sigma in totale), altrimenti si tronca la gaussiana e si introducono
+artefatti.
+
+
+========================================================================
+SLIDE 22 - Some Common Kernels
+========================================================================
+Filtri di blur:
+- Box filter: media uniforme, blur semplice
+
+    h = (1/9) *  | 1 1 1 |
+                 | 1 1 1 |
+                 | 1 1 1 |
+
+- Gaussiana: h(x, y) = 1/(2*pi*sigma^2) * exp(-(x^2+y^2)/(2*sigma^2)),
+  liscia e senza ringing.
+
+Approssimazioni di derivata:
+- Sobel (derivata orizzontale):
+
+    S_x =  | -1  0  1 |
+           | -2  0  2 |
+           | -1  0  1 |
+
+Figura: immagine originale filtrata con box filter, gaussiana e Sobel
+(gradiente).
+
+Nota: il box filter e "economico" ma ha una risposta in frequenza pessima
+(sinc, con lobi laterali), da cui il ringing; la gaussiana no.
+
+
+========================================================================
+SLIDE 23 - Properties of Convolution
+========================================================================
+Proprieta (da sapere a memoria):
+- Linearita: f * (a*h1 + b*h2) = a*(f * h1) + b*(f * h2)
+- Equivarianza alla traslazione: se traslo l'input di (n_0, m_0), l'output
+  trasla della stessa quantita:
+    l_out[n - n_0, m - m_0] = f(l_in[n - n_0, m - m_0])
+- Commutativita: f * h = h * f
+- Associativita: (f * h1) * h2 = f * (h1 * h2). Possiamo concatenare filtri
+  convolvendo prima i kernel fra loro.
+- Identita: l'impulso delta[n] e l'elemento neutro
+  (delta[n] * l[n] = l[n]), dove
+
+    delta[n] = 1 se n = 0,  0 se n diverso da 0
+
+
+========================================================================
+SLIDE 24 - Computational Consequence of Associativity
+========================================================================
+Contenuto:
+- Associativita: (f * h1) * h2 = f * (h1 * h2). Possiamo convolvere prima i
+  kernel fra loro, poi applicare il risultato una sola volta all'immagine.
+- Esempio: applicare due blur 5x5 in sequenza equivale ad applicare un
+  singolo kernel equivalente 9x9 (calcolato una volta sola).
+- Si usa per fondere catene di filtri in un unico kernel equivalente.
+
+Nota: la dimensione del kernel risultante e (5 + 5 - 1) = 9. Vale per
+kernel lineari; se fra i due filtri c'e una nonlinearita (come in una CNN)
+la fusione non e piu possibile.
+
+
+========================================================================
+SLIDE 25 - Separable Filters
+========================================================================
+Contenuto:
+- Un kernel 2D h(x, y) e separabile se h(x, y) = h_x(x) * h_y(y).
+  - h_x e un vettore riga, h_y un vettore colonna.
+- La gaussiana e separabile: G_sigma(x, y) = G_sigma(x) * G_sigma(y).
+- Si convolve prima per righe e poi per colonne (due passate 1D) invece di
+  fare una convoluzione 2D completa.
+- Costo: data un'immagine M x N e un kernel k x k,
+    convoluzione 2D = O(M*N*k^2)
+    separabile      = O(M*N*k + M*N*k) = O(M*N*k)
+
+Esempio:
+
+  (1/3)*| 1 |                        | 1 1 1 |
+        | 1 |  x  (1/3)*| 1 1 1 | =  | 1 1 1 | * (1/9)
+        | 1 |                        | 1 1 1 |
+
+
+========================================================================
+SLIDE 26 - Depthwise Separable Convolutions
+========================================================================
+Trucco implementativo comune nelle DNN progettate per scenari a basse
+risorse, come MobileNet ed EfficientNet.
+- Convoluzione standard: ogni canale di output mescola tutti i canali di
+  input con un kernel completo k x k x C_in.
+- Depthwise separable:
+  - (1) una convoluzione depthwise k x k applicata indipendentemente per
+    ciascun canale;
+  - (2) una convoluzione pointwise 1x1 per mescolare i canali.
+- Riduce parametri e FLOPs: O(k^2 * C + C^2) invece di O(k^2 * C^2).
+
+Nota concettuale: e la stessa idea della separabilita spaziale, ma
+applicata all'asse dei canali invece che agli assi spaziali.
+
+
+========================================================================
+SLIDE 27 - Boundary Handling
+========================================================================
+I bordi dell'immagine non hanno vicini oltre il contorno. Strategie comuni:
+- Zero padding: si tratta l'esterno come 0 (puo scurire i bordi).
+- Replicate (clamp): si ripetono i pixel di bordo.
+- Reflect (mirror): si specchiano i pixel oltre il bordo.
+- Circular (wrap): si tratta l'immagine come periodica; e la scelta naturale
+  per la convoluzione basata su DFT.
+- La scelta influenza gli artefatti visivi.
+
+Figura: la stessa porzione di immagine con ciascuna strategia di padding
+(il riquadro rosso indica la regione originale).
+
+
+========================================================================
+SLIDE 28 - Cross-Correlation vs. Convolution
+========================================================================
+Confronto:
+- Convoluzione: (f * h)[m, n] = sum_ij f[i, j] * h[m - i, n - j]
+  il kernel viene ribaltato prima di farlo scorrere.
+- Cross-correlazione: (f corr h)[m, n] = sum_ij f[i, j] * h[m + i, n + j]
+  nessun ribaltamento del kernel.
+- Per kernel simmetrici (gaussiana, box) le due coincidono.
+- Le CNN implementano la cross-correlazione perche la differenza non conta
+  per kernel appresi (la rete puo imparare il flip), ma conta per filtri
+  progettati a mano e per la teoria.
+
+Differenza teorica importante: la convoluzione e commutativa, la
+cross-correlazione no.
+
+
+========================================================================
+SLIDE 29 - Convolution as Matrix Multiplication
+========================================================================
+Contenuto:
+- La convoluzione discreta con un kernel fisso h e un operatore lineare sul
+  vettore dei valori dei pixel (immagine appiattita).
+- Per la convoluzione circolare 1D, questa matrice e una matrice circolante
+  (tipo Toeplitz) H:
+
+    y = H * x        con  H_ij = h[(i - j) mod N]
+
+Figura: una matrice circolante che implementa un kernel di blur 1D.
+
+Collegamento: e esattamente la matrice A della Lezione 2 quando la camera
+applica un blur. Anticipazione: le matrici circolanti sono diagonalizzate
+dalla matrice di Fourier, ed e questo il motivo profondo del teorema di
+convoluzione.
+
+
+========================================================================
+SLIDE 30 - Example: Convolution Matrix
+========================================================================
+Esempio numerico:
+- Segnale x = [1, 2, 3, 4]^T, kernel circolare h = [1, -1, 0, 0].
+- La matrice circolante H ha righe che sono shift ciclici di h:
+
+    H =  |  1  0  0 -1 |
+         | -1  1  0  0 |
+         |  0 -1  1  0 |
+         |  0  0 -1  1 |
+
+- H*x = [1-4, 2-1, 3-2, 4-3]^T = [-3, 1, 1, 1]^T, che coincide con la
+  convoluzione circolare di x con h.
+
+Da notare: il primo valore -3 e l'artefatto di wrap-around, conseguenza
+dell'ipotesi di periodicita.
+
+
+========================================================================
+SLIDE 31 - Summary (convoluzione)
+========================================================================
+- La convoluzione e l'operazione implementata da ogni sistema LSI,
+  parametrizzata da un kernel h.
+- Le proprieta (linearita, commutativita, associativita, separabilita)
+  permettono di progettare e combinare filtri in modo efficiente.
+- Viste equivalenti: somma pesata scorrevole, oppure moltiplicazione
+  matriciale per una matrice circolante.
+  - prossime slide: la convoluzione come moltiplicazione nel dominio
+    frequenziale.
+- L'equivarianza alla traslazione e il primo tipo di invarianza che abbiamo
+  risolto.
+  - mancano ancora invarianza a scala, rotazione e altre trasformazioni;
+    se ne parlera nelle prossime lezioni.
+
+
+========================================================================
+SLIDE 32 - Sezione: Fourier Transform
+========================================================================
+Slide divisoria. Terza parte: onde sinusoidali, base di Fourier, DFT e le
+sue proprieta.
+
+
+========================================================================
+SLIDE 33 - Image Transforms
+========================================================================
+Contenuto:
+- Un cambio di rappresentazione puo rivelare struttura e rendere piu
+  semplici certe operazioni.
+- Esempio: passare da coordinate euclidee a coordinate polari rende piu
+  facile analizzare pattern circolari.
+- La trasformata di Fourier e un cambio di rappresentazione dal dominio
+  spaziale al dominio frequenziale, dove i segnali sono rappresentati come
+  sovrapposizioni di sinusoidi.
+- E un cambio di base lineare:
+  - x = H * l_in
+  - l_in = H^(-1) * x
+
+
+========================================================================
+SLIDE 34 - Continuous Sine Wave
+========================================================================
+Onda sinusoidale continua:
+
+  s(t) = A * sin(omega*t - theta)
+
+- A: ampiezza;
+- omega: frequenza angolare (radianti al secondo);
+- theta: fase (radianti);
+- periodo T = 2*pi / omega.
+
+Questi tre parametri (ampiezza, frequenza, fase) sono tutto cio che serve a
+descrivere una componente; la trasformata di Fourier li restituisce per
+ogni frequenza.
+
+
+========================================================================
+SLIDE 35 - Fourier Series: Decomposing Periodic Signals
+========================================================================
+Serie di Fourier: qualunque segnale periodico 1D l(t) puo essere
+rappresentato come somma di sinusoidi, per t in [0, pi]:
+
+  l(t) = a_1*sin(t) + a_2*sin(2t) + a_3*sin(3t) + ...
+
+dove i coefficienti sono:
+
+  a_k = (1/T) * integrale da 0 a T di  l(t) * sin(k*t) dt
+
+- Passare al dominio frequenziale rende piu facile analizzare e manipolare i
+  segnali, in particolare per filtraggio e compressione.
+- Riferimento visivo consigliato:
+  https://www.3blue1brown.com/lessons/fourier-transforms/
+
+Osservazione: il coefficiente a_k e un prodotto scalare fra il segnale e la
+k-esima funzione di base. E la formula di proiezione su una base ortogonale.
+
+
+========================================================================
+SLIDE 36 - Fourier Series (figura)
+========================================================================
+Figura da visionbook: un segnale a dente di sega (sawtooth) con la sua
+approssimazione in serie di Fourier.
+
+Punto: con poche armoniche si cattura la forma generale; servono molte
+armoniche ad alta frequenza per riprodurre il salto netto. Vedi anche il
+fenomeno di Gibbs alla slide 48.
+
+
+========================================================================
+SLIDE 37 - Why Frequency Thinking Matters
+========================================================================
+Ragionare in termini di frequenze aiuta a capire le operazioni di visione da
+un punto di vista diverso. In termini di frequenza:
+- Un blur equivale a rimuovere le alte frequenze.
+- I bordi sono contenuto ad alta frequenza.
+- Il rumore si distribuisce sulle frequenze in modo diverso dal segnale.
+- Si possono comprimere immagini con tecniche come JPEG, che operano
+  scartando le alte frequenze impercettibili.
+- L'aliasing e un fenomeno del dominio frequenziale.
+
+
+========================================================================
+SLIDE 38 - Why Frequency Thinking Matters (figura)
+========================================================================
+Figura: un'immagine e il suo spettro di log-magnitudine, prima e dopo il
+blur. Il blur rimuove il contenuto ad alta frequenza (quello esterno, nello
+spettro centrato).
+
+Da ricordare per leggere gli spettri: centro = basse frequenze (DC),
+periferia = alte frequenze.
+
+
+========================================================================
+SLIDE 39 - Discrete Sine Wave
+========================================================================
+Onda sinusoidale discreta:
+
+  s[n] = A * sin(omega*n - theta)
+
+- n: indice temporale discreto;
+- il segnale discreto s[n] in generale non e periodico;
+- e periodico solo se omega e un multiplo razionale di 2*pi; in tal caso e
+  periodico con un certo periodo N (es. omega = 2*pi*k/N).
+
+Questa e una differenza importante rispetto al caso continuo, e motiva la
+notazione della slide successiva.
+
+
+========================================================================
+SLIDE 40 - Discrete Sine Wave (notazione con N e k)
+========================================================================
+Per rendere esplicito il periodo si usano onde della forma:
+
+  onda seno:    s[n] = sin( (2*pi/N) * k * n - theta )
+  onda coseno:  c[n] = cos( (2*pi/N) * k * n - theta )
+
+- N e la lunghezza del segnale;
+- k in [1, N/2] e la frequenza, intesa come numero di cicli contenuti nel
+  segnale.
+
+Con questa parametrizzazione la frequenza diventa un indice intero: e
+esattamente l'indice u, v della DFT.
+
+
+========================================================================
+SLIDE 41 - Discrete Sine Wave: Properties
+========================================================================
+Proprieta (dato N, lunghezza del segnale):
+- c_(N-k) = c_k        (il coseno e pari)
+- s_(N-k) = -s_k       (il seno e dispari)
+- k = 0 e la componente DC (segnale costante).
+- k = N/2 e la frequenza di Nyquist (la frequenza piu alta rappresentabile,
+  oscilla fra valori positivi e negativi a ogni campione).
+  - questa affermazione verra chiarita piu avanti (lezione sul
+    campionamento e aliasing).
+
+Conseguenza pratica: le frequenze oltre N/2 non sono nuove, sono le
+"immagini speculari" di quelle sotto N/2.
+
+
+========================================================================
+SLIDE 42 - 2D Sine Waves
+========================================================================
+Onda sinusoidale 2D:
+
+  s_{u,v}[m, n] = A * sin( 2*pi * ( u*n/N + v*m/M ) )
+
+- u e v controllano la frequenza rispettivamente in direzione orizzontale e
+  verticale.
+- Una singola onda 2D e un pattern di strisce parallele; l'orientamento
+  delle strisce e determinato dal rapporto fra u e v, la loro spaziatura
+  dalla loro magnitudine.
+
+Figura da visionbook: esempi di onde 2D per varie coppie (u, v).
+
+
+========================================================================
+SLIDE 43 - Rotations in the Complex Plane
+========================================================================
+Contenuto:
+- Formula di Eulero: e^(i*theta) = cos(theta) + i*sin(theta)
+- |e^(i*theta)| = 1: e un punto sulla circonferenza unitaria, ad angolo
+  theta.
+- Moltiplicare per e^(i*theta) equivale a ruotare di theta (senza cambiare
+  la magnitudine).
+
+Figura: esponenziali complessi come rotazioni nel piano complesso.
+
+
+========================================================================
+SLIDE 44 - Why Complex Exponentials?
+========================================================================
+Perche usare esponenziali complessi invece di semplici seno e coseno?
+Convenienza matematica:
+- Gli esponenziali complessi trasformano traslazioni, derivate e
+  convoluzioni in semplici operazioni algebriche (moltiplicazione per una
+  fase o per uno scalare).
+- Ogni numero complesso si decompone in magnitudine + fase, una
+  rappresentazione comoda per le oscillazioni.
+
+In altre parole: gli esponenziali complessi sono le autofunzioni dei sistemi
+LSI. Un sistema LSI applicato a e^(j*omega*n) restituisce lo stesso segnale
+moltiplicato per uno scalare complesso.
+
+
+========================================================================
+SLIDE 45 - Complex 1D Wave
+========================================================================
+Onda complessa 1D:
+
+  e_u[n] = exp( 2*pi*j * u*n / N )
+
+- Nota: visionbook usa j al posto di i per l'unita immaginaria, convenzione
+  comune in ambito ingegneristico.
+- e_u[n] e legata alle onde seno e coseno dalla formula di Eulero:
+  exp(j*a) = cos(a) + j*sin(a).
+
+Figura: esponenziali complessi come rotazioni nel piano complesso.
+
+
+========================================================================
+SLIDE 46 - Complex 2D Wave
+========================================================================
+Onda complessa 2D:
+
+  e_{u,v}[m, n] = exp( 2*pi*j * ( u*n/N + v*m/M ) )
+
+- u e v controllano la frequenza rispettivamente in direzione orizzontale e
+  verticale.
+- Il segnale e separabile: e_{u,v}[m, n] = e_u[n] * e_v[m].
+
+Conseguenza pratica: la DFT 2D si calcola come DFT 1D su tutte le righe
+seguita da DFT 1D su tutte le colonne.
+
+
+========================================================================
+SLIDE 47 - Orthogonality of Complex Waves
+========================================================================
+  e_{u,v}[m, n] = exp( 2*pi*j * ( u*n/N + v*m/M ) )
+
+Gli esponenziali complessi formano una base ortogonale perche:
+
+  <e_{u,v}, e_{u',v'}> = sum_{n=0}^{N-1} sum_{m=0}^{M-1}
+                          e_{u,v}[n,m] * coniugato(e_{u',v'}[n,m])
+                       = M * N * delta[u - u'] * delta[v - v']
+
+dove delta_x = 1 se x = 0, 0 altrimenti (delta di Kronecker).
+
+Conseguenze:
+- qualunque immagine discreta di lunghezza finita puo essere decomposta come
+  combinazione lineare di esponenziali complessi;
+- la base di Fourier e una base ortogonale:
+  - i coefficienti sono unici;
+  - i coefficienti si trovano tramite prodotti scalari.
+
+
+========================================================================
+SLIDE 48 - Example: Approximating a Square Wave
+========================================================================
+Figura: un'onda quadra approssimata con 1, 2, 4 e 26 armoniche dispari.
+
+- Piu armoniche implicano un'approssimazione migliore, ma un salto netto
+  produce sempre un overshoot vicino alla discontinuita (fenomeno di Gibbs).
+- Le alte frequenze sono responsabili delle transizioni nette.
+
+Nota: l'overshoot di Gibbs non sparisce aumentando le armoniche, si
+restringe soltanto. E la stessa origine del ringing nei filtri con taglio
+netto in frequenza.
+
+
+========================================================================
+SLIDE 49 - The Discrete Fourier Transform (DFT)
+========================================================================
+Data un'immagine l[n, m] di dimensione N x M, la sua DFT e:
+
+  L[u, v] = F{ l[n, m] }
+          = sum_{n=0}^{N-1} sum_{m=0}^{M-1} l[n,m] * exp( -2*pi*j*( u*n/N + v*m/M ) )
+
+La DFT inversa e:
+
+  l[n, m] = F^-1{ L[u, v] }
+          = (1/(N*M)) * sum_{u=0}^{N-1} sum_{v=0}^{M-1} L[u,v] * exp( 2*pi*j*( u*n/N + v*m/M ) )
+
+- F{l[n,m]} rappresenta l'immagine come somma di esponenziali complessi a
+  diverse frequenze spaziali, pesati dai rispettivi coefficienti.
+- Si noti la frequenza speciale DC (0, 0), che corrisponde a un valore
+  costante (la media dell'immagine, a meno del fattore di normalizzazione).
+
+Differenze fra diretta e inversa: segno dell'esponente e fattore 1/(N*M).
+
+
+========================================================================
+SLIDE 50 - Centered DFT
+========================================================================
+Contenuto:
+- L[u, v] e periodica:
+  per ogni a, b interi: L[u + a*N, v + b*M] = L[u, v].
+- Dato che e_{N-u, M-v} = e_{-u, -v}, possiamo scrivere la trasformata con
+  frequenze in [-N/2, N/2] e [-M/2, M/2].
+- E cosi che la si mostra nei grafici, con lo zero (DC) al centro. In numpy
+  l'operazione si fa con fftshift.
+
+Figura: un'immagine e il suo spettro di log-magnitudine, prima e dopo il
+blur: il blur rimuove il contenuto ad alta frequenza (quello esterno).
+
+
+========================================================================
+SLIDE 51 - The Fourier Matrix (1D)
+========================================================================
+La DFT 1D si scrive come moltiplicazione per la matrice di Fourier F, le cui
+entrate sono:
+
+  F_{u,n} = exp( -2*pi*j * u*n / N )
+
+cioe (prima riga e prima colonna tutte 1, poi potenze crescenti di
+exp(-2*pi*j/N)).
+
+Proprieta:
+- F e simmetrica;
+- F^(-1) = F* (coniugata, a meno del fattore di normalizzazione);
+- la Fast Fourier Transform (FFT) sfrutta le simmetrie nella struttura di F
+  per calcolare la DFT in O(n log n) invece di O(n^2).
+
+Punto chiave: la DFT e letteralmente un prodotto matrice-vettore, cioe un
+cambio di base; l'FFT e solo un modo furbo di calcolarlo.
+
+
+========================================================================
+SLIDE 52 - Sezione: Examples of Signals and their Fourier Transform
+========================================================================
+Slide divisoria. Rassegna di coppie segnale/trasformata da conoscere a
+memoria (impulso, seno, coseno) e di come si visualizza uno spettro.
+
+
+========================================================================
+SLIDE 53 - Visualizing the Fourier Transform
+========================================================================
+Contenuto:
+- La DFT restituisce numeri complessi.
+- Si possono mostrare separatamente parte reale e parte immaginaria:
+
+    L[u, v] = Re{L[u, v]} + j * Im{L[u, v]}
+
+- Di solito pero si decompongono in magnitudine e fase:
+
+    L[u, v] = A[u, v] * exp( j * theta[u, v] )
+
+  - spesso si usa la log-magnitudine (perche l'ampiezza decade molto
+    rapidamente con la frequenza e altrimenti si vedrebbe solo il DC).
+
+
+========================================================================
+SLIDE 54 - Visualizing the Fourier Transform (figura)
+========================================================================
+Figura da visionbook: in alto le componenti reale e immaginaria, in basso
+ampiezza e fase della stessa trasformata.
+
+Punto: le rappresentazioni sono equivalenti dal punto di vista informativo,
+ma magnitudine/fase e molto piu interpretabile (vedi slide 59).
+
+
+========================================================================
+SLIDE 55 - 1D Example
+========================================================================
+Contenuto:
+- Regione liscia: contenuto a bassa frequenza.
+- Bordo netto: contenuto a banda larga (broadband), con molte frequenze,
+  incluse quelle molto alte.
+- Texture periodica (es. un muro di mattoni): energia concentrata su
+  frequenze specifiche.
+- Conclusione: una texture o una feature complessa puo avere una firma
+  distintiva nel dominio frequenziale.
+
+Figura: segnali 1D (sinistra) e magnitudine dei loro spettri (destra).
+
+Questa e la base dei descrittori di texture (Gabor, wavelet) della slide 73.
+
+
+========================================================================
+SLIDE 56 - Impulse
+========================================================================
+Sia delta(x, y) un impulso nell'origine: delta(0, 0) = 1 e 0 altrove.
+
+  F{delta[n, m]} = sum_n sum_m delta[n,m] * exp(-2*pi*j*(u*n/N + v*m/M)) = 1
+
+- Un impulso contiene tutte le frequenze con magnitudine uguale e fase nulla.
+- Gli impulsi si usano per sondare la risposta in frequenza di un sistema.
+
+Nota del docente: per familiarizzare con la trasformata conviene fare il
+calcolo e verificare questo risultato.
+
+Collegamento: e il motivo per cui il kernel h si chiama "risposta
+all'impulso" (slide 65). Dare in input un delta a un sistema LSI restituisce
+esattamente il kernel.
+
+
+========================================================================
+SLIDE 57 - Cosine and Sine Waves
+========================================================================
+Contenuto:
+- Onde coseno e seno pure danno luogo a coppie di frequenze complesse.
+
+  F{ cos( 2*pi*( u_0*n/N + v_0*m/M ) ) }
+     = (1/2) * ( delta[u - u_0, v - v_0] + delta[u + u_0, v + v_0] )
+
+  F{ sin( 2*pi*( u_0*n/N + v_0*m/M ) ) }
+     = (1/(2j)) * ( delta[u - u_0, v - v_0] + delta[u + u_0, v + v_0] )
+
+  dove delta e il segnale impulso.
+
+Intuizione: una sinusoide pura e "un solo punto" nel dominio delle
+frequenze (piu il suo simmetrico). E l'esatto opposto dell'impulso, che e
+un punto nello spazio e piatto in frequenza.
+
+
+========================================================================
+SLIDE 58 - Examples (slide con sola immagine)
+========================================================================
+Figura da visionbook: galleria di immagini semplici (strisce, rettangoli,
+griglie, pattern orientati) con i rispettivi spettri.
+
+Utile da memorizzare: strisce verticali -> picchi sull'asse orizzontale
+dello spettro; rotazione dell'immagine -> rotazione dello spettro;
+rettangolo -> sinc 2D.
+
+
+========================================================================
+SLIDE 59 - Magnitude vs Phase: Which Matters More?
+========================================================================
+Contenuto:
+- Esperimento classico: scambiare gli spettri di magnitudine e fase di due
+  immagini.
+- Risultato: la fase determina in larga parte la struttura percepita
+  dell'immagine; la magnitudine influenza soprattutto contrasto e "stile"
+  della texture.
+- Implicazione: bordi, forme e contorni degli oggetti sono codificati
+  principalmente nelle relazioni di fase fra le frequenze; e importante per
+  capire cosa un filtro preserva o distrugge.
+
+Figura: scambiando magnitudine e fase fra due immagini, la struttura segue
+la fase.
+
+
+========================================================================
+SLIDE 60 - Magnitude vs Phase (figura)
+========================================================================
+Seconda figura dello stesso esperimento di scambio magnitudine/fase.
+
+Conseguenza pratica: un filtro a fase lineare (o fase zero, come una
+gaussiana simmetrica) non sposta i bordi; un filtro che altera la fase in
+modo non uniforme li distorce. Per questo si preferiscono filtri simmetrici.
+
+
+========================================================================
+SLIDE 61 - Sezione: Properties of the Fourier Transform
+========================================================================
+Slide divisoria. Quarta parte: proprieta operative della trasformata, in
+particolare il teorema di convoluzione.
+
+
+========================================================================
+SLIDE 62 - Linearity and Conjugate Symmetry of Real Signals
+========================================================================
+Contenuto:
+- Linearita: F{a*f + b*g} = a*F{f} + b*F{g}
+  - vale per segnali reali e complessi.
+- Per segnali reali l(x): F(u) = coniugato di F(-u) (simmetria coniugata).
+  - i segnali/immagini reali hanno spettro di magnitudine simmetrico
+    (simmetria attorno al termine DC (0, 0));
+  - le frequenze negative non portano informazione aggiuntiva per i segnali
+    reali: sono l'immagine speculare delle frequenze positive;
+  - per questo numpy fornisce rfft, che calcola solo meta delle frequenze.
+
+Conseguenza pratica: meta memoria e meta calcolo per immagini reali.
+
+
+========================================================================
+SLIDE 63 - The Convolution Theorem
+========================================================================
+Teorema di convoluzione (risultato centrale della lezione):
+
+  F{ f * h } = F{f} . F{h}
+
+cioe: la convoluzione nel dominio spaziale e una moltiplicazione punto per
+punto nel dominio frequenziale.
+
+Conseguenze:
+- Convoluzione significa filtraggio: per esempio un filtro passa-basso e
+  semplicemente una funzione H(xi) che vale circa 1 per |xi| piccolo e circa
+  0 per |xi| grande.
+- Progettare un filtro diventa progettare una curva di risposta in
+  frequenza.
+- Concatenare filtri equivale a moltiplicare le loro risposte in frequenza
+  (coerente con l'associativita della convoluzione).
+
+
+========================================================================
+SLIDE 64 - Practical: FFT-Based Convolution
+========================================================================
+Contenuto:
+- Per il teorema di convoluzione: f * h = F^-1{ F{f} . F{h} }.
+- Per kernel grandi, la convoluzione via FFT (O(N log N)) batte la
+  convoluzione diretta (O(N*k)) quando k e grande.
+- Attenzione: la DFT assume segnali circolari, quindi bisogna fare
+  zero-padding per evitare artefatti di wrap-around quando si calcola una
+  convoluzione lineare tramite FFT.
+- I framework di deep learning (cuDNN, cuFFT) scelgono fra algoritmi diretti
+  e basati su FFT a seconda della dimensione del kernel.
+
+Regola pratica: i kernel 3x3 delle CNN sono piccoli, quindi in pratica si
+usa la convoluzione diretta (o algoritmi tipo Winograd), non l'FFT.
+
+
+========================================================================
+SLIDE 65 - Impulse Response and Transfer Function
+========================================================================
+Un sistema LSI si puo descrivere completamente in due modi:
+- vista spaziale: con il kernel di convoluzione h(x)
+  - h(x) e la risposta all'impulso (impulse response), cioe l'output del
+    filtro quando l'input e un impulso delta(x);
+- vista frequenziale: H(xi) = F{h} e la funzione di trasferimento (transfer
+  function o risposta in frequenza)
+  - dice quanto ciascuna frequenza viene amplificata/attenuata e sfasata;
+- h (spaziale) e H (frequenziale) sono una coppia di Fourier.
+
+Conseguenza: descrivere il filtro con h o con H e la stessa cosa; si sceglie
+la rappresentazione piu comoda per il ragionamento in corso.
+
+
+========================================================================
+SLIDE 66 - Frequency-Domain Filtering
+========================================================================
+Contenuto:
+- Una conseguenza della dualita spazio/frequenza e che i sistemi LSI possono
+  essere compresi come amplificatori o attenuatori di frequenze.
+Famiglie di filtri:
+- Filtro passa-basso (low-pass): lascia passare le basse frequenze, attenua
+  le alte. Effetto di sfocatura.
+- Filtro passa-alto (high-pass): attenua le basse frequenze. Esalta
+  bordi e dettagli.
+- Filtro passa-banda (band-pass): isola un intervallo di frequenze. Usato
+  per analisi di texture e orientamento.
+
+Nota: un filtro passa-alto si puo costruire come (originale - versione
+sfocata), cioe identita meno passa-basso.
+
+
+========================================================================
+SLIDE 67 - Frequency-Domain Filtering (figure)
+========================================================================
+Due figure da visionbook: effetto visivo dei filtri passa-basso,
+passa-alto e passa-banda su un'immagine, con i rispettivi spettri.
+
+Da osservare: un taglio netto (ideale) in frequenza produce ringing
+nell'immagine, perche la sua antitrasformata e una sinc con lunghe code. Per
+questo si preferiscono transizioni morbide (gaussiane).
+
+
+========================================================================
+SLIDE 68 - Sezione: Applications and Connections with DNNs
+========================================================================
+Slide divisoria. Quinta parte: compressione, JPEG e lettura in frequenza
+delle operazioni delle CNN.
+
+
+========================================================================
+SLIDE 69 - Compression
+========================================================================
+Figura da visionbook: ricostruzione di un'immagine a partire dagli N
+coefficienti di Fourier di ampiezza maggiore. Il riquadro di destra mostra
+la posizione, nel dominio di Fourier, degli N coefficienti che, una volta
+antitrasformati, danno l'immagine a sinistra.
+
+Punto: l'energia delle immagini naturali e fortemente concentrata nelle
+basse frequenze. Bastano pochi coefficienti per una ricostruzione
+riconoscibile: e la base di tutta la compressione con perdita.
+
+
+========================================================================
+SLIDE 70 - JPEG and Frequency-Domain Compression
+========================================================================
+Contenuto:
+- JPEG opera su blocchi 8x8 tramite la Discrete Cosine Transform (DCT), una
+  stretta parente della DFT (a valori reali, con simmetria pari).
+- Quantizza in modo piu aggressivo i coefficienti DCT ad alta frequenza
+  (percettivamente meno importanti): e un'applicazione diretta del
+  ragionamento in frequenza.
+- Gli artefatti a blocchi (blocking) a bitrate bassi sono una conseguenza
+  dell'algoritmo sottostante.
+
+Da collegare: la quantizzazione piu aggressiva sulla crominanza (chroma
+subsampling) e giustificata dalla Lezione 2, slide 68.
+
+
+========================================================================
+SLIDE 71 - Frequency View of CNN Operations
+========================================================================
+Contenuto:
+- Layer convoluzionali: ogni filtro ha una risposta in frequenza H(xi, eta);
+  i filtri appresi somigliano spesso a filtri passa-banda e orientati
+  (cfr. filtri tipo Gabor nei primi layer delle CNN).
+- Impilare convoluzioni: per il teorema di convoluzione, equivale a
+  moltiplicare le risposte in frequenza; il filtro efficace e il prodotto
+  delle risposte dei singoli layer.
+- Nonlinearita (ReLU, ecc.): rompono il quadro pulito LSI/Fourier
+  introducendo nuove frequenze (armoniche); e in parte questo che permette
+  alle reti profonde di modellare contenuti in frequenza complessi.
+
+
+========================================================================
+SLIDE 72 - Receptive Field and Frequency Response
+========================================================================
+Contenuto:
+- Un campo recettivo (receptive field) piu ampio (stack piu profondi, kernel
+  piu grandi o dilatati) permette di rappresentare frequenze piu basse,
+  cioe informazione piu globale.
+- Kernel piccoli impilati approssimano kernel efficaci piu grandi (es. due
+  3x3 danno circa il campo recettivo di un 5x5), ma la risposta in frequenza
+  differisce a causa delle nonlinearita interposte.
+- Convoluzioni dilatate (dilated convolutions): campionano deliberatamente
+  il kernel in modo sparso, con rischio di artefatti simili all'aliasing
+  (gridding artifacts) se non progettate con attenzione.
+
+
+========================================================================
+SLIDE 73 - Texture as Frequency Content
+========================================================================
+Contenuto:
+- Molte texture possono essere caratterizzate dalle loro frequenze spaziali
+  e orientamenti dominanti (es. descrittori di texture basati su
+  Fourier/Gabor).
+- Banchi di filtri passa-banda (filtri di Gabor, wavelet) decompongono le
+  immagini in bande di frequenza orientate: e il fondamento dell'analisi
+  classica delle texture e delle prime architetture simili alle CNN.
+
+
+========================================================================
+SLIDE 74 - Sezione: Conclusions
+========================================================================
+Slide divisoria. Chiusura della lezione con takeaway, lezioni successive e
+riferimenti.
+
+
+========================================================================
+SLIDE 75 - Takeaways
+========================================================================
+- Le convoluzioni sono sistemi LSI.
+- La trasformata di Fourier e un cambio di base verso una base sinusoidale
+  ortogonale, che rivela la struttura in frequenza.
+- Le convoluzioni sono moltiplicazioni nello spazio delle frequenze.
+  Possiamo analizzare i filtri convoluzionali nel dominio frequenziale per
+  capirne il comportamento.
+- Gli strumenti di signal processing aiutano a progettare e spiegare le CNN
+  moderne (convoluzioni dilatate, pooling, filtraggio in frequenza).
+
+
+========================================================================
+SLIDE 76 - Next Lectures
+========================================================================
+- Lezione 4 (Lab): FFT pratica su segnali 1D.
+- Lezione 5: filtri spaziali/temporali come specifici kernel di
+  convoluzione, gradienti (filtri derivativi).
+- Lezione 6: campionamento, aliasing, piramidi di immagini e
+  rappresentazioni multi-risoluzione.
+
+
+========================================================================
+SLIDE 77 - References
+========================================================================
+- visionbook, Capitoli 15 e 16.
+- Consiglio del docente: provare a rifare da soli alcuni dei calcoli
+  presenti nel libro.

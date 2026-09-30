@@ -1,0 +1,216 @@
+% =============================================================
+% ANALISI REPORT MODULO -- preambolo condiviso (v3, walkthrough)
+% =============================================================
+\documentclass[11pt,a4paper]{article}
+\usepackage{fontspec}
+\usepackage[english]{babel}
+\setmainfont{Latin Modern Roman}
+\setmonofont{Latin Modern Mono}
+\usepackage{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{float}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{microtype}
+\usepackage{parskip}
+\usepackage{tcolorbox}
+\tcbuselibrary{breakable}
+
+\geometry{top=2.3cm, bottom=2.3cm, left=2.3cm, right=2.3cm}
+\setlength{\headheight}{14pt}
+\setlength{\emergencystretch}{3em}
+
+\definecolor{codeblue}{rgb}{0.0,0.3,0.7}
+\definecolor{codegreen}{rgb}{0,0.5,0}
+\definecolor{backcolour}{rgb}{0.97,0.97,0.97}
+\definecolor{cmdback}{rgb}{0.95,0.97,1.0}
+
+\lstdefinestyle{cpp}{ backgroundcolor=\color{backcolour}, commentstyle=\color{codegreen}\itshape,
+  keywordstyle=\color{codeblue}\bfseries, basicstyle=\ttfamily\footnotesize, breaklines=true,
+  keepspaces=true, showstringspaces=false, tabsize=2, language=C++,
+  morekeywords={omp,pragma,parallel,task,schedule,reduction,uint64_t,uint32_t,size_t,alignas,
+    MPI_Alltoallv,MPI_Allreduce,constexpr,noexcept,__restrict__,__builtin_prefetch}}
+\lstdefinestyle{bash}{ backgroundcolor=\color{cmdback}, basicstyle=\ttfamily\footnotesize,
+  commentstyle=\color{codegreen}\itshape, breaklines=true, keepspaces=true, showstringspaces=false,
+  tabsize=2, language=bash, frame=single, framesep=4pt, rulecolor=\color{codeblue},
+  morekeywords={srun,salloc,sbatch,mpirun,mpicxx,make,g++,nvcc,export,numactl,perf,likwid}}
+\lstset{style=cpp}
+
+\pagestyle{fancy}\fancyhf{}
+\rhead{\leftmark}\lhead{Analisi Report -- SPM}\cfoot{\thepage}
+\renewcommand{\sectionmark}[1]{\markboth{#1}{}}
+
+\newtcolorbox{motiv}{breakable, colback=yellow!7!white, colframe=orange!80!black,
+  fonttitle=\small\bfseries, title={Motivazione della scelta}, before skip=6pt, after skip=6pt}
+\newtcolorbox{deriv}{breakable, colback=blue!4!white, colframe=codeblue,
+  fonttitle=\small\bfseries, title={Da dove viene il numero (derivazione)}, before skip=6pt, after skip=6pt}
+\newtcolorbox{espbox}{breakable, colback=purple!4!white, colframe=purple!60!black,
+  fonttitle=\small\bfseries, title={Esperimento di supporto}, before skip=6pt, after skip=6pt}
+\newtcolorbox{theorybox}{breakable, colback=green!5!white, colframe=green!50!black,
+  fonttitle=\small\bfseries, title={Collegamento alla teoria}, before skip=6pt, after skip=6pt}
+\newtcolorbox{difesa}{breakable, colback=red!4!white, colframe=red!55!black,
+  fonttitle=\small\bfseries, title={Come difenderlo all'orale}, before skip=6pt, after skip=6pt}
+\newtcolorbox{misura}{breakable, colback=teal!6!white, colframe=teal!70!black,
+  fonttitle=\small\bfseries, title={Risultato misurato (sandbox locale, non cluster)}, before skip=6pt, after skip=6pt}
+
+\newcommand{\espitem}[5]{\item \textbf{#1}\\ \emph{Come:} #2\\ \emph{Misura:} #3\\ \emph{Atteso:} #4\\ \emph{Dimostra:} #5}
+
+\hypersetup{colorlinks=true, linkcolor=codeblue, urlcolor=codeblue}
+
+\newcommand{\doctitle}[2]{%
+  \begin{titlepage}\centering\vspace*{2cm}
+  {\LARGE\bfseries Analisi del Report -- #1\\[0.6em]}
+  {\large\itshape #2}\\[1.5em]
+  {\large Partitioned Hash Join with Duplicates}\\[0.4em]
+  {\large SPM -- Università di Pisa -- Prof. M. Torquati -- A.A. 2025-2026}\\[2em]
+  \hrule\vspace{1em}
+  \begin{flushleft}\small \textbf{Walkthrough completo del report}, sezione per sezione dall'inizio alla fine, con la motivazione di ogni scelta, la derivazione di ogni numero, la lettura di ogni grafico/tabella, il confronto con baseline/modulo precedente, i \emph{risultati misurati} dove eseguibili senza cluster, e una sezione finale di ulteriori esperimenti. La struttura segue l'ordine del report originale, così puoi presentarlo scorrendo il PDF mentre mostri il documento al prof.\end{flushleft}
+  \end{titlepage}
+  \tableofcontents\newpage}
+
+\begin{document}
+\doctitle{Modulo 3 -- OpenMP}{Walkthrough completo del report, sezione per sezione}
+
+\section*{Come usare questo documento}
+\addcontentsline{toc}{section}{Come usare questo documento}
+Segue l'ordine del report (Introduction $\to$ Algorithm and OpenMP Strategies $\to$ Skewed Workload $\to$ Validation $\to$ Experimental Evaluation $\to$ Discussion). Per ogni sezione: cosa dice, perché, da dove vengono i numeri, come difenderlo.
+
+% =============================================================
+\section{Introduction (sezione 1 del report)}
+% =============================================================
+
+Il report dichiara: stesso algoritmo di M2, riscritto in OpenMP, con due varianti (loop, task) che parallelizzano \emph{ogni} fase con un costrutto diverso; l'obiettivo è valutare quale costrutto conviene sotto carico bilanciato e skewed, e confrontarsi con i \texttt{std::thread} di M2.
+
+\begin{motiv}
+\textbf{Perché tenere il costrutto coerente in tutte le fasi.} Per isolare il costo del costrutto: mescolando \texttt{for} e \texttt{task} non sapresti attribuire le differenze. Loop-ovunque vs task-ovunque misura il modello. Tesi del modulo: loop vince su regolare, task su skew.
+\end{motiv}
+
+% =============================================================
+\section{Algorithm and OpenMP Strategies (sezione 2)}
+% =============================================================
+
+\subsection{Three-phase Structure}
+
+Il report richiama le tre fasi (Histogram, Scatter, Join), la stessa hash di Fibonacci e la \texttt{FlatCountMap} (capacità $\ge2|R_p|$, load factor $<50\%$).
+
+\subsection{Loop-level Variant}
+
+\begin{lstlisting}[style=cpp]
+#pragma omp parallel for schedule(dynamic,1) reduction(+:join_count,checksum1,checksum2)
+for(uint32_t pid=0; pid<P; ++pid){ JoinResult r=join_one_partition(Rpart,Spart,pid); ... }
+\end{lstlisting}
+
+\begin{motiv}
+Una iterazione = una partizione. \texttt{dynamic,1} consegna una partizione alla volta a domanda perché il costo per partizione è ignoto e variabile. La \texttt{reduction} dà somme parziali private (no contesa, no lock). La macro \texttt{RUNTIME\_SCHEDULE} la trasforma in \texttt{schedule(runtime)} (legge \texttt{OMP\_SCHEDULE}), binario dello schedule-sweep.
+\end{motiv}
+
+\subsection{Task Variant with LPT}
+
+\begin{deriv}
+\textbf{LPT col bound.} Ordina le partizioni per $|R_p|+|S_p|$ decrescente, sottomette dalle più pesanti (\texttt{single nowait}). È greedy per il makespan (Graham 1969): $\le(\tfrac43-\tfrac{1}{3m})\text{OPT}$. I task grossi in coda per primi non finiscono soli sul percorso critico. \texttt{nowait}: gli altri thread consumano i task mentre il master li crea. Task \emph{tied}: l'indice di thread resta stabile.
+\end{deriv}
+
+\subsection{Targeted Optimisations}
+
+Il report elenca tre ottimizzazioni: prefetch, split intra-partizione, NUMA first-touch.
+
+\begin{deriv}
+\textbf{Split intra-partizione e il tetto $H/T$.} Con $H$ partizioni calde indivisibili, al massimo $H$ thread lavorano $\Rightarrow$ efficienza $\le H/T$ ($4/16=25\%$). Limite strutturale: LPT riordina ma non spezza. ``Calda'' se $|R_p|+|S_p|>8\bar w$; il \emph{probe} (read-only) è spezzato in $K=\min(T,\lfloor w/\bar w\rfloor)$ sub-task (clamp 2) dentro un \texttt{taskgroup} (tiene viva la tabella); il \emph{build} resta sequenziale (update su \texttt{FlatCountMap} = race). Così fino a $T$ thread cooperano su una calda, scavalcando $H/T$.
+\end{deriv}
+
+\begin{motiv}
+\textbf{Prefetch (12 scatter, 8 probe).} Stream ad accesso casuale (destinazione/slot scelti dall'hash), non previsti dal prefetcher HW. Distanza $\approx$ latenza/lavoro-per-iter: scatter leggero $\Rightarrow$ 12 (copre L1$\to$L2); probe pesante $\Rightarrow$ 8 (L2$\to$L3). \textbf{NUMA first-touch}: allocatore che fa \texttt{resize} senza toccare le pagine; un \texttt{parallel for static} di zero-init le tocca per prima con lo stesso partizionamento dello scatter $\Rightarrow$ pagina sul nodo del thread che vi scriverà. \textbf{Padding \texttt{alignas(64)}} + \texttt{static\_assert}: niente false sharing.
+\end{motiv}
+
+% =============================================================
+\section{Skewed Workload (sezione 3)}
+% =============================================================
+
+\begin{deriv}
+\textbf{Modello e $f_\text{hot}=0.226$.} Mistura di Bernoulli: prob.\ $\rho=0.9$ chiave calda (1 di $H=4$, su partizioni distinte), prob.\ $1-\rho$ uniforme. $f_\text{hot}=\frac{\rho}{H}+\frac{1-\rho}{P}=\frac{0.9}{4}+\frac{0.1}{128}\approx0.226$; $f_\text{cold}\approx0.00078$; rapporto $\approx290\times$. Generatore \texttt{splitmix64} con seed da CLI (riproducibile bit a bit). Determinato da $(\rho,H,P)$, non una manopola.
+\end{deriv}
+
+% =============================================================
+\section{Validation (sezione 4)}
+% =============================================================
+
+Il report: per input piccoli ($\le500$) join naive $O(N^2)$; per input grandi, sweep modi$\times$workload$\times$thread $\in\{1,2,4,8,16\}$, confronto della tripla contro un riferimento (seq per uniforme, par a $T=1$ per skew, perché il seq non genera skew); inoltre loop e task a $T=4$ devono dare triple identiche. Checksum ordine-invarianti. Tutto passa sul cluster.
+
+% =============================================================
+\section{Experimental Evaluation (sezione 5)}
+% =============================================================
+
+Setup: nodo \textit{spmcluster} (E5-2640 v2, 32 logici, 2 NUMA), SLURM \texttt{--exclusive --cpus-per-task=32}, GCC \texttt{-O3 -march=native}, \texttt{OMP\_PROC\_BIND=close OMP\_PLACES=cores}, $N_R=10^7$, $N_S=2{\cdot}10^7$, $P=128$, 3 ripetizioni.
+
+\subsection{Strong Scaling}
+
+\begin{table}[H]\centering\small
+\begin{tabular}{@{}rcccc@{}}\toprule
+$T$ & loop unif. & task unif. & loop skew & task skew \\\midrule
+4 & 0.164 & 0.178 & 0.168 & 0.147 \\ 8 & 0.112 & 0.127 & 0.110 & 0.094 \\
+16 & 0.070 & 0.092 & 0.097 & 0.087 \\ 32 & 0.086 & 0.088 & 0.114 & 0.089 \\\bottomrule
+\end{tabular}\caption{Tempi [s]. $T_\text{seq}=0.802$~s.}
+\end{table}
+
+\begin{difesa}
+\textbf{Uniforme: loop batte task fino al 31\% (T=16).} Niente da bilanciare $\Rightarrow$ il task paga creazione/dispatch su histogram/scatter senza beneficio; divario $\sim$8\%(T4)$\to\sim$31\%(T16). Loop picca a $11.46\times$ (T=16), degrada a T=20 (team a cavallo fisici/SMT), recupera a T=32. \textbf{Skew: si inverte.} T=4 task 0.147 vs loop 0.168 ($\sim$14\% da LPT); culmina a T=8 ($\sim$17\%, entra lo split); $\sim$28\% a T=32 (il loop stalla sulle 4 partizioni). Sul join a T=16: 60.9 vs 72.5~ms.
+\end{difesa}
+
+\subsection{Weak Scaling e Phase Breakdown}
+
+Weak (NR $=2$M$\times T$): uniforme regge entro un socket (loop $\sim$80\% a T=8), poi cala (banda condivisa). Breakdown: uniforme il join domina ($\sim$67\% loop a T=8), il task lo comprime al $44$--$58\%$ (paga i task su histogram/scatter); skew l'imbalance è sul join ($\sim$76\% loop, $\sim$70\% task a T=16).
+
+\subsection{Schedule Sensitivity}
+
+\begin{difesa}
+A T=8: uniforme le 5 policy entro $\sim$1\% (con $P/T=16$ il carico è identico). Skew: static/static,1/guided,1 $\sim$130~ms sul join, le due dynamic $\sim$80~ms ($-38\%$): static assegna le 4 calde a chi possiede il range $\to$ critical path; dynamic le riassegna. Giustifica \texttt{dynamic,1} default: non-dominata.
+\end{difesa}
+
+\subsection{Comparison with Module 2}
+
+\begin{deriv}
+\textbf{Da dove vengono 11.46$\times$ (M3 loop) e 7.86$\times$ (M2) a T=16.} Baseline seq condiviso $T_\text{seq}=0.802$~s. M3 loop $0.070$~s $\Rightarrow11.46$; M2 $0.102$~s $\Rightarrow7.86$. Divario da due fasi: scatter ($\sim$29 vs $\sim$85~ms a T=8, dal prefetch) e histogram ($\sim$9 vs $\sim$35~ms: la completion della \texttt{std::barrier} di M2 serializza il merge, l'\texttt{omp single} di M3 è parzialmente nascosto). A T=32 convergono ($9.33,9.11,9.01\times$): banda dominante.
+\end{deriv}
+
+\begin{difesa}
+\textbf{Efficienza $>1$ per T$\le$4: non super-linear.} Le ottimizzazioni (prefetch, first-touch) sono nel parallelo ma non nel seq: a T=1 il parallelo è $\sim$1.44$\times$ il seq, offset che decade con T. Dichiarato.
+\end{difesa}
+
+% =============================================================
+\section{Discussion (sezione 6)}
+% =============================================================
+
+Il report sintetizza: uniforme il loop (no overhead task), skew il task (LPT+split); schedule \texttt{dynamic,1} default; entrambe le varianti OpenMP battono M2 contro il baseline condiviso; a T=32 le tre convergono (banda).
+
+% =============================================================
+\section{Ulteriori esperimenti da fare}
+% =============================================================
+
+\begin{espbox}
+\begin{enumerate}[leftmargin=1.3em]
+\espitem{LPT vs ordine casuale}{sottometti i task in ordine random invece che LPT, su skew}{makespan/tempo join}
+  {LPT più veloce}{che il guadagno viene da LPT, isolato dallo split.}
+\espitem{Prefetch ON/OFF}{commenta le \texttt{\_\_builtin\_prefetch} e rimisura}{tempo scatter/probe}{il salto 85$\to$29~ms sparisce}
+  {che il prefetch e' la causa, non altro.}
+\espitem{Split ON/OFF (K=1)}{forza K=1 e rilancia il task su skew}{efficienza skewed}{crolla verso $H/T\approx25\%$}
+  {empiricamente che lo split rompe $H/T$.}
+\espitem{Sweep distanza di prefetch}{prova $\{4,8,12,16,24\}$}{tempo di fase}{ottimo attorno a 12/8}
+  {che 12/8 sono tarati sulla latenza, non magici.}
+\espitem{First-touch ON/OFF}{disabilita il zero-init parallelo}{speedup oltre 16 core}{riappare un dip NUMA}
+  {che il first-touch da' la localita' NUMA.}
+\espitem{Soglia ``hot'' ($4/8/16\,\bar w$)}{varia la soglia di classificazione calda}{tempo skewed e n. di split}
+  {compromesso: bassa troppi split, alta ne perdi}{che $8\bar w$ e' un trade-off motivato.}
+\end{enumerate}
+\end{espbox}
+
+\begin{theorybox}
+OpenMP loop -- \texttt{schedule}, \texttt{reduction}, fork-join (L19); task -- \texttt{task}, \texttt{taskgroup}, \texttt{single nowait}, tied/untied (L22); workload balancing e \textbf{LPT}/Graham (L14); affinity e first-touch (L18); prefetching, false sharing.
+\end{theorybox}
+
+\end{document}
