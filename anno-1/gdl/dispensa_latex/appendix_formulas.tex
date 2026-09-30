@@ -1,0 +1,394 @@
+%===============================================================
+%  APPENDIX C — Cheat sheet formule
+%===============================================================
+\chapter{Cheat sheet delle formule}
+\label{ch:cheatsheet}
+
+Riferimento rapido per le formule chiave del corso. Le formule sono raggruppate per tema; per ciascuna è indicato il capitolo in cui è derivata.
+
+\section{Probabilità e PGM}
+
+\paragraph{Bayes.}
+\[
+p(A|B) = \frac{p(B|A)\,p(A)}{p(B)}, \qquad p(\theta|\mathcal{D}) \propto p(\mathcal{D}|\theta)\,p(\theta).
+\]
+
+\paragraph{Fattorizzazione BN.}
+\[
+p(\vect{x}) = \prod_{i=1}^n p(x_i \mid \mathrm{Pa}(x_i)).
+\]
+
+\paragraph{Markov blanket.} $\mathrm{MB}(X) = \mathrm{Pa}(X) \cup \mathrm{Ch}(X) \cup \mathrm{Pa}(\mathrm{Ch}(X))$.
+
+\paragraph{d-separation.} $X \indep Y \mid Z$ in $G$ se ogni cammino $X\to Y$ è bloccato: chain/fork con un nodo in $Z$, oppure collider $X\to W \leftarrow Y$ con $W$ e i suoi discendenti $\notin Z$.
+
+\paragraph{Backdoor adjustment.}
+\[
+p(y \mid \mathrm{do}(x)) = \sum_z p(y \mid x, z)\, p(z), \quad Z \text{ blocca i backdoor path}.
+\]
+
+\paragraph{Gerarchia di Pearl.} $p(y|x) \;\subset\; p(y|\mathrm{do}(x)) \;\subset\; p(y_x \mid x',y')$.
+
+\section{Learning probabilistico}
+
+\paragraph{MLE.}
+\[
+\theta_{\text{MLE}} = \argmax_\theta \sum_{i=1}^N \log p(x_i|\theta).
+\]
+
+\paragraph{MAP.}
+\[
+\theta_{\text{MAP}} = \argmax_\theta \!\left[\sum_i \log p(x_i|\theta) + \log p(\theta)\right].
+\]
+
+\paragraph{ELBO.}
+\[
+\log p(\vect{x}) \geq \mathbb{E}_{q(\vect{z})}[\log p(\vect{x},\vect{z})] - \mathbb{E}_{q}[\log q(\vect{z})] = \mathbb{E}_q[\log p(\vect{x}|\vect{z})] - \KL{q(\vect{z})}{p(\vect{z})}.
+\]
+\[
+\log p(\vect{x}) = \mathcal{L}(q) + \KL{q(\vect{z})}{p(\vect{z}|\vect{x})}.
+\]
+
+\paragraph{EM.}
+\begin{itemize}
+  \item E-step: $q^*(\vect{z}) = p(\vect{z}|\vect{x}, \theta^{\text{old}})$ (rende l'ELBO tight).
+  \item M-step: $\theta^{\text{new}} = \argmax_\theta \mathbb{E}_{q^*}[\log p(\vect{x},\vect{z};\theta)]$.
+\end{itemize}
+
+\paragraph{GMM E-step.}
+\[
+\gamma_{ik} = \frac{\pi_k \mathcal{N}(x_i|\mu_k,\Sigma_k)}{\sum_j \pi_j \mathcal{N}(x_i|\mu_j,\Sigma_j)}.
+\]
+
+\paragraph{GMM M-step.}
+\[
+\mu_k = \frac{\sum_i \gamma_{ik} x_i}{\sum_i \gamma_{ik}},\quad
+\Sigma_k = \frac{\sum_i \gamma_{ik} (x_i-\mu_k)(x_i-\mu_k)^\top}{\sum_i \gamma_{ik}},\quad
+\pi_k = \frac{1}{N}\sum_i \gamma_{ik}.
+\]
+
+\paragraph{HMM Forward.}
+\[
+\alpha_t(i) = p(x_{1:t}, S_t = i) = b_i(x_t) \sum_j \alpha_{t-1}(j) a_{ji}.
+\]
+
+\paragraph{HMM Backward.}
+\[
+\beta_t(i) = p(x_{t+1:T} \mid S_t = i) = \sum_j a_{ij}\, b_j(x_{t+1})\, \beta_{t+1}(j).
+\]
+
+\paragraph{HMM Smoothing.}
+\[
+\gamma_t(i) = p(S_t=i|x_{1:T}) = \frac{\alpha_t(i)\beta_t(i)}{\sum_j \alpha_t(j)\beta_t(j)}.
+\]
+
+\paragraph{Viterbi.}
+\[
+\delta_t(j) = b_j(x_t) \max_i \delta_{t-1}(i) a_{ij}.
+\]
+
+\paragraph{Mean-field CAVI.}
+\[
+q_i^*(z_i) \propto \exp\!\big(\mathbb{E}_{q_{-i}}[\log p(\vect{z}, \vect{x})]\big).
+\]
+
+\paragraph{Gibbs sampling.} Itera $z_i^{(t+1)} \sim p(z_i \mid \vect{z}_{-i}^{(t)})$.
+
+\paragraph{Metropolis-Hastings acceptance.}
+\[
+\alpha = \min\!\left(1, \frac{p(z')\,q(z|z')}{p(z)\,q(z'|z)}\right).
+\]
+
+\paragraph{RBM joint.}
+\[
+p(\vect{v},\vect{h}) = \frac{1}{Z}\exp(\vect{v}^\top \mat{W}\vect{h} + \vect{a}^\top\vect{v} + \vect{b}^\top\vect{h}).
+\]
+
+\paragraph{Contrastive Divergence (CD-1).}
+\[
+\Delta W \propto \langle \vect{v}\vect{h}^\top \rangle_{\text{data}} - \langle \vect{v}\vect{h}^\top \rangle_{\text{1-step}}.
+\]
+
+\section{Deep Learning fondamentale}
+
+\paragraph{Convoluzione (1D, valid).} $y_i = \sum_{k=0}^{K-1} x_{i+k}\, w_k$. Output size: $n_{\text{in}} - K + 1$ (no pad).
+
+\paragraph{Dimensione output (padding $p$, stride $s$).}
+\[
+n_{\text{out}} = \left\lfloor \frac{n_{\text{in}} + 2p - K}{s}\right\rfloor + 1.
+\]
+
+\paragraph{Receptive field.} Per stack di $L$ conv $K\times K$ con stride 1: $R = 1 + L(K-1)$.
+
+\paragraph{ReLU.} $\mathrm{ReLU}(x) = \max(0, x)$.
+
+\paragraph{Softmax.}
+\[
+\mathrm{softmax}(\vect{z})_i = \frac{e^{z_i}}{\sum_j e^{z_j}}.
+\]
+
+\paragraph{Cross-entropy.}
+\[
+\mathcal{L} = -\sum_i y_i \log \hat y_i.
+\]
+
+\paragraph{Batch normalization.}
+\[
+\hat x_i = \frac{x_i - \mu_B}{\sqrt{\sigma_B^2 + \epsilon}}, \quad y_i = \gamma \hat x_i + \beta.
+\]
+
+\paragraph{Residual block.} $\vect{h}^{(\ell+1)} = \vect{h}^{(\ell)} + F(\vect{h}^{(\ell)})$.
+
+\paragraph{LSTM.}
+\[
+\begin{aligned}
+\vect{f}_t &= \sigma(\mat{W}_f[\vect{h}_{t-1}, \vect{x}_t] + \vect{b}_f)\\
+\vect{i}_t &= \sigma(\mat{W}_i[\vect{h}_{t-1}, \vect{x}_t] + \vect{b}_i)\\
+\tilde{\vect{c}}_t &= \tanh(\mat{W}_c[\vect{h}_{t-1}, \vect{x}_t] + \vect{b}_c)\\
+\vect{c}_t &= \vect{f}_t \odot \vect{c}_{t-1} + \vect{i}_t \odot \tilde{\vect{c}}_t\\
+\vect{o}_t &= \sigma(\mat{W}_o[\vect{h}_{t-1}, \vect{x}_t] + \vect{b}_o)\\
+\vect{h}_t &= \vect{o}_t \odot \tanh(\vect{c}_t).
+\end{aligned}
+\]
+
+\paragraph{GRU.}
+\[
+\begin{aligned}
+\vect{z}_t &= \sigma(\mat{W}_z[\vect{h}_{t-1},\vect{x}_t])\\
+\vect{r}_t &= \sigma(\mat{W}_r[\vect{h}_{t-1},\vect{x}_t])\\
+\tilde{\vect{h}}_t &= \tanh(\mat{W}[\vect{r}_t\odot\vect{h}_{t-1}, \vect{x}_t])\\
+\vect{h}_t &= (1-\vect{z}_t)\odot\vect{h}_{t-1} + \vect{z}_t\odot\tilde{\vect{h}}_t.
+\end{aligned}
+\]
+
+\paragraph{Bahdanau attention.}
+\[
+e_{t,i} = \vect{v}^\top \tanh(\mat{W}_h \vect{h}_i + \mat{W}_s \vect{s}_t), \quad \alpha_{t,i} = \mathrm{softmax}_i(e_{t,i}), \quad \vect{c}_t = \sum_i \alpha_{t,i} \vect{h}_i.
+\]
+
+\paragraph{Scaled dot-product attention.}
+\[
+\mathrm{Attention}(\mat{Q}, \mat{K}, \mat{V}) = \mathrm{softmax}\!\left(\frac{\mat{Q}\mat{K}^\top}{\sqrt{d_k}}\right) \mat{V}.
+\]
+
+\paragraph{Multi-head attention.}
+\[
+\mathrm{MHA}(\mat{Q},\mat{K},\mat{V}) = [\mathrm{head}_1 \,\|\, \dots \,\|\, \mathrm{head}_h] \mat{W}_O.
+\]
+
+\paragraph{Positional encoding (sinusoidale).}
+\[
+\mathrm{PE}_{(p, 2i)} = \sin\!\left(\frac{p}{10000^{2i/d}}\right), \quad \mathrm{PE}_{(p, 2i+1)} = \cos\!\left(\frac{p}{10000^{2i/d}}\right).
+\]
+
+\section{Generative Deep Learning}
+
+\paragraph{VAE ELBO.}
+\[
+\mathcal{L}(\vect{x};\theta,\phi) = \mathbb{E}_{q_\phi(\vect{z}|\vect{x})}[\log p_\theta(\vect{x}|\vect{z})] - \KL{q_\phi(\vect{z}|\vect{x})}{p(\vect{z})}.
+\]
+
+\paragraph{Reparametrization trick.}
+\[
+\vect{z} = \boldsymbol{\mu}_\phi(\vect{x}) + \boldsymbol{\sigma}_\phi(\vect{x}) \odot \boldsymbol{\epsilon}, \quad \boldsymbol{\epsilon} \sim \mathcal{N}(0, \mat{I}).
+\]
+
+\paragraph{KL gaussiane.}
+\[
+\KL{\mathcal{N}(\boldsymbol{\mu}, \mathrm{diag}(\boldsymbol{\sigma}^2))}{\mathcal{N}(0,\mat{I})} = \tfrac{1}{2}\sum_j (\mu_j^2 + \sigma_j^2 - 1 - \log \sigma_j^2).
+\]
+
+\paragraph{GAN minimax.}
+\[
+\min_G \max_D \; \mathbb{E}_{p_{\text{data}}}[\log D(\vect{x})] + \mathbb{E}_{p_z}[\log(1-D(G(\vect{z})))].
+\]
+
+\paragraph{GAN discriminatore ottimale.}
+\[
+D^*(\vect{x}) = \frac{p_{\text{data}}(\vect{x})}{p_{\text{data}}(\vect{x}) + p_G(\vect{x})}.
+\]
+
+\paragraph{GAN $\leftrightarrow$ JS.} $V(D^*, G) = 2 \mathrm{JS}(p_{\text{data}} \| p_G) - \log 4$.
+
+\paragraph{WGAN.}
+\[
+\min_G \max_{\|D\|_L \leq 1}\; \mathbb{E}_{p_{\text{data}}}[D(\vect{x})] - \mathbb{E}_{p_z}[D(G(\vect{z}))].
+\]
+
+\paragraph{Cambio di variabile.}
+\[
+\log p_X(\vect{x}) = \log p_Z(f^{-1}(\vect{x})) + \log|\det J_{f^{-1}}(\vect{x})|.
+\]
+
+\paragraph{Composizione di flow.}
+\[
+\log p_X(\vect{x}) = \log p_Z(\vect{z}_0) - \sum_{k=1}^K \log|\det J_{f_k}(\vect{z}_{k-1})|.
+\]
+
+\paragraph{Coupling (RealNVP).}
+\[
+\vect{z}'_B = \vect{z}_B \odot \exp(\vect{s}_\theta(\vect{z}_A)) + \vect{t}_\theta(\vect{z}_A),\quad \log|\det J| = \sum_j s_\theta(\vect{z}_A)_j.
+\]
+
+\paragraph{Continuous flow (CNF).}
+\[
+\frac{d\vect{z}_t}{dt} = \vect{f}_\theta(\vect{z}_t, t), \quad \log p_X(\vect{x}) = \log p_Z(\vect{z}_0) - \int_0^T \mathrm{tr}\!\left(\frac{\partial \vect{f}_\theta}{\partial \vect{z}}\right) dt.
+\]
+
+\paragraph{DDPM forward.}
+\[
+q(\vect{z}_t|\vect{z}_{t-1}) = \mathcal{N}(\sqrt{1-\beta_t}\vect{z}_{t-1}, \beta_t \mat{I}), \quad q(\vect{z}_t|\vect{x}_0) = \mathcal{N}(\sqrt{\bar\alpha_t}\vect{x}_0, (1-\bar\alpha_t)\mat{I}).
+\]
+
+\paragraph{DDPM simplified loss.}
+\[
+\mathcal{L}_{\text{simple}} = \mathbb{E}_{t,\vect{x}_0,\boldsymbol{\epsilon}}\!\left\| \boldsymbol{\epsilon} - \boldsymbol{\epsilon}_\theta\!\big(\sqrt{\bar\alpha_t}\vect{x}_0 + \sqrt{1-\bar\alpha_t}\boldsymbol{\epsilon}, t\big)\right\|^2.
+\]
+
+\paragraph{DDPM sampling.}
+\[
+\vect{z}_{t-1} = \frac{1}{\sqrt{\alpha_t}}\!\left(\vect{z}_t - \frac{\beta_t}{\sqrt{1-\bar\alpha_t}}\,\boldsymbol{\epsilon}_\theta(\vect{z}_t, t)\right) + \sigma_t \vect{w}.
+\]
+
+\paragraph{Classifier-free guidance.}
+\[
+\hat{\boldsymbol{\epsilon}}(\vect{z}_t, t, \vect{y}) = (1+\gamma)\,\boldsymbol{\epsilon}_\theta(\vect{z}_t, t, \vect{y}) - \gamma\,\boldsymbol{\epsilon}_\theta(\vect{z}_t, t, \emptyset).
+\]
+
+\paragraph{Score.}
+\[
+\vect{s}(\vect{x}) = \nabla_{\vect{x}}\log p(\vect{x}).
+\]
+
+\paragraph{Denoising Score Matching.}
+\[
+\mathcal{L}_{\text{DSM}} = \mathbb{E}\!\left\| \vect{s}_\theta(\tilde{\vect{x}}) + \frac{\boldsymbol{\epsilon}}{\sigma}\right\|^2, \quad \tilde{\vect{x}} = \vect{x} + \sigma\boldsymbol{\epsilon}.
+\]
+
+\paragraph{Forward SDE.}
+\[
+d\vect{x} = \vect{f}(\vect{x}, t)\, dt + g(t)\, d\vect{w}.
+\]
+
+\paragraph{Reverse SDE.}
+\[
+d\vect{x} = [\vect{f}(\vect{x}, t) - g^2(t) \nabla_{\vect{x}}\log p_t(\vect{x})]\, dt + g(t)\, d\bar{\vect{w}}.
+\]
+
+\paragraph{Probability flow ODE.}
+\[
+\frac{d\vect{x}}{dt} = \vect{f}(\vect{x},t) - \tfrac{1}{2}g^2(t)\nabla_{\vect{x}}\log p_t(\vect{x}).
+\]
+
+\paragraph{Langevin dynamics.}
+\[
+\vect{x}_{k+1} = \vect{x}_k + \tfrac{\eta}{2}\vect{s}(\vect{x}_k) + \sqrt{\eta}\boldsymbol{\epsilon}_k.
+\]
+
+\paragraph{Flow Matching (CFM).}
+\[
+\mathcal{L}_{\text{CFM}} = \mathbb{E}_{\tau,\vect{x},\vect{z}\sim q_\tau(\cdot|\vect{x})} \| \vect{v}_\theta(\vect{z}, \tau) - \vect{u}_\tau(\vect{z}|\vect{x})\|^2.
+\]
+
+\paragraph{Rectified flow.}
+\[
+\vect{z}_\tau = (1-\tau)\vect{z}_0 + \tau\vect{x}, \quad \vect{u}_\tau = \vect{x} - \vect{z}_0.
+\]
+
+\paragraph{$\beta$-VAE.}
+\[
+\mathcal{L}_\beta = \mathbb{E}_{q_\phi}[\log p_\theta(\vect{x}|\vect{z})] - \beta\, \KL{q_\phi}{p(\vect{z})}.
+\]
+
+\paragraph{Total Correlation (FactorVAE).}
+\[
+\mathrm{TC}(\vect{z}) = \KL{q(\vect{z})}{\prod_j q(z_j)}.
+\]
+
+\section{Graph Neural Networks}
+
+\paragraph{Message passing.}
+\[
+\vect{h}_v^{(\ell+1)} = U^{(\ell)}\!\big(\vect{h}_v^{(\ell)},\, \mathrm{AGG}^{(\ell)}\{\vect{h}_u^{(\ell)}: u \in N(v)\}\big).
+\]
+
+\paragraph{GCN (Kipf-Welling).}
+\[
+\vect{H}^{(\ell+1)} = \sigma\!\left(\tilde D^{-1/2}(\mat{A}+\mat{I})\tilde D^{-1/2}\, \vect{H}^{(\ell)} \mat{W}^{(\ell)}\right).
+\]
+
+\paragraph{GraphSAGE.}
+\[
+\vect{h}_v^{(\ell+1)} = \sigma(\mat{W}^{(\ell)}[\vect{h}_v^{(\ell)} \,\|\, \mathrm{AGG}\{\vect{h}_u^{(\ell)}\}]).
+\]
+
+\paragraph{GIN.}
+\[
+\vect{h}_v^{(\ell+1)} = \mathrm{MLP}\!\big((1+\epsilon)\vect{h}_v^{(\ell)} + \sum_{u\in N(v)} \vect{h}_u^{(\ell)}\big).
+\]
+
+\paragraph{GAT.}
+\[
+\alpha_{vu} = \mathrm{softmax}_u\!\Big(\mathrm{LeakyReLU}\big(\vect{a}^\top[\mat{W}\vect{h}_v \| \mat{W}\vect{h}_u]\big)\Big), \quad \vect{h}_v' = \sigma\!\sum_u \alpha_{vu}\,\mat{W}\vect{h}_u.
+\]
+
+\paragraph{DiffPool.}
+\[
+\vect{X}' = \mat{S}^\top \vect{X}, \quad \mat{A}' = \mat{S}^\top \mat{A} \mat{S}, \quad \mat{S} \in \mathbb{R}^{|V|\times K}.
+\]
+
+\section{Reinforcement Learning}
+
+\paragraph{Ritorno.} $G_t = \sum_{k=0}^\infty \gamma^k R_{t+k+1}$.
+
+\paragraph{Bellman expectation (state value).}
+\[
+v_\pi(s) = \sum_a \pi(a|s)\!\left[\mathcal{R}^a_s + \gamma \sum_{s'} P^a_{ss'} v_\pi(s')\right].
+\]
+
+\paragraph{Bellman optimality.}
+\[
+v_*(s) = \max_a \!\left[\mathcal{R}^a_s + \gamma\sum_{s'} P^a_{ss'} v_*(s')\right], \quad q_*(s,a) = \mathcal{R}^a_s + \gamma\sum_{s'} P^a_{ss'} \max_{a'} q_*(s', a').
+\]
+
+\paragraph{TD(0).} $v(S_t) \leftarrow v(S_t) + \alpha[R_{t+1} + \gamma v(S_{t+1}) - v(S_t)]$.
+
+\paragraph{Q-learning.}
+\[
+Q(S,A) \leftarrow Q(S,A) + \alpha\!\left[R + \gamma \max_{a'} Q(S', a') - Q(S, A)\right].
+\]
+
+\paragraph{SARSA.}
+\[
+Q(S,A) \leftarrow Q(S,A) + \alpha[R + \gamma Q(S', A') - Q(S, A)].
+\]
+
+\paragraph{DQN loss.}
+\[
+\mathcal{L}(\vect{w}) = \mathbb{E}_{(s,a,r,s')\sim \mathcal{D}}\big[(r + \gamma \max_{a'} Q(s', a'; \vect{w}^-) - Q(s, a; \vect{w}))^2\big].
+\]
+
+\paragraph{Policy gradient theorem.}
+\[
+\nabla_\theta J(\theta) = \mathbb{E}_{\pi_\theta}\!\left[\nabla_\theta \log \pi_\theta(a|s)\, Q^{\pi_\theta}(s,a)\right].
+\]
+
+\paragraph{REINFORCE update.}
+\[
+\theta \leftarrow \theta + \alpha \sum_t \nabla_\theta \log \pi_\theta(a_t|s_t)\, G_t.
+\]
+
+\paragraph{Advantage.}
+\[
+A^\pi(s,a) = Q^\pi(s,a) - v^\pi(s).
+\]
+
+\paragraph{Actor-Critic update.}
+\[
+\delta = r + \gamma V_{\vect{w}}(s') - V_{\vect{w}}(s),\quad \theta \leftarrow \theta + \alpha_\theta\,\delta\,\nabla_\theta\log\pi_\theta(a|s).
+\]
+
+\paragraph{PPO clip.}
+\[
+\mathcal{L}^{\text{CLIP}} = \mathbb{E}\!\left[\min(r_t \hat A_t,\, \mathrm{clip}(r_t, 1-\epsilon, 1+\epsilon)\hat A_t)\right], \quad r_t = \frac{\pi_\theta(a|s)}{\pi_{\theta_{\text{old}}}(a|s)}.
+\]

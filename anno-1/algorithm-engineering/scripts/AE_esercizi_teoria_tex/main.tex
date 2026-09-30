@@ -1,0 +1,129 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\renewcommand{\contentsname}{Indice}
+\renewcommand{\partname}{Parte}
+\renewcommand{\figurename}{Figura}
+\renewcommand{\tablename}{Tabella}
+\usepackage[margin=2.1cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage[colorlinks=true,linkcolor=blue!55!black,urlcolor=blue!55!black]{hyperref}
+
+\usepackage{framed}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{5pt}
+\newcommand{\qid}[1]{\textbf{[#1]}}
+\newcommand{\OO}[1]{O\!\left(#1\right)}
+\newcommand{\TT}[1]{\Theta\!\left(#1\right)}
+\newcommand{\Om}[1]{\Omega\!\left(#1\right)}
+% --- riquadro col testo dell'esercizio ---
+\definecolor{shadecolor}{RGB}{235,242,250}
+\newenvironment{domanda}%
+{\begin{shaded}\small\textbf{Testo dell'esercizio.} \itshape}%
+{\end{shaded}}
+% --- evidenziazione dei punti chiave ---
+\newcommand{\kw}[1]{\ifmmode{\color{red!60!black}#1}\else\textcolor{red!60!black}{\textbf{#1}}\fi}
+% --- marcatore per gli argomenti usciti in 3+ prove ---
+\newcommand{\hot}{\,\textcolor{orange!85!black}{$\bigstar$}}
+
+\title{\textbf{Algorithm Engineering}\\[2mm]
+\Large Esercizi di Teoria --- testi e risoluzioni dettagliate\\[1mm]
+\normalsize Tutte le richieste di teoria di appelli, midterm, final term e orali 2020--2025}
+\author{}
+\date{Versione riveduta e completata --- luglio 2026}
+
+\begin{document}
+\maketitle
+\vspace{-1.2cm}
+
+\section*{Come usare questo documento}
+
+\textbf{Parte I}: i testi delle domande di teoria, organizzati per argomento. Ogni testo ha un
+identificatore (es.\ \qid{5.1}) e accanto sono indicate le prove d'esame in cui \`e uscito.
+\textbf{Parte II}: le risoluzioni, con dimostrazioni complete e commenti, sviluppate a partire
+dalla dispensa del corso e da \emph{Pearls of Algorithm Engineering} (Ferragina, 2023).
+La numerazione delle risoluzioni rispecchia quella dei testi.
+
+\textbf{Copertura.} Questa versione \`e stata verificata contro \emph{tutte} le prove presenti
+nella cartella \texttt{esercizi/} (35 prove con testo leggibile, dal 10/01/2020 al 15/07/2025,
+inclusi i .doc del 2020 e del 2022 e l'orale del 25/07/2022). Rispetto alla versione precedente
+sono stati aggiunti gli item mancanti:
+\qid{1.5} sorting vs permuting nel modello RAM e I/O (orale 25/07/22);
+\qid{3.3} sampling con $n$ noto e prova di correttezza (midterm 06/11/23);
+\qid{5.9} prova che l'altezza media del Treap \`e $\OO{\log n}$ (07/02/20, orale 25/07/22);
+\qid{7.7} algoritmo lineare di Kasai per l'array LCP (orale 25/07/22, domanda ``da lode'');
+\qid{8.3} come ricavare $n$ dagli array $L,H$ di Elias--Fano (orale 25/07/22);
+\qid{9.3} bound sull'errore di troncamento di un numero binario (10/01/20);
+e la nuova sezione 11 con le tre \emph{domande di progettazione} (07/02/20, 02/02/22, 11/11/24).
+Le convenzioni (bit alti di Elias--Fano, tabelle FC/SYMB, Wheeler code) sono state allineate a
+quelle effettivamente usate nei compiti del docente.
+
+\textbf{Legenda.} Nella Parte II ogni risoluzione \`e preceduta dal \emph{testo dell'esercizio}
+(riquadro azzurro) con le date in cui \`e uscito; i passaggi e i risultati da ricordare sono
+\kw{evidenziati in rosso} o incorniciati. Il simbolo \hot{} marca gli argomenti usciti in
+\emph{tre o pi\`u} prove: da sapere alla perfezione.
+
+\textbf{Nota sulle soluzioni ufficiali.} Le soluzioni ufficiali esistono solo come scansioni
+manoscritte della parte di esercizi pratici; per la teoria non esistono soluzioni ufficiali in
+formato testo, quindi le risoluzioni qui riportate sono ricostruite dalle fonti del corso.
+
+\subsection*{Tabella di copertura: prova per prova}
+
+\begin{longtable}{@{}p{2.6cm}p{2.2cm}p{10.2cm}@{}}
+\textbf{Data} & \textbf{Tipo} & \textbf{Domande di teoria e riferimenti}\\
+\hline
+\endhead
+10/01/20 & appello & cammini cuckoo $c^{-L}/r$ \qid{5.3}; spazio Elias--Fano \qid{8.1}; errore di troncamento binario \qid{9.3}\\
+07/02/20 & appello & design I/O max-satellite \qid{11.1}; bound sorting $D$ dischi con prova e confronto con l'ottimo \qid{1.3}\qid{1.4}; profondit\`a media Treap \qid{5.9}\\
+12/06/20 & appello & suffix tree: sottostringa con $\ge L$ occorrenze \qid{7.6}\\
+10/07/20 & appello & compacted trie con fan-out hash per ordinare stringhe \qid{6.5}\\
+11/11/20 & midterm & Snow Plow con prob.\ heap $3/4$ \qid{2.1}; collisioni attese con hash universale \qid{5.2}; Bloom: $p_0=\tfrac12$ con $k$ ottimo \qid{5.4}\\
+07/09/21 & appello & costruzione SA via qsort, e caso LCP $\le c$ \qid{7.3}; perch\'e l'aritmetico parte dall'elemento centrale \qid{9.6}\\
+14/01/22 & final term & intersezione di liste Elias--Fano con \texttt{Access}/\texttt{GEQ} \qid{4.4}\\
+02/02/22 & appello & design: finestra di $k$ posizioni con $q$ occorrenze via SA \qid{11.2}\\
+25/07/22 & orale & sorting/permuting in RAM e I/O \qid{1.5}; lower bound stringhe + Multikey QS \qid{2.2}\qid{2.3}; Treap: definizione e altezza media \qid{5.8}\qid{5.9}; ricavare $n$ da Elias--Fano \qid{8.3}; LCP in tempo lineare (lode) \qid{7.7}\\
+16/01/23 & final term & LSD RadixSort \qid{2.4}; hash universale \qid{5.1}; Rank \qid{10.1}; def.\ SA+LCP \qid{7.1}\\
+10/02/23 & appello & teorema cuckoo \qid{5.3}; Multikey QS + lower bound \qid{2.2}\qid{2.3}; upper bound I/O sort/permute/striping \qid{1.2}; Treap: definizione e split \qid{5.8}\\
+05/06/23 & appello & lower bound + Multikey QS + RadixSort ottimo \qid{2.2}\qid{2.3}\qid{2.4}; Rank + spazio \qid{10.1}; Bloom su 2 server \qid{5.6}\\
+24/07/23 & appello & SA via qsort e I/O \qid{7.3}; ricerca lessicografica con Patricia \qid{6.1}; Bloom: definizione + falso positivo \qid{5.5}\\
+07/09/23 & appello & Multikey QS \qid{2.3}; hash universale \qid{5.1}; SA/LCP + ricerca + prova \qid{7.2}\\
+02/11/23 & appello & Reservoir + correttezza \qid{3.2}; hash universale \qid{5.1}; Rank \qid{10.1}; def.\ SA+LCP \qid{7.1}\\
+06/11/23 & midterm & sampling con $n$ noto + correttezza ($m=1$) \qid{3.3}; universale + chaining $\OO{1}$ \qid{5.2}\\
+12/12/23 & final term & upper bound Arithmetic \qid{9.2}; spazio della struttura di Rank \qid{10.2}\\
+15/01/24 & appello & Snow Plow $2M$ e $p=\tfrac14$ \qid{2.1}; COUNT con SA + retrieval su disco \qid{7.4}; doubling \qid{4.3}\\
+09/02/24 & appello & MergeSort multi-way I/O + disk striping \qid{1.1}\qid{1.3}; Canonical Huffman \qid{9.1}; intersezione two-level \qid{4.1}\\
+27/05/24 & appello & Bloom \qid{5.4}; spazio Elias--Fano \qid{8.1}; MergeSort I/O \qid{1.1}; storage di un dizionario di stringhe \qid{6.4}\\
+21/06/24 & appello & Snow Plow con $p=\tfrac18$ \qid{2.1}; two-level scan + prova \qid{4.1}; Canonical Huffman \qid{9.1}\\
+11/07/24 & appello & Reservoir ($m<n/2$) + correttezza \qid{3.2}; LSD su $b$ bit \qid{2.4}; mutual partition \qid{4.2}; Access su Elias--Fano \qid{8.2}\\
+11/11/24 & midterm & altezza Skip List \qid{5.7}; errore del Bloom \qid{5.4}; two-level intersection \qid{4.1}; design range di frequenze \qid{11.3}\\
+09/12/24 & final term & upper bound Arithmetic \qid{9.2}\\
+10/01/25 & appello & sorting con $D$ dischi vs ottimo \qid{1.4}; Bounded QuickSort \qid{2.5}; hash universale \qid{5.1}; LSD + correttezza \qid{2.4}; Rank $\OO{1}$/$o(m)$ \qid{10.2}\\
+04/02/25 & appello & MergeSort I/O con 1 e $D$ dischi \qid{1.1}\qid{1.3}; Bounded QuickSort \qid{2.5}; Skip List \qid{5.7}; Rank \qid{10.2}; spazio Elias--Fano \qid{8.1}\\
+06/03/25 & appello & pseudocodice Reservoir \qid{3.1}; bit di Huffman vs Arithmetic + quando \qid{9.4}; Compacted vs Patricia \qid{6.2}\\
+03/06/25 & appello & pseudocodice Reservoir \qid{3.1}; Huffman vs Arithmetic \qid{9.4}; teorema cuckoo \qid{5.3}; disk striping \qid{1.3}; Compacted vs Patricia nel two-level \qid{6.3}\\
+23/06/25 & appello & LSD + correttezza \qid{2.4}; Bounded QuickSort \qid{2.5}; definizione Treap \qid{5.8}; invarianza per permutazione dell'Arithmetic \qid{9.5}\\
+15/07/25 & appello & errore del Bloom \qid{5.4}; two-level intersection \qid{4.1}; ricerca di $P$ in SA \qid{7.5}; Canonical Huffman \qid{9.1}\\
+\hline
+\end{longtable}
+
+Prove \emph{senza} domande di teoria (solo esercizi di simulazione): 03/09/20, 16/12/20,
+20/01/21, 10/02/21 (a parte il commento di complessit\`a del COUNT, coperto da \qid{7.4}),
+09/04/21, 08/06/21, 28/10/21, 08/11/21, 15/12/21, 11/04/22, 13/06/22, 04/07/22, 25/07/22 (scritto).
+
+\tableofcontents
+\newpage
+
+\part{Testi degli esercizi di teoria}
+\input{p1}
+
+\newpage
+\part{Risoluzioni dettagliate}
+\input{p2a}
+\input{p2b}
+\input{p2c}
+
+\end{document}

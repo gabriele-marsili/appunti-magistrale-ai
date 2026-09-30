@@ -1,0 +1,202 @@
+\section{Modelli e complessit\`a I/O}
+
+\begin{itemize}[leftmargin=1.4em]
+\item \qid{1.1}\hot Enuncia la complessit\`a I/O del MergeSort multi-way in funzione di $M$, $B$, $N$.
+\emph{(09/02/24, 27/05/24, 04/02/25)}
+\item \qid{1.2} Enuncia gli upper bound per: ordinare $n$ item atomici in un modello a due livelli con
+memoria interna $M$, pagina $B$ e 1 disco; permutarli nello stesso modello con 1 disco; ordinarli con
+$D$ dischi usando il disk striping. \emph{(10/02/23)}
+\item \qid{1.3}\hot Descrivi la tecnica del disk striping ed enuncia il bound I/O del MergeSort quando lo
+si usa per ordinare $n$ item in una memoria a due livelli con $D$ dischi, memoria $M$, pagina $B$.
+\emph{(07/02/20 con prova, 09/02/24, 04/02/25, 03/06/25)}
+\item \qid{1.4} Enuncia la complessit\`a I/O di ordinare $n$ item con memoria $M$, pagina $B$ e $D$
+dischi; confrontala con il bound ottimo e discuti le differenze. \emph{(07/02/20, 10/01/25)}
+\item \qid{1.5} Dati $n$ item atomici, scrivi la complessit\`a in tempo dei problemi di sorting e di
+permuting nel modello RAM, poi la loro complessit\`a I/O nel modello a due livelli (pagina $B$,
+memoria $M$); commenta se i due problemi sono computazionalmente equivalenti in senso asintotico e
+per quali valori dei parametri. \emph{(orale 25/07/22)}
+\end{itemize}
+
+\section{Ordinamento}
+
+\begin{itemize}[leftmargin=1.4em]
+\item \qid{2.1}\hot Dimostra che la lunghezza attesa della sequenza ordinata (run) prodotta da Snow Plow
+\`e $2M$. Varianti chieste: quanto vale se la probabilit\`a di finire nell'\emph{unsorted bucket} \`e
+$\tfrac14$ invece di $\tfrac12$? \emph{(15/01/24)} Se \`e $\tfrac18$? \emph{(21/06/24)} Se la
+probabilit\`a di andare nello \emph{heap} \`e $\tfrac34$? \emph{(11/11/20)}
+\item \qid{2.2}\hot Enuncia e dimostra il lower bound (comparison-based) al tempo per ordinare $n$
+stringhe di lunghezza totale $N$ su alfabeto di taglia $\sigma$. \emph{(10/02/23, 05/06/23, orale 25/07/22)}
+\item \qid{2.3}\hot Scrivi lo pseudocodice del Multikey QuickSort su $n$ stringhe di lunghezza totale $N$;
+enuncia e dimostra la sua complessit\`a temporale e mostra che \`e time-optimal rispetto al lower
+bound di \qid{2.2}. \emph{(10/02/23, 05/06/23, 07/09/23, orale 25/07/22)}
+\item \qid{2.4}\hot Abbozza l'algoritmo LSD RadixSort per $n$ chiavi di $b$ bit ciascuna; enuncia e
+dimostra la sua complessit\`a temporale; dimostra la correttezza dell'ordinamento prodotto (caso
+stringhe binarie). Variante: complessit\`a del RadixSort ottimo su $n$ stringhe binarie di lunghezza
+totale $N$. \emph{(16/01/23, 05/06/23, 11/07/24, 10/01/25, 23/06/25)}
+\item \qid{2.5}\hot Scrivi e commenta lo pseudocodice del Bounded QuickSort, cio\`e la variante che
+garantisce uno stack di taglia $\OO{\log n}$ (equivalentemente: $\OO{\log n}$ chiamate ricorsive
+annidate per qualunque input). \emph{(10/01/25, 04/02/25, 23/06/25)}
+\end{itemize}
+
+\section{Random Sampling}
+
+\begin{itemize}[leftmargin=1.4em]
+\item \qid{3.1}\hot Scrivi (solo) lo pseudocodice del Reservoir Sampling. \emph{(06/03/25, 03/06/25)}
+\item \qid{3.2}\hot Data una sequenza $S$ di $n$ item ($n$ ignoto) e un intero $m$ (eventualmente
+$m<n/2$): mostra lo pseudocodice del Reservoir Sampling e dimostrane la correttezza, cio\`e che ogni
+item \`e campionato con probabilit\`a $m/n$ (campionamento uniforme). \emph{(02/11/23, 11/07/24)}
+\item \qid{3.3} Data una sequenza $S$ di $n$ item con $n$ \emph{noto} e un intero $m$, scrivi lo
+pseudocodice dell'algoritmo di sampling che estrae $m$ item uniformemente a caso, e dimostrane la
+correttezza (probabilit\`a $m/n$) nel caso $m=1$. \emph{(06/11/23; simulazioni in 13/06/22, 10/02/23, 07/09/23)}
+\end{itemize}
+
+\section{Set Intersection}
+
+\begin{itemize}[leftmargin=1.4em]
+\item \qid{4.1}\hot Date due liste ordinate $L_1$, $L_2$ di lunghezze $n$ e $m$: descrivi l'algoritmo
+\emph{two-level} (detto anche two-level scan / two-level memory / two-level storage) per calcolarne
+l'intersezione; enuncia e dimostra la sua complessit\`a. \emph{(09/02/24, 21/06/24, 11/11/24, 15/07/25)}
+\item \qid{4.2} Descrivi l'algoritmo \emph{mutual partition} per l'intersezione di $L_1$, $L_2$,
+con la sua complessit\`a. \emph{(11/07/24)}
+\item \qid{4.3} Descrivi il \emph{doubling algorithm} (binary search con salti esponenziali,
+``galloping'') per l'intersezione; enuncia e dimostra la sua complessit\`a. \emph{(15/01/24)}
+\item \qid{4.4} Scrivi lo pseudocodice per intersecare due liste ordinate $L_1$, $L_2$ (di $n_1$ e
+$n_2$ elementi) codificate con Elias--Fano, usando come primitive $\texttt{Access}(L,i)$ e
+$\texttt{GEQ}(L,x)$; valuta e commenta la complessit\`a. \emph{(14/01/22)}
+\end{itemize}
+
+\section{Hashing, Bloom Filter, Skip List, Treap}
+
+\begin{itemize}[leftmargin=1.4em]
+\item \qid{5.1}\hot Definisci una classe di funzioni hash universali; fornisci un esempio e dimostrane
+l'universalit\`a. \emph{(16/01/23, 07/09/23, 02/11/23, 10/01/25)}
+\item \qid{5.2} Definisci una classe universale e mostra che, usata nell'hashing con chaining,
+ottiene lunghezza attesa $\OO{1}$ per catena quando $m=\OO{n}$; da qui il calcolo del numero atteso
+di collisioni. \emph{(06/11/23; esercizi collegati in 10/07/20 e 11/11/20)}
+\item \qid{5.3}\hot Enuncia e dimostra il teorema sul cuckoo graph: per ogni coppia di posizioni $i,j$
+della tabella cuckoo, la probabilit\`a che il cammino minimo $i\to j$ abbia lunghezza $L$ \`e al
+pi\`u $c^{-L}/r$, dove $r$ \`e il numero di posizioni della tabella, $n$ le chiavi memorizzate e
+$r\ge 2cn$. Commenta l'impatto sul load factor. \emph{(10/01/20, 10/02/23, 03/06/25)}
+\item \qid{5.4}\hot Calcola la probabilit\`a che una posizione del bit-array del Bloom Filter (taglia
+$m$, $n$ chiavi inserite) sia 0, e deriva/dimostra la probabilit\`a d'errore complessiva. Variante:
+dimostra che tale probabilit\`a \`e $\tfrac12$ quando il numero di funzioni hash \`e quello ottimo.
+\emph{(11/11/20, 27/05/24, 11/11/24, 15/07/25)}
+\item \qid{5.5}\hot Definisci un Bloom Filter su un dizionario di $n$ chiavi e le operazioni supportate;
+enuncia e dimostra il risultato sul falso positivo. \emph{(24/07/23)}
+\item \qid{5.6} Dati due insiemi $A$, $B$ memorizzati su due server, mostra come calcolarne
+l'intersezione usando un Bloom Filter e un solo round di comunicazione, ammettendo errori.
+\emph{(05/06/23)}
+\item \qid{5.7} Dimostra che l'altezza (profondit\`a) media di una Skip List con $n$ nodi \`e
+$\OO{\log n}$. \emph{(11/11/24, 04/02/25)}
+\item \qid{5.8}\hot Definisci la struttura Treap su $n$ coppie $\langle$chiave, priorit\`a$\rangle$ con
+priorit\`a minima nella radice; descrivi le operazioni supportate e come si implementa lo split su
+una chiave $K$ non presente. \emph{(10/02/23, 23/06/25, orale 25/07/22)}
+\item \qid{5.9} Enuncia e dimostra che la profondit\`a media di un Treap con priorit\`a scelte
+uniformemente a caso \`e logaritmica nel numero di chiavi. \emph{(07/02/20, orale 25/07/22)}
+\end{itemize}
+
+\section{Prefix Search}
+
+\begin{itemize}[leftmargin=1.4em]
+\item \qid{6.1} Dato un Patricia Trie su un dizionario $S$ di $n$ stringhe, descrivi come cercare la
+posizione lessicografica di $P[1,p]$ in $S$; enuncia la complessit\`a in tempo e in I/O.
+\emph{(24/07/23)}
+\item \qid{6.2} Descrivi la differenza fra Compacted Trie e Patricia Trie in termini di spazio e
+tempo di query, in funzione di $n$, della lunghezza totale $N$ e della lunghezza del pattern $P$.
+\emph{(06/03/25)}
+\item \qid{6.3} Qual \`e la differenza principale fra Compacted Trie e Patricia Trie, e come \`e
+stata sfruttata per costruire un indice \emph{two-level} efficiente per un insieme di stringhe?
+\emph{(03/06/25)}
+\item \qid{6.4} Dato un dizionario $D$ di $n$ stringhe di lunghezza variabile e lunghezza totale
+$N$, discuti almeno 3 soluzioni di memorizzazione, commentando spazio e costo tempo/I/O di
+$\texttt{Access}(i)$ (recupero della $i$-esima stringa). \emph{(27/05/24)}
+\item \qid{6.5} Descrivi come usare un compacted trie (con fan-out dei nodi in hash table) per
+ordinare $n$ stringhe di lunghezza totale $L$; commenta tempo e spazio. \emph{(10/07/20)}
+\end{itemize}
+
+\section{Substring Search}
+
+\begin{itemize}[leftmargin=1.4em]
+\item \qid{7.1} Definisci formalmente il suffix array $SA$ di un testo $T[1,n]$ e il corrispondente
+array LCP. \emph{(16/01/23, 02/11/23)}
+\item \qid{7.2}\hot Come \qid{7.1}, e inoltre: descrivi come cercare $P[1,p]$ in $SA$; enuncia e dimostra
+la complessit\`a della ricerca. \emph{(07/09/23)}
+\item \qid{7.3} Definisci $SA$; scrivi lo pseudocodice per costruirlo via qsort; enuncia e commenta
+la complessit\`a worst-case (tempo e I/O) di questa costruzione, e il caso in cui il massimo LCP fra
+i suffissi \`e limitato da una costante $c$. \emph{(07/09/21, 24/07/23)}
+\item \qid{7.4}\hot Mostra come CONTARE in $T[1,n]$ tutte le occorrenze di $P[1,p]$ con un Suffix Array
+in memoria; enuncia e dimostra la complessit\`a; qual \`e il costo I/O del RETRIEVAL delle posizioni
+se $SA$ \`e su disco? \emph{(10/02/21, 15/01/24)}
+\item \qid{7.5}\hot Descrivi come cercare $P[1,p]$ in un $SA$ costruito su $T[1,n]$ e commenta la
+complessit\`a in funzione di $p$ e $n$. \emph{(15/07/25)}
+\item \qid{7.6} Dato il suffix tree di $T[1,n]$, come si calcola la sottostringa pi\`u lunga che
+occorre almeno $L$ volte? Complessit\`a in funzione di $n$. \emph{(12/06/20)}
+\item \qid{7.7} Scrivi lo pseudocodice dell'algoritmo lineare (Kasai et al.) che calcola l'array LCP
+dato $T$ e $SA$, e dimostra che \`e $\OO{n}$. \emph{(orale 25/07/22, domanda ``da lode''; simulazioni
+in 11/11/24, 06/03/25, 15/07/25)}
+\end{itemize}
+
+\section{Integer Coding}
+
+\begin{itemize}[leftmargin=1.4em]
+\item \qid{8.1}\hot Data una sequenza monotona di $n$ interi non negativi $<u$, enuncia e dimostra lo
+spazio (in bit) della codifica di Elias--Fano. \emph{(10/01/20, 27/05/24, 04/02/25)}
+\item \qid{8.2} Scrivi l'algoritmo per eseguire $\texttt{Access}(i)$ su una sequenza codificata con
+Elias--Fano; cenno a $\texttt{NextGEQ}(x)$. \emph{(11/07/24; simulazioni in molti appelli)}
+\item \qid{8.3} Dati gli array $L$ e $H$ di una codifica Elias--Fano, mostra come ricavare il valore
+di $n$ (numero di interi codificati), motivando la risposta. \emph{(orale 25/07/22; \`e il ``hint''
+ricorrente degli esercizi: 11/11/20, 12/12/23, 09/12/24, 06/03/25, 23/06/25)}
+\item \qid{8.4} (Riferimento per gli esercizi di calcolo) Numero di bit emessi dai codici unario,
+$\gamma$, $\delta$, Rice e $(s,c)$-dense su un intero $x$. \emph{(vari appelli)}
+\end{itemize}
+
+\section{Statistical Coding}
+
+\begin{itemize}[leftmargin=1.4em]
+\item \qid{9.1}\hot Descrivi perch\'e \`e stato introdotto il Canonical Huffman; specifica quali
+strutture dati tiene nel preambolo del file compresso; scrivi lo pseudocodice per decomprimere un
+simbolo. \emph{(09/02/24, 21/06/24, 15/07/25)}
+\item \qid{9.2} Dimostra l'upper bound in bit della codifica aritmetica, in funzione dell'entropia e
+della lunghezza del testo in input. \emph{(12/12/23, 09/12/24)}
+\item \qid{9.3} Dimostra un upper bound alla variazione indotta dal troncamento a $k$ cifre di un
+numero $<1$ rappresentato in binario come $.b_1b_2b_3\ldots$ \emph{(10/01/20)}
+\item \qid{9.4} Enuncia il numero di bit emessi da Huffman e da Arithmetic dato un testo $T$ di
+lunghezza $n$ ed entropia empirica $H$; commenta quando conviene comprimere con l'uno o con l'altro,
+tenendo conto anche dell'efficienza in tempo. \emph{(06/03/25, 03/06/25)}
+\item \qid{9.5} Dimostra che due testi $T_1$, $T_2$, l'uno permutazione dell'altro, sono compressi
+con lo stesso numero di bit dalla codifica aritmetica. \emph{(23/06/25)}
+\item \qid{9.6} Perch\'e la codifica aritmetica non emette l'estremo sinistro dell'intervallo finale,
+ma parte dall'elemento centrale e lo tronca? \emph{(07/09/21)}
+\end{itemize}
+
+\section{Strutture dati compresse}
+
+\begin{itemize}[leftmargin=1.4em]
+\item \qid{10.1}\hot Descrivi la struttura dati per supportare $\texttt{Rank}$ su un array binario
+$B[1,n]$ in tempo $\OO{1}$ e valutane lo spazio in bit. \emph{(16/01/23, 05/06/23, 02/11/23)}
+\item \qid{10.2}\hot Dimostra la complessit\`a in tempo e in spazio (in bit) della soluzione che
+implementa $\texttt{Rank}$ in $\OO{1}$ e $o(m)$ bit su $B[1,m]$. \emph{(12/12/23, 10/01/25, 04/02/25)}
+\item \qid{10.3} (Riferimento) Codifica succinta di alberi binari in $B[1,2n+1]$ bit e navigazione
+con Rank/Select; LOUDS per alberi generali. \emph{(base degli esercizi: 11/11/20, 15/12/21,
+25/07/22, 16/01/23, 10/02/23, 24/07/23, 12/12/23, 09/02/24, 10/01/25, 04/02/25, 06/03/25, 03/06/25, 23/06/25)}
+\end{itemize}
+
+\section{Domande di progettazione}
+
+\begin{itemize}[leftmargin=1.4em]
+\item \qid{11.1} \`E data una sequenza $S$ di $n$ coppie $\langle$stringa, occ$\rangle$, dove pi\`u
+coppie possono riferirsi alla stessa stringa e \emph{occ} \`e un valore satellite intero; sia $s$ il
+numero di stringhe distinte. Progetta un algoritmo I/O-efficiente che calcola la stringa con massima
+somma dei valori satellite, valutandone la complessit\`a I/O nei tre casi: (a) $M$ molto pi\`u
+piccola di $s$; (b) $M=\OO{s\log n}$ bit ammettendo errori in probabilit\`a; (c) $M$ pu\`o contenere
+$\OO{s}$ puntatori a stringhe e $\OO{s}$ caratteri e contatori (hint: soluzione trie-based, ma non un
+trie classico). \emph{(07/02/20)}
+\item \qid{11.2} Dato un testo $T[1,n]$ indicizzato da un Suffix Array, progetta un algoritmo che,
+dati $P[1,p]$ e due interi positivi $k$ e $q$, stabilisce se esiste un range di $k$ posizioni
+contigue $T[i,i+k-1]$ in cui \emph{iniziano} almeno $q$ occorrenze di $P$; stampa $i$ se esiste,
+altrimenti $-1$. \emph{(02/02/22)}
+\item \qid{11.3} \`E dato un insieme di coppie $\langle$frequenza, parola$\rangle$. Progetta una
+struttura dati e un algoritmo che, dati un range di frequenze $[f_{\min},f_{\max}]$ e una parola
+$W$, restituiscono tutte le parole lessicograficamente maggiori di $W$ con frequenza nel range;
+discuti complessit\`a in tempo e spazio. \emph{(11/11/24)}
+\end{itemize}

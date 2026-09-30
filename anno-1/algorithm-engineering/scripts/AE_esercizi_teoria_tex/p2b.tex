@@ -1,0 +1,597 @@
+\section{Hashing, Bloom Filter, Skip List, Treap --- risoluzioni}
+
+\subsection*{\qid{5.1}\hot\ Hashing universale: definizione, esempio, prova}
+
+\begin{domanda}
+Definisci una classe di funzioni hash universali; fornisci un esempio e dimostrane
+l'universalit\`a. \emph{(16/01/23, 07/09/23, 02/11/23, 10/01/25)}
+\end{domanda}
+
+\textbf{Definizione.} Una famiglia $\mathcal{H}\subseteq\{h:U\to[0,m)\}$ \`e \emph{universale} se
+per ogni coppia di chiavi distinte $x\ne y$ di $U$:
+\[
+\boxed{\ \Pr_{h\in\mathcal{H}}\bigl[h(x)=h(y)\bigr]\;\le\;\frac{1}{m}\ }
+\]
+dove $h$ \`e estratta uniformemente da $\mathcal{H}$. Equivalentemente: il numero di funzioni
+della famiglia che fanno collidere $x$ e $y$ \`e $\le|\mathcal{H}|/m$. \kw{La casualit\`a sta
+nella scelta della funzione, non nelle chiavi}: la garanzia vale per ogni input, anche avversario.
+
+\textbf{Esempio (prodotto scalare modulo primo).} Sia $m$ \kw{primo} e si scrivano le chiavi in
+base $m$: $k=(k_0,k_1,\dots,k_{r-1})$ con $k_i\in[0,m)$. Per ogni vettore
+$a=(a_0,\dots,a_{r-1})\in[0,m)^r$ si definisce
+\[
+h_a(k)\;=\;\Bigl(\sum_{i=0}^{r-1}a_i\,k_i\Bigr)\bmod m ,
+\]
+con $\mathcal{H}=\{h_a\}$, $|\mathcal{H}|=m^r$ (scegliere $h$ a caso $=$ scegliere $a$ a caso).
+
+\textbf{Prova di universalit\`a.} Siano $x\ne y$; differiscono in almeno una cifra, diciamo la
+$d$-esima: $x_d\ne y_d$. La collisione $h_a(x)=h_a(y)$ equivale a
+\[
+a_d\,(x_d-y_d)\;\equiv\;-\!\!\sum_{i\ne d}a_i\,(x_i-y_i) \pmod m .
+\]
+Poich\'e $m$ \`e primo e $x_d-y_d\not\equiv0$, \kw{$(x_d-y_d)$ \`e invertibile in $\mathbb{Z}_m$}:
+fissati comunque gli altri $r-1$ coefficienti, esiste \kw{esattamente un} valore di $a_d$ che
+soddisfa l'equazione:
+\[
+a_d\;\equiv\;-(x_d-y_d)^{-1}\!\!\sum_{i\ne d}a_i\,(x_i-y_i)\pmod m .
+\]
+Le funzioni che fanno collidere $x,y$ sono dunque $m^{r-1}$, e
+$\Pr[h_a(x)=h_a(y)]=\frac{m^{r-1}}{m^{r}}=\frac{1}{m}$: universale. $\blacksquare$
+
+\subsection*{\qid{5.2} Universale $+$ chaining: catene attese $\OO{1}$}
+
+\begin{domanda}
+Definisci una classe universale e mostra che, usata nell'hashing con chaining, ottiene lunghezza
+attesa $\OO{1}$ per catena quando $m=\OO{n}$; da qui il calcolo del numero atteso di collisioni.
+\emph{(06/11/23; esercizi collegati in 10/07/20 e 11/11/20)}
+\end{domanda}
+
+Definizione di classe universale: come \qid{5.1}. Sia $T[0,m-1]$ una tabella con chaining, $h$
+estratta da una famiglia universale, $n$ chiavi inserite. Fissata una chiave $x$, sia $C_x$ il
+numero di chiavi $y\ne x$ che collidono con $x$. \kw{Per linearit\`a dell'attesa e
+universalit\`a}:
+\[
+\mathbb{E}[C_x]\;=\;\sum_{y\ne x}\Pr[h(y)=h(x)]\;\le\;\frac{n-1}{m}\;<\;\alpha:=\frac{n}{m}.
+\]
+Quindi il costo atteso di una ricerca \`e $\boxed{\OO{1+\alpha}}$, che \`e $\OO{1}$ non appena
+$m=\Omega(n)$: \kw{$m=\OO{n}$ celle bastano per catene di lunghezza attesa costante}.
+$\blacksquare$
+
+\textbf{Esercizio collegato (10/07/20, 11/11/20): collisioni totali attese.} Il numero di coppie
+collidenti \`e $C=\sum_{\{x,y\}}\mathbf{1}[h(x)=h(y)]$ su $\binom{n}{2}$ coppie:
+\[
+\mathbb{E}[C]\;\le\;\binom{n}{2}\frac{1}{m}\;=\;\frac{n(n-1)}{2m}.
+\]
+Con i numeri d'esame ($n=10$, range $[0,22]\Rightarrow m=23$):
+$\mathbb{E}[C]\le\frac{10\cdot9}{2\cdot23}=\frac{45}{23}\approx1.96$.
+
+\subsection*{\qid{5.3}\hot\ Cuckoo hashing: teorema dei cammini}
+
+\begin{domanda}
+Enuncia e dimostra il teorema sul cuckoo graph: per ogni coppia di posizioni $i,j$ della tabella
+cuckoo, la probabilit\`a che il cammino minimo $i\to j$ abbia lunghezza $L$ \`e al pi\`u
+$c^{-L}/r$, dove $r$ \`e il numero di posizioni della tabella, $n$ le chiavi memorizzate e
+$r\ge 2cn$. Commenta l'impatto sul load factor. \emph{(10/01/20, 10/02/23, 03/06/25)}
+\end{domanda}
+
+\textbf{Contesto.} Nel cuckoo hashing ogni chiave $k$ ha due posizioni possibili
+$h_1(k),h_2(k)$ in una tabella di $r$ celle; l'inserimento sfratta a catena. Il \emph{cuckoo
+graph} ha come nodi le $r$ celle e, per ogni chiave, un arco fra le sue due posizioni. Le
+prestazioni dipendono dall'assenza di cammini lunghi e cicli.
+
+\textbf{Teorema.} Se le funzioni hash sono (idealmente) casuali e $r\ge 2cn$ per una costante
+$c>1$, allora per ogni coppia di celle $i,j$ e ogni $L\ge1$:
+\[
+\boxed{\ \Pr\bigl[\exists\text{ cammino minimo }i\to j\text{ di lunghezza }L\bigr]
+\;\le\;\frac{c^{-L}}{r}\ }
+\]
+
+\textbf{Prova (induzione su $L$).}
+
+\emph{Base $L=1$.} Esiste un arco $(i,j)$ sse qualche chiave $k$ ha $\{h_1(k),h_2(k)\}=\{i,j\}$.
+Per una singola chiave: $\Pr=\frac{2}{r^2}$ (due orientamenti). Per union bound sulle $n$ chiavi,
+\kw{usando l'ipotesi $r\ge2cn$, cio\`e $n\le r/(2c)$}:
+\[
+\Pr[\exists\,\text{arco } i\text{--}j]\;\le\;\frac{2n}{r^{2}}
+\;\le\;\frac{2}{r^{2}}\cdot\frac{r}{2c}\;=\;\frac{c^{-1}}{r}.
+\]
+
+\emph{Passo.} Un cammino minimo $i\to j$ di lunghezza $L$ \`e composto da un cammino minimo di
+lunghezza $L-1$ da $i$ a una cella intermedia $\ell$, seguito da un arco $(\ell,j)$. Per union
+bound su $\ell$, con ipotesi induttiva e indipendenza dell'ultimo arco:
+\[
+\Pr[\text{cammino }i\to j\text{ di lung. }L]
+\;\le\;\sum_{\ell=1}^{r}\frac{c^{-(L-1)}}{r}\cdot\frac{c^{-1}}{r}
+\;=\;r\cdot\frac{c^{-(L-1)}}{r}\cdot\frac{1}{c\,r}
+\;=\;\frac{c^{-L}}{r}. \;\blacksquare
+\]
+
+\textbf{Conseguenze e load factor.} Probabilit\`a che $i$ e $j$ siano connessi (lunghezza
+qualunque): $\sum_{L\ge1}\frac{c^{-L}}{r}=\frac{1}{r(c-1)}$. Da qui:
+(i) \kw{insert atteso $\OO{1}$} (cammini attesi di lunghezza costante) e \kw{ricerca/delete
+$\OO{1}$ worst case} (si guardano 2 celle);
+(ii) la probabilit\`a di un \emph{ciclo} (fallimento $\Rightarrow$ rehash) si maggiora con
+$\frac{1}{c-1}$: con $c=3$ \`e $\le\frac12$, quindi $\OO{1}$ rehash attesi, ammortizzato $\OO{1}$.
+\emph{Prezzo}: $r\ge2cn=6n$ celle, cio\`e \kw{load factor $\le1/6\approx17\%$}: il cuckoo classico
+garantisce i bound solo a tabelle molto scariche (varianti con pi\`u hash o celle multi-slot
+arrivano oltre il 90\%).
+
+\subsection*{\qid{5.4}--\qid{5.5}\hot\ Bloom Filter: definizione, bit a 0, falso positivo, ottimo}
+
+\begin{domanda}
+\qid{5.4} Calcola la probabilit\`a che una posizione del bit-array del Bloom Filter (taglia $m$,
+$n$ chiavi inserite) sia 0, e deriva/dimostra la probabilit\`a d'errore complessiva. Variante:
+dimostra che tale probabilit\`a \`e $\tfrac12$ quando il numero di funzioni hash \`e quello
+ottimo. \emph{(11/11/20, 27/05/24, 11/11/24, 15/07/25)}\\
+\qid{5.5} Definisci un Bloom Filter su un dizionario di $n$ chiavi e le operazioni supportate;
+enuncia e dimostra il risultato sul falso positivo. \emph{(24/07/23)}
+\end{domanda}
+
+\textbf{Definizione e operazioni (\qid{5.5}).} Un Bloom Filter per un dizionario $D$ di $n$ chiavi
+\`e un array binario $B[0,m-1]$, inizialmente tutto 0, pi\`u $k$ funzioni hash indipendenti
+$h_1,\dots,h_k:U\to[0,m)$.
+\emph{Insert}$(x)$: pone $B[h_i(x)]=1$ per $i=1..k$; costo $\OO{k}$.
+\emph{Query}$(y)$: risponde ``presente'' sse $B[h_i(y)]=1$ \emph{per tutti} gli $i$; costo
+$\OO{k}$. Non supporta la cancellazione (creerebbe falsi negativi; la variante counting/spectral
+usa contatori). Propriet\`a fondamentale: \kw{niente falsi negativi, possibili falsi positivi}.
+
+\textbf{Probabilit\`a che un bit sia 0.} Gli inserimenti accendono $kn$ posizioni casuali
+indipendenti; una posizione fissata resta 0 se tutte le $kn$ estrazioni la evitano:
+\[
+\boxed{\ p_0=\Bigl(1-\frac{1}{m}\Bigr)^{kn}\;\approx\;e^{-kn/m}\ }
+\]
+
+\textbf{Probabilit\`a di falso positivo.} $y\notin D$ \`e dichiarata presente sse le sue $k$
+posizioni sono tutte a 1 (assumendo indipendenza, approssimazione standard):
+\[
+\boxed{\ \varepsilon\;=\;(1-p_0)^{k}\;\approx\;\bigl(1-e^{-kn/m}\bigr)^{k}\ }
+\]
+
+\textbf{Numero ottimo di hash e $p_0=\tfrac12$ (\qid{5.4}).} Minimizziamo
+$\varepsilon(k)=(1-e^{-kn/m})^k$. Posto \kw{$t=e^{-kn/m}$}, cio\`e $k=-\frac{m}{n}\ln t$:
+\[
+\ln\varepsilon=k\ln(1-t)=-\frac{m}{n}\,\ln t\,\ln(1-t).
+\]
+La funzione $g(t)=\ln t\,\ln(1-t)$ \`e \kw{simmetrica rispetto a $t\mapsto1-t$} e unimodale: il
+punto ottimo \`e $t=\tfrac12$ (formalmente $g'(t)=\frac{\ln(1-t)}{t}-\frac{\ln t}{1-t}=0$ in
+$t=\frac12$). Quindi
+\[
+e^{-k^{*}n/m}=\tfrac12
+\;\Longrightarrow\;
+\boxed{\;k^{*}=\frac{m}{n}\ln2\,,\qquad p_0=\tfrac12\;}
+\]
+\kw{con $k$ ottimo met\`a dei bit \`e a 0 e met\`a a 1} (massima ``entropia'' del filtro).
+Errore all'ottimo:
+\[
+\boxed{\ \varepsilon^{*}=\Bigl(\tfrac12\Bigr)^{k^{*}}=2^{-\frac{m}{n}\ln2}
+\approx(0.6185)^{\,m/n}\ }
+\]
+\kw{esponenzialmente piccolo nel numero di bit per chiave $m/n$}
+(es.\ $m/n=10\Rightarrow\varepsilon\approx0.8\%$ con $k^*\approx7$).
+
+\subsection*{\qid{5.6} Intersezione di due insiemi su due server con un Bloom Filter}
+
+\begin{domanda}
+Dati due insiemi $A$, $B$ memorizzati su due server, mostra come calcolarne l'intersezione usando
+un Bloom Filter e un solo round di comunicazione, ammettendo errori. \emph{(05/06/23)}
+\end{domanda}
+
+\emph{Protocollo.} Il server 1 costruisce un Bloom Filter $BF_A$ di $A$ (taglia $m=\Theta(|A|)$
+bit, $k$ ottimo) e \kw{lo invia al server 2} (un solo messaggio). Il server 2 esegue
+$\textit{Query}_{BF_A}(b)$ per ogni $b\in B$ e restituisce
+$X=\{b\in B:\ BF_A(b)=\text{presente}\}$.
+
+\emph{Correttezza/errore.} \kw{Niente falsi negativi $\Rightarrow$ $A\cap B\subseteq X$}: nessun
+elemento dell'intersezione \`e perso. Ogni $b\in B\setminus A$ finisce in $X$ con probabilit\`a
+$\varepsilon\approx(0.6185)^{m/|A|}$: attesi $\varepsilon\,|B\setminus A|$ falsi positivi,
+controllabili aumentando $m$. \emph{Comunicazione}: $m=\OO{|A|}$ \kw{bit} invece di
+$\Theta(|A|\log u)$ bit per spedire $A$ esplicitamente. (Se serve l'intersezione esatta, un
+secondo round di verifica elimina gli errori --- ma la domanda chiede la versione a un round.)
+
+\subsection*{\qid{5.7} Skip List: altezza media $\OO{\log n}$}
+
+\begin{domanda}
+Dimostra che l'altezza (profondit\`a) media di una Skip List con $n$ nodi \`e $\OO{\log n}$.
+\emph{(11/11/24, 04/02/25)}
+\end{domanda}
+
+\textbf{Setup.} Ogni elemento viene promosso di livello con probabilit\`a $\tfrac12$
+indipendentemente: $\Pr[\text{liv}(x)\ge\ell]=2^{-(\ell-1)}$ (geometrica). L'\emph{altezza} \`e
+$H=\max_x \text{liv}(x)$.
+
+\textbf{Prova.} Per union bound, per ogni $\ell\ge1$:
+\[
+\Pr[H\ge\ell]\;\le\;\sum_{x}\Pr[\text{liv}(x)\ge\ell]\;=\;n\,2^{-(\ell-1)}
+\qquad(\text{e ovviamente }\le1).
+\]
+Con l'identit\`a \kw{$\mathbb{E}[H]=\sum_{\ell\ge1}\Pr[H\ge\ell]$}, spezzando la somma in
+$\ell\le1+\log_2 n$ e $\ell>1+\log_2 n$:
+\[
+\mathbb{E}[H]\;\le\;\underbrace{\sum_{\ell=1}^{1+\log_2 n}1}_{\le\,1+\log_2 n}
+\;+\;\sum_{j\ge1} n\,2^{-(\log_2 n+j)}
+\;=\;1+\log_2 n+\sum_{j\ge1}2^{-j}
+\;=\;\boxed{\ \log_2 n+2\ }\;=\;\OO{\log n}. \;\blacksquare
+\]
+Concentrazione: $\Pr[H\ge c\log_2 n]\le 2n^{1-c}$, cio\`e \kw{altezza $\OO{\log n}$ con alta
+probabilit\`a}.
+
+\textbf{Complemento utile (ricerca $\OO{\log n}$ attesa).} Analizzando il cammino di ricerca
+\emph{a ritroso}: da ogni nodo si sale di livello con probabilit\`a $\tfrac12$, altrimenti ci si
+sposta orizzontalmente; per salire gli $\OO{\log n}$ livelli servono in attesa 2 passi per
+livello: $\OO{\log n}$ passi totali.
+
+\subsection*{\qid{5.8}\hot\ Treap: definizione, operazioni, split}
+
+\begin{domanda}
+Definisci la struttura Treap su $n$ coppie $\langle$chiave, priorit\`a$\rangle$ con priorit\`a
+minima nella radice; descrivi le operazioni supportate e come si implementa lo split su una chiave
+$K$ non presente. \emph{(10/02/23, 23/06/25, orale 25/07/22)}
+\end{domanda}
+
+\textbf{Definizione.} Un Treap su $n$ coppie $\langle k,\pi\rangle$ \`e un albero binario che \`e
+\kw{contemporaneamente}: (i) un \kw{BST rispetto alle chiavi} $k$ (visita in order $=$ ordine
+crescente delle chiavi); (ii) uno \kw{heap rispetto alle priorit\`a} $\pi$ --- qui un MIN-heap:
+la radice ha la priorit\`a minima. \kw{Se le priorit\`a sono distinte, il Treap \`e unico}: la
+radice \`e forzata (priorit\`a minima), le chiavi minori vanno a sinistra, le maggiori a destra,
+ricorsivamente. Operazioni: search ($\OO{h}$ come BST), insert e delete tramite rotazioni che
+ripristinano lo heap ($\OO{h}$), split e merge ($\OO{h}$); $h=\OO{\log n}$ attesa con priorit\`a
+casuali (\qid{5.9}).
+
+\textbf{Split su chiave $K$ non presente.} Obiettivo: dividere $T$ in $T_{<K}$ e $T_{>K}$.
+\begin{enumerate}[leftmargin=1.8em,itemsep=1pt]
+\item \kw{Si inserisce il nodo fittizio $\langle K,-\infty\rangle$} con l'insert standard: discesa
+BST fino a una foglia, poi --- avendo priorit\`a minima di tutti --- il nodo \kw{risale con
+rotazioni fino a diventare la radice}.
+\item Per la propriet\`a BST, il sottoalbero sinistro della nuova radice contiene esattamente le
+chiavi $<K$ e il destro le chiavi $>K$ (le rotazioni preservano BST e heap nei sottoalberi).
+\item Si rimuove il nodo fittizio: i suoi due figli sono $T_{<K}$ e $T_{>K}$.
+\end{enumerate}
+Costo: un insert $=\OO{\log n}$ atteso. (Il \emph{merge} \`e l'operazione inversa: radice fittizia
+sopra i due treap, che poi si fa scendere ed eliminare.)
+
+\subsection*{\qid{5.9} Treap: profondit\`a media $\OO{\log n}$}
+
+\begin{domanda}
+Enuncia e dimostra che la profondit\`a media di un Treap con priorit\`a scelte uniformemente a
+caso \`e logaritmica nel numero di chiavi. \emph{(07/02/20, orale 25/07/22)}
+\end{domanda}
+
+\textbf{Teorema.} Se le priorit\`a sono uniformi e indipendenti, per ogni nodo
+$\mathbb{E}[\text{depth}(u_j)]\le 2\ln n=\OO{\log n}$.
+
+\textbf{Lemma (struttura degli antenati).} Siano $u_1,\dots,u_n$ i nodi in ordine di chiave.
+Allora \kw{$u_i$ \`e antenato di $u_j$ $\iff$ $u_i$ ha la priorit\`a minima nell'intervallo di
+chiavi} $S_{ij}=\{u_{\min(i,j)},\dots,u_{\max(i,j)}\}$.
+
+\emph{Prova del lemma.} Sia $z$ il nodo di priorit\`a minima in $S_{ij}$. Nel (unico) Treap, il
+pi\`u piccolo sottoalbero che contiene tutto $S_{ij}$ ha come radice un nodo di $S_{ij}$ (le
+chiavi di $S_{ij}$ sono contigue, e la radice che le separa ha chiave interna all'intervallo);
+per la propriet\`a di heap tale radice \`e $z$, che quindi \`e antenato di tutti i nodi di
+$S_{ij}$. Se $z=u_i$: $u_i$ antenato di $u_j$. Se $z\ne u_i$: o $z=u_j$ (e allora \`e $u_j$
+l'antenato), oppure $u_i$ e $u_j$ stanno in sottoalberi \emph{diversi} di $z$ (chiavi da parti
+opposte della chiave di $z$) e $u_i$ non \`e antenato di $u_j$. In tutti i casi: antenato $\iff$
+minimo. $\square$
+
+\emph{Prova del teorema.} Con priorit\`a uniformi, ogni nodo di $S_{ij}$ ($|i-j|+1$ elementi) \`e
+il minimo con la stessa probabilit\`a:
+\[
+\Pr[u_i\text{ antenato di }u_j]=\frac{1}{|i-j|+1}.
+\]
+La profondit\`a di $u_j$ \`e il numero dei suoi antenati; \kw{per linearit\`a dell'attesa}:
+\[
+\mathbb{E}[\text{depth}(u_j)]
+=\sum_{i\ne j}\frac{1}{|i-j|+1}
+=\sum_{t=2}^{j}\frac{1}{t}+\sum_{t=2}^{\,n-j+1}\frac{1}{t}
+\;\le\;2(H_n-1)\;\le\;\boxed{\ 2\ln n\ }=\OO{\log n}. \;\blacksquare
+\]
+
+\textbf{Commento.} \kw{Il Treap con priorit\`a casuali \`e un random BST}, qualunque sia l'ordine
+di inserimento delle chiavi: \`e la sua ragion d'essere.
+
+% ==================================================================
+\section{Prefix Search --- risoluzioni}
+
+\subsection*{\qid{6.1} Ricerca lessicografica in un Patricia Trie}
+
+\begin{domanda}
+Dato un Patricia Trie su un dizionario $S$ di $n$ stringhe, descrivi come cercare la posizione
+lessicografica di $P[1,p]$ in $S$; enuncia la complessit\`a in tempo e in I/O. \emph{(24/07/23)}
+\end{domanda}
+
+\textbf{Struttura (richiamo).} Il Patricia Trie \`e il compacted trie in cui ogni arco memorizza
+soltanto il \emph{primo carattere} dell'etichetta, e ogni nodo la lunghezza (skip) del prefisso
+raggiunto; le stringhe complete risiedono solo nelle foglie (tipicamente su disco).
+
+\textbf{Ricerca (blind search), tre passi:}
+\begin{enumerate}[leftmargin=1.8em,itemsep=1pt]
+\item \emph{Discesa cieca.} Dalla radice, a ogni nodo con skip $\ell$ si usa $P[\ell+1]$ per
+scegliere l'arco (confrontando solo il carattere di diramazione, \kw{senza verificare i caratteri
+saltati}). Si termina a una foglia candidata $f$ (in caso di mismatch di diramazione si prosegue
+comunque su un rappresentante del sottoalbero).
+\item \emph{Verifica.} Si carica \kw{l'unica stringa} $s_f$ della foglia e si calcola
+$\ell^{*}=\mathrm{lcp}(P,s_f)$. Propriet\`a chiave che rende corretta la blind search:
+\kw{$s_f$ massimizza l'lcp con $P$ fra tutte le stringhe di $S$} (le stringhe con lcp maggiore
+starebbero sullo stesso cammino di discesa).
+\item \emph{Riposizionamento.} Si risale al punto di profondit\`a $\ell^{*}$ del cammino;
+confrontando $P[\ell^{*}+1]$ con i caratteri di diramazione si determina la posizione di $P$ fra i
+sottoalberi, e contando le foglie a sinistra la sua posizione lessicografica in $S$.
+\end{enumerate}
+
+\textbf{Complessit\`a.}
+\[
+\boxed{\ \OO{p}\ \text{tempo},\qquad \OO{1}\ \text{I/O}\ }
+\]
+(pi\`u precisamente $\OO{p/B}$ I/O per leggere la stringa candidata). \kw{Una sola stringa
+toccata per qualunque ricerca}: \`e il punto di forza del Patricia.
+
+\subsection*{\qid{6.2}--\qid{6.3} Compacted Trie vs Patricia Trie, e l'indice two-level}
+
+\begin{domanda}
+\qid{6.2} Descrivi la differenza fra Compacted Trie e Patricia Trie in termini di spazio e tempo
+di query, in funzione di $n$, della lunghezza totale $N$ e della lunghezza del pattern $P$.
+\emph{(06/03/25)}\\
+\qid{6.3} Qual \`e la differenza principale fra Compacted Trie e Patricia Trie, e come \`e stata
+sfruttata per costruire un indice two-level efficiente per un insieme di stringhe?
+\emph{(03/06/25)}
+\end{domanda}
+
+\textbf{Compacted trie.} Archi etichettati con \emph{sottostringhe intere} (coppie
+(puntatore, lunghezza) nelle stringhe di $S$). Nodi $\OO{n}$, ma per navigare servono le stringhe:
+spazio complessivo $\TT{N}$ caratteri $+$ $\OO{n}$ puntatori. Query: confronta \emph{tutti} i
+caratteri di $P$ durante la discesa: tempo $\OO{p}$, ma se le stringhe sono su disco ogni arco
+pu\`o costare accessi (pi\`u di $\OO{1}$ I/O).
+
+\textbf{Patricia trie.} Un carattere $+$ skip per arco: \kw{spazio $\OO{n}$ parole, indipendente
+da $N$}; query $\OO{p}$ con \kw{un solo accesso a una stringa} per la verifica finale: $\OO{1}$
+I/O (\qid{6.1}). Prezzo: i caratteri saltati non sono controllati in discesa (serve la verifica).
+
+\textbf{Differenza principale (\qid{6.3}).} Il compacted trie richiede le etichette complete
+(spazio $\propto N$); \kw{il Patricia riduce ogni etichetta a 1 carattere $+$ 1 intero: spazio
+indipendente dalla lunghezza delle stringhe}, al costo di una verifica posticipata.
+
+\textbf{Sfruttamento nel two-level index.} Dizionario ordinato su disco a blocchi; in memoria un
+\kw{Patricia trie su una stringa campione per blocco} (es.\ la prima):
+\begin{itemize}[leftmargin=1.6em,itemsep=1pt]
+\item lo spazio in memoria \`e $\OO{n/B_{\mathrm{blk}}}$ parole e \kw{non dipende dalla lunghezza
+delle stringhe campione} --- la propriet\`a sfruttata \`e esattamente questa;
+\item una query fa blind search in $\OO{p}$ tempo e $\OO{1}$ I/O, individuando \kw{l'unico blocco}
+che pu\`o contenere $P$;
+\item si legge quel blocco ($\OO{1}$ I/O $+$ $\OO{occ/B}$ per output lunghi) e lo si scandisce;
+i blocchi sono compressi con \emph{front coding}, decodificabile dal capo-blocco memorizzato per
+intero.
+\end{itemize}
+Risultato: prefix search in $\OO{p}$ tempo e $\OO{1+occ/B}$ I/O con memoria interna minima.
+
+\subsection*{\qid{6.4} Storage di un dizionario di stringhe: tre soluzioni a confronto}
+
+\begin{domanda}
+Dato un dizionario $D$ di $n$ stringhe di lunghezza variabile e lunghezza totale $N$, discuti
+almeno 3 soluzioni di memorizzazione, commentando spazio e costo tempo/I/O di
+$\texttt{Access}(i)$. \emph{(27/05/24)}
+\end{domanda}
+
+\textbf{(1) Concatenazione $+$ array di offset.} Stringhe concatenate in un array di $N$
+caratteri; array $\mathit{off}[1,n]$ ($n\lceil\log_2 N\rceil$ bit).
+\emph{Access}$(i)$: lettura diretta di $[\mathit{off}[i],\mathit{off}[i+1])$:
+\kw{tempo $\OO{|s_i|}$, I/O $\OO{1+|s_i|/B}$} --- ottimo. Spazio: $N$ caratteri $+$ $n\log N$ bit
+(gli offset possono dominare con stringhe corte). Nessuna compressione.
+
+\textbf{(2) Concatenazione con lunghezze in linea (senza puntatori).} Ogni stringa preceduta dalla
+propria lunghezza (es.\ in $\gamma$-code): spazio $\approx N+\OO{n\log\frac{N}{n}}$ bit.
+\emph{Access}$(i)$ richiederebbe la scansione dall'inizio: si corregge \kw{campionando un offset
+esplicito ogni $k$ stringhe} (spazio extra $\frac{n}{k}\log N$ bit): Access $=$ salto al campione
+$+$ scansione di $\le k$ stringhe: tempo $\OO{k\,\ell_{\max}}$, I/O $\OO{1+k\ell_{\max}/B}$.
+\kw{Trade-off spazio/tempo regolato da $k$}.
+
+\textbf{(3) Front coding a blocchi (FC$_B$).} Dizionario ordinato: stringhe consecutive
+condividono prefissi lunghi. Blocchi di $k$ stringhe: la prima \kw{per intero} (copia di
+ripartenza), le successive come coppie $\langle\ell_j,\hat{s}_j\rangle$ (lcp con la precedente,
+suffisso residuo). Spazio: $FC_B(D)\ll N$ su dizionari reali ($\approx-70\%$ sugli URL) $+$
+$\frac{n}{k}\log N$ bit di puntatori. \emph{Access}$(i)$: salto al blocco $\lceil i/k\rceil$
+($\OO{1}$ I/O) e decodifica in scansione: tempo $\OO{k\,\ell_{\max}}$, I/O tipicamente $\OO{1}$.
+\kw{\`E la soluzione usata nei blocchi dell'indice two-level} di \qid{6.3}.
+
+\emph{Confronto}: (1) accesso ottimo, spazio massimo; (2) spazio minore, accesso pi\`u lento
+(regolabile); (3) \kw{compressione vera con accesso quasi-ottimo: il compromesso standard}.
+(Quarta opzione citabile: compacted trie/Patricia $+$ stringhe su disco, se servono anche ricerche
+per prefisso.)
+
+\subsection*{\qid{6.5} Ordinare stringhe con un compacted trie a fan-out hash}
+
+\begin{domanda}
+Descrivi come usare un compacted trie (con fan-out dei nodi in hash table) per ordinare $n$
+stringhe di lunghezza totale $L$; commenta tempo e spazio. \emph{(10/07/20)}
+\end{domanda}
+
+\textbf{Costruzione.} Si inseriscono le $n$ stringhe una alla volta nel compacted trie, dove il
+fan-out di ogni nodo \`e una \kw{hash table} (carattere di diramazione $\to$ figlio).
+L'inserimento di $s$ scende carattere per carattere: ogni passo costa $\OO{1}$ atteso (lookup
+hash); in caso di mismatch a met\`a arco si spezza l'arco con $\OO{1}$ nodi nuovi. Costruzione:
+\kw{$\OO{L}$ atteso}; spazio $\OO{n}$ nodi $+$ etichette come puntatori nelle stringhe originali.
+
+\textbf{Ordinamento.} L'ordine lessicografico \`e la \kw{DFS del trie con i figli visitati in
+ordine alfabetico}. Ma \kw{le hash table non mantengono l'ordine}: prima della DFS si ordinano le
+liste dei figli di ciascun nodo: $\sum_v \OO{d_v\log d_v}\le\OO{n\log\sigma}$ (poich\'e
+$\sum_v d_v\le 2n$ e $d_v\le\sigma$). DFS finale: $\OO{n}$.
+
+\textbf{Bilancio.}
+\[
+\boxed{\ \OO{L+n\log\sigma}\ \text{tempo atteso},\qquad \OO{n}\ \text{spazio extra}\ }
+\]
+Confronto col lower bound \qid{2.2} $\Om{d+n\log n}$: il trie evita di riconfrontare i prefissi
+comuni e sposta il termine di ordinamento a $n\log\sigma$; il prezzo \`e il bound solo
+\emph{atteso} (hashing) e la localit\`a peggiore rispetto al Multikey QuickSort.
+
+% ==================================================================
+\section{Substring Search --- risoluzioni}
+
+\subsection*{\qid{7.1} Definizioni: Suffix Array e array LCP}
+
+\begin{domanda}
+Definisci formalmente il suffix array $SA$ di un testo $T[1,n]$ e il corrispondente array LCP.
+\emph{(16/01/23, 02/11/23)}
+\end{domanda}
+
+\textbf{Suffix Array.} Dato $T[1,n]$ (terminato da $\$$, minimo lessicografico), $\mathit{SA}[1,n]$
+\`e \kw{la permutazione di $\{1,\dots,n\}$ che ordina lessicograficamente i suffissi}:
+\[
+T[\mathit{SA}[1],n]\;<\;T[\mathit{SA}[2],n]\;<\;\dots\;<\;T[\mathit{SA}[n],n],
+\]
+cio\`e $\mathit{SA}[i]$ \`e la posizione iniziale dell'$i$-esimo suffisso in ordine
+lessicografico. Spazio: $n$ interi $=\Theta(n\log n)$ bit (oltre a $T$).
+
+\textbf{Array LCP.} $\mathit{LCP}[1,n-1]$ dove
+\[
+\mathit{LCP}[i]\;=\;\bigl|\mathrm{lcp}\bigl(T[\mathit{SA}[i],n],\;T[\mathit{SA}[i+1],n]\bigr)\bigr|
+\]
+\`e la lunghezza del pi\`u lungo prefisso comune fra i suffissi \kw{lessicograficamente
+consecutivi}. Propriet\`a utile: l'lcp fra i suffissi in posizioni $i<j$ \`e
+$\min_{i\le t<j}\mathit{LCP}[t]$ (range minimum).
+
+\subsection*{\qid{7.2}, \qid{7.4}, \qid{7.5}\hot\ Ricerca e COUNT con il Suffix Array}
+
+\begin{domanda}
+\qid{7.2} Definisci $SA$ e LCP; descrivi come cercare $P[1,p]$ in $SA$; enuncia e dimostra la
+complessit\`a della ricerca. \emph{(07/09/23)}\\
+\qid{7.4} Mostra come CONTARE in $T[1,n]$ tutte le occorrenze di $P[1,p]$ con un Suffix Array in
+memoria; enuncia e dimostra la complessit\`a; qual \`e il costo I/O del RETRIEVAL delle posizioni
+se $SA$ \`e su disco? \emph{(10/02/21, 15/01/24)}\\
+\qid{7.5} Descrivi come cercare $P[1,p]$ in un $SA$ costruito su $T[1,n]$ e commenta la
+complessit\`a in funzione di $p$ e $n$. \emph{(15/07/25)}
+\end{domanda}
+
+\textbf{Osservazione chiave.} Le occorrenze di $P$ sono i suffissi che hanno $P$ come prefisso;
+nell'ordine lessicografico questi suffissi sono \kw{consecutivi}: formano un intervallo
+$\mathit{SA}[i^{*},j^{*}]$.
+
+\textbf{Algoritmo.} \kw{Due ricerche binarie} su $\mathit{SA}$: una per il bordo sinistro $i^{*}$,
+una per il bordo destro $j^{*}$. Ogni passo confronta $P$ col suffisso corrente: $\le p$ confronti
+di caratteri.
+
+\textbf{Complessit\`a (con prova).}
+\[
+\boxed{\ \OO{p\log n}\ \text{(ricerca ingenua)},\qquad \OO{p+\log n}\ \text{con Llcp/Rlcp}\ }
+\]
+\emph{Prova del primo bound}: la ricerca binaria fa $\lceil\log_2 n\rceil$ iterazioni; ogni
+iterazione \`e un confronto lessicografico che termina al primo mismatch, dopo al pi\`u $p$
+caratteri. \emph{Raffinamento}: mantenendo per l'intervallo corrente $[L,R]$ i valori
+$\ell=\mathrm{lcp}(P,\text{suff}_{SA[L]})$, $r=\mathrm{lcp}(P,\text{suff}_{SA[R]})$ e usando gli
+array precalcolati $\mathit{Llcp}/\mathit{Rlcp}$, a ogni passo \kw{o si dimezza l'intervallo senza
+leggere caratteri, o ogni carattere letto di $P$ fa crescere $\max(\ell,r)$} ($\le p$ volte in
+tutto): totale $\OO{p+\log n}$. $\blacksquare$
+
+\textbf{COUNT (\qid{7.4}).} Trovato l'intervallo:
+$\boxed{\mathit{occ}=j^{*}-i^{*}+1}$, senza lavoro aggiuntivo. Costo: quello della ricerca.
+
+\textbf{RETRIEVAL con $SA$ su disco (\qid{7.4}).} Le posizioni sono
+$\mathit{SA}[i^{*}..j^{*}]$: \kw{celle contigue su disco}, lette con scansione sequenziale in
+\[
+\boxed{\ \OO{\frac{\mathit{occ}}{B}}\ \text{I/O}\ }
+\]
+(pi\`u $\OO{\frac{p}{B}\log n}$ I/O per le binarie se anche $T$ \`e su disco). \kw{La contiguit\`a
+rende il retrieval I/O-ottimale, output-sensitive.}
+
+\subsection*{\qid{7.3} Costruzione del Suffix Array via qsort}
+
+\begin{domanda}
+Definisci $SA$; scrivi lo pseudocodice per costruirlo via qsort; enuncia e commenta la
+complessit\`a worst-case (tempo e I/O) di questa costruzione, e il caso in cui il massimo LCP fra
+i suffissi \`e limitato da una costante $c$. \emph{(07/09/21, 24/07/23)}
+\end{domanda}
+
+\textbf{Pseudocodice.}
+\begin{verbatim}
+BuildSA-qsort(T[1,n]):
+  SA = [1, 2, ..., n]                      // indici dei suffissi
+  qsort(SA, cmp)                           // comparatore:
+     cmp(i, j) = confronto lessicografico  //   strncmp(T+i, T+j)
+                 di T[i,n] con T[j,n]      //   carattere per carattere
+  return SA
+\end{verbatim}
+
+\textbf{Tempo (worst case).} qsort fa $\OO{n\log n}$ confronti; ogni confronto costa fino a
+$\Theta(n)$ caratteri (suffissi con lcp lungo, caso estremo $T=a^n$):
+\[
+\boxed{\ \OO{n^2\log n}\ \text{tempo worst case}\ }
+\]
+
+\textbf{I/O e perch\'e \`e inefficiente.} Due ragioni strutturali:
+(a) ogni confronto scandisce fino a $\Theta(n)$ caratteri \kw{a partire da due posizioni
+arbitrarie del testo}: $\OO{n/B}$ I/O a confronto, $\OO{\frac{n}{B}n\log n}$ totali;
+(b) qsort permuta \emph{puntatori}: \kw{gli accessi ai suffissi sono sparsi e distruggono la
+localit\`a} (niente prefetching). \`E l'esempio da manuale di algoritmo RAM-accettabile ma
+I/O-pessimo; le costruzioni serie (skew/DC3, SA-IS) ottengono $\OO{n}$ o $\OO{sort(n)}$.
+
+\textbf{Caso LCP massimo $\le c$.} Ogni confronto termina entro $c+1$ caratteri, cio\`e $\OO{1}$:
+\[
+\boxed{\ \OO{n\log n}\ \text{tempo}\ }
+\]
+\kw{Il degrado dipende dalla ripetitivit\`a del testo, misurata dagli LCP.}
+
+\subsection*{\qid{7.6} Suffix tree: la pi\`u lunga sottostringa che occorre $\ge L$ volte}
+
+\begin{domanda}
+Dato il suffix tree di $T[1,n]$, come si calcola la sottostringa pi\`u lunga che occorre almeno
+$L$ volte? Complessit\`a in funzione di $n$. \emph{(12/06/20)}
+\end{domanda}
+
+\textbf{Fatti usati.} (i) ogni sottostringa di $T$ \`e un cammino dalla radice (anche a met\`a
+arco); (ii) \kw{il numero di occorrenze di una sottostringa $=$ numero di foglie nel sottoalbero}
+del punto che la rappresenta; (iii) i nodi interni sono $\le n-1$.
+
+\textbf{Algoritmo.}
+\begin{enumerate}[leftmargin=1.8em,itemsep=1pt]
+\item Costruisci il suffix tree (dato, oppure $\OO{n}$ con McCreight/Ukkonen).
+\item Con una DFS annota ogni nodo interno $v$ con $\mathit{leaves}(v)$ (somma sui figli, foglie
+$=1$): $\OO{n}$.
+\item Fra i nodi interni con $\mathit{leaves}(v)\ge L$, prendi quello di \kw{massima string
+depth}: la stringa radice$\to v^{*}$ \`e la risposta.
+\end{enumerate}
+
+\textbf{Correttezza.} A met\`a arco il sottoalbero (quindi il numero di occorrenze) \`e lo stesso
+del nodo sottostante: la risposta ottima pu\`o essere estesa fino al prossimo nodo interno senza
+perdere occorrenze, quindi \kw{termina esattamente in un nodo interno}, che l'algoritmo trova.
+\textbf{Complessit\`a}: $\boxed{\OO{n}}$, indipendente da $L$.
+
+\subsection*{\qid{7.7} Array LCP in tempo lineare (algoritmo di Kasai)}
+
+\begin{domanda}
+Scrivi lo pseudocodice dell'algoritmo lineare (Kasai et al.) che calcola l'array LCP dato $T$ e
+$SA$, e dimostra che \`e $\OO{n}$. \emph{(orale 25/07/22, domanda ``da lode''; simulazioni in
+11/11/24, 06/03/25, 15/07/25)}
+\end{domanda}
+
+Serve l'inverso $\mathit{ISA}$ ($\mathit{ISA}[\mathit{SA}[i]]=i$), calcolabile in $\OO{n}$.
+
+\begin{verbatim}
+Kasai(T, SA):
+  for i = 1..n: ISA[SA[i]] = i        // inverso di SA
+  h = 0
+  for i = 1..n:                       // i = posizione NEL TESTO
+      if ISA[i] > 1:
+           j = SA[ ISA[i] - 1 ]       // suffisso che precede T[i,n] in ordine less.
+           while i+h <= n and j+h <= n and T[i+h] == T[j+h]:
+                h = h + 1             // estende il prefisso comune
+           LCP[ ISA[i] - 1 ] = h
+           if h > 0: h = h - 1        // proprieta' chiave (vedi prova)
+      else:
+           h = 0                      // T[i,n] e' il minimo lessicografico
+  return LCP
+\end{verbatim}
+
+\textbf{Idea e correttezza.} Si processano i suffissi \kw{in ordine di posizione nel testo}, non
+lessicografico, riusando il lavoro: se $T[i,n]$ ha lcp $=h$ col suo predecessore lessicografico
+$T[j,n]$, togliendo il primo carattere si ottengono $T[i+1,n]$ e $T[j+1,n]$ con prefisso comune
+$h-1$, e $T[j+1,n]$ \`e ancora minore di $T[i+1,n]$. Il predecessore \emph{immediato} di
+$T[i+1,n]$ \`e, fra i minori, quello con lcp massimo: quindi \kw{il suo lcp \`e $\ge h-1$} e il
+\texttt{while} del passo $i+1$ pu\`o ripartire da $h-1$ senza ricontrollare nulla.
+
+\textbf{Complessit\`a $\OO{n}$ (prova).} Il costo dominante \`e il numero totale di incrementi di
+$h$. La variabile $h$: parte da 0, \kw{non supera mai $n$, e viene decrementata al pi\`u $n$
+volte} (una per iterazione del for, mai sotto 0). Quindi gli incrementi sono al pi\`u
+(decrementi) $+$ (massimo) $\le 2n$:
+\[
+\boxed{\ \le 2n\ \text{confronti di caratteri in totale}\ \Rightarrow\ \OO{n}\ }
+\]
+$\blacksquare$ (\`E anche la risposta alla richiesta ``mostra il numero di caratteri
+effettivamente confrontati'' delle simulazioni d'esame.)

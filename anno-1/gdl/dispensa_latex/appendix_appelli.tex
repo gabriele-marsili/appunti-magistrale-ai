@@ -1,0 +1,227 @@
+%===============================================================
+%  APPENDIX C — Che cosa è stato chiesto davvero
+%===============================================================
+\chapter{Che cosa è stato chiesto davvero}
+\label{ch:appelli}
+
+Questa appendice raccoglie i resoconti degli orali degli appelli di \textbf{giugno e luglio 2026}, ricostruiti da due fonti: il racconto diretto di un candidato che ha assistito a sei esami consecutivi, e l'archivio del gruppo Telegram del corso (3128 messaggi, settembre 2023 -- agosto 2026, di cui 1230 nell'anno GDL).
+
+\begin{tcolorbox}[mywarn, title={Come leggere questa appendice}]
+È l'unica parte della dispensa \textbf{non} basata sui materiali ufficiali del corso. Sono racconti di studenti, riportati a memoria, talvolta di seconda mano. Vanno usati per capire \emph{come} il professore interroga e per calibrare le priorità — non come elenco di ciò che uscirà.
+
+Dove due fonti si contraddicono lo segnalo invece di scegliere. Dove una notizia è riportata come ``ufficiale'' ma non l'ho vista sulle slide, lo dico.
+\end{tcolorbox}
+
+\section{Le regole del gioco}
+
+Questa è la parte che vale più di tutte le domande messe insieme, perché è consistente su tre appelli e più fonti indipendenti.
+
+\begin{tcolorbox}[mywarn, title={La prima domanda è eliminatoria}]
+\emph{``I primi sono usciti tutti per la policy o lo sai alla prima o esci''} (1 luglio 2026).
+
+Un candidato riferisce di essere stato mandato via in pochi secondi: gli è stata chiesta l'ultima lezione, non l'aveva vista, e il professore ha dichiarato di ``seguire una policy per la quale non va neanche avanti con le altre domande''. Un altro studente conferma il comportamento anche per l'anno precedente: \emph{``se non sapevi la prima domanda tendenzialmente bocciava subito, se arrivavi alla terza al massimo dava un voto molto basso''}.
+
+Il consiglio operativo che ne deriva, formulato da chi l'ha vissuto: \emph{``dai priorità a quello che è molto più certo saranno le prime domande, perché quelle determineranno la bocciatura; poi se le superi è solo questione di alzare il voto''}.
+
+\textbf{Conseguenza sulla strategia}: la copertura conta più della profondità \emph{fino a} superare la prima domanda; dopo, si inverte. Non esiste un argomento su cui ci si possa permettere di non saper partire.
+\end{tcolorbox}
+
+\begin{tcolorbox}[mybox, title={Il segnale che il voto sta scendendo}]
+\emph{``Se vedi che comincia a fare domande facili facili, tipo roba sulle CNN, allora il voto sta scendendo: di solito fa così''} (gennaio 2026).
+
+Se le domande si semplificano, non è benevolenza: sta cercando il livello a cui sai rispondere per assegnare il voto corrispondente. Simmetricamente, se le domande si fanno più difficili sta cercando il tetto — e gli argomenti ``da lode'' riportati sono \textbf{Bellman optimality}, \textbf{reinforcement learning} in generale, e i temi dell'ultima parte del corso.
+\end{tcolorbox}
+
+\subsection*{Formule: le vuole, ma la memoria non basta}
+
+Il punto è riportato con insistenza da più persone, ed è più sottile di ``impara le formule''.
+
+\emph{``Se provi a impararti a memoria tutte le formule ti ammazzi e lui capisce che hai imparato a memoria --- ho fatto questo errore per un paio di formule e mi ci ha beccato. Se sai una formula a memoria lui lo vede e ti ci fotte; se sai i passaggi ma sbagli a mettere un indice o simile, magari ti aiuta.''}
+
+Lo stesso studente descrive il \textbf{metodo corretto} su HMM, ed è generalizzabile:
+\begin{enumerate}[leftmargin=2em]
+  \item parti dal \emph{disegno} del grafo;
+  \item scrivi la likelihood \emph{leggendola dal grafo}, con sommatorie e marginalizzazioni;
+  \item introduci le \emph{variabili indicatrici} che trasformano le sommatorie in produttorie;
+  \item prendi il logaritmo, così le produttorie diventano sommatorie;
+  \item risolvi le derivate parziali (con i moltiplicatori di Lagrange dove i parametri sono distribuzioni).
+\end{enumerate}
+Cioè: non si ricorda il risultato, si ricorda \emph{la strada}. Ed è coerente con la frase delle slide GDL35 sul focus sul ragionamento invece che sulla memorizzazione.
+
+Due avvertenze pratiche riportate dal gruppo: \emph{``a volte le formule nelle slide hanno typo o errori: conviene sempre provarsele a derivare da soli''}; e si può \emph{spiegare} una formula a parole per evitare errori di indice, ma bisogna comunque saperla scrivere se richiesta.
+
+\subsection*{La routine su HMM, osservata più volte}
+
+Un candidato ha ricostruito lo schema ricorrente:
+\begin{enumerate}[leftmargin=2em]
+  \item Che cos'è un HMM?
+  \item Com'è fatta la congiunta?
+  \item Una domanda più libera: forward-backward, smoothing, oppure Viterbi.
+\end{enumerate}
+E il commento: \emph{``se descrivi bene il modello e scrivi bene la congiunta, sia in forma generale $p(s_1)p(x_1|s_1)\dots$ sia parametrizzata con variabili indicatrici e matrice di transizione, l'esame è passato abbondantemente''}.
+
+\subsection*{Il legame con il quarto assignment}
+
+\emph{``Quando era ISPR, una domanda tendeva spesso a farla nell'area dell'ultimo midterm: se fai il paper su GNN ti chiede GNN.''}
+
+Se la regola vale ancora, per chi ha fatto il poster su \textbf{GrIDDD} (graph diffusion) gli argomenti esposti sono \emph{grafi} e \emph{diffusion} — entrambi già fra i più frequenti. Non è una garanzia, ma è un motivo in più per non lasciarli scoperti.
+
+\subsection*{Slide, handout, OneNote}
+
+Domanda ricorrente nel gruppo. La sintesi delle risposte: chiede dalle slide, ma \emph{``in caso facesse domande specifiche per assicurarsi che tu abbia capito, potrebbe far riferimento a cose presenti su OneNote o negli handout. Una volta è capitato.''} Sugli handout i pareri si dividono: c'è chi li trova più chiari delle slide e ci ha studiato sopra, chi consiglia il contrario. Il caso concreto citato è l'M-step di HMM, dove la slide dice solo che servono i moltiplicatori di Lagrange e l'handout svolge la derivazione per $\pi$, $A$ e $B$.
+
+\section{Gli orali riportati}
+
+\subsection*{Appello di giugno 2026}
+
+\begin{center}
+\begin{tabular}{clc}
+\toprule
+\# & \textbf{Argomenti} & \textbf{Esito} \\
+\midrule
+1 & Bayesian Network, regole della rete; Loss GAN; Wasserstein GAN & 26 (rifiutato) \\
+2 & RNN, problemi e gated RNN; generative matching; Flow Matching & 29 \\
+3 & CNN; HMM e il termine $\alpha$; Bellman optimality (RL) & \textbf{30L} \\
+4 & LDA; LSTM & --- \\
+5 & Convolution on graphs; Diffusion Models & --- \\
+\bottomrule
+\end{tabular}
+\end{center}
+\noindent Sintesi riportata da chi ha assistito: \emph{``ha chiesto formule specifiche agli orali di giugno: $\alpha$ della HMM e Bellman optimality (questo per la lode), e alcune Loss''}.
+
+\subsection*{Appello di inizio luglio 2026}
+
+\begin{center}
+\begin{tabular}{clc}
+\toprule
+\# & \textbf{Argomenti} & \textbf{Esito} \\
+\midrule
+1 & MRF; Normalizing Flow & 20 \\
+2 & HMM; Wasserstein e GAN; conditional generation (``how would you do it'') & 26 \\
+3 & Self-attention & \textbf{bocciato} \\
+4 & RNN; ELBO & 28--30 \\
+5 & Bayesian Networks + \emph{esercizio} sulla rete; VAE & 28 \\
+6 & CNN; RBM & 25 \\
+7 & LSTM; Diffusion Models & 27 \\
+8 & (con progetto) MDP; Q-learning; LDA & --- \\
+9 & Boltzmann machine; Restricted Boltzmann; GAN & 26 \\
+10 & Self-attention e Transformers; GAN & 25 \\
+11 & GMM; CNN & 18 (+26 prog.\ $=$ 22) \\
+12 & HMM; VAE & \emph{ritirato} \\
+13 & (ultima lezione, non preparata) & \textbf{bocciato} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Due dettagli che vale la pena estrarre.
+
+L'\textbf{esercizio} del caso 5 non è una domanda teorica: gli è stato dato un grafo e chiesto \emph{rispetto a quali nodi $C$ e $D$ sono condizionalmente indipendenti}. È esattamente il tipo di esercizio del Cap.~4, e conferma che la d-separazione può essere chiesta \emph{operativamente} e non solo definita.
+
+Il caso 9 mostra fino a dove scava sulle GAN: non sapeva che cosa fosse l'operatore $\langle\cdot\rangle$ nella Boltzmann machine, non aveva scritto bene il \emph{supremo} nel discriminatore, e da lì è partita una catena — differenza fra $\max$ e $\sup$, \emph{perché} nella Wasserstein si usa $\sup$, e \textbf{perché $D$ deve essere Lipschitz} (con la precisazione: non ``perché è contrattiva'', ma perché \emph{deve} esserlo).
+
+\subsection*{Appello di fine luglio 2026}
+
+\begin{center}
+\begin{tabular}{clc}
+\toprule
+\# & \textbf{Argomenti} & \textbf{Esito} \\
+\midrule
+1 & Restricted Boltzmann Machine; Diffusion models (ELBO scritta male) & 25 \\
+2 & Self-attention (non sapeva che cos'è un token né come si calcolano $\mat{Q},\mat{K},\mat{V}$) & \textbf{bocciato} \\
+3 & Transformers: architettura, normalizzazioni, connessioni residue & \emph{ritirata} \\
+4 & RNN e vanishing gradient; VAE e reparametrization trick & 25 \\
+5 & LSTM (schema); Normalizing flows (idea, metodi, residual flow) & \textbf{30L} \\
+6 & LDA (schema, learning, posterior approssimato, Gibbs); GNN (aggregazione) & \textbf{30L} \\
+7 & LSTM: grafico e formule; Normalizing Flow: tutto tranne il continuous & --- \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Distribuzione degli argomenti (rivista)}
+
+\begin{tcolorbox}[mywarn, title={Correzione rispetto alla versione precedente di questa appendice}]
+Sulla base dei soli sei esami di fine luglio avevo scritto che le Parti~I e~VI \emph{non erano mai comparse}. Con venticinque orali \textbf{è falso}: le reti Bayesiane compaiono tre volte (una con un esercizio di d-separazione), e il reinforcement learning tre volte, di cui una decisiva per la lode. Sei osservazioni erano troppo poche, e la conclusione che ne avevo tratto era sbagliata.
+\end{tcolorbox}
+
+Su circa venticinque orali riportati, contando ogni argomento una volta per esame:
+
+\begin{center}
+\begin{tabular}{lcl}
+\toprule
+\textbf{Argomento} & \textbf{Volte} & \textbf{Parte} \\
+\midrule
+GAN / Wasserstein & 4 & IV \\
+HMM & 4 & II \\
+RNN & 4 & III \\
+LSTM & 4 & III \\
+VAE / ELBO & 4 & IV \\
+Diffusion & 4 & IV \\
+Self-attention / Transformer & 4 & III \\
+Boltzmann / RBM / MRF & 4 & II \\
+Bayesian Networks & 3 & \textbf{I} \\
+CNN & 3 & III \\
+Normalizing Flow & 3 & IV \\
+LDA & 3 & II \\
+MDP / Q-learning / Bellman & 3 & \textbf{VI} \\
+GNN / grafi & 2 & V \\
+GMM & 1 & II \\
+Flow matching & 1 & IV \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+La distribuzione è molto più \emph{piatta} di quanto sembrasse: nessun argomento domina, e praticamente ogni parte del corso è comparsa. Il messaggio è l'opposto di quello che avevo scritto prima — non c'è una zona sicura da cui pescare, e la copertura conta.
+
+Restano non osservati: causalità e do-operator, structure learning, score matching, causal representation learning, e il paper del quarto assignment. Su structure learning un candidato osserva: \emph{``della prima parte del Massidda chiede principalmente le Bayesian networks, nemmeno le causali''}. Su GDL30 nessuno ha memoria di una domanda, e il consiglio del gruppo è: \emph{``guardati giusto il disentanglement e il $\beta$-VAE, non si sa mai; però penso siano argomenti da terza domanda''}, con l'aggiunta che saltare la lezione per intero è \emph{``estremamente sconsigliato''}.
+
+\section{Che cosa è escluso}
+
+\begin{tcolorbox}[mywarn, title={Due esclusioni riportate, con una tensione irrisolta}]
+Il 25 luglio 2026 un candidato riferisce che il professore avrebbe detto \textbf{ufficialmente} di \emph{non} chiedere:
+\begin{itemize}[leftmargin=1.4em]
+  \item la \textbf{lezione 33} (\emph{Deep Learning for Graphs II --- Advanced Models}) --- coerente con le slide GDL35, p.~34, che è la fonte ufficiale e va considerata dirimente;
+  \item il \textbf{training di LDA}.
+\end{itemize}
+
+\textbf{La tensione}: nel resoconto di fine luglio il caso 6 riferisce di aver avuto esattamente ``LDA: schema, learning, posterior approssimato'' e di aver preso 30 e lode. Le due notizie sono a pochi giorni di distanza.
+
+Tre spiegazioni possibili, e non ho modo di decidere fra loro: l'esclusione è stata annunciata \emph{dopo} quell'orale; oppure ``training'' si riferisce alla derivazione variazionale completa e non allo schema generale del learning; oppure una delle due testimonianze è imprecisa. \textbf{Fino a chiarimento, conviene sapere il learning di LDA}: il costo di saperlo è basso, quello di non saperlo se viene chiesto è l'esame.
+\end{tcolorbox}
+
+\section{Domande verbatim}
+
+Il blocco seguente è la trascrizione delle domande fatte in una singola giornata di orali (3 luglio 2026), riportate da un candidato che vi ha assistito. È il materiale più prezioso di tutta l'appendice, perché sono le \emph{formulazioni reali}, non le nostre parafrasi.
+
+\begin{tcolorbox}[mywarn, title={Domande verbatim --- giornata del 3 luglio 2026}]
+\begin{enumerate}
+  \item Il normalizing flow è basato sul cambio di variabile: qual è l'idea?
+  \item Perché lo Jacobiano va considerato?
+  \item Nelle distribuzioni di un HMM, quale può \emph{non} essere multinomiale?
+  \item Perché in un HMM il calcolo della joint distribution parte da $s_1$?
+  \item What is a generator in a GAN?
+  \item And the discriminator?
+  \item Conditional generation: how would you do it?
+  \item Talk me about self-attention.
+  \item \textbf{What is a token?}
+  \item \textbf{How are computed $\mat{Q}$, $\mat{K}$, $\mat{V}$?} \emph{(qui ha bocciato un candidato che non ha saputo rispondere)}
+  \item What is the advantage of weight sharing in RNN?
+  \item What is the assumption that makes weight sharing usable?
+  \item Why does tanh/sigmoid make me lose information?
+  \item What does the spectral radius inform me about?
+  \item In a Bayesian network, do we have only local properties?
+  \item What is the loss of a VAE?
+\end{enumerate}
+
+\medskip
+Dallo stesso appello, sulla catena GAN/Wasserstein: che cos'è l'operatore $\langle\cdot\rangle$ in una Boltzmann machine; scrivi il $\sup$ nel discriminatore; differenza fra $\max$ e $\sup$; perché nella Wasserstein si usa il $\sup$; perché $D$ deve essere Lipschitz.
+\end{tcolorbox}
+
+\noindent Le risposte: (1--2) cap.~22 D1; (3--4) cap.~9 D1 e Cap.~3; (5--7) cap.~21 D1 e cap.~20 D7; (8--10) cap.~18 D1; (11--12) cap.~15 D7 e cap.~14 D1; (13--14) cap.~15 D1--D2; (15) cap.~3 D2; (16) cap.~20 D1; catena Wasserstein: cap.~21 D4--D5.
+
+\begin{tcolorbox}[mybox, title={La domanda 9 merita una riga a sé}]
+``Che cos'è un token'' ha fatto fuori due candidati in due appelli diversi. Non è una domanda difficile: è una domanda \emph{elementare} su un argomento che tutti studiano.
+
+La risposta è che è un \textbf{vettore} --- l'embedding di un elemento della sequenza, non la parola e non l'indice nel vocabolario. E subito dopo arriva ``come si calcolano $\mat{Q}$, $\mat{K}$, $\mat{V}$'', che è $\mat{Q} = \mat{X}\mat{W}^Q$, $\mat{K} = \mat{X}\mat{W}^K$, $\mat{V} = \mat{X}\mat{W}^V$ con matrici apprese.
+
+È il promemoria più utile di questa appendice: si viene bocciati sulle definizioni operative, non sulle derivazioni difficili.
+\end{tcolorbox}

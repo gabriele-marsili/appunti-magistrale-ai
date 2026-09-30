@@ -1,0 +1,586 @@
+\section{Modelli e complessit\`a I/O --- risoluzioni}
+
+\subsection*{\qid{1.1}\hot\ MergeSort multi-way: complessit\`a I/O}
+
+\begin{domanda}
+Enuncia la complessit\`a I/O del MergeSort multi-way in funzione di $M$, $B$, $N$.
+\emph{(09/02/24, 27/05/24, 04/02/25)}
+\end{domanda}
+
+\textbf{Enunciato.} Con memoria interna $M$, pagina di disco $B$ e $N$ item da ordinare:
+\[
+\boxed{\ \text{MergeSort multi-way} = \OO{\frac{N}{B}\,\log_{M/B}\frac{N}{M}} \text{ I/O}\ }
+\]
+che coincide con il bound ottimo $sort(N)=\TT{\frac{N}{B}\log_{M/B}\frac{N}{M}}$.
+
+\textbf{Da dove viene la formula (serve saperla giustificare).} L'algoritmo ha due fasi.
+
+\emph{Fase 1 --- formazione dei run.} Si legge un blocco di $M$ item alla volta, lo si ordina in
+memoria interna (con qualunque algoritmo ottimo, oppure con QuickSort/HeapSort) e lo si riscrive su
+disco come \emph{run} ordinato. Ogni item \`e letto e scritto una volta: $\OO{N/B}$ I/O. Alla fine
+ci sono $N/M$ run ordinati di lunghezza $M$.
+
+\emph{Fase 2 --- merge a $k$ vie.} La memoria pu\`o tenere $M/B$ pagine. Si fondono
+\kw{$k=\frac{M}{B}-1$ run alla volta}: una pagina di buffer per ciascuno dei $k$ run in ingresso
+pi\`u una pagina di output (quando un buffer di input si svuota si carica la pagina successiva del
+suo run; quando l'output si riempie si scarica su disco). Il minimo corrente fra i $k$ run si trova
+con un min-heap di $k$ elementi ($\OO{\log k}$ tempo per estrazione, ma qui contiamo solo gli I/O).
+\kw{Ogni passata di merge legge e scrive tutti gli $N$ item} ($\OO{N/B}$ I/O) e riduce il numero di
+run di un fattore $k=\Theta(M/B)$. Il numero di passate per passare da $N/M$ run a 1 \`e dunque
+\[
+\log_k\frac{N}{M}=\log_{M/B}\frac{N}{M}.
+\]
+Totale: $\OO{\frac{N}{B}}$ (fase 1) $+\;\OO{\frac{N}{B}\log_{M/B}\frac{N}{M}}$ (fase 2), cio\`e la
+formula enunciata. \kw{Il punto qualificante \`e la base del logaritmo: $M/B$ invece di 2} (del
+MergeSort binario). Con valori realistici il fattore $\log_{M/B}(N/M)$ vale 1 o 2: in pratica
+``due passate sul disco''.
+
+\subsection*{\qid{1.2} Upper bound: sorting, permuting, striping}
+
+\begin{domanda}
+Enuncia gli upper bound per: ordinare $n$ item atomici in un modello a due livelli con memoria
+interna $M$, pagina $B$ e 1 disco; permutarli nello stesso modello con 1 disco; ordinarli con $D$
+dischi usando il disk striping. \emph{(10/02/23)}
+\end{domanda}
+
+\textbf{Sorting, 1 disco.} $\OO{\frac{n}{B}\log_{M/B}\frac{n}{M}}$ I/O (MergeSort multi-way,
+\qid{1.1}).
+
+\textbf{Permuting, 1 disco.}
+\[
+\boxed{\ \OO{\min\{\,n,\; sort(n)\,\}} \text{ I/O}\ }
+\]
+Le due alternative: (i) muovere gli item uno alla volta nella posizione finale, $\OO{1}$ I/O
+ciascuno, totale $\OO{n}$; (ii) attaccare a ogni item la sua posizione di destinazione come chiave
+e ordinare con MergeSort multi-way, totale $\OO{sort(n)}$. Si sceglie il minimo. (Il lower bound
+corrispondente \`e $\Om{\min\{n,\frac{n}{B}\log_{M/B}\frac{n}{B}\}}$, e per i valori realistici dei
+parametri i due problemi costano uguale: si veda \qid{1.5}.)
+
+\textbf{Sorting, $D$ dischi con disk striping.} $\OO{\frac{n}{DB}\log_{M/(DB)}\frac{n}{M}}$ I/O:
+si veda \qid{1.3}.
+
+\subsection*{\qid{1.3}\hot\ Disk striping e MergeSort su $D$ dischi (con prova)}
+
+\begin{domanda}
+Descrivi la tecnica del disk striping ed enuncia il bound I/O del MergeSort quando lo si usa per
+ordinare $n$ item in una memoria a due livelli con $D$ dischi, memoria $M$, pagina $B$.
+\emph{(07/02/20 con prova, 09/02/24, 04/02/25, 03/06/25)}
+\end{domanda}
+
+\textbf{La tecnica.} Il disk striping fa lavorare $D$ dischi come \kw{un unico disco logico con
+pagine di taglia $D\cdot B$}. La pagina logica $i$ \`e composta dalle $D$ pagine fisiche di indice
+$i$, una per disco (la ``striscia'' $i$-esima): i primi $B$ item sulla pagina $i$ del disco 1, i
+successivi $B$ sulla pagina $i$ del disco 2, ecc. Poich\'e i $D$ dischi possono leggere/scrivere in
+parallelo, un singolo I/O logico trasferisce $D\cdot B$ item al costo (in tempo) di un I/O fisico.
+Il vantaggio \`e la semplicit\`a: qualunque algoritmo pensato per 1 disco funziona immutato.
+
+\textbf{Bound (prova).} Si esegue il MergeSort multi-way di \qid{1.1} sul disco logico, cio\`e
+\kw{sostituendo $B\to DB$} nell'analisi. Contando gli I/O logici:
+\[
+\boxed{\ \OO{\frac{n}{DB}\,\log_{M/(DB)}\frac{n}{M}} \text{ I/O}\ }
+\]
+Ogni I/O logico corrisponde a $D$ I/O fisici \emph{simultanei}, quindi questa \`e anche la misura
+del tempo di I/O con $D$ dischi in parallelo.
+
+\subsection*{\qid{1.4} Confronto con il bound ottimo su $D$ dischi}
+
+\begin{domanda}
+Enuncia la complessit\`a I/O di ordinare $n$ item con memoria $M$, pagina $B$ e $D$ dischi;
+confrontala con il bound ottimo e discuti le differenze. \emph{(07/02/20, 10/01/25)}
+\end{domanda}
+
+Il bound ottimo per ordinare con $D$ dischi \`e
+\[
+\boxed{\ \TT{\frac{n}{DB}\,\log_{M/B}\frac{n}{DB}}\ \text{I/O}\ }
+\]
+raggiunto da algoritmi pi\`u sofisticati (es.\ Greed Sort), che tengono la base del logaritmo a
+$M/B$ pur dividendo il volume di dati fra i dischi.
+
+\textbf{Differenze.} Il disk striping (\qid{1.3}) ottiene lo stesso fattore $\frac{n}{DB}$ davanti
+al logaritmo, ma \kw{la base del logaritmo peggiora da $M/B$ a $M/(DB)$}: usando pagine logiche di
+taglia $DB$, il fan-out del merge scende da $\Theta(M/B)$ a $\Theta(M/(DB))$, cio\`e si fondono
+meno run per passata e servono pi\`u passate. Il rapporto fra i due bound \`e
+\[
+\frac{\log_{M/(DB)}(n/M)}{\log_{M/B}(n/DB)}\;\approx\;\frac{\log(M/B)}{\log(M/(DB))},
+\]
+che vale $\approx 1$ quando $DB\ll M$ (\kw{pochi dischi: striping quasi ottimo}) e diverge quando
+$DB\to M$ (con $D$ grande il merge diventa quasi binario: \kw{striping non ottimale per $D$
+grande}). In pratica si usa comunque lo striping per la sua semplicit\`a.
+
+\subsection*{\qid{1.5} Sorting vs permuting: RAM vs modello a due livelli}
+
+\begin{domanda}
+Dati $n$ item atomici, scrivi la complessit\`a in tempo dei problemi di sorting e di permuting nel
+modello RAM, poi la loro complessit\`a I/O nel modello a due livelli (pagina $B$, memoria $M$);
+commenta se i due problemi sono computazionalmente equivalenti in senso asintotico e per quali
+valori dei parametri. \emph{(orale 25/07/22)}
+\end{domanda}
+
+\textbf{Modello RAM.} Sorting (comparison-based): $\TT{n\log n}$. Permuting: $\TT{n}$ (si muove
+ogni item direttamente in posizione finale). \kw{In RAM permutare \`e strettamente pi\`u facile}
+di un fattore $\log n$.
+
+\textbf{Modello a due livelli.} Sorting: $\TT{\frac{n}{B}\log_{M/B}\frac{n}{M}}$ I/O.
+Permuting: $\TT{\min\{n,\;\frac{n}{B}\log_{M/B}\frac{n}{B}\}}$ I/O.
+
+\textbf{Quando coincidono.} Il permuting costa quanto il sorting a meno che il termine ``naive''
+$n$ non sia il minimo, cio\`e a meno che $B<\log_{M/B}\frac{n}{B}$. Con i valori reali dei
+parametri ($B$ dell'ordine di $10^3$--$10^4$ item, mentre $\log_{M/B}(n/B)$ vale pochissime unit\`a
+anche per dataset enormi) risulta sempre $B\gg\log_{M/B}(n/B)$: quindi \kw{nel modello a due
+livelli sorting e permuting costano asintoticamente uguale}. \`E la differenza concettuale pi\`u
+importante col modello RAM: su disco non si riesce a sfruttare la conoscenza della permutazione
+finale, perch\'e muovere item singoli paga comunque un I/O intero a spostamento; tanto vale
+ordinare. Morale del corso: \kw{in memoria esterna anche i problemi ``facili'' costano come il
+sorting}, e $sort(n)$ \`e l'unit\`a di misura di riferimento.
+
+% ==================================================================
+\section{Ordinamento --- risoluzioni}
+
+\subsection*{\qid{2.1}\hot\ Snow Plow: lunghezza attesa del run \`e $2M$}
+
+\begin{domanda}
+Dimostra che la lunghezza attesa della sequenza ordinata (run) prodotta da Snow Plow \`e $2M$.
+Varianti chieste: quanto vale se la probabilit\`a di finire nell'unsorted bucket \`e $\tfrac14$
+invece di $\tfrac12$? (15/01/24) Se \`e $\tfrac18$? (21/06/24) Se la probabilit\`a di andare nello
+heap \`e $\tfrac34$? (11/11/20)
+\end{domanda}
+
+\textbf{L'algoritmo (serve descriverlo prima della prova).} Snow Plow genera i run ordinati della
+fase 1 del MergeSort usando una memoria di $M$ celle divisa fra un min-heap $\mathcal{H}$ e un
+buffer non ordinato $\mathcal{U}$. Una \emph{fase} (= la produzione di un run) funziona cos\`i:
+all'inizio $\mathcal{H}$ contiene $M$ item e $\mathcal{U}$ \`e vuoto. Ripetutamente: si estrae il
+minimo $m$ da $\mathcal{H}$ e lo si scrive nel run di output; si legge il prossimo item $x$ dallo
+stream: se $x\ge m$ pu\`o ancora far parte del run corrente e va in $\mathcal{H}$, altrimenti \`e
+``troppo piccolo'' (uscirebbe fuori ordine) e va in $\mathcal{U}$. La memoria resta sempre piena:
+$|\mathcal{H}|+|\mathcal{U}|=M$. La fase termina quando $\mathcal{H}$ si svuota (equivalentemente
+$\mathcal{U}$ si \`e riempito con $M$ item): i contenuti di $\mathcal{U}$ diventano lo heap della
+fase successiva. Ogni run prodotto ha lunghezza $\ge M$.
+
+\textbf{Teorema.} Se ogni item letto va in $\mathcal{U}$ con probabilit\`a $p=\tfrac12$, la
+lunghezza attesa del run \`e $2M$.
+
+\textbf{Prova.} Sia $\tau$ la lunghezza del run prodotto in una fase. \kw{Ogni item scritto in
+output provoca la lettura di un item dallo stream}, quindi durante la fase vengono letti
+esattamente $\tau$ item. Il run \`e formato da: gli $M$ item presenti nello heap all'inizio della
+fase, pi\`u tutti gli item letti durante la fase che sono entrati in $\mathcal{H}$ (ciascuno di
+essi, essendo $\ge$ del minimo corrente, verr\`a prima o poi estratto e scritto nello stesso run).
+In valore atteso gli item letti che entrano nello heap sono $(1-p)\tau$. Dunque
+\[
+\tau \;=\; M+(1-p)\,\tau \qquad\Longrightarrow\qquad p\,\tau=M
+\qquad\Longrightarrow\qquad \boxed{\;\tau=\frac{M}{p}\;}
+\]
+(passando ai valori attesi e usando la linearit\`a). Con $p=\tfrac12$: $\tau=2M$. $\blacksquare$
+
+\textbf{Varianti d'esame} (la formula $\tau=M/p$ le risolve tutte):
+\begin{itemize}[leftmargin=1.6em,itemsep=1pt]
+\item $p=\tfrac14$ (15/01/24): \kw{$\tau=4M$};
+\item $p=\tfrac18$ (21/06/24): \kw{$\tau=8M$};
+\item probabilit\`a di andare nello \emph{heap} $=\tfrac34$ (11/11/20): allora
+$p=1-\tfrac34=\tfrac14$ e \kw{$\tau=4M$}. \kw{Attenzione}: qui $p$ \`e la probabilit\`a
+dell'unsorted bucket; se il testo d\`a quella dello heap, va complementata.
+\end{itemize}
+\textbf{Intuizione.} Pi\`u \`e raro che un item sia ``troppo piccolo'' (piccolo $p$), pi\`u a lungo
+lo heap resta rifornito e pi\`u lungo \`e il run. Casi limite: input gi\`a ordinato $\Rightarrow$
+$p=0$ $\Rightarrow$ un unico run; input ordinato al contrario $\Rightarrow p=1$ $\Rightarrow$ run
+di lunghezza esattamente $M$. Effetto sul MergeSort: run attesi $n/2M$, cio\`e
+$\OO{\frac{n}{B}\log_{M/B}\frac{n}{2M}}$ I/O in media.
+
+\subsection*{\qid{2.2}\hot\ Lower bound per l'ordinamento di stringhe}
+
+\begin{domanda}
+Enuncia e dimostra il lower bound (comparison-based) al tempo per ordinare $n$ stringhe di
+lunghezza totale $N$ su alfabeto di taglia $\sigma$. \emph{(10/02/23, 05/06/23, orale 25/07/22)}
+\end{domanda}
+
+\textbf{Notazione.} Per ogni stringa $s$ del dataset $S$ sia $d_s$ la lunghezza del suo
+\emph{prefisso distinguente}, cio\`e il pi\`u corto prefisso di $s$ che non \`e prefisso di
+nessun'altra stringa di $S$; sia $d=\sum_{s\in S} d_s$ ($d\le N$).
+
+\textbf{Teorema.} Ogni algoritmo comparison-based che ordina $n$ stringhe distinte richiede
+\[
+\boxed{\ \Om{d+n\log n}\ }
+\]
+confronti di singoli caratteri, nel caso peggiore.
+
+\textbf{Prova.} Si dimostrano separatamente i due termini; il massimo dei due \`e un lower bound,
+e poich\'e $\max\{a,b\}\ge\frac{a+b}{2}$ lo \`e anche la somma (a meno di un fattore 2).
+
+\emph{(i) $\Om{n\log n}$.} Argomento dell'albero di decisione: l'algoritmo deve distinguere gli
+$n!$ ordinamenti possibili delle stringhe; ogni confronto fra caratteri ha esito in un insieme di
+taglia costante (es.\ $<,=,>$), quindi l'albero delle computazioni ha grado costante e servono
+$\Om{\log(n!)}=\Om{n\log n}$ confronti su qualche ramo.
+
+\emph{(ii) $\Om{d}$.} \kw{L'algoritmo deve leggere almeno tutti i caratteri dei prefissi
+distinguenti.} Supponiamo per assurdo che su un input $S$ l'algoritmo termini senza aver letto il
+carattere $s[i]$ con $i\le d_s$ per qualche $s$. Poich\'e $i\le d_s$, il prefisso $s[1,i]$ non \`e
+ancora distinguente: esiste un input alternativo, indistinguibile per l'algoritmo (coincide con $S$
+su tutti i caratteri letti), in cui il carattere in posizione $i$ cambia l'ordine relativo di $s$.
+L'algoritmo produce lo stesso output su due input con ordinamenti diversi: contraddizione. Quindi
+$\Om{d}$ letture. $\blacksquare$
+
+\textbf{Commento.} $n\log n$ \`e il costo ``informativo'' dell'ordinamento; $d$ \`e il costo di
+``vedere'' abbastanza caratteri. \kw{Non compare $N$}: i caratteri dopo il prefisso distinguente
+sono irrilevanti. Il Multikey QuickSort (\qid{2.3}) raggiunge questo bound: il bound \`e stretto.
+
+\subsection*{\qid{2.3}\hot\ Multikey QuickSort: pseudocodice, complessit\`a, ottimalit\`a}
+
+\begin{domanda}
+Scrivi lo pseudocodice del Multikey QuickSort su $n$ stringhe di lunghezza totale $N$; enuncia e
+dimostra la sua complessit\`a temporale e mostra che \`e time-optimal rispetto al lower bound
+\qid{2.2}. \emph{(10/02/23, 05/06/23, 07/09/23, orale 25/07/22)}
+\end{domanda}
+
+\textbf{Idea.} \`E il QuickSort adattato alle stringhe: si partiziona rispetto a \kw{un solo
+carattere} (quello in posizione $i$, dove $i$ \`e la lunghezza del prefisso comune gi\`a
+accertato) in tre gruppi $<,=,>$, e \kw{solo nel gruppo $=$ si avanza al carattere successivo}.
+
+\begin{verbatim}
+MultikeyQS(R, i):                    // R insieme di stringhe, i posizione corrente
+  if |R| <= 1: return R
+  scegli una stringa pivot p da R uniformemente a caso;  c = p[i]
+  R<  = { s in R : s[i] < c }
+  R=  = { s in R : s[i] = c }
+  R>  = { s in R : s[i] > c }
+  return MultikeyQS(R<, i) ++ MultikeyQS(R=, i+1) ++ MultikeyQS(R>, i)
+\end{verbatim}
+
+Invariante: tutte le stringhe di $R$ condividono il prefisso $p[1,i-1]$, quindi confrontare il
+solo carattere $i$ \`e corretto; la concatenazione $R_<\,R_=\,R_>$ d\`a l'ordine lessicografico.
+
+\textbf{Teorema.} Con pivot casuale, il tempo atteso \`e
+\[
+\boxed{\ \OO{d+n\log n}\ \text{atteso}\ }
+\]
+dove $d$ \`e la somma dei prefissi distinguenti.
+
+\textbf{Prova.} Contiamo i confronti di carattere addebitandoli alla stringa $s$ che li subisce.
+Ogni confronto colloca $s$ in $R_<$, $R_=$ o $R_>$:
+\begin{itemize}[leftmargin=1.6em,itemsep=1pt]
+\item \emph{Confronti di tipo ``$=$''}: $s$ finisce in $R_=$ e l'indice $i$ avanza di 1. Questo
+pu\`o accadere al pi\`u $d_s+\OO{1}$ volte: \kw{appena $i$ supera $d_s$ il prefisso di $s$ \`e
+unico}, quindi $s$ resta da sola nel suo gruppo e la sua ricorsione termina. Totale: $\OO{d}$.
+\item \emph{Confronti di tipo ``$<$'' o ``$>$''}: $s$ finisce in $R_<$ o $R_>$ e $i$ non avanza.
+Questi confronti sono, in valore atteso, $\OO{\log n}$ per stringa: \`e l'analisi del QuickSort
+classico ristretta al carattere $i$-esimo. Un pivot casuale \`e, con probabilit\`a $\ge\tfrac12$,
+``centrale'' (n\'e fra i pi\`u piccoli $\tfrac14$ n\'e fra i pi\`u grandi $\tfrac14$ dei caratteri
+$i$-esimi del gruppo): in tal caso $|R_<|,|R_>|\le\tfrac34|R|$. Quindi a ogni confronto di questo
+tipo, con probabilit\`a costante il gruppo di $s$ si riduce di un fattore costante: pu\`o accadere
+$\OO{\log n}$ volte. Totale: $\OO{n\log n}$.
+\end{itemize}
+Sommando: $\OO{d+n\log n}$ atteso. $\blacksquare$
+
+\textbf{Ottimalit\`a.} \kw{Coincide col lower bound \qid{2.2}}: il Multikey QuickSort \`e
+time-optimal (in attesa). Vantaggi ingegneristici: non spezza le stringhe (localit\`a), partizione
+ternaria in place, non richiede di conoscere l'alfabeto.
+
+\subsection*{\qid{2.4}\hot\ LSD RadixSort: complessit\`a e correttezza}
+
+\begin{domanda}
+Abbozza l'algoritmo LSD RadixSort per $n$ chiavi di $b$ bit ciascuna; enuncia e dimostra la sua
+complessit\`a temporale; dimostra la correttezza dell'ordinamento prodotto (caso stringhe
+binarie). Variante: complessit\`a del RadixSort ottimo su $n$ stringhe binarie di lunghezza totale
+$N$. \emph{(16/01/23, 05/06/23, 11/07/24, 10/01/25, 23/06/25)}
+\end{domanda}
+
+\textbf{Algoritmo.} Le $n$ chiavi di $b$ bit sono viste come sequenze di $b/r$ \emph{cifre} di $r$
+bit (cifre in $[0,2^r)$). L'algoritmo fa $b/r$ passate, \kw{dalla cifra meno significativa alla
+pi\`u significativa}; ogni passata riordina l'intera sequenza rispetto alla cifra corrente con
+CountingSort, che \`e \kw{stabile}:
+
+\begin{verbatim}
+LSD-RadixSort(S, b, r):
+  for j = 1 .. b/r:                      // j = 1 e' la cifra MENO significativa
+      S = CountingSortStabile(S, cifra j)   // O(n + 2^r) tempo
+  return S
+\end{verbatim}
+
+\textbf{Complessit\`a.} Ogni passata costa $\OO{n+2^r}$ (istogramma delle $2^r$ cifre + somme
+prefisse + ricollocamento). Totale:
+\[
+\boxed{\ \OO{\frac{b}{r}\,(n+2^r)}
+\;\xrightarrow{\;r=\log_2 n\;}\;
+\OO{\frac{b}{\log n}\cdot n}\ }
+\]
+\kw{La scelta ottima \`e $r=\log_2 n$} (cos\`i $2^r=n$ non domina): per chiavi di $b=\OO{\log n}$
+bit il costo \`e $\OO{n}$ --- batte il lower bound comparison-based perch\'e \kw{il RadixSort non
+\`e comparison-based}. Spazio: $\OO{n+2^r}$ ausiliario. \emph{Variante} (05/06/23), $n$ stringhe
+binarie di lunghezza totale $N$ (cio\`e $b=N/n$): tempo
+$\OO{\frac{nb}{\log n}}=\OO{\frac{N}{\log n}}$ (per alfabeto $\sigma$:
+$\OO{\frac{N\log\sigma}{\log n}}$).
+
+\textbf{Correttezza (induzione + stabilit\`a).} Invariante: \kw{dopo la passata sulla cifra $j$,
+le chiavi sono ordinate rispetto alle ultime $j$ cifre} (le $j$ meno significative).
+
+\emph{Base} ($j=0$): banale.
+
+\emph{Passo.} Vale l'invariante per $j-1$; eseguiamo la passata $j$ e consideriamo due chiavi
+$\alpha,\beta$ qualunque:
+\begin{itemize}[leftmargin=1.6em,itemsep=1pt]
+\item \emph{cifra $j$ diversa}: il CountingSort le ordina secondo la cifra $j$, che \`e la pi\`u
+significativa fra le ultime $j$: ordine corretto qualunque fosse prima;
+\item \emph{cifra $j$ uguale}: il loro ordine \`e deciso dalle ultime $j-1$ cifre; per ipotesi
+induttiva erano gi\`a nell'ordine giusto, e \kw{la stabilit\`a del CountingSort preserva tale
+ordine}.
+\end{itemize}
+Dopo la passata $j=b/r$: ordinate rispetto a tutte le cifre. $\blacksquare$
+
+\kw{Nota: la stabilit\`a \`e essenziale} --- con un ordinamento interno non stabile l'invariante si
+rompe sui pareggi della cifra corrente.
+
+\subsection*{\qid{2.5}\hot\ Bounded QuickSort: stack $\OO{\log n}$}
+
+\begin{domanda}
+Scrivi e commenta lo pseudocodice del Bounded QuickSort, cio\`e la variante che garantisce uno
+stack di taglia $\OO{\log n}$ ($\OO{\log n}$ chiamate ricorsive annidate per qualunque input).
+\emph{(10/01/25, 04/02/25, 23/06/25)}
+\end{domanda}
+
+\textbf{Problema.} Il QuickSort ricorsivo standard, nel caso peggiore (partizioni sbilanciate), ha
+profondit\`a di ricorsione $\OO{n}$: rischio di stack overflow. La variante \emph{bounded} elimina
+una delle due chiamate ricorsive con l'iterazione (tail recursion removal), \kw{ricorrendo sempre
+e solo sul lato pi\`u piccolo}:
+
+\begin{verbatim}
+BoundedQuickSort(S, i, j):          // ordina S[i..j]
+  while i < j:
+      p = Partition(S, i, j)        // pivot (casuale o mediana di campione)
+      if (p - i) < (j - p):         // lato sinistro piu' piccolo
+           BoundedQuickSort(S, i, p-1)
+           i = p + 1                // il lato destro si tratta iterativamente
+      else:                         // lato destro piu' piccolo (o uguale)
+           BoundedQuickSort(S, p+1, j)
+           j = p - 1                // il lato sinistro si tratta iterativamente
+\end{verbatim}
+
+\textbf{Commento / prova del bound sullo stack.} La chiamata ricorsiva \`e sempre eseguita sul
+lato di taglia $\le\frac{j-i+1}{2}$. Quindi, \kw{scendendo di un livello di ricorsione la taglia
+del sottoproblema almeno si dimezza}: dopo $t$ livelli annidati \`e $\le n/2^t$, perci\`o
+\[
+\boxed{\ t\le\log_2 n \ \text{ livelli di stack, worst case, per qualunque input}\ }
+\]
+Il lato grande non consuma stack: \`e gestito dal ciclo \texttt{while} restringendo $[i,j]$. Il
+tempo resta quello del QuickSort ($\OO{n\log n}$ atteso con pivot casuale, $\OO{n^2}$ worst case):
+\kw{il bound riguarda lo spazio, non il tempo}.
+
+% ==================================================================
+\section{Random Sampling --- risoluzioni}
+
+\subsection*{\qid{3.1}--\qid{3.2}\hot\ Reservoir Sampling: pseudocodice e correttezza}
+
+\begin{domanda}
+\qid{3.1} Scrivi (solo) lo pseudocodice del Reservoir Sampling. \emph{(06/03/25, 03/06/25)}\\
+\qid{3.2} Data una sequenza $S$ di $n$ item ($n$ ignoto) e un intero $m$ (eventualmente $m<n/2$):
+mostra lo pseudocodice del Reservoir Sampling e dimostrane la correttezza, cio\`e che ogni item
+\`e campionato con probabilit\`a $m/n$. \emph{(02/11/23, 11/07/24)}
+\end{domanda}
+
+\textbf{Pseudocodice.}
+\begin{verbatim}
+ReservoirSampling(S, m):           // n = |S| ignoto a priori
+  R[1..m] = primi m elementi di S
+  i = m
+  while (S ha un altro elemento x):
+      i = i + 1
+      j = intero uniforme in [1, i]
+      if j <= m:  R[j] = x         // x entra, R[j] esce
+  return R
+\end{verbatim}
+
+Una sola passata, tempo $\OO{n}$, spazio $\OO{m}$; in ogni istante $R$ \`e un campione uniforme
+del prefisso letto: adatto a stream di lunghezza sconosciuta.
+
+\textbf{Teorema (correttezza).} Al termine, ogni elemento di $S$ appartiene a $R$ con
+probabilit\`a esattamente $m/n$.
+
+\textbf{Prova.} Consideriamo l'elemento in posizione $t$.
+
+\emph{Caso $t>m$.} L'elemento \kw{entra} in $R$ al passo $t$ con probabilit\`a
+$\Pr[j\le m]=\frac{m}{t}$. Per ogni passo successivo $i>t$, l'elemento in $R$ viene \kw{espulso}
+sse l'elemento $i$-esimo entra (prob.\ $\frac{m}{i}$) \emph{e} sceglie proprio la sua cella
+(prob.\ $\frac{1}{m}$): probabilit\`a $\frac{m}{i}\cdot\frac{1}{m}=\frac{1}{i}$; quindi
+\kw{sopravvive al passo $i$ con probabilit\`a $\frac{i-1}{i}$}. Per indipendenza delle estrazioni:
+\[
+\Pr[t\in R] \;=\; \frac{m}{t}\cdot\!\!\prod_{i=t+1}^{n}\frac{i-1}{i}
+\;=\;\frac{m}{t}\cdot\frac{t}{t+1}\cdot\frac{t+1}{t+2}\cdots\frac{n-1}{n}
+\;=\;\frac{m}{t}\cdot\frac{t}{n}\;=\;\boxed{\ \frac{m}{n}\ }
+\]
+per \kw{prodotto telescopico}.
+
+\emph{Caso $t\le m$.} Entra con probabilit\`a 1 e deve sopravvivere ai passi $i=m+1,\dots,n$:
+$\Pr[t\in R]=\prod_{i=m+1}^{n}\frac{i-1}{i}=\frac{m}{n}$.
+
+In entrambi i casi $\frac{m}{n}$: campionamento uniforme. $\blacksquare$
+
+\subsection*{\qid{3.3} Sampling con $n$ noto (selection sampling) e correttezza per $m=1$}
+
+\begin{domanda}
+Data una sequenza $S$ di $n$ item con $n$ noto e un intero $m$, scrivi lo pseudocodice
+dell'algoritmo di sampling che estrae $m$ item uniformemente a caso, e dimostrane la correttezza
+(probabilit\`a $m/n$) nel caso $m=1$. \emph{(06/11/23; simulazioni in 13/06/22, 10/02/23,
+07/09/23)}
+\end{domanda}
+
+Quando $n$ \`e noto si decide \emph{al volo}, per ogni elemento, se selezionarlo, con probabilit\`a
+che dipende da quanti ne mancano:
+
+\begin{verbatim}
+KnownN-Sampling(S, n, m):
+  s = 0                              // gia' selezionati
+  for i = 1 .. n:
+      resta  = n - i + 1             // elementi ancora da esaminare (incluso i)
+      serve  = m - s                 // elementi ancora da selezionare
+      con probabilita' serve/resta:  // es.: estrai p uniforme in [0,1],
+           seleziona S[i];  s = s+1  //       seleziona se p <= serve/resta
+      if s == m: break
+  return i selezionati
+\end{verbatim}
+
+\kw{Non pu\`o selezionare pi\`u di $m$ elementi} (con $s=m$ la probabilit\`a \`e 0) \kw{n\'e meno}
+(quando $\textit{serve}=\textit{resta}$ la probabilit\`a \`e 1 per tutti i rimanenti). Una
+passata, $\OO{n}$ tempo, $\OO{1}$ spazio. \emph{Nota per le simulazioni d'esame}: i valori $p_i$
+dati nel testo si confrontano con la soglia corrente $\textit{serve}/\textit{resta}$
+(si seleziona quando $p_i\le\textit{serve}/\textit{resta}$).
+
+\textbf{Correttezza per $m=1$.} L'elemento $t$ \`e selezionato sse nessuno dei precedenti lo \`e
+stato e la moneta del passo $t$ ha successo (prob.\ $\frac{1}{n-t+1}$):
+\[
+\Pr[t \text{ selezionato}]
+=\prod_{i=1}^{t-1}\Bigl(1-\frac{1}{n-i+1}\Bigr)\cdot\frac{1}{n-t+1}
+=\prod_{i=1}^{t-1}\frac{n-i}{n-i+1}\cdot\frac{1}{n-t+1}
+=\frac{n-t+1}{n}\cdot\frac{1}{n-t+1}=\boxed{\ \frac{1}{n}\ }
+\]
+di nuovo per telescopia: uniforme. $\blacksquare$ (Il caso generale \`e analogo per induzione, e il
+numero di selezionati \`e esattamente $m$ per costruzione.)
+
+\textbf{Confronto col Reservoir.} Serve conoscere $n$, ma niente serbatoio n\'e sostituzioni: ogni
+elemento \`e deciso definitivamente al suo passaggio.
+
+% ==================================================================
+\section{Set Intersection --- risoluzioni}
+
+Setting comune: $L_1$ (detta anche $A$) di lunghezza $n$ e $L_2$ (detta $B$) di lunghezza $m\le n$,
+ordinate crescenti. Riferimenti: merge completo $\OO{n+m}$ (buono per $m\approx n$); $m$ ricerche
+binarie $\OO{m\log n}$ (buono per $m\ll n$). Gli algoritmi seguenti interpolano fra i due.
+
+\subsection*{\qid{4.1}\hot\ Two-level intersection}
+
+\begin{domanda}
+Date due liste ordinate $L_1$, $L_2$ di lunghezze $n$ e $m$: descrivi l'algoritmo two-level (detto
+anche two-level scan / two-level memory / two-level storage) per calcolarne l'intersezione;
+enuncia e dimostra la sua complessit\`a. \emph{(09/02/24, 21/06/24, 11/11/24, 15/07/25)}
+\end{domanda}
+
+\textbf{Algoritmo.} Si fissa un parametro $L$ (taglia di blocco). Si divide $L_1$ in $h=n/L$
+blocchi consecutivi di $L$ elementi e si costruisce la lista di primo livello
+$L_1'=\{$primo elemento di ogni blocco$\}$, di lunghezza $n/L$.
+\emph{Fase 1}: merge di $L_1'$ con $L_2$: costo $\OO{\frac{n}{L}+m}$; per ogni $b\in L_2$ questo
+individua l'unico blocco di $L_1$ che pu\`o contenerlo. \emph{Fase 2}: per ogni blocco selezionato,
+merge locale del blocco con i suoi candidati; \kw{ogni elemento di $L_2$ fa scandire al pi\`u un
+blocco}: costo $\OO{mL+m}$ nel caso peggiore.
+
+\textbf{Teorema.} Il costo \`e $\OO{\frac{n}{L}+mL+m}$; con la scelta ottima $L=\sqrt{n/m}$:
+\[
+\boxed{\ T(n,m)=\OO{m+\sqrt{n\,m}}\ }
+\]
+
+\textbf{Prova.} La somma delle due fasi \`e $f(L)=\frac{n}{L}+mL$ (pi\`u $\OO{m}$ additivo).
+Minimizzo: $f'(L)=-\frac{n}{L^2}+m=0\iff L=\sqrt{n/m}$, dove $f(L)=2\sqrt{nm}$ (equivalentemente,
+per AM--GM, $\frac{n}{L}+mL\ge2\sqrt{nm}$ con uguaglianza in $L=\sqrt{n/m}$). $\blacksquare$
+
+\textbf{Commento.} $\sqrt{nm}$ \kw{batte sia il merge $\OO{n+m}$ (quando $m\ll n$) sia le ricerche
+binarie $\OO{m\log n}$ (quando $m$ \`e grande)}. In I/O: $L_1$ \`e scandita per blocchi contigui,
+quindi $\OO{\frac{n}{LB}+\frac{m}{B}+m}$ I/O con blocco $=$ pagina di disco (versione ``two-level
+memory'' del 09/02/24: primi elementi in memoria, un fetch di blocco per elemento di $L_2$).
+
+\subsection*{\qid{4.2} Mutual partition}
+
+\begin{domanda}
+Descrivi l'algoritmo mutual partition per l'intersezione di $L_1$, $L_2$, con la sua
+complessit\`a. \emph{(11/07/24)}
+\end{domanda}
+
+\textbf{Algoritmo.} Si prende l'elemento mediano $b_{med}$ della lista \kw{corta} $L_2$; lo si
+cerca con ricerca binaria in $L_1$, trovando la posizione $j$ tale che $L_1[1,j]<b_{med}\le
+L_1[j+1,n]$ (se $b_{med}\in L_1$ lo si emette). Si ricorre sulle due met\`a:
+$(L_1[1,j],\,L_2[1,med-1])$ e $(L_1[j+1,n],\,L_2[med+1,m])$. Base: lista vuota.
+
+\textbf{Complessit\`a:} $\boxed{\OO{m\log\frac{2n}{m}}}$. Al livello $k$ della ricorsione ci sono
+al pi\`u $2^k$ sottoproblemi; le porzioni di $L_1$ di uno stesso livello sono disgiunte e sommano
+a $\le n$; ogni sottoproblema fa una ricerca binaria $\OO{1+\log n_{k,t}}$ sulla propria porzione.
+\kw{Per concavit\`a del logaritmo (Jensen)} il costo del livello \`e
+$\sum_{t}(1+\log n_{k,t})\le 2^k(1+\log\frac{n}{2^k})$. Sommando sui livelli $k=0,\dots,\log m$:
+\[
+\sum_{k=0}^{\log m}2^k\Bigl(1+\log\frac{n}{2^k}\Bigr)
+=\OO{m}+\log n\sum_k 2^k-\sum_k k\,2^k
+=\OO{m+m\log n-m\log m}=\OO{m\log\tfrac{2n}{m}},
+\]
+usando $\sum_{k\le K}2^k=\OO{m}$ e $\sum_{k\le K}k2^k=(K-1)2^{K+1}+2$ con $K=\log m$.
+$\blacksquare$
+
+\textbf{Commento.} \kw{\`E ottimo}: lower bound information-theoretic
+$\Om{\log\binom{n}{m}}=\Om{m\log\frac{n}{m}}$ (bisogna distinguere gli interleaving possibili).
+Svantaggio: accessi non sequenziali (ricorsione + binarie), localit\`a scarsa; il doubling
+\qid{4.3} ottiene lo stesso bound con accesso iterativo.
+
+\subsection*{\qid{4.3} Doubling / galloping search}
+
+\begin{domanda}
+Descrivi il doubling algorithm (binary search con salti esponenziali, ``galloping'') per
+l'intersezione; enuncia e dimostra la sua complessit\`a. \emph{(15/01/24)}
+\end{domanda}
+
+\textbf{Algoritmo.} Si scandisce $L_2=b_1<\dots<b_m$ mantenendo in $L_1$ la posizione $i_{j-1}$
+dell'ultimo attraversamento. Per il prossimo $b_j$: da $i_{j-1}$ si fanno \kw{salti esponenziali
+$1,2,4,8,\dots$} finch\'e non si supera un elemento $\ge b_j$; detto $2^{k_j}$ l'ultimo salto, si
+fa ricerca binaria di $b_j$ nell'intervallo di ampiezza $\Delta_j\le 2^{k_j}$ cos\`i individuato;
+si emette $b_j$ se presente e si aggiorna $i_j$.
+
+\textbf{Teorema.} Costo totale $\boxed{\OO{m\bigl(1+\log\frac{n}{m}\bigr)}}$.
+
+\textbf{Prova.} Salti + binaria per $b_j$: $\OO{1+\log\Delta_j}$. Poich\'e i salti raddoppiano,
+\kw{$\Delta_j\le 2\,(i_j-i_{j-1})$}: l'overshooting \`e al pi\`u il doppio del progresso reale,
+quindi $\sum_j\Delta_j\le 2n$. \kw{Per concavit\`a del logaritmo (Jensen)}:
+\[
+\sum_{j=1}^{m}\OO{1+\log\Delta_j}
+=\OO{m+m\log\Bigl(\tfrac{1}{m}\sum_j\Delta_j\Bigr)}
+=\OO{m+m\log\tfrac{2n}{m}}. \;\blacksquare
+\]
+
+\textbf{Commento.} Stesso bound ottimo del mutual partition, ma con \kw{scansione monotona di
+$L_1$}: localit\`a migliore (cache/prefetching), niente ricorsione. \`E l'algoritmo dei motori di
+ricerca sulle posting list.
+
+\subsection*{\qid{4.4} Intersezione di liste Elias--Fano con Access/GEQ}
+
+\begin{domanda}
+Scrivi lo pseudocodice per intersecare due liste ordinate $L_1$, $L_2$ (di $n_1$ e $n_2$ elementi)
+codificate con Elias--Fano, usando come primitive $\texttt{Access}(L,i)$ e $\texttt{GEQ}(L,x)$;
+valuta e commenta la complessit\`a. \emph{(14/01/22)}
+\end{domanda}
+
+Primitive ($\OO{1}$ con le strutture di rank/select sui bit alti, \qid{8.2}):
+$\texttt{Access}(L,i)=$ $i$-esimo elemento; $\texttt{GEQ}(L,x)=$ posizione del pi\`u piccolo
+elemento $\ge x$ (o $\bot$).
+
+\begin{verbatim}
+EF-Intersect(L1, L2):               // n1 = |L1|, n2 = |L2|
+  i = 1
+  x = Access(L1, 1)
+  loop:
+      j = GEQ(L2, x);   if j = NIL: return       // L2 esaurita
+      y = Access(L2, j)
+      if y == x:                                  // match
+           output x
+           i = i + 1;   if i > n1: return
+           x = Access(L1, i)
+      else:                                       // y > x: scavalca in L1
+           i = GEQ(L1, y);   if i = NIL: return
+           x = Access(L1, i)
+\end{verbatim}
+
+\textbf{Complessit\`a.} \kw{Ogni iterazione avanza strettamente almeno uno dei due puntatori} (su
+match avanza $i$; altrimenti $x$ salta a un valore $\ge y>x$). Le iterazioni sono quindi
+$\OO{n_1+n_2}$, e $\OO{\min(n_1,n_2)}$ chiamando GEQ dalla lista corta verso la lunga; ogni
+operazione \`e $\OO{1}$: totale $\boxed{\OO{\min(n_1,n_2)}}$ \kw{senza mai decomprimere le liste}.
+Vantaggio rispetto a \qid{4.3} su liste esplicite: spazio ($\approx\log\frac{u}{n}+2$ bit per
+intero) e quindi meno I/O e cache miss; GEQ fa il ruolo dei salti esponenziali in $\OO{1}$.

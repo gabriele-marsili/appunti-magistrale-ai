@@ -1,0 +1,198 @@
+%===============================================================
+%  APPENDIX B — Raccolta domande d'esame
+%===============================================================
+\chapter{Raccolta domande d'esame — preparazione orale}
+\label{ch:exam-questions}
+
+Il professore (vedi GDL35) struttura l'orale in $\sim$3 domande di complessità crescente: voto correlato alla profondità raggiunta. Aspettati che possa chiederti di:
+\begin{itemize}
+  \item \emph{derivare} formule alla lavagna (es.\ EM per GMM, ELBO, discriminatore ottimale GAN, change-of-variables per flows);
+  \item \emph{scegliere e giustificare} il modello giusto per un task descritto a parole;
+  \item \emph{connettere} parti diverse del corso (le 5 lenti unificanti);
+  \item \emph{discutere proprietà e trade-off}: stabilità training, qualità campioni, scalabilità, identifiability.
+\end{itemize}
+
+\begin{tcolorbox}[mywarn, title={Regole dell'orale, dalle slide GDL35 (verbatim, tradotto)}]
+Vale la pena conoscerle alla lettera, perché cambiano la strategia con cui si affronta la prova.
+
+\begin{itemize}[leftmargin=1.4em]
+  \item \textbf{Circa tre domande di complessità crescente}, e il voto è legato alla complessità raggiunta: fermarsi presto significa un voto più basso, non un voto ``da rifare''.
+  \item \textbf{Se non si risponde alla domanda corrente in un tempo ragionevole} (indicativamente $5$--$10$ minuti) \textbf{l'orale si conclude lì}, con il voto corrispondente alle domande già affrontate.
+  \item \textbf{Non si cambia domanda su richiesta}: non c'è la possibilità di chiedere ``me ne fa un'altra?'' finché non ne capita una che si sa.
+  \item \textbf{Soglia minima per passare}: saper \emph{formalizzare} i modelli visti a lezione e saperne discutere in modo convincente proprietà e utilizzo.
+  \item Le domande sono costruite per distinguere il ragionamento dalla memorizzazione. Può essere chiesto di \emph{derivare} enunciati e di descrivere i modelli formalmente.
+  \item \textbf{La lezione GDL33} (\emph{Deep Learning for Graphs II — Advanced Models}) \textbf{non fa parte del materiale d'esame}.
+  \item L'orale può essere sostenuto in italiano o in inglese, a scelta.
+\end{itemize}
+
+\medskip
+\textbf{Che cosa se ne deduce sulla preparazione.} Poiché l'orale si interrompe al primo blocco, la profondità conta più della copertura marginale: è meglio saper derivare bene dieci cose che riconoscerne trenta. E poiché la prima domanda è la più semplice, conviene che le definizioni di base siano automatiche — non è lì che si guadagna, ma è lì che si può perdere tutto.
+\end{tcolorbox}
+
+\section{Domande trasversali (le più difficili)}
+
+\begin{tcolorbox}[mywarn, title={Famiglia generativa: traccia l'evoluzione dal VAE al Flow Matching}]
+\textbf{Punti chiave per la risposta:}
+\begin{enumerate}
+  \item VAE (2013): ELBO + reparametrization $\Rightarrow$ primo modello latente differenziabile; latente strutturato, campioni sfocati.
+  \item GAN (2014): cambio di paradigma — impara a campionare, non a stimare densità; alta qualità, instabilità.
+  \item Normalizing Flows (2014--15): cambio di variabile esplicito; likelihood esatta ma vincolo invertibilità + dim-preserving.
+  \item Diffusion (2020): VAE gerarchico con encoder fisso; training stabile, qualità SOTA, sampling lento.
+  \item Flow Matching (2023): regressione di velocità lungo path scelto; deterministico, pochi step, equivalente a diffusion sotto path gaussiani.
+\end{enumerate}
+\end{tcolorbox}
+
+\begin{tcolorbox}[mywarn, title={ELBO: come collega EM, Variational Inference e VAE?}]
+\begin{enumerate}
+  \item Definizione: $\log p(\vect{x}) \geq \mathbb{E}_q[\log p(\vect{x},\vect{z})] - \mathbb{E}_q[\log q(\vect{z})]$ (Jensen).
+  \item EM (Cap.~\ref{ch:em}): l'E-step pone $q(\vect{z}) = p(\vect{z}|\vect{x},\theta^{\text{old}})$ rendendo l'ELBO tight; M-step massimizza $\mathbb{E}_q[\log p(\vect{x},\vect{z};\theta)]$.
+  \item Variational Inference (Cap.~\ref{ch:variational}): $q$ ristretto a una famiglia (mean-field) per cui $p(\vect{z}|\vect{x})$ è intrattabile. CAVI alterna ottimizzazione coordinate-wise.
+  \item VAE (Cap.~\ref{ch:vae}): $q_\phi(\vect{z}|\vect{x})$ parametrizzato da una rete neurale (amortized inference), reparametrization rende differenziabile, optimizzazione gradient-based su $(\theta,\phi)$ congiunti.
+  \item Diffusion (Cap.~\ref{ch:diffusion}): ELBO gerarchico su catena di $T$ latenti.
+\end{enumerate}
+La storia è la stessa quantità (ELBO) con vincoli progressivamente più rilassati su $q$.
+\end{tcolorbox}
+
+\begin{tcolorbox}[mywarn, title={Message passing: collega PGM, GNN e Transformer}]
+\begin{enumerate}
+  \item Belief Propagation (Cap.~\ref{ch:em}, Parte I): aggregare messaggi probabilistici dai vicini in un fattore graph per calcolare marginali.
+  \item GNN message passing (Parte V): aggregare embedding dai vicini in un grafo per costruire rappresentazioni.
+  \item Transformer self-attention (Parte III): grafo completo (ogni token attiva su tutti), pesi via softmax dot-product.
+  \item GAT: self-attention ristretto ai vicini effettivi $\Rightarrow$ ponte fra GNN e Transformer.
+  \item Graph Transformer (GPS): combina message passing locale + global attention.
+\end{enumerate}
+La stessa formula $h_v^{(\ell+1)} = \text{UPDATE}(h_v^{(\ell)}, \text{AGG}(\{h_u^{(\ell)}\}))$ varia solo per: (i) la natura dei messaggi (densità vs vettori), (ii) la struttura del grafo (esplicito vs implicito completo), (iii) la AGG (sum, mean, attention).
+\end{tcolorbox}
+
+\begin{tcolorbox}[mywarn, title={Attention: dall'attenzione di Bahdanau ai GAT}]
+\begin{enumerate}
+  \item Bahdanau cross-attention (2014, Cap.~Encoder-Decoder Parte III): attention "additiva" su tokens encoder dal decoder RNN. Pesi $\alpha_t = \mathrm{softmax}(\vect{v}^\top \tanh(\mat{W}_h \vect{h}_t + \mat{W}_s \vect{s}))$.
+  \item Self-attention (2017, Cap.~Transformer): ogni token attende su tutti. $\mathrm{Attention}(Q,K,V) = \mathrm{softmax}(QK^\top/\sqrt{d_k})V$.
+  \item Multi-head: $h$ teste indipendenti concatenate $\Rightarrow$ subspaces di rappresentazione.
+  \item GAT: stessa formula applicata su vicini di un grafo.
+\end{enumerate}
+Filo conduttore: \emph{indicizzare contenuto per somiglianza}, non per posizione.
+\end{tcolorbox}
+
+\begin{tcolorbox}[mywarn, title={Causalità classica vs Causal Representation Learning}]
+\begin{enumerate}
+  \item Causalità classica (Cap.~\ref{ch:causality}): si parte da variabili \emph{osservate} $X_1,\dots,X_d$ con semantica chiara. Si infiscia un SCM, si fa do-calculus, structure learning.
+  \item CRL (Cap.~\ref{ch:crl}): le variabili causali $\vect{s}$ sono \emph{latenti}; si osserva solo $\vect{x} = h^*(\vect{s})$ (immagini, video). Bisogna prima \emph{ricavare} le variabili, poi inferire il grafo.
+  \item Locatello 2019: unsupervised non identifiable $\Rightarrow$ servono interventi/regimi (TCL, iVAE) o auxiliary variables.
+  \item CITRIS: identifiability sotto interventi temporali noti.
+\end{enumerate}
+Il deep learning aggiunge: rappresentazioni apprese, mixing non lineare, mappatura immagini $\to$ fattori.
+\end{tcolorbox}
+
+\begin{tcolorbox}[mywarn, title={Modelli a variabile latente: una panoramica EM-style}]
+Risponderesti: \\
+GMM (mistura di gaussiane, latente discreta) $\to$ HMM (sequenza di latenti discreti, Baum-Welch è EM specializzato) $\to$ Variational Inference (latenti generiche, $q$ in famiglia mean-field) $\to$ VAE (latenti continue, $q$ amortizzato neurale, reparametrization) $\to$ Diffusion (gerarchia di latenti, encoder fisso). Ogni passo rilassa un'assunzione del precedente.
+\end{tcolorbox}
+
+\section{Parte I — PGM e Causalità}
+
+\begin{description}
+  \item[Definisci e disegna un esempio di Bayesian Network.] Specifica: variabili, archi diretti aciclici, CPT. Spiega la fattorizzazione $p(\vect{x}) = \prod_i p(x_i|\mathrm{Pa}(x_i))$.
+  \item[Cos'è la d-separation? Quando due variabili sono d-separate?] Definisci il criterio: cammino bloccato da chain/fork con osservato, collider non osservato senza discendenti osservati.
+  \item[Markov blanket di un nodo $X$.] $\mathrm{MB}(X) = \mathrm{Pa}(X) \cup \mathrm{Ch}(X) \cup \mathrm{Pa}(\mathrm{Ch}(X))$. È il set minimo che rende $X$ indipendente dal resto.
+  \item[Differenza fra rete Bayesiana e rete causale.] BN: rappresenta indipendenze osservazionali. Causale: gli archi rappresentano relazioni causa-effetto e supportano do-interventi.
+  \item[Gerarchia di Pearl (associativo, intervenzionale, controfattuale).] Tre livelli: $p(y|x)$ (osservazione) $\subset$ $p(y|\mathrm{do}(x))$ (intervento) $\subset$ $p(y_x|x',y')$ (controfattuale).
+  \item[Cos'è il do-operator? Quando $p(y|x) = p(y|\mathrm{do}(x))$?] $\mathrm{do}(X=x)$ fissa $X$ rimuovendo gli archi entranti. Le due quantità coincidono se non ci sono backdoor path da $X$ a $Y$.
+  \item[Backdoor criterion.] Una insieme $Z$ soddisfa il backdoor criterion se: nessun nodo in $Z$ è discendente di $X$, e $Z$ blocca tutti i backdoor path da $X$ a $Y$. Allora $p(y|\mathrm{do}(x)) = \sum_z p(y|x,z) p(z)$.
+  \item[Structure learning: score-based vs constraint-based.] Score-based: ottimizza una funzione (BIC, BDe) sulla struttura. Constraint-based (PC, GES): usa test di indipendenza condizionale per ricostruire il grafo (entro Markov equivalence class).
+\end{description}
+
+\section{Parte II — Learning Probabilistico}
+
+\begin{description}
+  \item[MLE vs MAP vs Bayesian.] MLE: $\theta^* = \argmax_\theta p(\mathcal{D}|\theta)$. MAP: $\argmax_\theta p(\theta|\mathcal{D}) = \argmax_\theta p(\mathcal{D}|\theta)p(\theta)$. Bayesian: posterior completa $p(\theta|\mathcal{D})$, non un singolo punto.
+  \item[Deriva EM per Gaussian Mixture Model.] E-step: $\gamma_{ik} = \frac{\pi_k \mathcal{N}(x_i|\mu_k,\Sigma_k)}{\sum_j \pi_j \mathcal{N}(x_i|\mu_j, \Sigma_j)}$. M-step: $\mu_k = \frac{\sum_i \gamma_{ik} x_i}{\sum_i \gamma_{ik}}$, $\Sigma_k$ analogo, $\pi_k = \sum_i\gamma_{ik}/N$. \textbf{Domanda iconica del prof.}
+  \item[Deriva l'ELBO e mostra che $\log p(x) = \mathcal{L} + \KL{q}{p(z|x)}$.] Vedi Cap.~\ref{ch:vae}, sezione ELBO.
+  \item[Forward-Backward HMM.] $\alpha_t(i) = p(x_{1:t}, S_t=i)$ con ricorrenza $\alpha_t(i) = b_i(x_t) \sum_j \alpha_{t-1}(j) a_{ji}$; $\beta_t(i) = p(x_{t+1:T}|S_t=i)$ con $\beta_t(i) = \sum_j a_{ij} b_j(x_{t+1}) \beta_{t+1}(j)$. Smoothing $\gamma_t(i) = \alpha_t(i)\beta_t(i)/Z$.
+  \item[Algoritmo di Viterbi.] DP per il path più probabile: $\delta_t(i) = \max_{s_{1:t-1}} p(s_{1:t-1}, S_t=i, x_{1:t})$ con $\delta_t(j) = b_j(x_t) \max_i \delta_{t-1}(i) a_{ij}$, e backpointer.
+  \item[Baum-Welch.] EM specializzato per HMM: E-step calcola $\gamma_t(i), \xi_t(i,j) = p(S_t=i, S_{t+1}=j|x_{1:T})$. M-step aggiorna $\pi, A, B$ come medie pesate.
+  \item[Mean-field variational inference (CAVI).] $q(\vect{z}) = \prod_i q_i(z_i)$. Coordinate ascent: $q_i^*(z_i) \propto \exp(\mathbb{E}_{q_{-i}}[\log p(\vect{z}, \vect{x})])$.
+  \item[LDA: generative process e inference.] Per ogni doc $d$: $\theta_d \sim \mathrm{Dir}(\alpha)$. Per ogni parola: $z_{dn} \sim \mathrm{Cat}(\theta_d)$, $w_{dn} \sim \mathrm{Cat}(\beta_{z_{dn}})$. Inference: collapsed Gibbs o variational.
+  \item[Gibbs sampling vs Metropolis-Hastings.] Gibbs: campiona $z_i | z_{-i}$ in sequenza. MH: propone $z'$ da $q(z'|z)$, accetta con prob $\min(1, p(z')q(z|z')/(p(z)q(z'|z)))$. Gibbs è caso speciale con acceptance 1.
+  \item[Restricted Boltzmann Machine: definizione e contrastive divergence.] $p(\vect{v},\vect{h}) \propto \exp(\vect{v}^\top \mat{W}\vect{h} + \vect{a}^\top\vect{v} + \vect{b}^\top \vect{h})$. CD-1: $\Delta W \propto \langle vh^\top\rangle_{\text{data}} - \langle vh^\top \rangle_{\text{1-step Gibbs}}$.
+\end{description}
+
+\section{Parte III — Deep Learning Fondamentale}
+
+\begin{description}
+  \item[Convoluzione: parameter sharing, sparsità, equivariance.] Filtri condivisi $\Rightarrow$ pochi parametri. Sparsità $\Rightarrow$ ogni output dipende da pochi input. Equivariance alla traslazione: $f(T_v x) = T_v f(x)$.
+  \item[LeNet $\to$ AlexNet $\to$ VGG $\to$ ResNet.] LeNet (1998, primo CNN per cifre); AlexNet (2012, ReLU + dropout + GPU); VGG (2014, depth con kernel $3\times 3$); ResNet (2015, residual connection, oltre 100 layer).
+  \item[Residual connection: perché funziona?] $\vect{h}^{(\ell+1)} = \vect{h}^{(\ell)} + F(\vect{h}^{(\ell)})$. Backprop ha un cammino diretto in cui il gradiente non si attenua; permette di addestrare reti molto profonde.
+  \item[Vanishing/exploding gradient (EVGP).] In una rete profonda i prodotti di Jacobiani $\prod_\ell J_\ell$ esplodono o vanno a zero. Mitigazioni: init (Xavier, He), normalization, ReLU, residual, LSTM gates.
+  \item[Batch Normalization: cosa fa e perché.] Normalizza ogni mini-batch a media 0 e varianza 1 per layer, poi affine shift apprendibile. Stabilizza training, permette LR più alti, regolarizza.
+  \item[Dilated/causal convolutions.] Dilated: kernel con buchi $\Rightarrow$ receptive field esponenziale (WaveNet). Causal: kernel asimmetrico, output a $t$ dipende solo da input $\leq t$ (sequenze).
+  \item[BPTT e troncamento.] Backpropagation Through Time: unroll della RNN e backprop normale. Truncated BPTT: limita la lunghezza dell'unroll.
+  \item[LSTM: gates e architettura.] Forget gate $f_t = \sigma(\mat{W}_f[h_{t-1}, x_t])$, input gate $i_t$, cell state $c_t = f_t c_{t-1} + i_t \tilde c_t$, output gate $o_t$, $h_t = o_t \tanh(c_t)$. Risolve il vanishing gradient via il cell state.
+  \item[GRU vs LSTM.] GRU: due gate (reset, update), no cell state separato. Più parametri-efficienti, prestazioni comparabili.
+  \item[Echo State Network.] Reservoir random $\mat{W}$ con $\rho(\mat{W})<1$, training solo del readout lineare. Veloce, pochi iperparametri.
+  \item[Bahdanau attention.] Pesi additivi sul context vector dell'encoder, calcolati dal decoder. Risolve il bottleneck dei seq2seq classici.
+  \item[Self-attention: formula e complessità.] $\mathrm{softmax}(QK^\top/\sqrt{d_k})V$. Complessità $\mathcal{O}(n^2 d)$ in lunghezza sequenza.
+  \item[Multi-head attention: perché?] $h$ teste indipendenti permettono di attendere a sottospazi diversi. Output concatenato $+$ proiezione.
+  \item[Positional encoding.] Necessario perché self-attention è permutation invariant. Sinusoidale (Vaswani) o appreso. Variants: relative (Shaw), RoPE.
+  \item[Encoder-only (BERT) vs Decoder-only (GPT) vs Encoder-Decoder (T5).] BERT: bidirezionale, masked LM, classificazione/embedding. GPT: autoregressivo causale, generazione. T5: seq2seq generico.
+  \item[Vision Transformer.] Patches $\to$ token $\to$ Transformer. Pre-training scala meglio di CNN su dataset enormi.
+\end{description}
+
+\section{Parte IV — Generative Deep Learning}
+
+\begin{description}
+  \item[Definisci un autoencoder e i suoi varianti regolarizzati.] Vedi Cap.~\ref{ch:ae}.
+  \item[DAE come stimatore della score.] Tweedie + Vincent 2011; $\nabla\log p = (g\circ f - x)/\sigma^2$.
+  \item[Deriva l'ELBO del VAE.] Vedi Cap.~\ref{ch:vae}.
+  \item[Reparametrization trick: cos'è e perché serve.] $\vect{z} = \mu + \sigma\odot\epsilon$, gradient flow attraverso $\mu,\sigma$. Senza, non si può backpropare nel sampling.
+  \item[Cos'è il posterior collapse?] Decoder troppo potente ignora $\vect{z}$; KL$\to 0$; latente inutile. Mitigazioni: KL annealing, $\beta$-VAE.
+  \item[GAN: minimax e discriminatore ottimale.] $D^* = p_d/(p_d+p_g)$. A $D^*$ fisso, $V$ = JS divergence $-\log 4$.
+  \item[Perché WGAN funziona meglio della GAN classica?] Wasserstein è ben definita anche se i supporti sono disgiunti, gradiente non saturante.
+  \item[Mode collapse: cos'è e perché.] Il generatore impara pochi modi che ingannano $D$. Causa: punto sella, $D$ non riconosce mancanza di copertura.
+  \item[Cycle consistency in CycleGAN.] $\|F(G(x))-x\| + \|G(F(y))-y\|$. Permette style transfer senza dati appaiati.
+  \item[Normalizing flow: cambio di variabile e composizione.] $\log p_X = \log p_Z - \sum \log|\det J_{f_k}|$.
+  \item[Coupling layer (RealNVP).] Jacobiano triangolare, inversione $\mathcal{O}(d)$.
+  \item[MAF vs IAF.] MAF: density evaluation parallela, sampling sequenziale. IAF: opposto.
+  \item[Continuous Normalizing Flow.] ODE neurale, traccia al posto del determinante.
+  \item[DDPM: forward e training objective.] Vedi Cap.~\ref{ch:diffusion}.
+  \item[Classifier-free guidance: come funziona?] Stesso modello con/senza condizione, miscela a inference.
+  \item[Latent diffusion.] Diffusion in latente di VAE per efficienza.
+  \item[Score matching: ESM, ISM, DSM.] Esplicito (intrattabile), implicito (costoso), denoising (efficiente, equivalente a DDPM).
+  \item[Probability flow ODE.] Versione deterministica della reverse SDE; stesse marginali; permette likelihood esatta.
+  \item[Flow Matching e CFM.] Si regredisce velocità; conditional path. Rectified flow $=$ traiettorie rettilinee, pochi step.
+  \item[Disentanglement: definizione e impossibilità.] Locatello 2019: marginale indipendenza non è sufficiente.
+  \item[iVAE: come supera l'impossibilità?] Auxiliary variable $u$ rompe l'invarianza non-identificabile.
+  \item[CITRIS: setup, identifiability, varianti.] Triplet $(x_t, x_{t+1}, I_{t+1})$, transition prior dipendente da intervento.
+\end{description}
+
+\section{Parte V — Graph Neural Networks}
+
+\begin{description}
+  \item[Message passing framework.] $h_v^{(\ell+1)} = U(h_v^{(\ell)}, \text{AGG}\{h_u^{(\ell)}\})$. AGG permutation invariant.
+  \item[Deriva la GCN da approssimazione spettrale.] Chebyshev di ordine 1 sulla normalized Laplacian.
+  \item[GraphSAGE: scalabilità.] Sampling di vicini, mean/max/LSTM aggregator.
+  \item[GIN: espressività.] Sum + MLP iniettivo $\Rightarrow$ raggiunge il limite 1-WL.
+  \item[GAT: differenza con Transformer.] Attention ristretta ai vicini effettivi.
+  \item[Over-smoothing.] Mean aggregation $\to$ punto fisso costante; mitigazioni: residual, jumping knowledge.
+  \item[Over-squashing.] Vicinanza esponenziale schiacciata in vettore fisso; mitigazioni: global attention, rewiring.
+  \item[DiffPool.] Soft assignment $S \in \mathbb{R}^{n\times k}$, coarsening $X' = S^\top X$, $A' = S^\top A S$.
+  \item[Graph Echo State Network.] Reservoir di message passing random, training lineare.
+  \item[Confronta GCN/GraphSAGE/GAT/GIN.] Vedi tabella in Cap.~\ref{ch:gnn-mp}.
+\end{description}
+
+\section{Parte VI — Reinforcement Learning}
+
+\begin{description}
+  \item[Definisci MDP.] $(\mathcal{S}, \mathcal{A}, P, R, \gamma)$.
+  \item[Deriva Bellman expectation per $v_\pi$.] Espansione di $G_t = R_{t+1} + \gamma G_{t+1}$.
+  \item[Bellman optimality.] $v_*(s) = \max_a [R + \gamma \sum P v_*]$.
+  \item[Policy iteration vs Value iteration.] Pro/contro.
+  \item[Q-learning: scrivi update e spiega off-policy.] Vedi~\eqref{eq:qlearning}.
+  \item[SARSA vs Q-learning.] On-policy vs off-policy.
+  \item[DQN: i tre trucchi.] Experience replay, target network, reward clipping.
+  \item[Policy gradient theorem.] Log-derivative trick, $\nabla J = \mathbb{E}[\nabla\log\pi\, Q]$.
+  \item[REINFORCE: pro e contro.] Stima MC, no bias, alta varianza.
+  \item[Actor-Critic: ruolo di actor e critic.] Critic stima value/Q, actor aggiorna policy con advantage.
+  \item[PPO: clipped objective.] $\min(r\hat A, \mathrm{clip}(r,1\pm\epsilon)\hat A)$.
+  \item[Quando policy-based vs value-based?] Azioni continue, stochastic policy $\to$ policy. Azioni discrete, $Q$-rappresentabile $\to$ value.
+\end{description}

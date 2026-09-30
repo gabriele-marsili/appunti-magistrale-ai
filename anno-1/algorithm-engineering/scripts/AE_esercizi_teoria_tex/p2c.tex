@@ -1,0 +1,521 @@
+\section{Integer Coding --- risoluzioni}
+
+\paragraph{Convenzione sui bit alti (importante per gli esercizi).} Nei compiti del docente la
+sequenza $H$ \`e costruita per \emph{bucket}: per ogni valore $v=0,1,\dots,u/2^{\ell}-1$ della
+parte alta si scrivono tanti \textbf{1} quanti sono gli elementi con parte alta $=v$, seguiti da
+uno \textbf{0} separatore (es.\ $H=\texttt{110\,110\,10\,0\,10}\dots$: il primo bucket ha 2
+elementi, il secondo 2, il terzo 1, il quarto 0, \dots). Quindi \kw{gli 1 rappresentano gli
+elementi e gli 0 i separatori}. (La dispensa usa la convenzione speculare con 0 e 1 scambiati: le
+formule si trasformano scambiando $\mathrm{Select}_1\leftrightarrow\mathrm{Select}_0$.)
+
+\subsection*{\qid{8.1}\hot\ Elias--Fano: costruzione e spazio (con prova)}
+
+\begin{domanda}
+Data una sequenza monotona di $n$ interi non negativi $<u$, enuncia e dimostra lo spazio (in bit)
+della codifica di Elias--Fano. \emph{(10/01/20, 27/05/24, 04/02/25)}
+\end{domanda}
+
+\textbf{Costruzione.} Sequenza monotona $s_1\le\dots\le s_n$ di interi in $[0,u)$. Si pone
+\[
+\boxed{\ \ell=\Bigl\lfloor\log_2\frac{u}{n}\Bigr\rfloor\ }
+\]
+Ogni $s_i$ \`e spezzato in: \emph{parte bassa} $=$ gli $\ell$ bit meno significativi, scritti in
+chiaro nell'array $L$ ($|L|=n\,\ell$ bit); \emph{parte alta} $h_i=\lfloor s_i/2^{\ell}\rfloor\in
+[0,u/2^{\ell})$, rappresentata in $H$ con la codifica unaria a bucket.
+
+\textbf{Teorema (spazio).}
+\[
+\boxed{\ |L|+|H| \;=\; n\,\ell \;+\; \Bigl(n+\frac{u}{2^{\ell}}\Bigr)
+\;\;<\;\; n\Bigl\lfloor\log_2\frac{u}{n}\Bigr\rfloor+3n\ \text{bit}\ }
+\]
+cio\`e meno di $\log_2\frac{u}{n}+3$ bit per elemento.
+
+\textbf{Prova.} $|L|=n\ell$: esattamente $\ell$ bit per elemento. Per $H$: \kw{un 1 per ciascuno
+degli $n$ elementi e uno 0 per ciascuno dei $u/2^{\ell}$ bucket}: $|H|=n+u/2^{\ell}$. Resta da
+maggiorare $u/2^{\ell}$: dalla definizione di parte intera, $\ell>\log_2\frac{u}{n}-1$, quindi
+\[
+2^{\ell} \;>\; \frac{u}{2n}
+\qquad\Longrightarrow\qquad
+\kw{\frac{u}{2^{\ell}}\;<\;2n} .
+\]
+Dunque $|H|<3n$ e il totale \`e $<n\ell+3n$. $\blacksquare$
+
+\textbf{Commento.} Il minimo teorico \`e $\log_2\binom{u}{n}\approx n\log_2\frac{u}{n}+1.44n$ bit:
+\kw{Elias--Fano \`e a $\approx2n$ bit dall'ottimo, qualunque sia la distribuzione}, e in cambio
+supporta Access e NextGEQ efficienti (\qid{8.2}) --- ci\`o che l'interpolativo, pi\`u compatto su
+sequenze clusterizzate, non offre. \kw{Negli esercizi numerici usare il conteggio esatto
+$n\ell+n+u/2^{\ell}$.}
+
+\subsection*{\qid{8.2} Access($i$) e NextGEQ($x$) su Elias--Fano}
+
+\begin{domanda}
+Scrivi l'algoritmo per eseguire $\texttt{Access}(i)$ su una sequenza codificata con Elias--Fano;
+cenno a $\texttt{NextGEQ}(x)$. \emph{(11/07/24; simulazioni in molti appelli)}
+\end{domanda}
+
+\textbf{Access($i$)} (restituisce $s_i$, con $i$ da 1):
+\begin{enumerate}[leftmargin=1.8em,itemsep=1pt]
+\item $\mathit{pos}=\mathrm{Select}_1(H,i)$: posizione dell'$i$-esimo 1 in $H$ ($\OO{1}$ con la
+struttura di select, \qid{10.1});
+\item \kw{parte alta: $h_i=\mathit{pos}-i$} --- prima dell'$i$-esimo 1 ci sono $i-1$ uni e
+$\mathit{pos}-i$ zeri, e il numero di separatori che precedono l'elemento \`e l'indice del suo
+bucket;
+\item parte bassa: $L[i]$, cio\`e i bit $[(i-1)\ell+1,\,i\ell]$ di $L$;
+\item output:
+\[
+\boxed{\ s_i=(\mathrm{Select}_1(H,i)-i)\cdot 2^{\ell}+L[i]\ }
+\]
+\end{enumerate}
+Costo: \kw{$\OO{1}$} (una select $+$ una lettura di $\ell$ bit consecutivi).
+
+\textbf{NextGEQ($x$)}: sia $b=\lfloor x/2^{\ell}\rfloor$ il bucket di $x$. Con
+$p=\mathrm{Select}_0(H,b)$ si trova la fine del bucket $b-1$: gli elementi del bucket $b$
+iniziano dall'indice $j_0=p-b+1$. Si scandiscono le parti basse del bucket $b$ confrontandole con
+$x\bmod 2^{\ell}$; il primo elemento $\ge x$ \`e la risposta; se il bucket si esaurisce, \`e il
+primo elemento del bucket non vuoto successivo. Costo: $\OO{1}$ select $+$ scansione del bucket
+(ammortizzata $\OO{1}$ nell'uso tipico, \qid{4.4}).
+
+\subsection*{\qid{8.3} Ricavare $n$ (e $\ell$) dagli array $L$, $H$}
+
+\begin{domanda}
+Dati gli array $L$ e $H$ di una codifica Elias--Fano, mostra come ricavare il valore di $n$
+(numero di interi codificati), motivando la risposta. \emph{(orale 25/07/22; \`e il ``hint''
+ricorrente degli esercizi: 11/11/20, 12/12/23, 09/12/24, 06/03/25, 23/06/25)}
+\end{domanda}
+
+\textbf{Risposta.}
+\[
+\boxed{\ n=\#_1(H)\ \text{ (numero di bit a 1 in $H$)}\ }
+\]
+
+\textbf{Motivazione.} Per costruzione di $H$, \kw{ogni elemento della sequenza contribuisce con
+esattamente un bit a 1} (nel bucket della sua parte alta), e gli 0 sono solo separatori:
+$\#_1(H)=n$ indipendentemente dalla distribuzione nei bucket. Da qui si ricava tutto:
+\[
+\kw{\ell=\frac{|L|}{n}}\quad(\text{$\ell$ bit per elemento in }L),
+\qquad
+\#_0(H)=\frac{u}{2^{\ell}}\ (\text{numero di bucket}),
+\qquad
+b=\ell+\log_2\#_0(H).
+\]
+\`E il procedimento degli hint d'esame: es.\ $|L|=22$, $\#_1(H)=11\Rightarrow n=11$, $\ell=2$;
+con $\#_0(H)=16$ bucket, interi originali su $2+4=6$ bit.
+
+\subsection*{\qid{8.4} Lunghezze dei codici (riferimento per gli esercizi di calcolo)}
+
+\begin{domanda}
+(Riferimento) Numero di bit emessi dai codici unario, $\gamma$, $\delta$, Rice e $(s,c)$-dense su
+un intero $x$. \emph{(vari appelli)}
+\end{domanda}
+
+Detta $B(x)$ la rappresentazione binaria di $x\ge1$ ($|B(x)|=\lfloor\log_2 x\rfloor+1$ bit):
+\begin{itemize}[leftmargin=1.6em,itemsep=2pt]
+\item \textbf{Unario} $U(x)$: \kw{$x$ bit}.
+\item \textbf{$\gamma$}: $|B(x)|-1$ zeri seguiti da $B(x)$:
+\kw{$|\gamma(x)|=2\lfloor\log_2 x\rfloor+1$}. Es.: $\gamma(9)=\texttt{000\,1001}$, 7 bit.
+\item \textbf{$\delta$}: $\gamma(|B(x)|)$ seguito da $B(x)$ \emph{intero} (convenzione della
+dispensa): $|\delta(x)|\approx\log_2x+2\log_2\log_2x$.
+Es.: $x=14$: $B(14)=\texttt{1110}$, $\gamma(4)=\texttt{00\,100}$,
+$\delta(14)=\texttt{00\,100\,1110}$, \kw{9 bit}. (Alcuni testi omettono il bit pi\`u
+significativo di $B(x)$: all'esame usare la convenzione della dispensa.)
+\item \textbf{Rice $R_k$}: quoziente $q=\bigl\lfloor\frac{x-1}{2^{k}}\bigr\rfloor$ in unario
+($q+1$ bit) $+$ resto su $k$ bit: \kw{$|R_k(x)|=\lfloor(x-1)/2^{k}\rfloor+k+1$}.
+Es.: $R_4(83)$: $q=\lfloor82/16\rfloor=5$, $5+4+1=10$ bit. Ottimo per interi concentrati intorno
+a $2^{k}$.
+\item \textbf{$(s,c)$-dense}: alfabeto di $2^{b}$ simboli ($b$ bit l'uno), $s$ \emph{stopper} $+$
+$c$ \emph{continuer} ($s+c=2^{b}$): codeword $=$ sequenza di continuer chiusa da uno stopper;
+\kw{$s$ codeword da 1 simbolo, $cs$ da 2, $c^{2}s$ da 3}, ecc. (negli esercizi: enumerare).
+\item \textbf{Elias--Fano}: $\approx\log_2\frac{u}{n}+3$ bit per intero; esatto:
+$n\ell+n+u/2^{\ell}$ (\qid{8.1}).
+\end{itemize}
+
+% ==================================================================
+\section{Statistical Coding --- risoluzioni}
+
+\subsection*{\qid{9.1}\hot\ Canonical Huffman: perch\'e, preambolo, decodifica}
+
+\begin{domanda}
+Descrivi perch\'e \`e stato introdotto il Canonical Huffman; specifica quali strutture dati tiene
+nel preambolo del file compresso; scrivi lo pseudocodice per decomprimere un simbolo.
+\emph{(09/02/24, 21/06/24, 15/07/25)}
+\end{domanda}
+
+\textbf{Perch\'e si introduce.} L'albero di Huffman esplicito ha due difetti:
+(i) \emph{spazio}: memorizzarne la struttura nel preambolo costa $\Theta(\sigma)$ puntatori;
+(ii) \emph{tempo}: decodificare seguendo puntatori radice$\to$foglia fa \kw{un salto di memoria
+per bit} (cache miss). Osservazione risolutiva: \kw{dell'albero contano solo le lunghezze
+$L(\sigma)$} --- qualunque assegnamento prefix-free con le stesse lunghezze \`e ottimo (Kraft). Il
+canonico assegna ai simboli di lunghezza $\ell$, ordinati, \kw{valori binari consecutivi}: la
+decodifica lavora con due array e confronti aritmetici (al pi\`u 2 cache miss per simbolo).
+
+\textbf{Preambolo.} Per ogni lunghezza $\ell=1,\dots,\ell_{\max}$:
+\begin{itemize}[leftmargin=1.6em,itemsep=1pt]
+\item $\mathit{num}[\ell]$: quanti simboli hanno codeword di lunghezza $\ell$;
+\item $\mathit{fc}[\ell]$ (\emph{first code}): valore della prima codeword di lunghezza $\ell$,
+con la ricorrenza \kw{dal livello pi\`u profondo verso l'alto}
+\[
+\boxed{\ \mathit{fc}[\ell_{\max}]=0,\qquad
+\mathit{fc}[\ell]=\Bigl\lceil\frac{\mathit{fc}[\ell+1]+\mathit{num}[\ell+1]}{2}\Bigr\rceil\ }
+\]
+\item $\mathit{symb}[\ell]$: lista dei simboli di lunghezza $\ell$; la codeword del $t$-esimo \`e
+il numero $\mathit{fc}[\ell]+t-1$ su $\ell$ bit.
+\end{itemize}
+(Sanity check con le tabelle d'esame: $\mathit{num}=[0,3,1,2]$ d\`a $\mathit{fc}[4]=0$,
+$\mathit{fc}[3]=1$, $\mathit{fc}[2]=1$, $\mathit{fc}[1]=2$, cio\`e $FC=\{2,1,1,0\}$;
+\kw{$\mathit{fc}[1]=2$ non \`e rappresentabile su 1 bit: \`e la sentinella} ``nessuna codeword di
+lunghezza 1''.)
+
+\textbf{Decodifica di un simbolo.} Propriet\`a: una sequenza di bit letta come numero $v$ su
+$\ell$ bit \`e una codeword completa \kw{sse $v\ge \mathit{fc}[\ell]$}.
+\begin{verbatim}
+DecodeSymbol():
+  v = next_bit();  len = 1
+  while v < fc[len]:                 // non e' ancora una codeword completa
+      v = 2*v + next_bit()           // aggiungi un bit
+      len = len + 1
+  return symb[len][ v - fc[len] ]    // offset dentro il livello
+\end{verbatim}
+(Esempio d'esame 13/06/22: $FC=\{2,1,1,0\}$, $\mathit{symb}=\{[\,],[a,e,f],[c],[d,b]\}$, input
+\texttt{10001}: $v=1<2$; $v=10_2=2\ge1$ $\Rightarrow$ $symb[2][1]=e$; poi \texttt{001}: $v=0<2$,
+$v=0<1$, $v=1\ge1$ $\Rightarrow$ $symb[3][0]=c$.)
+
+\subsection*{\qid{9.2} Upper bound in bit della codifica aritmetica}
+
+\begin{domanda}
+Dimostra l'upper bound in bit della codifica aritmetica, in funzione dell'entropia e della
+lunghezza del testo in input. \emph{(12/12/23, 09/12/24)}
+\end{domanda}
+
+\textbf{Teorema.} Sia $T=s_1\cdots s_n$ compresso con codifica aritmetica; se $\mathcal{P}$ \`e la
+distribuzione empirica di $T$ ed $H$ l'entropia empirica (ordine 0), i bit emessi sono
+\[
+\boxed{\ \Bigl\lceil\log_2\frac{1}{\prod_{k}\mathcal{P}[s_k]}\Bigr\rceil+1\;\le\;nH+2\ }
+\]
+
+\textbf{Prova (tre passi).}
+
+\emph{(1) Ampiezza dell'intervallo finale.} Da $[0,1)$, ogni simbolo $s_k$ restringe l'intervallo
+di un fattore $\mathcal{P}[s_k]$: dopo $n$ simboli
+\[
+\kw{s\;=\;\prod_{k=1}^{n}\mathcal{P}[s_k]}.
+\]
+
+\emph{(2) Bastano $\lceil\log_2\frac1s\rceil+1$ bit.} Si emette il \kw{punto medio
+$c=lo+\frac{s}{2}$ troncato} a $k=\lceil\log_2\frac{1}{s}\rceil+1$ bit frazionari. Per il bound
+sul troncamento (\qid{9.3}): $c-z<2^{-k}\le\frac{s}{2}$, quindi
+\[
+z\;>\;c-\frac{s}{2}\;=\;lo,\qquad z\;\le\;c\;<\;lo+s :
+\]
+\kw{il numero emesso resta dentro l'intervallo finale}, e il decoder (che riproduce la stessa
+partizione ricorsiva di $[0,1)$) recupera univocamente $T$.
+
+\emph{(3) Dal prodotto all'entropia.} Prendendo i logaritmi:
+\[
+\log_2\frac{1}{s}=\sum_{k=1}^{n}\log_2\frac{1}{\mathcal{P}[s_k]}
+=\sum_{\sigma\in\Sigma}n_\sigma\log_2\frac{1}{\mathcal{P}[\sigma]}
+\;\overset{\mathcal{P}[\sigma]=n_\sigma/n}{=}\;n\,H .
+\]
+Quindi $k\le\log_2\frac1s+2=nH+2$. $\blacksquare$
+
+\textbf{Commento.} \kw{L'overhead \`e di 2 bit sull'intero testo, non per simbolo}: \`e ci\`o che
+rende l'aritmetico quasi ottimo anche con $H\ll1$, dove Huffman paga $\ge1$ bit/simbolo
+(\qid{9.4}).
+
+\subsection*{\qid{9.3} Errore di troncamento di un numero binario $<1$}
+
+\begin{domanda}
+Dimostra un upper bound alla variazione indotta dal troncamento a $k$ cifre di un numero $<1$
+rappresentato in binario come $.b_1b_2b_3\ldots$ \emph{(10/01/20)}
+\end{domanda}
+
+\textbf{Teorema.} Sia $x=.b_1b_2b_3\ldots=\sum_{i\ge1}b_i2^{-i}\in[0,1)$ e $x_k=.b_1\ldots b_k$ il
+troncamento alle prime $k$ cifre. Allora
+\[
+\boxed{\ 0\;\le\;x-x_k\;=\;\sum_{i>k}b_i\,2^{-i}\;\le\;\sum_{i>k}2^{-i}\;=\;2^{-k}\ }
+\]
+cio\`e \kw{il troncamento a $k$ cifre riduce il valore di al pi\`u $2^{-k}$} (serie geometrica
+della coda; uguaglianza solo per coda tutta a 1). $\blacksquare$
+
+\textbf{Uso.} \`E il lemma del passo (2) di \qid{9.2}: troncando il punto medio a $k$ cifre con
+$2^{-k}\le s/2$ si resta dentro l'intervallo finale.
+
+\subsection*{\qid{9.4} Huffman vs Arithmetic: bit emessi e quando usare l'uno o l'altro}
+
+\begin{domanda}
+Enuncia il numero di bit emessi da Huffman e da Arithmetic dato un testo $T$ di lunghezza $n$ ed
+entropia empirica $H$; commenta quando conviene comprimere con l'uno o con l'altro, tenendo conto
+anche dell'efficienza in tempo. \emph{(06/03/25, 03/06/25)}
+\end{domanda}
+
+\textbf{Bit emessi.}
+\[
+\boxed{\ \text{Huffman: } nH\;\le\;|C(T)|\;<\;n(H+1)
+\qquad\quad
+\text{Arithmetic: } |C(T)|\;\le\;nH+2\ }
+\]
+Per Huffman: la lunghezza media per simbolo dell'ottimo prefix-free soddisfa $H\le L<H+1$ (lower
+bound di Shannon; upper bound perch\'e il codice di Shannon con lunghezze
+$\lceil\log\frac1{p_\sigma}\rceil$ \`e prefix-free e Huffman non \`e peggio). \kw{Lo spreco di
+Huffman pu\`o avvicinarsi a 1 bit/simbolo}: ogni codeword \`e lunga almeno 1, anche per simboli
+con $\log\frac1p\approx0$.
+
+\textbf{Quando conviene.}
+\begin{itemize}[leftmargin=1.6em,itemsep=1pt]
+\item \emph{Compressione}: \kw{l'aritmetico domina su distribuzioni sbilanciate ($H\ll1$)} ---
+es.\ output di MTF/RLE0 nella pipeline bzip2: Huffman emette comunque $\ge n$ bit, l'aritmetico
+$\approx nH+2\ll n$. Con $H$ grande la differenza \`e trascurabile.
+\item \emph{Tempo}: \kw{Huffman canonico \`e molto pi\`u veloce} (lookup e aritmetica intera,
+\qid{9.1}); l'aritmetico paga moltiplicazioni e rinormalizzazioni per simbolo.
+\item \emph{Modelli adattivi/contestuali}: l'aritmetico si sposa con probabilit\`a che cambiano a
+ogni simbolo (PPM); Huffman dovrebbe ricostruire il codice a ogni aggiornamento.
+\end{itemize}
+Sintesi: \kw{distribuzioni skewed o modelli adattivi $\Rightarrow$ aritmetico; velocit\`a e
+distribuzioni non estreme $\Rightarrow$ Huffman canonico.}
+
+\subsection*{\qid{9.5} L'aritmetico \`e invariante per permutazione del testo}
+
+\begin{domanda}
+Dimostra che due testi $T_1$, $T_2$, l'uno permutazione dell'altro, sono compressi con lo stesso
+numero di bit dalla codifica aritmetica. \emph{(23/06/25)}
+\end{domanda}
+
+\textbf{Prova.} Dalla prova di \qid{9.2}, il numero di bit dipende \kw{solo dall'ampiezza
+dell'intervallo finale}:
+\[
+\text{bit}(T)=\Bigl\lceil\log_2\frac{1}{s(T)}\Bigr\rceil+1,
+\qquad
+s(T)=\prod_{k=1}^{n}\mathcal{P}[t_k]
+=\kw{\prod_{\sigma\in\Sigma}\mathcal{P}[\sigma]^{\,n_\sigma(T)}} .
+\]
+L'ultimo prodotto dipende soltanto dai \kw{conteggi} $n_\sigma(T)$, non dall'ordine dei simboli
+(commutativit\`a). $T_1$ e $T_2$, essendo l'uno permutazione dell'altro, hanno gli stessi conteggi
+e lo stesso modello statico $\mathcal{P}$: $s(T_1)=s(T_2)$, stesso numero di bit. $\blacksquare$
+
+(I bit emessi possono \emph{differire come stringa} --- gli intervalli sono diversi --- ma il loro
+\emph{numero} coincide. La propriet\`a vale per modelli statici e count-based; \`e falsa per
+modelli contestuali di ordine $\ge1$.)
+
+\subsection*{\qid{9.6} Perch\'e si emette il centro (troncato) e non l'estremo sinistro}
+
+\begin{domanda}
+Perch\'e la codifica aritmetica non emette l'estremo sinistro dell'intervallo finale, ma parte
+dall'elemento centrale e lo tronca? \emph{(07/09/21)}
+\end{domanda}
+
+L'encoder deve trasmettere abbastanza bit da identificare \emph{un numero interno}
+all'intervallo finale $[lo,\,lo+s)$. Due problemi con $lo$:
+\begin{itemize}[leftmargin=1.6em,itemsep=1pt]
+\item \kw{$lo$ pu\`o richiedere moltissimi bit (anche infiniti)}: la sua espansione binaria non ha
+alcun legame con l'ampiezza $s$; trasmetterlo per intero vanificherebbe il bound
+$\approx\log_2\frac1s$;
+\item \kw{non si pu\`o troncare}: il troncamento riduce il valore (\qid{9.3}) e qualunque numero
+$<lo$ \`e \emph{fuori} dall'intervallo: il decoder sbaglierebbe.
+\end{itemize}
+Soluzione: partire dal \kw{centro $c=lo+\frac{s}{2}$} e troncarlo a
+$k=\lceil\log_2\frac1s\rceil+1$ bit: per \qid{9.3} si scende di $<2^{-k}\le\frac{s}{2}$, quindi si
+resta $>lo$, dentro l'intervallo, col minimo numero di bit legato solo a $s$. \kw{Il centro \`e
+l'unico punto che tollera un errore di troncamento pari a $s/2$.}
+
+% ==================================================================
+\section{Strutture dati compresse --- risoluzioni}
+
+\subsection*{\qid{10.1}--\qid{10.2}\hot\ Rank in $\OO{1}$ tempo e $o(m)$ bit}
+
+\begin{domanda}
+\qid{10.1} Descrivi la struttura dati per supportare $\texttt{Rank}$ su un array binario $B[1,n]$
+in tempo $\OO{1}$ e valutane lo spazio in bit. \emph{(16/01/23, 05/06/23, 02/11/23)}\\
+\qid{10.2} Dimostra la complessit\`a in tempo e in spazio (in bit) della soluzione che implementa
+$\texttt{Rank}$ in $\OO{1}$ e $o(m)$ bit su $B[1,m]$. \emph{(12/12/23, 10/01/25, 04/02/25)}
+\end{domanda}
+
+\textbf{Problema.} Dato $B[1,m]$ binario statico, supportare
+$\mathrm{Rank}_1(x)=\#\{i\le x: B[i]=1\}$ in $\OO{1}$ con spazio \emph{aggiuntivo} $o(m)$ bit.
+(Da $\mathrm{Rank}_1$: $\mathrm{Rank}_0(x)=x-\mathrm{Rank}_1(x)$.)
+
+\textbf{Struttura a tre livelli.} Parametri:
+\kw{$Z=(\log_2 m)^2$ (big block) e $z=\frac12\log_2 m$ (small block)}.
+\begin{enumerate}[leftmargin=1.8em,itemsep=1pt]
+\item \emph{Big block}: per ognuno dei $m/Z$ blocchi grandi, il rank \kw{assoluto} all'inizio del
+blocco ($\log_2 m$ bit ciascuno).
+\item \emph{Small block}: per ognuno dei $m/z$ blocchi piccoli, il rank \kw{relativo} all'inizio
+del suo big block (valori $\le Z$: $\OO{\log\log m}$ bit ciascuno).
+\item \emph{Lookup table} $R$: per ogni configurazione di $z$ bit e ogni offset $o\le z$,
+$R[b,o]=$ numero di 1 nei primi $o$ bit di $b$ (condivisa da tutti i blocchi).
+\end{enumerate}
+
+\textbf{Query.}
+\[
+\boxed{\ \mathrm{Rank}_1(x)=\mathit{Abs}\Bigl[\tfrac{x}{Z}\Bigr]
++\mathit{Rel}\Bigl[\tfrac{x}{z}\Bigr]
++R[\,B_{\text{small}(x)},\;x\bmod z\,]\ }
+\]
+tre letture di array e una somma: \kw{tempo $\OO{1}$ worst case} (lo small block di
+$\frac12\log m$ bit si legge in $\OO{1}$ operazioni su parola di macchina).
+
+\textbf{Analisi dello spazio (la parte da dimostrare).}
+\begin{itemize}[leftmargin=1.6em,itemsep=2pt]
+\item Big block: $\dfrac{m}{Z}\log_2 m=\dfrac{m}{(\log m)^2}\log m=\kw{\dfrac{m}{\log m}=o(m)}$
+--- serve $Z=(\log m)^2$ per ammortizzare i $\log m$ bit del contatore assoluto.
+\item Small block: $\dfrac{m}{z}\,\OO{\log\log m}=\dfrac{2m}{\log m}\,\OO{\log\log m}
+=\kw{\OO{\dfrac{m\log\log m}{\log m}}=o(m)}$ --- serve la \emph{gerarchia}: il contatore relativo
+costa solo $\log Z=\OO{\log\log m}$ bit, non $\log m$.
+\item Lookup table: configurazioni $2^{z}=2^{\frac12\log m}=\kw{\sqrt{m}}$; ciascuna con $z+1$
+offset e conteggi da $\OO{\log z}$ bit: $\sqrt{m}\cdot\OO{\log m\log\log m}=o(m)$ --- serve
+$z=\frac12\log m$: \kw{l'esponente $\frac12$ rende la tabella sub-lineare} (con blocchi di
+$\log m$ bit sarebbe $\Theta(m\,\mathrm{polylog})$).
+\end{itemize}
+Totale:
+\[
+\boxed{\ \OO{\frac{m\log\log m}{\log m}}=o(m)\ \text{bit aggiuntivi},\qquad
+\text{query }\OO{1}\ }
+\]
+$\blacksquare$
+
+(\emph{Esercizi numerici} --- 07/09/23, 10/01/25, 23/06/25 --- con parametri dati, es.\ $Z=6$,
+$z=2$: costruire i tre livelli e risolvere $\mathrm{Rank}(x)$ sommando i tre contributi.)
+
+\textbf{Select (cenno).} $\mathrm{Select}_1(j)$ (posizione del $j$-esimo 1) si ottiene con analoga
+gerarchia in $\OO{1}$ tempo e $o(m)$ bit: \`e la primitiva usata da Elias--Fano (\qid{8.2}) e
+dagli alberi succinti (\qid{10.3}).
+
+\subsection*{\qid{10.3} Alberi binari succinti e LOUDS (riferimento operativo)}
+
+\begin{domanda}
+(Riferimento) Codifica succinta di alberi binari in $B[1,2n+1]$ bit e navigazione con
+Rank/Select; LOUDS per alberi generali. \emph{(base degli esercizi: 11/11/20, 15/12/21, 25/07/22,
+16/01/23, 10/02/23, 24/07/23, 12/12/23, 09/02/24, 10/01/25, 04/02/25, 06/03/25, 03/06/25,
+23/06/25)}
+\end{domanda}
+
+\textbf{Codifica in $2n+1$ bit.} Si completa l'albero con le foglie esterne (NULL): ogni nodo
+reale ha 2 figli (reali o esterni), i nodi esterni sono $n+1$. Visita \kw{per livelli (BFS)}
+scrivendo \texttt{1} per ogni nodo reale e \texttt{0} per ogni nodo esterno: $B[1,2n+1]$.
+Etichette in un array $L$ in ordine BFS.
+
+\textbf{Navigazione} (nodo $=$ posizione $x$ in $B$ con $B[x]=1$; sia $i=\mathrm{Rank}_1(x)$ il
+suo numero BFS):
+\[
+\boxed{\ \mathrm{leftChild}(x)=2i,\qquad
+\mathrm{rightChild}(x)=2i+1,\qquad
+\mathrm{parent}(x)=\mathrm{Select}_1\bigl(\lfloor x/2\rfloor\bigr)\ }
+\]
+(ogni nodo reale genera esattamente 2 posizioni nel livello successivo). \kw{Test di foglia:
+$B[2i]=0$ e $B[2i+1]=0$}. Etichetta di $x$: $L[\mathrm{Rank}_1(x)]$. Tutto $\OO{1}$ con
+Rank/Select (\qid{10.1}). \`E l'attrezzo per gli esercizi ricorrenti: navigare cammini, contare
+non-foglie, stampare etichette di foglie, verificare archi $(A,B)$, ecc.
+
+\textbf{LOUDS per alberi generali.} Visita BFS scrivendo per ogni nodo il grado in unario
+($\texttt{1}^{\deg}\texttt{0}$), con super-radice iniziale \texttt{10}: $2n+\OO{1}$ bit. Il
+$j$-esimo nodo BFS \`e il $j$-esimo \texttt{1};
+$\mathrm{child}(j,t)=\mathrm{Rank}_1(\mathrm{Select}_0(j))+t$; il padre si trova col \texttt{0}
+che chiude il gruppo del $j$-esimo \texttt{1}: $\OO{1}$ con Rank/Select.
+
+\textbf{Nota su FM-index (possibile domanda di frontiera).} La backward search mantiene
+l'intervallo $[\mathit{first},\mathit{last}]$ delle righe della matrice BWT prefissate da
+$P[i,p]$, aggiornandolo per $c=P[i]$ con
+$\mathit{first}=C[c]+\mathrm{Rank}_c(\mathit{first}-1)+1$,
+$\mathit{last}=C[c]+\mathrm{Rank}_c(\mathit{last})$: $p$ passi da $\OO{t_{\mathrm{Rank}}}$, cio\`e
+\kw{$\OO{p}$ con Rank $\OO{1}$}; correttezza dall'LF-mapping della BWT.
+
+% ==================================================================
+\section{Domande di progettazione --- risoluzioni}
+
+\subsection*{\qid{11.1} Massima somma di valori satellite (07/02/20)}
+
+\begin{domanda}
+\`E data una sequenza $S$ di $n$ coppie $\langle$stringa, occ$\rangle$, dove pi\`u coppie possono
+riferirsi alla stessa stringa e occ \`e un valore satellite intero; sia $s$ il numero di stringhe
+distinte. Progetta un algoritmo I/O-efficiente che calcola la stringa con massima somma dei valori
+satellite, valutandone la complessit\`a I/O nei tre casi: (a) $M$ molto pi\`u piccola di $s$;
+(b) $M=\OO{s\log n}$ bit ammettendo errori in probabilit\`a; (c) $M$ pu\`o contenere $\OO{s}$
+puntatori a stringhe e $\OO{s}$ caratteri e contatori (hint: soluzione trie-based, ma non un trie
+classico). \emph{(07/02/20)}
+\end{domanda}
+
+Sia $N$ la lunghezza totale in caratteri dei dati.
+
+\textbf{(a) $M\ll s$.} Non si pu\`o accumulare in memoria: \kw{si ordina}. MergeSort multi-way
+(\qid{1.1}) sulle coppie con chiave la stringa: $\OO{\frac{N}{B}\log_{M/B}\frac{N}{M}}$ I/O. Poi
+una scansione: le coppie della stessa stringa sono adiacenti; si accumula la somma corrente e si
+mantiene il massimo: $\OO{N/B}$ I/O. Totale: $\boxed{\OO{sort(N)}}$ I/O.
+
+\textbf{(b) $M=\OO{s\log n}$ bit, errori ammessi.} \kw{Contatori hashati con fingerprint}: tabella
+di $\Theta(s)$ celle, ognuna con un contatore ($\OO{\log n}$ bit) $+$ un fingerprint di
+$\OO{\log s}$ bit (hash universale secondario). Per ogni coppia: $T[h(w)]\mathrel{+}=o$ se il
+fingerprint coincide. Con fingerprint di $c\log_2 s$ bit, la probabilit\`a che una qualche coppia
+di stringhe distinte collida su cella e fingerprint \`e $\le\binom{s}{2}/s^{c}$: trascurabile. Si
+tiene copia della miglior stringa corrente. \kw{Una passata: $\OO{N/B}$ I/O}, risposta corretta
+con alta probabilit\`a. (Alternativa: Count-Min sketch, con sovrastima controllata.)
+
+\textbf{(c) $\OO{s}$ puntatori $+$ $\OO{s}$ caratteri e contatori $\Rightarrow$ \kw{Patricia
+trie}.} Un trie classico costerebbe troppi caratteri in memoria; \kw{il Patricia costa $\OO{s}$
+nodi con un carattere $+$ uno skip per nodo} $+$ un contatore e un puntatore su disco per foglia:
+esattamente il budget. Per ogni coppia $\langle w,o\rangle$: blind search di $w$ ($\OO{|w|}$, 0
+I/O); \kw{verifica sulla stringa puntata dalla foglia candidata (1 I/O)}: se uguale, contatore
+$\mathrel{+}=o$; se diversa, $w$ \`e nuova: la si appende al file su disco e si inserisce una
+foglia usando la posizione di mismatch appena calcolata. Costo: tempo $\OO{N}$, I/O
+$\boxed{\OO{n+N/B}}$, memoria $\OO{s}$. \kw{Rispetto ad (a) evita il sort; rispetto a (b) \`e
+esatta.}
+
+\subsection*{\qid{11.2} Finestra di $k$ posizioni con $\ge q$ occorrenze di $P$ (02/02/22)}
+
+\begin{domanda}
+Dato un testo $T[1,n]$ indicizzato da un Suffix Array, progetta un algoritmo che, dati $P[1,p]$ e
+due interi positivi $k$ e $q$, stabilisce se esiste un range di $k$ posizioni contigue
+$T[i,i+k-1]$ in cui iniziano almeno $q$ occorrenze di $P$; stampa $i$ se esiste, altrimenti $-1$.
+\emph{(02/02/22)}
+\end{domanda}
+
+\textbf{Algoritmo.}
+\begin{enumerate}[leftmargin=1.8em,itemsep=1pt]
+\item Ricerca di $P$ in $SA$: intervallo $SA[i^{*},j^{*}]$ delle occorrenze (\qid{7.2}):
+$\OO{p\log n}$. Sia $occ=j^{*}-i^{*}+1$; \kw{se $occ<q$: stampa $-1$} e termina.
+\item Estrai le posizioni $\mathit{pos}=SA[i^{*}..j^{*}]$ e \kw{ordinale} (in $SA$ sono in ordine
+lessicografico, non testuale): $\OO{occ\log occ}$.
+\item \kw{Sliding window}: per $t=1,\dots,occ-q+1$ controlla se
+$\mathit{pos}[t+q-1]-\mathit{pos}[t]\le k-1$ ($q$ occorrenze consecutive nel testo dentro una
+finestra di $k$ posizioni). Al primo $t$ valido stampa $i=\mathit{pos}[t]$; altrimenti $-1$.
+$\OO{occ}$.
+\end{enumerate}
+\textbf{Correttezza.} Se una finestra contiene $\ge q$ inizi, fra le posizioni ordinate ce ne sono
+$q$ consecutive nella finestra, e la coppia (prima, $q$-esima) dista $\le k-1$: il test la trova;
+viceversa, se il test passa, la finestra che parte da $\mathit{pos}[t]$ contiene le $q$
+occorrenze.
+\textbf{Complessit\`a.} $\boxed{\OO{p\log n+occ\log occ}}$ tempo, $\OO{occ}$ spazio.
+
+\subsection*{\qid{11.3} Parole $>W$ con frequenza in $[f_{\min},f_{\max}]$ (11/11/24)}
+
+\begin{domanda}
+\`E dato un insieme di coppie $\langle$frequenza, parola$\rangle$. Progetta una struttura dati e
+un algoritmo che, dati un range di frequenze $[f_{\min},f_{\max}]$ e una parola $W$, restituiscono
+tutte le parole lessicograficamente maggiori di $W$ con frequenza nel range; discuti
+complessit\`a in tempo e spazio. \emph{(11/11/24)}
+\end{domanda}
+
+\`E una query bidimensionale (ordine lessicografico $\times$ frequenza). Soluzione nello spirito
+del corso: \kw{Treap usato come priority search tree}: \emph{chiave} $=$ parola (ordine
+lessicografico), \emph{priorit\`a} $=$ frequenza a MAX-heap (radice $=$ frequenza massima). Le
+priorit\`a non sono casuali ma dati del problema: la struttura resta valida (BST $\times$ heap),
+si perde solo la garanzia probabilistica di bilanciamento (costruzione una tantum
+$\OO{n\log n}$).
+
+\textbf{Query} $(W,f_{\min},f_{\max})$: visita ricorsiva con \kw{doppia potatura}:
+\begin{verbatim}
+Report(v):
+  if v = NIL: return
+  if freq(v) < f_min: return            // MAX-heap: tutto il sottoalbero < f_min
+  if key(v) > W:
+       if freq(v) <= f_max: output (key(v), freq(v))
+       Report(left(v));  Report(right(v))
+  else:                                  // key(v) <= W: a sinistra tutto <= W
+       Report(right(v))
+\end{verbatim}
+Correttezza delle potature: (i) \kw{per il MAX-heap, se $freq(v)<f_{\min}$ nessun discendente \`e
+in range}; (ii) \kw{per il BST, se $key(v)\le W$ tutto il sottoalbero sinistro ha chiavi $\le W$}.
+
+\textbf{Complessit\`a.} Spazio $\OO{n}$. Query $\OO{h+occ'}$ con $h$ altezza e
+$occ'=\#\{$parole $>W$ con freq $\ge f_{\min}\}$: per la query three-sided
+$(>W)\times[f_{\min},\infty)$ \`e l'output-sensitive classico $\OO{h+occ}$; il vincolo $\le
+f_{\max}$ non aiuta la potatura (i nodi troppo frequenti vanno comunque attraversati).
+\emph{Alternativa con garanzie}: range tree con query $\OO{\log^2 n+occ}$ e spazio
+$\OO{n\log n}$ --- da citare come trade-off.
