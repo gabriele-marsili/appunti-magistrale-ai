@@ -1,12 +1,14 @@
 # Algorithm Engineering
 
-Laurea magistrale in Informatica (percorso AI), Universita di Pisa. Primo anno.
+Laurea magistrale in Informatica, percorso AI, Università di Pisa. Primo anno.
 
-## Contenuto
+Dispensa LaTeX, teoria ed esercizi per l'esame, soluzioni a mano delle prove 2020-2025.
 
-Dispensa LaTeX di teoria, raccolte di teoria ed esercizi per l'esame, checklist per la prova, script (Kadane, MOPH, campionamento) e soluzioni scritte a mano di prove d'esame 2020-2025.
+## Link
 
-## Struttura della cartella
+- [Notebook OneNote](https://unipiit-my.sharepoint.com/:o:/g/personal/g_marsili9_studenti_unipi_it/IgDfu9c-M_gBSp1lNbqWLizpAbQhTbXbJKEN2tTbzpf6Ndk)
+
+## Contenuto della cartella
 
 - `AE_esercizi_teoria.pdf`
 - `AE_esercizi_teoria_vecchia.pdf`
@@ -21,8 +23,4 @@ Dispensa LaTeX di teoria, raccolte di teoria ed esercizi per l'esame, checklist 
 - `esercizi/` (14 file)
 - `scripts/` (9 file)
 
-## Link
-
-- Notebook OneNote: da aggiungere
-
-Gli appunti sono personali e possono contenere errori. Slide e libri di testo dei docenti non sono inclusi: vanno cercati sulle pagine ufficiali del corso.
+Appunti personali: possono contenere errori. Slide e libri dei docenti non sono inclusi.

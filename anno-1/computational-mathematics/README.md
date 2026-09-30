@@ -1,19 +1,17 @@
 # Computational Mathematics for Learning and Data Analysis
 
-Laurea magistrale in Informatica (percorso AI), Universita di Pisa. Primo anno.
+Laurea magistrale in Informatica, percorso AI, Università di Pisa. Primo anno.
 
-## Contenuto
+Dispensa LaTeX (ottimizzazione e algebra lineare numerica).
 
-Dispensa LaTeX del corso (ottimizzazione e algebra lineare numerica).
+## Link
 
-## Struttura della cartella
+- [Notebook OneNote](https://unipiit-my.sharepoint.com/:o:/g/personal/g_marsili9_studenti_unipi_it/IgD0-dAIXg4CS7DYb_ahzoDbAQQisfzWOLg0Z8pcGK61Fqw)
+- [Progetto](https://github.com/gabriele-marsili/cm_project)
+
+## Contenuto della cartella
 
 - `dispensa_CM.pdf`
 - `dispensa_CM.tex`
 
-## Link
-
-- Notebook OneNote: da aggiungere
-- [Repo del progetto](https://github.com/gabriele-marsili/cm_project)
-
-Gli appunti sono personali e possono contenere errori. Slide e libri di testo dei docenti non sono inclusi: vanno cercati sulle pagine ufficiali del corso.
+Appunti personali: possono contenere errori. Slide e libri dei docenti non sono inclusi.

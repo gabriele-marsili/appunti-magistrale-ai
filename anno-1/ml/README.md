@@ -1,19 +1,17 @@
 # Machine Learning
 
-Laurea magistrale in Informatica (percorso AI), Universita di Pisa. Primo anno.
+Laurea magistrale in Informatica, percorso AI, Università di Pisa. Primo anno.
 
-## Contenuto
+Dispensa e preparazione alla prova scritta.
 
-Dispensa e preparazione alla prova con gli errori piu frequenti.
+## Link
 
-## Struttura della cartella
+- [Notebook OneNote](https://unipiit-my.sharepoint.com/:o:/g/personal/g_marsili9_studenti_unipi_it/IgDh4Dz1t8WSR5OXZRTfBKBqAR7eGeVzYw5Mn3vRtIaCOuM)
+
+## Contenuto della cartella
 
 - `Esame_ML_4errori_pretest.md`
 - `Esame_ML_4errori_pretest.pdf`
 - `dispensa_ML.pdf`
 
-## Link
-
-- Notebook OneNote: da aggiungere
-
-Gli appunti sono personali e possono contenere errori. Slide e libri di testo dei docenti non sono inclusi: vanno cercati sulle pagine ufficiali del corso.
+Appunti personali: possono contenere errori. Slide e libri dei docenti non sono inclusi.

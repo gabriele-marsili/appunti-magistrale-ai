@@ -1,17 +1,15 @@
 # Artificial Intelligence Fundamentals
 
-Laurea magistrale in Informatica (percorso AI), Universita di Pisa. Primo anno.
-
-## Contenuto
+Laurea magistrale in Informatica, percorso AI, Università di Pisa. Primo anno.
 
 Domande per l'orale.
 
-## Struttura della cartella
+## Link
+
+- [Notebook OneNote](https://unipiit-my.sharepoint.com/:o:/g/personal/g_marsili9_studenti_unipi_it/IgCudat4wumGTLIDu5f0QsHDAdFru3VprnXrT0aybe-HFE4)
+
+## Contenuto della cartella
 
 - `domande orale.rtf`
 
-## Link
-
-- Notebook OneNote: da aggiungere
-
-Gli appunti sono personali e possono contenere errori. Slide e libri di testo dei docenti non sono inclusi: vanno cercati sulle pagine ufficiali del corso.
+Appunti personali: possono contenere errori. Slide e libri dei docenti non sono inclusi.

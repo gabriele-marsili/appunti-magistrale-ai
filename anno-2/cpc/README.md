@@ -1,13 +1,11 @@
 # Competitive Programming and Contests
 
-Laurea magistrale in Informatica (percorso AI), Universita di Pisa. Secondo anno.
+Laurea magistrale in Informatica, percorso AI, Università di Pisa. Secondo anno.
 
-## Contenuto
-
-Materiale non caricato in questa repo (il codice e in una repo privata).
+Appunti su OneNote.
 
 ## Link
 
-- Notebook OneNote: da aggiungere
+- [Notebook OneNote](https://unipiit-my.sharepoint.com/:o:/g/personal/g_marsili9_studenti_unipi_it/IgBQwzA16eXPS5GmyUG30z6iAYssE8WwtjVav2-btQStrlw)
 
-Gli appunti sono personali e possono contenere errori. Slide e libri di testo dei docenti non sono inclusi: vanno cercati sulle pagine ufficiali del corso.
+Appunti personali: possono contenere errori. Slide e libri dei docenti non sono inclusi.

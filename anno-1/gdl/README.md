@@ -1,12 +1,14 @@
 # Generative and Deep Learning
 
-Laurea magistrale in Informatica (percorso AI), Universita di Pisa. Primo anno.
+Laurea magistrale in Informatica, percorso AI, Università di Pisa. Primo anno.
 
-## Contenuto
+Dispensa, guida a PyTorch, simulazioni d'orale, handout per lezione, midterm svolti.
 
-Dispensa e guida a PyTorch, risposte e simulazioni d'orale, handout per lezione, esercizi e midterm svolti.
+## Link
 
-## Struttura della cartella
+- [Notebook OneNote](https://unipiit-my.sharepoint.com/:o:/g/personal/g_marsili9_studenti_unipi_it/IgC6txtPVgQSSpWsntHf-dzOARc3M-ZOctWF7PCjNp-h_Rk)
+
+## Contenuto della cartella
 
 - `Dispensa_GDL.pdf`
 - `Risposte_GDL.pdf`
@@ -17,8 +19,4 @@ Dispensa e guida a PyTorch, risposte e simulazioni d'orale, handout per lezione,
 - `lessons handouts/` (19 file)
 - `midterms/` (61 file)
 
-## Link
-
-- Notebook OneNote: da aggiungere
-
-Gli appunti sono personali e possono contenere errori. Slide e libri di testo dei docenti non sono inclusi: vanno cercati sulle pagine ufficiali del corso.
+Appunti personali: possono contenere errori. Slide e libri dei docenti non sono inclusi.

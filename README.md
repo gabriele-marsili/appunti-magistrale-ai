@@ -1,26 +1,33 @@
-# Appunti - Laurea magistrale in Informatica, percorso AI (Unipi)
+# Appunti · Laurea magistrale in Informatica, percorso AI (Unipi)
 
-Dispense, appunti, esercizi e codice dei corsi della laurea magistrale in Informatica (percorso AI), Universita di Pisa, organizzati per anno e corso. Per ogni corso trovi un README con contenuto e link al notebook OneNote.
+Dispense, appunti, esercizi e codice della laurea magistrale in Informatica (percorso AI) all'Università di Pisa, divisi per anno e corso. Ogni corso ha un README con il link al notebook OneNote.
 
-## Corsi
+## Primo anno
 
-| Anno | Corso | Contenuto | OneNote |
-|---|---|---|---|
-| Primo anno | [Algorithm Engineering](anno-1/algorithm-engineering/) | Dispensa LaTeX di teoria, raccolte di teoria ed esercizi per l'esame, checklist per la prova, script (Kadane, MOPH, campionamento) e soluzioni scritte a mano di prove d'esame 2020-2025 | in arrivo |
-| Primo anno | [Algorithmic Game Theory](anno-1/agt/) | Dispensa completa in LaTeX (con la versione fino a L13), simulazioni e domande d'orale, appunti della lezione 22, codice Python (stable matching, Gale-Shapley) e quattro esercizi con test: minimax e alfa-beta, indici di Shapley, core e nucleolo, Gale-Shapley | in arrivo |
-| Primo anno | [Artificial Intelligence Fundamentals](anno-1/aif/) | Domande per l'orale | in arrivo |
-| Primo anno | [Computational Mathematics for Learning and Data Analysis](anno-1/computational-mathematics/) | Dispensa LaTeX del corso (ottimizzazione e algebra lineare numerica) | in arrivo |
-| Primo anno | [Generative and Deep Learning](anno-1/gdl/) | Dispensa e guida a PyTorch, risposte e simulazioni d'orale, handout per lezione, esercizi e midterm svolti | in arrivo |
-| Primo anno | [ICT Solutions Architecture (Advanced Programming e ICT Risk Assessment)](anno-1/ict-sa/) | Materiale non ancora caricato in questa repo | in arrivo |
-| Primo anno | [Machine Learning](anno-1/ml/) | Dispensa e preparazione alla prova con gli errori piu frequenti | in arrivo |
-| Primo anno | [Parallel and Distributed Systems: Paradigms and Models](anno-1/spm/) | Appunti per lezione in Markdown (bilanciamento del carico, lock-free, OpenMP, MPI, programmazione parallela strutturata), cheatsheet per il cluster, dispensa in LaTeX, domande d'orale, guide ai moduli e report di analisi | in arrivo |
-| Secondo anno | [Competitive Programming and Contests](anno-2/cpc/) | Materiale non caricato in questa repo (il codice e in una repo privata) | in arrivo |
-| Secondo anno | [Computer Vision](anno-2/computer-vision/) | Appunti delle lezioni 1-7 (formazione dell'immagine, elaborazione del segnale, aliasing, invarianza di scala, banchi di filtri), appunti dei laboratori 4 e 7 con sorgenti LaTeX e script di verifica | in arrivo |
-| Secondo anno | [Human Language Technologies](anno-2/hlt/) | Materiale non ancora caricato in questa repo | in arrivo |
-| Secondo anno | [Peer-to-Peer and Blockchain](anno-2/p2p-blockchain/) | Dispensa completa in Markdown (un file per lezione piu uno per il laboratorio: DHT, Bitcoin, Ethereum, IPFS, layer 2), guida all'esame orale e progetto (requisiti, roadmap, decisioni) | in arrivo |
+| Corso | OneNote | File |
+|---|---|---|
+| [Algorithm Engineering](anno-1/algorithm-engineering/) | [OneNote](https://unipiit-my.sharepoint.com/:o:/g/personal/g_marsili9_studenti_unipi_it/IgDfu9c-M_gBSp1lNbqWLizpAbQhTbXbJKEN2tTbzpf6Ndk) | sì |
+| [Algorithmic Game Theory](anno-1/agt/) | [OneNote](https://unipiit-my.sharepoint.com/:o:/g/personal/g_marsili9_studenti_unipi_it/IgDZkX3y56loRoI8tBl-avflAefIMx1r8OzM4VO2Fem5VPc) | sì |
+| [Artificial Intelligence Fundamentals](anno-1/aif/) | [OneNote](https://unipiit-my.sharepoint.com/:o:/g/personal/g_marsili9_studenti_unipi_it/IgCudat4wumGTLIDu5f0QsHDAdFru3VprnXrT0aybe-HFE4) | sì |
+| [Computational Mathematics for Learning and Data Analysis](anno-1/computational-mathematics/) | [OneNote](https://unipiit-my.sharepoint.com/:o:/g/personal/g_marsili9_studenti_unipi_it/IgD0-dAIXg4CS7DYb_ahzoDbAQQisfzWOLg0Z8pcGK61Fqw) | sì |
+| [Generative and Deep Learning](anno-1/gdl/) | [OneNote](https://unipiit-my.sharepoint.com/:o:/g/personal/g_marsili9_studenti_unipi_it/IgC6txtPVgQSSpWsntHf-dzOARc3M-ZOctWF7PCjNp-h_Rk) | sì |
+| [ICT Solutions Architecture (Advanced Programming, ICT Risk Assessment)](anno-1/ict-sa/) | [AP](https://unipiit-my.sharepoint.com/:o:/g/personal/g_marsili9_studenti_unipi_it/IgDJhu9OdrXXTa9l9YgkBMilAfR4-6pIwjDPwWKSCGlePTg) · [IRA](https://unipiit-my.sharepoint.com/:o:/g/personal/g_marsili9_studenti_unipi_it/IgAU7o_Zx6JZSK8u8ufgA8SXAb2i3ouoWsIFI2pnbNIolCg) | - |
+| [Machine Learning](anno-1/ml/) | [OneNote](https://unipiit-my.sharepoint.com/:o:/g/personal/g_marsili9_studenti_unipi_it/IgDh4Dz1t8WSR5OXZRTfBKBqAR7eGeVzYw5Mn3vRtIaCOuM) | sì |
+| [Parallel and Distributed Systems: Paradigms and Models](anno-1/spm/) | [OneNote](https://unipiit-my.sharepoint.com/:o:/g/personal/g_marsili9_studenti_unipi_it/IgCHtg0FCE38RZfUzGKqHntpAbsp-1iY0wHeX3Nz95c9oVs) | sì |
+
+## Secondo anno
+
+| Corso | OneNote | File |
+|---|---|---|
+| [Competitive Programming and Contests](anno-2/cpc/) | [OneNote](https://unipiit-my.sharepoint.com/:o:/g/personal/g_marsili9_studenti_unipi_it/IgBQwzA16eXPS5GmyUG30z6iAYssE8WwtjVav2-btQStrlw) | - |
+| [Computer Vision](anno-2/computer-vision/) | [OneNote](https://unipiit-my.sharepoint.com/:o:/g/personal/g_marsili9_studenti_unipi_it/IgDWol7jc4l5RIA-8VteYMszAfTN1MWETf97Qt0gV5EWWfs) | sì |
+| [Human Language Technologies](anno-2/hlt/) | [OneNote](https://unipiit-my.sharepoint.com/:o:/g/personal/g_marsili9_studenti_unipi_it/IgDTs8cMB1yxRYqt2NVd0y-eAbrxvZ3nTBRsGSIOv4DfUYA) | - |
+| [Peer-to-Peer and Blockchain](anno-2/p2p-blockchain/) | [OneNote](https://unipiit-my.sharepoint.com/:o:/g/personal/g_marsili9_studenti_unipi_it/IgCVcTz0IOEwR5442r42F1_SAfPjCk1AaSp-BPLFD75U0mA) | sì |
 
 ## Note
 
-- Sono appunti personali, scritti per studiare: possono contenere errori o imprecisioni. Le segnalazioni sono benvenute (issue o pull request).
-- Slide, libri e testi d'esame dei docenti non sono inclusi per rispetto del diritto d'autore.
-- Autore: Gabriele Marsili. Account principale: [WhoIsMars](https://github.com/WhoIsMars).
+- Appunti personali, scritti per studiare: possono contenere errori. Segnalazioni benvenute tramite issue.
+- Slide, libri e testi d'esame dei docenti non sono inclusi per rispetto del diritto d'autore: si trovano sulle pagine ufficiali dei corsi.
+- I notebook OneNote sono in sola lettura.
+
+Gabriele Marsili · [@WhoIsMars](https://github.com/WhoIsMars)

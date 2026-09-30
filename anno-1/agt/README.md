@@ -1,12 +1,14 @@
 # Algorithmic Game Theory
 
-Laurea magistrale in Informatica (percorso AI), Universita di Pisa. Primo anno.
+Laurea magistrale in Informatica, percorso AI, Università di Pisa. Primo anno.
 
-## Contenuto
+Dispensa completa in LaTeX, simulazioni e domande d'orale, esercizi Python con test (minimax, Shapley, core e nucleolo, Gale-Shapley).
 
-Dispensa completa in LaTeX (con la versione fino a L13), simulazioni e domande d'orale, appunti della lezione 22, codice Python (stable matching, Gale-Shapley) e quattro esercizi con test: minimax e alfa-beta, indici di Shapley, core e nucleolo, Gale-Shapley.
+## Link
 
-## Struttura della cartella
+- [Notebook OneNote](https://unipiit-my.sharepoint.com/:o:/g/personal/g_marsili9_studenti_unipi_it/IgDZkX3y56loRoI8tBl-avflAefIMx1r8OzM4VO2Fem5VPc)
+
+## Contenuto della cartella
 
 - `AGT_domande_orale.md`
 - `AGT_simulazioni_orale.pdf`
@@ -16,8 +18,4 @@ Dispensa completa in LaTeX (con la versione fino a L13), simulazioni e domande d
 - `dispensa/` (4 file)
 - `esercizi/` (25 file)
 
-## Link
-
-- Notebook OneNote: da aggiungere
-
-Gli appunti sono personali e possono contenere errori. Slide e libri di testo dei docenti non sono inclusi: vanno cercati sulle pagine ufficiali del corso.
+Appunti personali: possono contenere errori. Slide e libri dei docenti non sono inclusi.

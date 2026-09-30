@@ -1,13 +1,11 @@
 # Human Language Technologies
 
-Laurea magistrale in Informatica (percorso AI), Universita di Pisa. Secondo anno.
+Laurea magistrale in Informatica, percorso AI, Università di Pisa. Secondo anno.
 
-## Contenuto
-
-Materiale non ancora caricato in questa repo.
+Appunti su OneNote.
 
 ## Link
 
-- Notebook OneNote: da aggiungere
+- [Notebook OneNote](https://unipiit-my.sharepoint.com/:o:/g/personal/g_marsili9_studenti_unipi_it/IgDTs8cMB1yxRYqt2NVd0y-eAbrxvZ3nTBRsGSIOv4DfUYA)
 
-Gli appunti sono personali e possono contenere errori. Slide e libri di testo dei docenti non sono inclusi: vanno cercati sulle pagine ufficiali del corso.
+Appunti personali: possono contenere errori. Slide e libri dei docenti non sono inclusi.
