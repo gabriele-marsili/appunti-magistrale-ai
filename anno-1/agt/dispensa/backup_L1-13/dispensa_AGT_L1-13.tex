@@ -1,0 +1,1398 @@
+% ============================================================
+%  Dispensa di Algorithmic Game Theory
+%  Università di Pisa – Laurea Magistrale in Informatica
+%  A.A. 2025/26  –  L1–L13 (febbraio – aprile 2026)
+% ============================================================
+\documentclass[12pt,a4paper,twoside]{book}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+% Italian language support (babel)
+\usepackage{babel}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{geometry}
+\usepackage[colorlinks=true,linkcolor=blue!60!black,citecolor=green!50!black]{hyperref}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{float}
+\usepackage{xcolor}
+\usepackage[most]{tcolorbox}
+\usepackage{fancyhdr}
+\usepackage{microtype}
+\usepackage{lmodern}
+
+\geometry{a4paper, top=3cm, bottom=3cm, inner=3cm, outer=2.5cm, headheight=15pt}
+
+% ---- Theorem environments ----
+\theoremstyle{plain}
+\newtheorem{theorem}{Teorema}[chapter]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposizione}
+\newtheorem{corollary}[theorem]{Corollario}
+
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definizione}
+\newtheorem{example}[theorem]{Esempio}
+\newtheorem{remark}[theorem]{Osservazione}
+
+% ---- Coloured boxes ----
+\tcbuselibrary{breakable,skins}
+\newtcolorbox{defbox}[1]{
+  enhanced, breakable,
+  colback=blue!4!white, colframe=blue!50!black,
+  fonttitle=\bfseries, title={#1}, left=4pt, right=4pt}
+\newtcolorbox{thmbox}[1]{
+  enhanced, breakable,
+  colback=green!4!white, colframe=green!55!black,
+  fonttitle=\bfseries, title={#1}, left=4pt, right=4pt}
+\newtcolorbox{exbox}[1]{
+  enhanced, breakable,
+  colback=orange!4!white, colframe=orange!65!black,
+  fonttitle=\bfseries, title={#1}, left=4pt, right=4pt}
+
+% ---- Headers ----
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[LE,RO]{\thepage}
+\fancyhead[RE]{\nouppercase{\leftmark}}
+\fancyhead[LO]{\nouppercase{\rightmark}}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ---- Macros ----
+\newcommand{\NE}{\mathrm{NE}}
+\newcommand{\BR}{\mathrm{BR}}
+\newcommand{\argmax}{\operatorname*{arg\,max}}
+\newcommand{\argmin}{\operatorname*{arg\,min}}
+\newcommand{\Sh}{\mathrm{Sh}}
+\DeclareMathOperator{\supp}{supp}
+
+% ============================================================
+\begin{document}
+
+\begin{titlepage}
+\centering
+\vspace*{3cm}
+{\LARGE\bfseries Dispensa di\\[0.4em] Algorithmic Game Theory\par}
+\vspace{1.5cm}
+{\large Università di Pisa\\
+Laurea Magistrale in Informatica\\
+A.A.\ 2025/26\par}
+\vspace{1cm}
+{\normalsize Sintesi delle lezioni L1--L13\\
+(Febbraio -- Aprile 2026)\par}
+\vspace{0.8cm}
+{\small Fonti: slide del corso, \textit{AGT-notes2425}, appunti personali.\par}
+\vfill
+{\small Aprile 2026}
+\end{titlepage}
+
+\frontmatter
+\tableofcontents
+
+\mainmatter
+
+% ============================================================
+\chapter{Introduzione alla Teoria dei Giochi (L1)}
+% ============================================================
+
+\section{Che cos'è la teoria dei giochi}
+
+La \textbf{teoria dei giochi} (game theory) è la branca della matematica e dell'economia che studia le \emph{interazioni strategiche}: situazioni in cui il risultato per ciascun agente dipende non solo dalle proprie scelte, ma anche dalle scelte altrui. Il termine ``gioco'' è usato in senso ampio e include conflitti politici, aste, mercati, protocolli di rete, algoritmi distribuiti e persino biologia evolutiva.
+
+Il punto di partenza concettuale è semplice: un \textbf{agente razionale} cerca di massimizzare la propria utilità, ma sa che gli altri agenti fanno lo stesso. L'obiettivo della teoria dei giochi è prevedere l'esito di queste interazioni e valutarne l'efficienza.
+
+\section{Breve storia}
+
+\begin{itemize}[leftmargin=2em]
+  \item \textbf{1944} -- Von Neumann e Morgenstern pubblicano \emph{Theory of Games and Economic Behavior}, fondando la disciplina moderna e introducendo la teoria dell'utilità attesa.
+  \item \textbf{1950} -- John Nash introduce il concetto di \emph{equilibrio di Nash} nella sua tesi di dottorato (Princeton).
+  \item \textbf{1994} -- Premio Nobel per l'economia a \textbf{Nash}, \textbf{Harsanyi} e \textbf{Selten} per i contributi alla teoria dei giochi non cooperativi.
+  \item \textbf{2005} -- Premio Nobel a \textbf{Aumann} e \textbf{Schelling} per la teoria dei giochi cooperativi e la teoria dell'equilibrio correlated.
+  \item \textbf{2012} -- Premio Nobel a \textbf{Shapley} e \textbf{Roth} per la teoria dei mercati e dei matching stabili.
+  \item \textbf{2014} -- Premio Nobel a \textbf{Tirole} per l'analisi del potere di mercato e della regolamentazione.
+  \item \textbf{2020} -- Premio Nobel a \textbf{Milgrom} e \textbf{Wilson} per la teoria delle aste e i meccanismi di scoperta dei prezzi.
+\end{itemize}
+
+\section{Teorema di Zermelo}
+
+\begin{thmbox}{Teorema di Zermelo (1913)}
+Ogni gioco finito a due giocatori, a somma zero, con informazione perfetta, senza turni simultanei e senza pareggi (o con pareggio come esito ammissibile), ammette una strategia vincente per uno dei due giocatori (o, nel caso con pareggio, almeno una strategia che garantisca il pareggio).
+
+In termini moderni: ogni gioco finito con informazione perfetta ha un \emph{equilibrio in strategie pure subgame-perfect}.
+\end{thmbox}
+
+La dimostrazione si basa sull'induzione all'indietro (\emph{backward induction}): si analizza il gioco a partire dagli stati terminali e si propaga la valutazione ottima verso la radice dell'albero. Poiché l'albero è finito, il processo termina sempre.
+
+\begin{example}[Gioco di Chomp]
+Chomp è un gioco combinatoriale su una tavoletta di cioccolato $m\times n$. I giocatori si alternano a ``mordere'' un quadratino (e tutti i quadratini in alto e a destra di esso). Chi è costretto a mangiare il quadratino in basso a sinistra (velenoso) perde. Per il teorema di Zermelo, il primo giocatore ha sempre una strategia vincente per $m,n>1$ (argomento di \emph{strategy stealing}): se il secondo giocatore avesse una strategia vincente, il primo potrebbe ``rubarla'' giocando subito la mossa che riduce la posizione a quella vincente per il secondo -- contraddizione.
+\end{example}
+
+\section{Classificazione dei giochi}
+
+\begin{defbox}{Classificazione}
+I giochi si classificano lungo diverse dimensioni:
+\begin{itemize}
+  \item \textbf{Cooperativi vs.\ non cooperativi}: i giocatori possono formare accordi vincolanti (cooperativi) oppure no (non cooperativi). Questo corso tratta principalmente i giochi non cooperativi.
+  \item \textbf{A somma zero vs.\ a somma non nulla}: se $\sum_i u_i(s)=0$ per ogni profilo $s$, il gioco è a somma zero (guadagno di uno = perdita dell'altro).
+  \item \textbf{Informazione perfetta vs.\ imperfetta}: nella perfetta ogni giocatore conosce la storia completa del gioco; nell'imperfetta esistono \emph{information sets} che raggruppano nodi indistinguibili.
+  \item \textbf{Statici vs.\ dinamici}: nei giochi statici (o in forma normale) i giocatori scelgono simultaneamente; nei dinamici (o in forma estesa) le mosse si alternano nel tempo.
+  \item \textbf{Finiti vs.\ infiniti}: il numero di strategie (o di turni) è finito o infinito.
+\end{itemize}
+\end{defbox}
+
+% ============================================================
+\chapter{Giochi in Forma Normale (L2)}
+% ============================================================
+
+\section{Forma normale}
+
+\begin{defbox}{Gioco in Forma Normale}
+Un \textbf{gioco in forma normale} (o \emph{strategic form game}) è una tripla
+\[
+  G = (N,\, (S_i)_{i\in N},\, (u_i)_{i\in N})
+\]
+dove:
+\begin{itemize}
+  \item $N = \{1,\dots,n\}$ è l'insieme finito dei \textbf{giocatori};
+  \item $S_i$ è l'insieme (finito o infinito) delle \textbf{strategie} del giocatore $i$;
+  \item $u_i : S_1\times\cdots\times S_n \to \mathbb{R}$ è la funzione di \textbf{utilità} (payoff) del giocatore $i$.
+\end{itemize}
+Si denota $S = \prod_{i\in N} S_i$ lo spazio dei \textbf{profili di strategia} e $S_{-i} = \prod_{j\ne i} S_j$.
+\end{defbox}
+
+La notazione $s = (s_i, s_{-i})$ separa la mossa del giocatore $i$ da quelle degli altri.
+
+\section{Forma estesa}
+
+La \textbf{forma estesa} rappresenta giochi sequenziali mediante un albero orientato in cui:
+\begin{itemize}
+  \item ogni nodo interno appartiene a un giocatore (o alla ``natura'');
+  \item ogni arco rappresenta una mossa;
+  \item ogni foglia è associata a un vettore di payoff.
+\end{itemize}
+Gli \emph{information sets} raggruppano nodi indistinguibili per il giocatore che deve muovere.
+
+\section{Esempi classici}
+
+\subsection{Dilemma del Prigioniero}
+
+Due sospettati vengono interrogati separatamente. Ciascuno può \emph{cooperare} (C, non confessare) o \emph{defezionare} (D, confessare).
+
+\begin{center}
+\begin{tabular}{c|cc}
+I/II & C & D \\\hline
+C & $-2,-2$ & $-7,\phantom{-}0$ \\
+D & $\phantom{-}0,-7$ & $-5,-5$
+\end{tabular}
+\end{center}
+
+Confessare è \emph{strettamente dominante} per entrambi i giocatori. L'unico NE è $(D,D)$, ma $(C,C)$ sarebbe socialmente ottimale. Il dilemma del prigioniero cattura il conflitto tra razionalità individuale ed efficienza collettiva.
+
+\subsection{Battle of Sexes (BoS)}
+
+Una coppia deve scegliere tra \emph{football} (F) e \emph{danza} (D). Lui preferisce F, lei D, ma entrambi preferiscono stare insieme.
+
+\begin{center}
+\begin{tabular}{c|cc}
+lui/lei & F & D \\\hline
+F & $2,1$ & $0,0$ \\
+D & $0,0$ & $1,2$
+\end{tabular}
+\end{center}
+
+Ci sono due NE puri: $(F,F)$ e $(D,D)$.
+
+\subsection{Hawk-Dove}
+
+Due animali si contendono una risorsa di valore $V=6$. Chi sceglie \emph{Hawk} (H) combatte; chi sceglie \emph{Dove} (D) retrocede. Il costo di un combattimento tra due Hawk è $C=8$ (diviso equamente).
+
+\begin{center}
+\begin{tabular}{c|cc}
+I/II & H & D \\\hline
+H & $-1,-1$ & $4,0$ \\
+D & $0,4$ & $2,2$
+\end{tabular}
+\end{center}
+
+\subsection{Rock-Paper-Scissors (RPS)}
+
+Gioco a somma zero $3\times 3$: Sasso (R) batte Forbici (S), Forbici batte Carta (P), Carta batte Sasso. Non esiste NE in strategie pure.
+
+\subsection{Lizard-Spock}
+
+Estensione $5\times 5$ (Sasso, Carta, Forbici, Lucertola, Spock) con le stesse proprietà di simmetria. Anche qui l'unico NE è la distribuzione uniforme $(1/5,\dots,1/5)$.
+
+\section{Sequential Allocation}
+
+Due giocatori si alternano (inizia il giocatore 1) nel selezionare oggetti da un insieme ordinato $\{1,\dots,m\}$. Ogni giocatore preferisce il valore più alto disponibile. La forma estesa è un albero binario di profondità $m$.
+
+\section{Duopolio di Cournot con bene indivisibile}
+
+Due imprese producono quantità $x_1,x_2\in\{0,1,\dots,6\}$ di un bene omogeneo. La funzione di utilità è
+\[
+  u_i(x_1,x_2) = x_i \cdot \max\{T-(x_1+x_2),\,0\} - c\,x_i
+\]
+con $T=10$ (prezzo di riserva) e $c=3$ (costo unitario). La matrice dei payoff $7\times 7$ si ottiene calcolando $u_i$ per ogni coppia $(x_1,x_2)$. Si noti che $u_i > 0$ richiede $x_i(T-x_1-x_2-c)>0$, cioè la domanda residua deve superare il costo.
+
+% ============================================================
+\chapter{Utilità Attesa e Nash Equilibrium (L3)}
+% ============================================================
+
+\section{Lotterie e utilità attesa}
+
+\begin{defbox}{Lotteria}
+Una \textbf{lotteria} su un insieme finito $O$ di esiti è una distribuzione di probabilità $p\in\Delta(O)$, cioè $p(o)\ge 0$ e $\sum_{o\in O}p(o)=1$.
+\end{defbox}
+
+\begin{thmbox}{Teorema di von Neumann--Morgenstern (1944)}
+Sotto quattro assiomi (completezza, transitività, continuità, indipendenza), esistono valori reali $u(o)$ per ogni esito $o$ tali che, per ogni coppia di lotterie $p,q$:
+\[
+  p \succcurlyeq q \iff \mathbb{E}_p[u] \ge \mathbb{E}_q[u]
+\]
+cioè le preferenze si rappresentano massimizzando l'\textbf{utilità attesa} $\sum_o p(o)\,u(o)$.
+\end{thmbox}
+
+Il teorema giustifica l'uso di funzioni di payoff a valori reali nei giochi: i giocatori si comportano come se massimizzassero un'utilità attesa.
+
+\section{Nash Equilibrium}
+
+\begin{defbox}{Nash Equilibrium (NE)}
+Dato un gioco $G=(N,(S_i),(u_i))$, un profilo $s^* = (s^*_1,\dots,s^*_n)\in S$ è un \textbf{equilibrio di Nash} se per ogni giocatore $i\in N$:
+\[
+  s^*_i \in \argmax_{s_i\in S_i} u_i(s_i,\, s^*_{-i})
+\]
+Equivalentemente, nessun giocatore può aumentare il proprio payoff deviando unilateralmente: per ogni $i$ e ogni $s_i\in S_i$,
+\[
+  u_i(s^*_i,\, s^*_{-i}) \ge u_i(s_i,\, s^*_{-i}).
+\]
+\end{defbox}
+
+L'intuizione è quella di un \emph{punto fisso}: a Nash equilibrium ogni giocatore sta già giocando la best response alle strategie degli avversari, per cui nessuno ha incentivo a cambiare.
+
+\subsection{NE negli esempi}
+
+\paragraph{Dilemma del Prigioniero.} L'unico NE è $(D,D)$: $D$ domina strettamente $C$ per entrambi i giocatori.
+
+\paragraph{Battle of Sexes.} I due NE puri sono $(F,F)$ e $(D,D)$. Esiste anche un NE misto (vedi Capitolo~\ref{ch:mixed}).
+
+\paragraph{Hawk-Dove.} Esistono due NE puri: $(H,D)$ e $(D,H)$. Esiste un NE misto con probabilità $p^*=V/C=3/4$ su $H$.
+
+\paragraph{RPS.} Non esistono NE puri. L'unico NE misto è la distribuzione uniforme $(1/3,1/3,1/3)$ per entrambi i giocatori.
+
+\section{Giochi zero-sum simmetrici}
+
+In un gioco a \emph{due giocatori a somma zero}, $u_2(s) = -u_1(s)$ per ogni $s$. Un gioco è \textbf{simmetrico} se la matrice di payoff del giocatore 1 è uguale alla trasposta di quella del giocatore 2. In un gioco zero-sum simmetrico l'equilibrio misto assegna la stessa distribuzione a entrambi i giocatori, come nel caso di RPS.
+
+% ============================================================
+\chapter{Dominanza Strategica (L4)}
+% ============================================================
+
+\section{Calcolo brute-force degli NE}
+
+Per un gioco finito $2\times m$ o $n\times m$ si costruiscono le \emph{liste di best response}: per ogni strategia $s_j$ del giocatore $j$, si individuano tutte le best response del giocatore $i$. Un profilo $(s_i^*,s_j^*)$ è NE se e solo se $s_i^*\in\BR_i(s_j^*)$ e $s_j^*\in\BR_j(s_i^*)$: si costruisce la lista $L_1$ dei profili dove $i$ risponde ottimamente, la lista $L_2$ dove $j$ risponde ottimamente, e si calcola $L_1\cap L_2$.
+
+\section{Strategie dominanti}
+
+\begin{defbox}{Dominanza Stretta e Debole}
+La strategia $s_i\in S_i$ \textbf{domina strettamente} $t_i\in S_i$ se
+\[
+  u_i(s_i,\, s_{-i}) > u_i(t_i,\, s_{-i})\quad \forall\,s_{-i}\in S_{-i}.
+\]
+La domina \textbf{debolmente} se la disuguaglianza è $\ge$ con almeno uno stretto.
+
+Una strategia è \textbf{dominante} (strettamente) se domina strettamente tutte le altre.
+\end{defbox}
+
+\begin{remark}
+Se esiste una strategia dominante per ogni giocatore, il profilo di strategie dominanti è l'unico NE del gioco.
+\end{remark}
+
+\begin{example}[PD]
+Nel Dilemma del Prigioniero, la strategia $D$ domina strettamente $C$ per entrambi: $0>-2$ (se l'avversario coopera) e $-5>-7$ (se l'avversario defeziona). Dunque $(D,D)$ è l'unico NE.
+\end{example}
+
+\section{Eliminazione iterata di strategie strettamente dominate (IESDS)}
+
+\begin{defbox}{IESDS}
+Dato il gioco $G^0=G$, si definisce la sequenza di giochi ridotti $G^0\supseteq G^1\supseteq\cdots$:
+\[
+  S_i^0 = S_i,\quad S_i^{k+1} = S_i^k \setminus \{s_i\in S_i^k : \exists\, t_i\in S_i^k \text{ che domina strettamente } s_i \text{ in } G^k\}.
+\]
+Il processo termina quando $S_i^{k+1}=S_i^k$ per ogni $i$. Il profilo risultante $S^\infty = \prod_i S_i^\infty$ è l'\textbf{insieme IESDS}.
+\end{defbox}
+
+\begin{proposition}
+Ogni NE del gioco originale sopravvive all'IESDS. Se l'IESDS porta a un unico profilo, esso è l'unico NE del gioco.
+\end{proposition}
+
+\textit{Dimostrazione (sketch).} Supponiamo per assurdo che un NE $s^*$ venga eliminato al passo $k$: allora esiste $t_i$ che domina strettamente $s^*_i$ in $G^k$, ma in $G^k$ esistono ancora le strategie degli avversari in $s^*$, il che contraddice la proprietà di best response di $s^*_i$. \qed
+
+\section{Strategie debolmente dominate}
+
+L'IESDS con dominanza \emph{debole} (IEWDS) è più delicata: l'ordine di eliminazione può influenzare l'esito finale. È importante verificare i risultati caso per caso.
+
+% ============================================================
+\chapter{Eliminazione Iterata e Strategie di Sicurezza (L5)}
+% ============================================================
+
+\section{Razionalizzabilità e IENBR}
+
+\begin{defbox}{Never Best Response (NBR)}
+La strategia $s_i$ è una \textbf{never best response} (NBR) se non esiste alcuna credenza $\sigma_{-i}\in\Delta(S_{-i})$ sulle strategie degli avversari tale che $s_i\in\BR_i(\sigma_{-i})$.
+\end{defbox}
+
+\begin{defbox}{IENBR}
+Il processo di \textbf{Iterated Elimination of Never Best Responses} elimina iterativamente le NBR finché non ne rimangono.
+\end{defbox}
+
+\begin{proposition}
+Le strategie che sopravvivono all'IENBR coincidono con le strategie \textbf{razionalizzabili} (Bernheim 1984, Pearce 1984): quelle per cui esiste un sistema di credenze consistente con la razionalità comune.
+\end{proposition}
+
+IESDS implica IENBR (ogni strategia strettamente dominata è NBR), ma non viceversa.
+
+\section{Strategie di sicurezza (maximin)}
+
+\begin{defbox}{Valore di Sicurezza}
+Il \textbf{valore di sicurezza} (security level) del giocatore $i$ è
+\[
+  v_i^* = \max_{s_i\in S_i}\; \min_{s_{-i}\in S_{-i}} u_i(s_i,\, s_{-i}).
+\]
+La strategia che lo raggiunge è la \textbf{strategia di sicurezza} (maximin strategy).
+\end{defbox}
+
+In un gioco a due giocatori, la strategia maximin garantisce a $i$ almeno $v_i^*$ indipendentemente dall'avversario. Simmetricamente, il \emph{minimax value} di $j$ contro $i$ è $\min_{s_j}\max_{s_i} u_i(s_i,s_j) \ge v_i^*$.
+
+\section{Gioco di Hotelling}
+
+\begin{example}[Hotelling (1929)]
+Due politici scelgono la propria posizione $x_1,x_2\in[0,100]$ su uno spettro politico. Gli elettori votano per il candidato più vicino (distribuzione uniforme). Ogni candidato massimizza la propria quota di voti. L'unico NE è $x_1^*=x_2^*=50$ (posizione mediana): se un candidato si discosta, l'altro può catturare più voti avvicinandosi al centro.
+\end{example}
+
+Il gioco di Hotelling illustra la forza dell'IESDS: tutte le posizioni $<25$ e $>75$ vengono eliminate al primo passo, poi si procede iterativamente fino all'unico sopravvissuto $\{50\}$.
+
+% ============================================================
+\chapter{Strategie Miste e Teoremi di Esistenza (L6)}
+\label{ch:mixed}
+% ============================================================
+
+\section{Strategie miste}
+
+\begin{defbox}{Strategia Mista}
+Una \textbf{strategia mista} $x_i\in\Delta(S_i)$ del giocatore $i$ è una distribuzione di probabilità sull'insieme $S_i$ delle strategie pure. Il \textbf{supporto} è $\supp(x_i)=\{s\in S_i : x_i(s)>0\}$.
+\end{defbox}
+
+L'utilità attesa in un profilo misto $x=(x_1,\dots,x_n)$ è
+\[
+  u_i(x) = \sum_{s\in S} \Bigl(\prod_{j\in N} x_j(s_j)\Bigr)\, u_i(s).
+\]
+
+\section{Nash Equilibrium in strategie miste}
+
+\begin{thmbox}{Condizione di Equilibrio Misto}
+Il profilo $x^*$ è un NE in strategie miste se e solo se, per ogni giocatore $i$ e ogni $s\in S_i$:
+\[
+  s\in\supp(x^*_i) \implies u_i(s,\,x^*_{-i}) = \max_{t\in S_i} u_i(t,\,x^*_{-i}).
+\]
+In parole: ogni strategia nel supporto deve dare lo stesso payoff atteso (uguale al massimo); le strategie fuori dal supporto danno un payoff inferiore o uguale.
+\end{thmbox}
+
+\begin{example}[RPS]
+In Rock-Paper-Scissors, se il giocatore 2 gioca $(1/3,1/3,1/3)$, ogni mossa del giocatore 1 dà utilità attesa $0$. Dunque ogni distribuzione è una best response, e in particolare $(1/3,1/3,1/3)$ è best response a se stessa. L'unico NE è $x^*=((1/3,1/3,1/3),(1/3,1/3,1/3))$.
+\end{example}
+
+\begin{example}[Battle of Sexes -- NE misto]
+Giocatore 1 (lui) gioca $F$ con prob.\ $p$, giocatore 2 (lei) gioca $F$ con prob.\ $q$.
+
+Indifferenza per giocatore 1: $u_1(F,q)=2q=u_1(D,q)=1-q \implies q=1/3$.
+Indifferenza per giocatore 2: $u_2(p,F)=p=u_2(p,D)=2(1-p) \implies p=2/3$.
+
+Il NE misto è $x^*_1=(2/3,1/3)$, $x^*_2=(1/3,2/3)$ con payoff attesi $u_1=u_2=2/3$.
+\end{example}
+
+\section{Teorema di Nikaido--Isoda e esistenza degli NE}
+
+\begin{thmbox}{Teorema di Nikaido--Isoda (1955)}
+Sia $G=(N,(S_i),(u_i))$ un gioco tale che per ogni $i\in N$:
+\begin{enumerate}
+  \item $S_i\subseteq\mathbb{R}^{m_i}$ è \textbf{compatto} e \textbf{convesso};
+  \item $u_i(s_i,s_{-i})$ è \textbf{continua} in $s$;
+  \item $u_i(s_i,s_{-i})$ è \textbf{quasi-concava} in $s_i$ (per ogni $s_{-i}$ fissato).
+\end{enumerate}
+Allora $G$ ha almeno un Nash equilibrium.
+\end{thmbox}
+
+\begin{corollary}
+Ogni gioco finito ammette almeno un NE in strategie miste.
+\end{corollary}
+\textit{Dimostrazione.} Il gioco misto esteso $G_{\mathrm{me}}=(N,(\Delta(S_i)),(u_i))$ soddisfa tutte le ipotesi del teorema di Nikaido--Isoda: i simplex $\Delta(S_i)$ sono compatti e convessi, le utilità attese sono multilineari (quindi continue e quasi-concave nei simplici). \qed
+
+\section{Teorema Minimax di von Neumann}
+
+\begin{thmbox}{Teorema Minimax (von Neumann, 1928)}
+In ogni gioco finito a due giocatori a somma zero, il valore del gioco esiste ed è unico:
+\[
+  \max_{x_1\in\Delta(S_1)}\; \min_{x_2\in\Delta(S_2)} u_1(x_1,x_2)
+  \;=\;
+  \min_{x_2\in\Delta(S_2)}\; \max_{x_1\in\Delta(S_1)} u_1(x_1,x_2)
+  \;=:\; V.
+\]
+Le strategie miste ottimali formano l'unico NE del gioco.
+\end{thmbox}
+
+Il teorema afferma che il massimizzatore può garantirsi $V$ anche senza conoscere in anticipo la scelta dell'avversario, e viceversa il minimizzatore può limitare il payoff a $V$.
+
+% ============================================================
+\chapter{Best Response Dynamics e Potential Games (L7)}
+% ============================================================
+
+\section{Best response dynamics}
+
+\begin{defbox}{Best Response}
+La \textbf{best response} del giocatore $i$ al profilo $x_{-i}$ è
+\[
+  \BR_i(x_{-i}) = \argmax_{s_i\in S_i} u_i(s_i,\, x_{-i}).
+\]
+\end{defbox}
+
+\begin{defbox}{Best Response Dynamics (BRD)}
+Partendo da un profilo iniziale $x^0$, ad ogni passo $k$ uno (o più) giocatori aggiornano la propria strategia con una best response: $x^{k+1}_i\in\BR_i(x^k_{-i})$. Il processo si dice \textbf{convergente} se raggiunge un punto fisso (che è necessariamente un NE).
+\end{defbox}
+
+\subsection{Algoritmo di Jacobi (sincrono)}
+Tutti i giocatori aggiornano \emph{simultaneamente} al passo $k$:
+\begin{enumerate}
+  \item $x^0\in S$, $k=0$.
+  \item Per ogni $i$: $x_i^{k+1}\in\BR_i(x^k_{-i})$ (se $x_i^k\in\BR_i(x^k_{-i})$, si lascia $x_i^{k+1}=x_i^k$).
+  \item Se $x^{k+1}=x^k$: STOP (NE trovato).
+  \item $k\leftarrow k+1$, vai al passo 2.
+\end{enumerate}
+
+\subsection{Algoritmo di Gauss-Seidel (asincrono)}
+Un solo giocatore per volta aggiorna la propria strategia. L'ordine può essere deterministico o casuale.
+
+\begin{example}[Duopolio di Cournot -- traiettoria BRD]
+Con $T=10$, $c=3$, quantità $x_i\in\{0,\dots,6\}$, partendo da $(x_1,x_2)=(2,5)$: la BR di $x_1$ contro $x_2=5$ è $1$ (troppa offerta dall'avversario); poi la BR di $x_2$ contro $x_1=1$ è $2$; poi la BR di $x_1$ contro $x_2=2$ è $3$; e così via finché si raggiunge l'NE $(2,2)$.
+\end{example}
+
+\section{Potential games}
+
+\begin{defbox}{Potential Game (Monderer--Shapley, 1996)}
+Un gioco $G$ ha un \textbf{potenziale esatto} $P:S\to\mathbb{R}$ se per ogni $i$, ogni $s_{-i}$ e ogni $s_i,t_i\in S_i$:
+\[
+  P(s_i,s_{-i}) - P(t_i,s_{-i}) = u_i(s_i,s_{-i}) - u_i(t_i,s_{-i}).
+\]
+Ha un \textbf{potenziale ordinale} $P$ se l'uguaglianza è sostituita da una condizione sul segno:
+\[
+  P(s_i,s_{-i}) > P(t_i,s_{-i}) \iff u_i(s_i,s_{-i}) > u_i(t_i,s_{-i}).
+\]
+\end{defbox}
+
+Intuitivamente: in un potential game, ogni miglioramento unilaterale di un giocatore si traduce in un aumento del potenziale globale.
+
+\begin{example}[Cournot -- potenziale ordinale]
+Il duopolio di Cournot con qualsiasi funzione di domanda inversa $p$ ha il potenziale ordinale
+\[
+  P(x_1,x_2) = x_1\,x_2\,(p(x_1+x_2)-c).
+\]
+\end{example}
+
+\begin{example}[BoS non ha potenziale esatto]
+Per il Battle of Sexes si verifica che nessuna funzione $P$ soddisfa la condizione del potenziale esatto (il ciclo $FF\to FD\to DD\to DF\to FF$ porta a un'inconsistenza numerica).
+\end{example}
+
+\subsection{Caratterizzazione mediante cicli}
+
+\begin{proposition}
+Un gioco finito ha un potenziale ordinale se e solo se non ammette \emph{weak improvement cycles}: nessun ciclo $(x^0,x^1,\dots,x^\ell=x^0)$ dove ciascuno step è un miglioramento unilaterale (con almeno uno stretto).
+\end{proposition}
+
+% ============================================================
+\chapter{Convergenza e Potential Games Avanzati (L8)}
+% ============================================================
+
+\section{Comportamento dell'algoritmo sincrono}
+
+\begin{example}[Dilemma del Prigioniero -- convergenza]
+Da qualsiasi stato iniziale, l'algoritmo sincrono converge a $(D,D)$ in un passo (poiché $D$ è dominante per entrambi).
+\end{example}
+
+\begin{example}[Battle of Sexes -- ciclo]
+Con $x^0=(F,D)$: entrambi trovano conveniente deviare, $x^1=(D,F)$; poi $x^2=(F,D)=x^0$: ciclo infinito.
+\end{example}
+
+\begin{example}[BoS con strategie miste -- ciclo]
+Con $x^0=(1/2,1/2)$ per entrambi, l'algoritmo sincrono salta tra $(1,0)$ e $(0,1)$ senza convergere. Notare che l'NE misto $(2/3,1/3)$ non è un punto fisso dell'algoritmo sincrono (la best response a $(1/3,2/3)$ è la strategia pura $F$, non la mista).
+\end{example}
+
+Per evitare il looping si introduce la regola: se $x_i^k\in\BR_i(x_{-i}^k)$, mantieni $x_i^{k+1}=x_i^k$ (\emph{avoid useless switches}).
+
+\section{Risultati di esistenza per potential games}
+
+\begin{thmbox}{Esistenza per giochi continui}
+Sia $G$ un gioco a potenziale esatto. Se $u_i$ è continua e $S_i\subseteq\mathbb{R}^{m_i}$ è compatto per ogni $i\in N$, allora $G$ ha almeno un NE.
+\end{thmbox}
+\textit{Dimostrazione.} Il potenziale $P$ è continuo su $S$ compatto, quindi raggiunge il massimo $s^*$. Per la definizione di potenziale esatto, $s^*$ è un NE. \qed
+
+\begin{thmbox}{Esistenza per giochi finiti}
+Ogni gioco finito con potenziale ordinale ha almeno un NE (in strategie pure).
+\end{thmbox}
+
+\begin{remark}
+Non ogni NE massimizza il potenziale. Nel Battle of Sexes asimmetrico (payoff $(3,2)$ vs $(1,2)$), il profilo $(2,2)$ è NE ma non massimizza il potenziale esatto.
+\end{remark}
+
+\section{Convergenza dell'algoritmo asincrono}
+
+\begin{thmbox}{Convergenza algoritmo asincrono}
+Se $G$ è un gioco finito con potenziale ordinale, allora l'algoritmo distribuito asincrono (Gauss--Seidel con best responses) converge a un NE in un numero finito di passi.
+\end{thmbox}
+\textit{Dimostrazione.} Il potenziale $P$ è intero e cresce strettamente ad ogni iterazione che cambia la strategia (poiché ogni mossa è un miglioramento unilaterale). Essendoci un numero finito di profili, il processo deve terminare a un NE. \qed
+
+% ============================================================
+\chapter{Apprendimento nei Giochi Finiti: Fictitious Play e Regret Matching (L9)}
+% ============================================================
+
+\section{Il problema dell'apprendimento}
+
+Una domanda fondamentale della teoria dei giochi algoritmici è: \textbf{gli equilibri possono essere appresi dinamicamente?}
+
+\begin{defbox}{Framework generale (repeated games)}
+Si gioca lo \emph{stesso} gioco in forma normale ripetutamente. I giocatori:
+\begin{enumerate}
+  \item usano \textbf{strategie miste} (possono randomizzare);
+  \item hanno \textbf{conoscenza completa} delle azioni passate di tutti i giocatori;
+  \item aggiornano il proprio comportamento in base alla storia osservata.
+\end{enumerate}
+La domanda è: le strategie empiriche dei giocatori convergono a un NE (o a un equilibrio correlato)?
+\end{defbox}
+
+\section{Fictitious play}
+
+\begin{defbox}{Fictitious Play (Brown, 1951)}
+Ad ogni round $k$, ogni giocatore $i$:
+\begin{enumerate}
+  \item tiene traccia della \textbf{frequenza empirica} delle azioni degli avversari:
+  \[
+    \hat{a}_{-i}^k(s_{-i}) = \frac{\text{numero di round in cui gli avversari hanno giocato }s_{-i}}{k};
+  \]
+  \item sceglie al round $k+1$ una \textbf{best response} alla frequenza empirica:
+  \[
+    s_i^{k+1} \in \BR_i\!\left(\hat{a}_{-i}^k\right).
+  \]
+\end{enumerate}
+Il giocatore si comporta come se gli avversari continuassero a giocare la media delle azioni passate.
+\end{defbox}
+
+\begin{example}[Fictitious play in Rock-Paper-Scissors]
+I giocatori alternano la propria best response alla media delle mosse avversarie. I calcoli per RPS, dove la matrice di payoff è:
+\[
+  A = \begin{pmatrix} 0 & -1 & 1 \\ 1 & 0 & -1 \\ -1 & 1 & 0 \end{pmatrix},
+\]
+mostrano che le frequenze empiriche oscillano attorno all'NE misto $(1/3,1/3,1/3)$ senza convergere esattamente: il fictitious play ``ciclicamente segue'' l'equilibrio.
+
+In dettaglio, il giocatore~I massimizza $M(p,q) = p^T A q$, mentre il giocatore~II minimizza. Al round~1, partendo con strategie $(1,0,0)$ e $(0,1,0)$ (Sasso e Carta), la best response del giocatore~I a Carta è Forbici, e così via.
+\end{example}
+
+\begin{thmbox}{Convergenza del fictitious play}
+Il fictitious play \emph{converge} (le frequenze empiriche convergono a un NE) nei seguenti casi:
+\begin{itemize}
+  \item Giochi a somma zero a 2 giocatori (Robinson, 1951) -- tasso $O(1/\sqrt{k})$.
+  \item Giochi $2\times 2$ con ``diagonal property'' (Miyasawa, 1961).
+  \item Giochi $2\times n$ non degeneri (Berger, 2005).
+  \item Giochi risolvibili tramite IESDS (Milgrom--Roberts, 1991).
+  \item Giochi a potenziale ordinale (Monderer--Shapley, 1996).
+\end{itemize}
+\textbf{Non converge in generale}: nel ``gentle RPS'' (RPS con diagonale leggermente positiva, non più a somma zero), le frequenze empiriche seguono un ciclo attorno all'NE senza convergervi.
+\end{thmbox}
+
+\begin{remark}
+Il fictitious play converge all'\textbf{insieme} degli NE, non necessariamente a un singolo NE. Nei giochi con NE unico, la convergenza alle frequenze dell'NE è più forte.
+\end{remark}
+
+\section{Regret matching}
+
+Il regret matching (Hart--Mas Colell, 2000) è un algoritmo di apprendimento più robusto del fictitious play: converge a un \textbf{correlated equilibrium} invece che (solo) a un NE.
+
+\begin{defbox}{Regret Matching (Hart--Mas Colell, 2000)}
+Ad ogni round $k$, il giocatore $i$ calcola il \textbf{rimpianto cumulativo} (\emph{regret}) di non aver giocato ogni alternativa $s \neq s_i^k$:
+\[
+  R_i^k(s) = \frac{1}{k}\sum_{t=1}^{k} \bigl[u_i(s,\, s_{-i}^t) - u_i(s_i^t,\, s_{-i}^t)\bigr]^+,
+\]
+dove $[x]^+ = \max\{x, 0\}$ indica la parte positiva.
+
+La strategia al round $k+1$ è scelta con probabilità \emph{proporzionale} ai rimpianti positivi:
+\[
+  \Pr[s_i^{k+1} = s] = \frac{R_i^k(s)}{\sum_{s'} R_i^k(s')},
+\]
+oppure uniformemente se tutti i rimpianti sono $\le 0$ (in questo caso l'azione corrente è già ottimale).
+\end{defbox}
+
+\begin{thmbox}{Convergenza del regret matching}
+Il regret matching ha le seguenti proprietà:
+\begin{enumerate}
+  \item Il rimpianto medio converge a zero: $R_i^k(s) \to 0$ per $k\to\infty$, al tasso $O(1/\sqrt{k})$.
+  \item La distribuzione delle azioni congiunta converge a un \textbf{correlated equilibrium} (CE).
+\end{enumerate}
+\end{thmbox}
+
+\begin{defbox}{Correlated Equilibrium (Aumann, 1974)}
+Un \textbf{equilibrio correlato} è una distribuzione di probabilità $\mu$ sui profili di strategie $S$ tale che, per ogni giocatore $i$ e ogni coppia di azioni $s_i, s_i' \in S_i$:
+\[
+  \sum_{s_{-i}} \mu(s_i, s_{-i})\,\bigl[u_i(s_i, s_{-i}) - u_i(s_i', s_{-i})\bigr] \;\ge\; 0.
+\]
+Ogni NE è un CE (nella forma di distribuzione prodotto $\mu=\prod_i \mu_i$), ma esistono CE che non sono NE. Il CE è un concetto di soluzione più ampio.
+\end{defbox}
+
+\begin{remark}
+\textbf{Confronto tra fictitious play e regret matching}:
+\begin{itemize}
+  \item Fictitious play: converge agli NE (in certi casi); più difficile da analizzare teoricamente.
+  \item Regret matching: converge \emph{sempre} ai CE; la garanzia è più forte e universale.
+  \item Il rimpianto nel regret matching misura quanto avrei guadagnato \emph{in retrospettiva} se avessi sempre giocato $s$ invece di $s_i^t$.
+\end{itemize}
+\end{remark}
+
+\section{Giochi sequenziali e minimax}\label{sec:minimax-intro}
+
+Un gioco sequenziale a \textbf{somma zero} tra un massimizzatore (MAX) e un minimizzatore (MIN) si risolve con la procedura \textbf{minimax} (backward induction):
+\begin{itemize}
+  \item Ai nodi di MAX: si sceglie il figlio con valore massimo.
+  \item Ai nodi di MIN: si sceglie il figlio con valore minimo.
+  \item Il valore si propaga verso la radice.
+\end{itemize}
+Per alberi di grandi dimensioni (es.\ scacchi), la backward induction completa è computazionalmente impraticabile e si ricorre all'\textbf{alfa-beta pruning} (descritto nel Capitolo~\ref{ch:alpha-beta}) e alle \textbf{funzioni di valutazione} (evaluation functions) che stimano il valore di posizioni non terminali.
+
+% ============================================================
+\chapter{Giochi di Stackelberg e Backward Induction (L10)}
+\label{ch:stackelberg}
+% ============================================================
+
+\section{Giochi di Stackelberg}
+
+In un \textbf{gioco di Stackelberg} (von Stackelberg, 1934) un giocatore (\emph{leader}) si muove per primo, e gli altri (\emph{follower}) osservano la sua mossa prima di rispondere. Il leader può quindi \emph{anticipare} le risposte razionali dei follower.
+
+\begin{defbox}{Subgame Perfect Equilibrium (SPE)}
+In un gioco esteso, un profilo di strategie $\sigma^*$ è un \textbf{subgame perfect equilibrium} (equilibrio perfetto nei sottogiochi) se costituisce un NE in ogni sottogioco del gioco originale.
+\end{defbox}
+
+L'SPE è il concetto di soluzione naturale per i giochi sequenziali: rimuove le minacce non credibili (minacce che, se attuate, danneggerebbero anche chi le fa).
+
+\subsection{Backward induction e SPE}
+
+Nei giochi a informazione perfetta, l'SPE si calcola tramite backward induction:
+\begin{enumerate}
+  \item Ai nodi terminali, il payoff è noto.
+  \item Risalendo, ogni giocatore sceglie la mossa che massimizza il proprio payoff (dato ciò che accade in seguito).
+\end{enumerate}
+Con best responses non uniche, si distinguono:
+\begin{itemize}
+  \item \textbf{Atteggiamento ottimistico}: il leader assume che i tie vengano risolti a suo favore.
+  \item \textbf{Atteggiamento pessimistico}: il leader assume il peggior caso.
+\end{itemize}
+
+\section{Duopolio di Stackelberg con bene indivisibile}
+
+Si riprende il duopolio con $x_i\in\mathbb{Z}_+$, $T=10$, $c=3$:
+\[
+  u_i(x_1,x_2) = x_i\max\{T-(x_1+x_2),0\} - c\,x_i.
+\]
+Il follower (giocatore 2) osserva $x_1$ e risponde con
+\[
+  x_2^*(x_1) = \begin{cases}
+    \displaystyle\left\lfloor\frac{T-x_1-c}{2}\right\rfloor & \text{se }T-x_1>c \\
+    0 & \text{altrimenti}
+  \end{cases}
+\]
+Il leader anticipa questa risposta e massimizza $u_1(x_1, x_2^*(x_1))$. Con atteggiamento ottimistico, la soluzione di Stackelberg è $x_1^*=4$, $x_2^*=1$, con payoff $(8,2)$ (migliore per il leader rispetto al NE di Cournot $(2,2)$ con payoff $(6,6)$).
+
+\section{Gioco a due stadi con investitori}
+
+Due investitori devono decidere se rimanere (\emph{stay in}) o ritirarsi (\emph{withdraw}) da un progetto bancario in due stadi. Ogni investitore ha investito 4M€. Il secondo stadio ha come unico NE \emph{(stay in, stay in)} con payoff $(10,10)$. Sostituendo nell'albero del primo stadio e applicando la backward induction, si ottengono due NE al primo stadio (a seconda del comportamento in caso di informazione imperfetta).
+
+% ============================================================
+\chapter{Giochi Sequenziali Finiti: SPE e Backward Induction (L11)}
+\label{ch:seq-finite}
+% ============================================================
+
+\section{L'albero di enumerazione}
+
+Un \textbf{gioco sequenziale finito con informazione perfetta} si modella formalmente come un \textbf{albero di enumerazione} (\emph{enumeration tree}).
+
+\begin{defbox}{Albero di Enumerazione}
+Un \textbf{albero di enumerazione} è un albero radicato orientato verso le foglie (\emph{directed rooted out-tree}): tutti gli archi puntano dalla radice verso le foglie. La struttura è:
+\begin{itemize}
+  \item \textbf{Nodo} (\emph{node}): rappresenta uno \emph{stato} del gioco.
+  \item \textbf{Foglia} (\emph{leaf}): nodo terminale, rappresenta un \emph{outcome} (risultato finale). Ogni foglia è etichettata con il vettore dei payoff $(u_1,\dots,u_n)$.
+  \item \textbf{Turn / Ply}: l'insieme di nodi allo stesso livello di profondità (stessa distanza dalla radice). Ogni turn/ply corrisponde a un ``turno'' del gioco.
+  \item \textbf{Arco} (\emph{arc}): rappresenta un'azione disponibile per il giocatore proprietario del nodo coda dell'arco.
+  \item Ogni nodo non-foglia appartiene a \emph{esattamente un} giocatore.
+  \item Le etichette sulle foglie sono le utilità/payoff dei giocatori.
+\end{itemize}
+\end{defbox}
+
+\begin{remark}
+La \emph{definizione formale matematica} di albero di enumerazione come tupla $(V, E, r, P, A, \ell)$ è piuttosto pesante. Le slides del corso osservano esplicitamente che ``the formal mathematical definition is not very handy''; è più utile ragionare direttamente sulla struttura ad albero.
+\end{remark}
+
+\begin{remark}[\textbf{Informazione perfetta}]
+``Informazione perfetta'' significa che ogni giocatore conosce \emph{tutte} le mosse precedenti: non c'è alcuna incertezza sulla storia del gioco. In termini dell'albero, ogni giocatore sa esattamente in quale nodo si trova.
+\end{remark}
+
+\begin{remark}[\textbf{Crescita esponenziale}]
+L'albero di enumerazione cresce \emph{esponenzialmente} con il numero di mosse. Per giochi complessi (scacchi: $\approx 10^{43}$ posizioni, go: ancora di più), è computazionalmente impraticabile costruire l'albero per intero. Questa osservazione motiva tecniche di potatura come l'alfa-beta pruning (Capitolo~\ref{ch:alpha-beta}) e l'uso di funzioni di valutazione (Deep Blue).
+\end{remark}
+
+\section{Strategie nei giochi sequenziali}
+
+\begin{defbox}{Strategia pura (gioco sequenziale)}
+Una \textbf{strategia pura} per il giocatore $i$ è una funzione
+\[
+  \sigma_i : D_i \;\longrightarrow\; \bigcup_{v \in D_i} A(v),
+  \qquad \sigma_i(v)\in A(v)\;\forall v\in D_i,
+\]
+dove $D_i$ è l'insieme dei nodi di decisione di $i$ e $A(v)$ è l'insieme delle azioni disponibili al nodo $v$.
+
+Un profilo di strategie pure $\sigma = (\sigma_1,\dots,\sigma_n)$ determina un \emph{unico cammino} dalla radice a una foglia, e quindi un unico outcome del gioco.
+\end{defbox}
+
+\begin{remark}
+Il numero di strategie pure per il giocatore $i$ è
+\[
+  |S_i| = \prod_{v \in D_i} |A(v)|.
+\]
+Questo numero è in generale esponenziale nel numero di nodi di decisione. Per esempio, se il giocatore~I ha 5 nodi ognuno con 2 azioni disponibili, $|S_I| = 2^5 = 32$; se il giocatore~II ha 10 nodi, $|S_{II}| = 2^{10} = 1024$.
+\end{remark}
+
+\section{Sottogiochi e Subgame Perfect Equilibrium}
+
+\begin{defbox}{Sottogioco}
+Un \textbf{sottogioco} (\emph{subgame}) $G_v$ di un gioco sequenziale $G$ è il sottoalbero di enumerazione radicato in un nodo non-foglia $v$: esso è a sua volta un gioco sequenziale finito completo (con la propria radice, le proprie foglie e gli stessi giocatori).
+\end{defbox}
+
+\begin{defbox}{Subgame Perfect Equilibrium -- SPE (Selten, 1965)}
+Un profilo di strategie $\sigma^*$ è un \textbf{Subgame Perfect Equilibrium} (SPE) se $\sigma^*$ costituisce un Nash Equilibrium \emph{in ogni sottogioco} di $G$ (incluso $G$ stesso).
+\end{defbox}
+
+\begin{remark}
+L'SPE raffina il concetto di NE eliminando le \emph{minacce non credibili}: un NE può prescrivere azioni che, se effettivamente eseguite, danneggerebbero il giocatore stesso. L'SPE richiede razionalità in ogni punto dell'albero, non solo lungo il percorso di equilibrio.
+\end{remark}
+
+\begin{thmbox}{Esistenza dell'SPE (Selten, 1965)}
+\label{thm:spe-existence}
+Ogni gioco sequenziale finito con informazione perfetta ammette almeno un Subgame Perfect Equilibrium in strategie pure.
+\end{thmbox}
+
+\begin{proof}
+Poiché il gioco è finito, l'albero ha un numero finito di nodi. La procedura di backward induction (definizione seguente) costruisce esplicitamente un SPE e termina in tempo finito. L'esistenza è quindi garantita per costruzione.
+\end{proof}
+
+\section{Procedura di Backward Induction}
+
+\begin{defbox}{Backward Induction}
+La \textbf{procedura di backward induction} calcola un SPE in un gioco sequenziale finito con informazione perfetta, procedendo dai nodi foglia verso la radice:
+\begin{enumerate}
+  \item \textbf{Inizializzazione}: per ogni foglia $\ell$, poni $\mathit{val}(\ell)$ uguale al vettore di payoff di $\ell$.
+  \item \textbf{Passo induttivo}: per ogni nodo non-foglia $v$ proprietà del giocatore $i$, i cui tutti i figli hanno già $\mathit{val}$ assegnato:
+    \begin{itemize}
+      \item scegli il figlio $c^*$ che massimizza $(u_i)$-esima componente di $\mathit{val}(c)$;
+      \item poni $\mathit{val}(v) := \mathit{val}(c^*)$ e assegna a $v$ l'azione corrispondente all'arco $(v,c^*)$.
+    \end{itemize}
+  \item \textbf{Terminazione}: ripeti il passo~2 finché non si raggiunge la radice. Il valore $\mathit{val}(\text{root})$ è il payoff di equilibrio e le azioni assegnate a tutti i nodi formano un SPE.
+\end{enumerate}
+\end{defbox}
+
+\begin{remark}
+La backward induction effettua un'esplorazione completa dell'albero (al peggio $O(|V|)$ operazioni). Per alberi di grandi dimensioni, l'alfa-beta pruning ne riduce drasticamente il costo computazionale.
+\end{remark}
+
+\section{Esempio: Pure Coordination Game}
+
+\begin{example}[Pure Coordination Game]
+Due giocatori devono coordinare la propria scelta tra due azioni: \emph{leave} (L) e \emph{cooperate} (C). In forma simultanea:
+\begin{center}
+\begin{tabular}{c|cc}
+I/II & L & C \\\hline
+L & $(1,1)$ & $(1,0)$ \\
+C & $(0,1)$ & $(3,3)$
+\end{tabular}
+\end{center}
+Vi sono due NE puri: $(L,L)$ e $(C,C)$.
+
+In forma sequenziale (il giocatore~I muove per primo), la backward induction produce:
+\begin{itemize}
+  \item Se I sceglie L: II risponde con L (payoff $1>0$ per lui) → outcome $(1,1)$.
+  \item Se I sceglie C: II risponde con C (payoff $3>1$ per lui) → outcome $(3,3)$.
+\end{itemize}
+Il giocatore~I ottiene $1$ scegliendo L, $3$ scegliendo C → I sceglie \textbf{C}.
+
+\textbf{Unico SPE}: $(C, C)$ con payoff $(3,3)$. Il NE $(L,L)$ non è SPE perché se I sceglie C, II risponde con C (non con L): la ``minaccia'' di II di giocare L è non credibile.
+\end{example}
+
+\section{Esempio: Sequential Battle of Sexes}
+
+\begin{example}[Sequential Battle of Sexes]
+Si riprende il Battle of Sexes con lei (giocatrice~1) che si muove per prima, scegliendo Football (F) o Ballet (B); lui (giocatore~2) osserva la scelta e risponde.
+
+\textbf{Payoff}: (F,F)=$(2,1)$; (F,B)=$(0,0)$; (B,F)=$(0,0)$; (B,B)=$(1,2)$.
+
+Il giocatore~2 ha due nodi di decisione (uno dopo F, uno dopo B), ciascuno con 2 azioni: pertanto ha $2^2=4$ strategie pure. Denotiamo $\sigma_2(F)/\sigma_2(B)$ le sue scelte condizionate.
+
+\textbf{Backward induction}:
+\begin{itemize}
+  \item Se lei gioca F: lui sceglie F (payoff $1>0$ per lui) → outcome $(2,1)$.
+  \item Se lei gioca B: lui sceglie B (payoff $2>0$ per lui) → outcome $(1,2)$.
+\end{itemize}
+Lei ottiene $2$ scegliendo F, $1$ scegliendo B → lei sceglie \textbf{F}.
+
+\textbf{Unico SPE}: lei gioca F; lui gioca ``segui lei'' $\sigma_2=(F\mid F,\; B\mid B)$. Outcome di equilibrio: $(F,F)$ con payoff $(2,1)$.
+
+\textbf{Confronto con il gioco simultaneo}: nel BoS simultaneo ci sono 2 NE puri e 1 NE misto. Nella versione sequenziale, chi muove per primo ha un vantaggio: può \emph{impegnarsi} credibilmente e il secondo giocatore si adatta. Il gioco sequenziale produce un unico SPE che favorisce chi muove prima.
+\end{example}
+
+\section{Veto driven choice}
+
+\begin{example}[Veto Driven Choice]
+Due giocatori devono accordarsi su un'alternativa tra $\{a,b,c\}$. Le preferenze sono: $a\succ b\succ c$ per il giocatore 1; $c\succ b\succ a$ per il giocatore 2. Ad ogni turno ciascun giocatore \emph{veta} un'alternativa; l'alternativa finale è quella non vetata.
+
+Struttura: l'albero ha $3\times 3 = 9$ foglie; si costruisce la matrice $8\times 8$ delle strategie (ognuno ha 3 possibili prime veto e poi 2 seconde veto). L'equilibrio per backward induction porta il giocatore 1 a scegliere $c$ come primo veto (eliminare la sua alternativa peggiore) e il giocatore 2 a rispondere in modo da ottenere $b$: payoff $(0,2)$ -- un esito di compromesso.
+\end{example}
+
+\section{Centipede game}
+
+\begin{example}[Centipede Game (Rosenthal, 1981)]
+Due giocatori si alternano a decidere se \emph{continuare} (C) o \emph{fermarsi} (S). Se si ferma al turno $t$, il giocatore corrente ottiene il proprio portafoglio; se continua, trasferisce $1$€ all'avversario che guadagna anche $1$€ extra. I payoff crescono esponenzialmente:
+\[
+  S: (1,1)\to (0,3)\to (2,2)\to (1,4)\to (3,3)\to\cdots
+\]
+La \textbf{backward induction} porta all'SPE: fermarsi immediatamente, con payoff $(1,1)$.
+
+Il \textbf{paradosso di inefficienza}: se entrambi cooperassero fino all'ultimo turno, otterrebbero payoff arbitrariamente grandi. L'SPE è Pareto-dominato dalla cooperazione.
+\end{example}
+
+\section{Chain store paradox}
+
+\begin{example}[Chain Store Paradox (Selten, 1978)]
+Un chain store ha filiali in $n$ città. In ogni città un potenziale concorrente deve scegliere se \emph{entrare} nel mercato o \emph{restare fuori}; il chain store risponde cooperando o agendo aggressivamente. Le città vengono visitate in ordine, con informazione perfetta. I payoff per ogni stadio sono:
+\begin{itemize}
+  \item (stai fuori): $(1+5,\cdot)$ per il chain store.
+  \item (entra, coopera): $(2,2)$.
+  \item (entra, aggressivo): $(0,0)$.
+\end{itemize}
+La backward induction: all'ultimo stadio il chain store preferisce cooperare (payoff $2>0$); quindi il concorrente entra; questo si propaga a ritroso -- il chain store coopera \emph{sempre}. \textbf{Paradosso}: il comportamento aggressivo iniziale potrebbe dissuadere i futuri concorrenti, ma non è razionale nella logica backward.
+\end{example}
+
+\section{Informazione imperfetta}
+
+\begin{defbox}{Information Set}
+In un gioco in forma estesa, un \textbf{information set} è un insieme di nodi che:
+\begin{itemize}
+  \item appartengono allo stesso giocatore;
+  \item hanno lo stesso nodo genitore (o hanno avuto la stessa storia ``visibile'');
+  \item hanno le stesse azioni disponibili.
+\end{itemize}
+Il giocatore non può distinguere i nodi appartenenti allo stesso information set.
+\end{defbox}
+
+Un gioco in forma normale equivalente al gioco esteso si costruisce enumerando le strategie pure come funzioni dagli information sets alle azioni. Nell'\emph{Hawk-Hare-Hunt} (stag hunt) rappresentato come gioco sequenziale con information set sul nodo del giocatore 2, la matrice equivale esattamente al gioco simultaneo.
+
+\section{Forward induction}
+
+\begin{description}
+  \item[Backward induction:] le mosse future saranno razionali (previsione del futuro).
+  \item[Forward induction:] le mosse passate sono state razionali (inferenza sul passato).
+\end{description}
+
+La forward induction consente di raffinare gli NE eliminando quelli inconsistenti con la razionalità osservata. Esempio: se il giocatore 1 in un gioco esteso ha scelto azione $s$ (anzichè $h$) raggiungendo l'information set $A$ del giocatore 2, quest'ultimo può inferire che il giocatore 1 ha probabilmente scelto $s$ razionalmente, aggiornando la propria credenza. Questo restringe le best response ammissibili.
+
+% ============================================================
+\chapter{Alpha-Beta Pruning, Giochi Multi-Stage e Oligopoli (L12)}
+\label{ch:alpha-beta}
+% ============================================================
+
+\section{Gioco sequenziale minimax: un esempio completo}
+
+Prima di presentare l'alpha-beta pruning in dettaglio, analizziamo un esempio di backward induction su un gioco a somma zero tra un \textbf{massimizzatore} (giocatore~1, MAX) e un \textbf{minimizzatore} (giocatore~2, MIN).
+
+\begin{example}[Sequential Minimax Game]
+Consideriamo un albero di gioco in cui MAX muove per primo (radice). L'albero ha profondità tale che:
+\begin{itemize}
+  \item Il giocatore~I (MAX) ha $2^5 = 32$ strategie pure (5 nodi di decisione, ciascuno con 2 azioni).
+  \item Il giocatore~II (MIN) ha $2^{10} = 1024$ strategie pure (10 nodi di decisione, ciascuno con 2 azioni).
+\end{itemize}
+La backward induction procede foglia per foglia, livello per livello. Consideriamo un sottoalbero con le seguenti foglie (da sinistra a destra): $3,\,5,\,2,\,9,\,0,\,6,\,4,\,2$.
+
+Applicando la backward induction:
+\begin{enumerate}
+  \item \textbf{Livello MIN (profondità 3)}: i nodi MIN scelgono il minimo tra i propri figli:
+    \[\min(3,5)=3,\quad \min(2,9)=2,\quad \min(0,6)=0,\quad \min(4,2)=2.\]
+  \item \textbf{Livello MAX (profondità 2)}: i nodi MAX scelgono il massimo:
+    \[\max(3,2)=3,\quad \max(0,2)=2.\]
+  \item \textbf{Livello MIN (profondità 1)}: il nodo MIN sceglie il minimo:
+    \[\min(3,2)=2.\]
+  \item \textbf{Livello MAX (radice)}: MAX sceglie il massimo; supponiamo ci sia un unico figlio: il valore è $\boxed{3}$.
+\end{enumerate}
+
+\textbf{Osservazione}: la backward induction effettua un'esplorazione \emph{completa} dell'albero (nessuna potatura). Per alberi profondi, il costo computazionale è $O(b^d)$ dove $b$ è il fattore di ramificazione e $d$ la profondità.
+\end{example}
+
+\section{Alfa-beta pruning: algoritmo e esempio dettagliato}
+
+L'alfa-beta pruning è un'ottimizzazione della backward induction che elimina sottorami dell'albero senza comprometterne la correttezza.
+
+\begin{defbox}{Alfa-beta Pruning}
+L'algoritmo mantiene due parametri globali lungo il percorso radice-nodo corrente:
+\begin{itemize}
+  \item $\alpha$ (\emph{alpha}): il valore minimo garantito al massimizzatore lungo il percorso corrente (``il meglio che MAX può assicurarsi'');
+  \item $\beta$ (\emph{beta}): il valore massimo garantito al minimizzatore lungo il percorso corrente (``il meglio che MIN può assicurarsi'').
+\end{itemize}
+Si usa la coppia $(\alpha,\beta)$ del percorso padre-figlio per rilevare sottorami non proficui:
+\begin{itemize}
+  \item \textbf{Potatura $\alpha$} (al nodo MIN): se il valore corrente $v \le \alpha$, il padre MAX non sceglierà mai questo nodo (poiché può già garantirsi $\alpha>\mathit{v}$): si potano tutti i fratelli non ancora esplorati del nodo corrente.
+  \item \textbf{Potatura $\beta$} (al nodo MAX): se il valore corrente $v \ge \beta$, il padre MIN non sceglierà mai questo nodo: si potano i fratelli.
+\end{itemize}
+\end{defbox}
+
+\begin{thmbox}{Complessità dell'alfa-beta pruning}
+Nel caso migliore (ordinamento ottimale dei nodi), l'alfa-beta pruning riduce la complessità da $O(b^d)$ a $O(b^{d/2})$: si raddoppia la profondità esplorabile a parità di risorse computazionali.
+\end{thmbox}
+
+\begin{example}[Alfa-beta pruning: esempio con $\alpha=3, \beta=3$]
+Consideriamo un albero di gioco a due livelli con MAX alla radice e MIN al primo livello. Esploriamo il primo sottoalbero sinistro del nodo MIN:
+
+\textbf{Fase 1}: la prima foglia vale $6$. Poniamo $\beta_{\text{MIN}} = 6$ (il nodo MIN può garantirsi al più $6$).
+
+\textbf{Fase 2}: la seconda foglia vale $3$. Il nodo MIN aggiorna $\beta_{\text{MIN}} = \min(6,3) = 3$. Il nodo MAX (radice) vede $v=3$ e aggiorna $\alpha_{\text{MAX}} = 3$.
+
+\textbf{Fase 3}: la terza foglia vale $2$. Il nodo MIN aggiorna $\beta_{\text{MIN}} = \min(3,2) = 2 < \alpha_{\text{MAX}} = 3$.
+
+$\Rightarrow$ \textbf{Potatura $\alpha$}: il nodo MAX alla radice non sceglierà mai questo nodo MIN (che garantisce al più $2 < 3$). Si pota il fratello successivo della foglia.
+
+\textbf{Risultato}: la foglia di valore $5$ (fratello potato) \emph{non viene esplorata}. Il valore propagato alla radice è $\beta_{\text{MIN}} = 3$.
+
+\begin{center}
+\begin{tabular}{clll}
+\toprule
+Passo & Foglia esplorata & Aggiornamento & Azione \\
+\midrule
+1 & $6$ & $\beta_{\text{MIN}} = 6$ & Continua \\
+2 & $3$ & $\beta_{\text{MIN}} = 3$, $\alpha_{\text{MAX}} = 3$ & Continua \\
+3 & $2$ & $\beta_{\text{MIN}} = 2 \le \alpha_{\text{MAX}} = 3$ & \textbf{Pota} il ramo con $5$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Interpretazione}: il nodo MIN, avendo già trovato un outcome di valore $2$, non può migliorare rispetto alla garanzia $\alpha=3$ di MAX. Esplorare il fratello (valore $5$) sarebbe inutile: MAX non sceglierebbe comunque questo sottoalbero.
+\end{example}
+
+\section{Deep guessing e funzioni di valutazione}
+
+In giochi con alberi estremamente profondi — scacchi ($\approx 10^{40}$ stati), go ($\approx 10^{170}$) — esplorare l'albero fino alle foglie terminali è computazionalmente impossibile. Si usa la tecnica del \textbf{deep guessing}:
+
+\begin{enumerate}
+  \item Si fissa un \textbf{limite di profondità} $d$.
+  \item Si esegue minimax (o alfa-beta pruning) fino alla profondità $d$.
+  \item I nodi al livello $d$ (non terminali) vengono valutati da una \textbf{funzione di valutazione euristica} $f: S \to \mathbb{R}$ che approssima il valore ``vero'' del nodo.
+\end{enumerate}
+
+\begin{defbox}{Funzione di valutazione euristica}
+Una funzione di valutazione $f: S \to \mathbb{R}$ assegna uno score a ogni stato $s\in S$, anche non terminale, approssimando il valore che otterrebbe il giocatore MAX se la partita continuasse in modo ottimale. Le proprietà desiderabili sono:
+\begin{itemize}
+  \item \textbf{Correttezza sui terminali}: $f(s)=u(s)$ per ogni foglia $s$.
+  \item \textbf{Efficienza}: calcolabile in tempo $O(1)$ o $O(\text{poly})$ rispetto alla dimensione dello stato.
+  \item \textbf{Informativit\`a}: cattura caratteristiche rilevanti del dominio (vantaggio materiale, struttura posizionale, ecc.).
+\end{itemize}
+\end{defbox}
+
+\begin{example}[Deep Blue -- scacchi]
+Deep Blue (IBM, 1997) usava una funzione di valutazione lineare
+\[
+  f(s) = \sum_{k=1}^{8000} w_k \cdot \phi_k(s)
+\]
+dove $\phi_k(s)$ sono $8000$ feature dello stato scacchistico (vantaggio materiale, struttura dei pedoni, sicurezza del re, mobilità dei pezzi, \ldots) e i pesi $w_k$ erano affinati da partite di grandi maestri. Combinato con alfa-beta pruning a profondità 12--17, Deep Blue sconfisse il campione mondiale Garry Kasparov nel 1997 con punteggio $3.5$--$2.5$.
+\end{example}
+
+\begin{remark}
+La qualità della strategia dipende \emph{criticamente} dalla funzione di valutazione: un limite di profondità elevato con una funzione mediocre può dare risultati peggiori di un limite basso con una funzione eccellente. Le moderne reti neurali profonde (AlphaZero, 2017) rimpiazzano le feature hand-crafted con valutazioni apprese per self-play, raggiungendo livelli sovrumani a scacchi, shogi e go.
+\end{remark}
+
+\section{Backward induction nei giochi multi-stage}
+
+I \textbf{giochi multi-stage} decompongono il gioco in $T$ stadi. Ad ogni stadio si gioca un sotto-gioco, il cui payoff (determinato dall'NE del sotto-gioco) si aggiunge al payoff globale.
+
+\begin{example}[Gioco a due stadi con information set]
+Riprendo il gioco dei due investitori (Capitolo~\ref{ch:stackelberg}). Nel primo stadio ciascun investitore sceglie simultaneamente (\emph{withdraw} o \emph{stay in}); per l'informazione imperfetta i due nodi del giocatore 2 sono raggruppati in un information set. Il secondo stadio è identico al primo.
+
+Applicando la backward induction:
+\begin{itemize}
+  \item Secondo stadio: l'unico NE è \emph{(stay in, stay in)} con payoff $(10,10)$.
+  \item Primo stadio: il payoff $(10,10)$ del secondo stadio si aggiunge ai payoff del primo. L'analisi del gioco ridotto produce due NE nel primo stadio: \emph{(stay in, stay in)} (payoff $20,20$) e \emph{(withdraw, withdraw)} (payoff $3+10=13$, $3+10=13$).
+\end{itemize}
+Con informazione imperfetta nel primo stadio (information set), rimane l'NE \emph{(stay in, stay in)} come equilibrio di cooperazione.
+\end{example}
+
+\section{Oligopolio con un leader e follower multipli}
+
+Tre imprese producono lo stesso bene omogeneo, competendo sulla quantità. Le strategie sono $S_1=S_2=S_3=[0,+\infty)$ e le utilità:
+\[
+  u_i(x_1,x_2,x_3) = x_i\max\{T-(x_1+x_2+x_3),0\} - c\,x_i,\quad T>c.
+\]
+L'impresa 1 è il \textbf{leader}: sceglie $x_1$ per prima. Le imprese 2 e 3 sono i \textbf{follower}: osservano $x_1$ e reagiscono simultaneamente in un \textbf{duopolio di Cournot} con prezzo massimo $T-x_1$.
+
+\subsection{Equilibrio dei follower}
+
+Fissato $x_1$, le imprese 2 e 3 giocano un Cournot con prezzo di intercetta $T-x_1$. Le best responses simmetriche danno
+\[
+  x_2^*(x_1) = x_3^*(x_1) = \begin{cases}
+    \dfrac{T-x_1-c}{3} & \text{se }x_1 < T-c\\
+    0 & \text{altrimenti}
+  \end{cases}
+\]
+e il profilo $(x_2^*(x_1), x_3^*(x_1))$ è l'unico NE del sottogioco dei follower.
+
+\subsection{Scelta ottimale del leader}
+
+Il leader massimizza $u_1(x_1, x_2^*(x_1), x_3^*(x_1))$ sostituendo le best responses:
+\[
+  u_1 = x_1\Bigl(T - x_1 - \tfrac{2(T-x_1-c)}{3}\Bigr) - c\,x_1
+       = x_1\cdot\frac{T-x_1-c}{3} - c\,x_1.
+\]
+Ottimizzando in $x_1$ (continuo): $x_1^* = \frac{T-c}{2}$, e quindi $x_2^*=x_3^*=\frac{T-c}{6}$. L'equilibrio globale è
+\[
+  \Bigl(\frac{T-c}{2},\;\frac{T-c}{6},\;\frac{T-c}{6}\Bigr).
+\]
+
+\subsection{Tabella comparativa degli oligopoli}
+
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+Struttura & Produzione totale & Prezzo & Payoff per impresa & Payoff totale \\
+\midrule
+Monopolio & $\tfrac{T-c}{2}$ & $\tfrac{T+c}{2}$ & $\tfrac{(T-c)^2}{4}$ & $\tfrac{(T-c)^2}{4}$ \\
+Duopolio Cournot & $\tfrac{2(T-c)}{3}$ & $\tfrac{T+2c}{3}$ & $\tfrac{(T-c)^2}{9}$ & $\tfrac{2(T-c)^2}{9}$ \\
+Duopolio Stackelberg & $\tfrac{3(T-c)}{4}$ & $\tfrac{T+3c}{4}$ & L: $\tfrac{(T-c)^2}{8}$, F: $\tfrac{(T-c)^2}{16}$ & $\tfrac{3(T-c)^2}{16}$ \\
+1 leader, 2 follower & $\tfrac{5(T-c)}{6}$ & $\tfrac{T+5c}{6}$ & L: $\tfrac{(T-c)^2}{12}$, F: $\tfrac{(T-c)^2}{36}$ & $\tfrac{5(T-c)^2}{36}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Osservazione: all'aumentare della concorrenza, la produzione totale cresce, il prezzo scende (bene per i consumatori) ma il payoff per impresa e totale diminuisce; il leader ha sempre vantaggio sul follower.
+
+% ============================================================
+\chapter{Stackelberg-Nash Games (L13)}
+\label{ch:stackelberg-nash}
+% ============================================================
+
+\section{Definizione e motivazione}
+
+I \textbf{Stackelberg-Nash games} (single-leader multi-follower games) generalizzano il duopolio di Stackelberg a $n$ follower che reagiscono simultaneamente all'scelta del leader, giocando a loro volta un gioco di Nash.
+
+\begin{defbox}{Stackelberg-Nash Game}
+Un gioco Stackelberg-Nash è una tripla $(N,(S_i)_{i\in N},(u_i)_{i\in N})$ con $N=\{1\}\cup F$, $F=\{2,\dots,n+1\}$, dove:
+\begin{itemize}
+  \item Il \textbf{leader} (giocatore 1) sceglie $x_1\in S_1$ per primo.
+  \item I \textbf{follower} $i\in F$ osservano $x_1$ e reagiscono \emph{simultaneamente}, giocando il gioco strategico
+    \[G(x_1) = \bigl(F,\;(S_i)_{i\in F},\;(u_i(x_1,\cdot))_{i\in F}\bigr).\]
+  \item Il leader \emph{anticipa} l'esito del gioco dei follower.
+\end{itemize}
+\end{defbox}
+
+\textbf{Working assumption:} $\NE(x_1) = \{\text{Nash equilibria di }G(x_1)\}\subseteq S_{-1}$ è un singleton per ogni $x_1\in S_1$.
+
+\begin{defbox}{Stackelberg-Nash Equilibrium (Sherali--Soyster--Murphy, 1983)}
+Se la working assumption vale, $x_1^*\in S_1$ è una \textbf{Stackelberg-Nash solution} se
+\[
+  x_1^* \in \argmax\{u_1(x_1,\,\NE(x_1)) : x_1\in S_1\}.
+\]
+Il profilo $(x_1^*,\NE(x_1^*))$ è un \textbf{Stackelberg-Nash equilibrium}.
+\end{defbox}
+
+\section{Best response dynamics in giochi Stackelberg-Nash}
+
+In un gioco finito, il leader utilizza la BRD:
+\begin{enumerate}
+  \item Il leader sceglie una strategia $x_1^{(k)}$.
+  \item I follower reagiscono con $\NE(x_1^{(k)})$.
+  \item Il leader risponde con $x_1^{(k+1)}\in\BR_1(\NE(x_1^{(k)}))$.
+\end{enumerate}
+Questo processo può convergere a un NE oppure ciclare (vedere esempio numerico con 4 strategie per il leader e 4 per coppia di follower).
+
+\section{Mancanza di unicità dell'equilibrio dei follower}
+
+Se $\NE(x_1)$ non è singleton, $u_1(x_1,\NE(x_1))$ non è ben definita. Si introducono due varianti:
+
+\begin{defbox}{Optimistic Stackelberg-Nash Problem (OSN)}
+\[
+  \max\{u_1(x_1,x_{-1}) : x_1\in S_1,\; x_{-1}\in\NE(x_1)\}. \tag{OSN}
+\]
+I punti di massimo $(x_1^*,x_{-1}^*)$ sono gli \textbf{equilibri ottimistici}: il leader assume che i follower scelgano l'NE più favorevole per lui.
+\end{defbox}
+
+\begin{defbox}{Pessimistic Stackelberg-Nash Problem (PSN)}
+\[
+  \max\{\min\{u_1(x_1,x_{-1}) : x_{-1}\in\NE(x_1)\} : x_1\in S_1\}. \tag{PSN}
+\]
+Gli \textbf{equilibri pessimistici} sono definiti da: $x_1^*$ è il punto di massimo di (PSN) e $x_{-1}^*\in\NE(x_1^*)$.
+\end{defbox}
+
+\section{Teoremi di esistenza}
+
+\begin{thmbox}{Esistenza in giochi finiti}
+Sia $(N,(S_i),(u_i))$ un gioco Stackelberg-Nash finito con $N=\{1\}\cup F$. Se il gioco $G(x_1)$ ha almeno un NE per ogni $x_1\in S_1$, allora esistono almeno un equilibrio Stackelberg-Nash ottimistico e uno pessimistico.
+\end{thmbox}
+\textit{Dimostrazione.} (OSN) e (PSN) sono problemi di ottimizzazione su insiemi finiti, quindi i massimi esistono (il dominio è finito). \qed
+
+\begin{remark}
+Se $\NE(x_1)=\emptyset$ per qualche $x_1$, allora (OSN) e (PSN) possono non essere ben definiti. Esempio: nella matrice del gioco con 3 strategie per follower 2 e 3, la strategia $\mathbf{2}$ del leader non ha NE.
+\end{remark}
+
+\begin{thmbox}{Esistenza per giochi continui}
+Sia $(N,(S_i),(u_i))$ un gioco Stackelberg-Nash tale che:
+\begin{itemize}
+  \item[(i)] $S_1\subseteq\mathbb{R}^{m_1}$ è compatto;
+  \item[(ii)] $u_1$ è continua;
+  \item[(iii)] Per ogni $i\in F$: $S_i\subseteq\mathbb{R}^{m_i}$ è convesso e compatto;
+  \item[(iv)] $u_i$ è continua per $i\in F$;
+  \item[(v)] L'insieme delle best responses $R_i(x_{-i})$ è convesso per ogni $x_{-i}$.
+\end{itemize}
+Allora il gioco ha almeno un equilibrio Stackelberg-Nash ottimistico.
+\end{thmbox}
+\textit{Dimostrazione (sketch).} Il teorema di Nikaido--Isoda garantisce $\NE(x_1)\ne\emptyset$ per ogni $x_1$ (condizioni iii, iv, v). Il teorema di Weierstrass applicato a (OSN) -- che è continuo su $S_1$ compatto -- garantisce l'esistenza del massimo. \qed
+
+\begin{corollary}
+Ogni gioco Stackelberg-Nash finito ha almeno un equilibrio ottimistico in strategie miste.
+\end{corollary}
+
+\section{Pool mining nelle blockchain}
+
+\begin{example}[Pool Mining]
+Un leader (\textit{platform}) offre una ricompensa $r$ per il mining di un blocco di valore $g$. I follower sono $n$ miner che forniscono potenza di hashing $p_i$. L'utilità di ogni miner è
+\[
+  u_i(r,p_i,p_{-i}) = \frac{p_i}{p_1+\cdots+p_n}\,r - c_i\,p_i
+\]
+dove $c_i$ è il costo unitario di potenza per il miner $i$. I miner giocano un oligopolio di Cournot con funzione di domanda inversa $p(t)=r/t$ (dove $t=\sum_j p_j$). L'utilità del leader è
+\[
+  u_1(r,p) = \frac{p_1+\cdots+p_n}{T+p_1+\cdots+p_n}\,g - r
+\]
+con $T$ = potenza totale della rete. Nel caso omogeneo $c_i\equiv c$:
+\begin{itemize}
+  \item $G(r)$ è un gioco a potenziale ordinale.
+  \item L'unico NE dei miner è $p_i=r(n-1)/cn^2$ per ogni $i$.
+  \item La ricompensa ottimale per il leader è:
+    \[
+      r^* = \begin{cases}
+        0 & \text{se }g\le cT\,n/(n-1)\\
+        c\Bigl(\sqrt{gT(n-1)/cn} - T\Bigr)\frac{n}{n-1} & \text{altrimenti.}
+      \end{cases}
+    \]
+\end{itemize}
+\end{example}
+
+\section{Giochi multi-leader common-follower}
+
+\begin{defbox}{Multi-leader Common-follower Game}
+Un gioco con $n$ leader e 1 follower: $N=L\cup\{n+1\}$, $L=\{1,\dots,n\}$. I leader scelgono $x_L=(x_1,\dots,x_n)\in S_L=S_1\times\cdots\times S_n$ \emph{simultaneamente}; il follower osserva $x_L$ e risponde con $x_{n+1}\in\argmax_{x_{n+1}}u_{n+1}(x_L,x_{n+1})$.
+
+Se $R_{n+1}(x_L)$ è singleton, i leader giocano il gioco
+\[
+  (L,\;(S_i)_{i\in L},\;(u_i(x_i,x_{-i}^L,R_{n+1}(x_L)))_{i\in L}).
+\]
+\end{defbox}
+
+\begin{defbox}{Generalized Stackelberg-Nash Equilibrium (Sherali, 1984)}
+$x_L^*\in S_L$ è una \textbf{soluzione Stackelberg-Nash generalizzata} se ogni leader $i\in L$ soddisfa
+\[
+  x_i^*\in\argmax\{u_i(x_i,x_{-i}^{L*},R_{n+1}(x_i,x_{-i}^{L*})) : x_i\in S_i\}.
+\]
+Il profilo $(x_L^*,R_{n+1}(x_L^*))$ è un \textbf{Stackelberg-Nash equilibrium generalizzato}.
+\end{defbox}
+
+\subsection{Non-unicità e giochi indotti multipli}
+
+Il problema fondamentale nei giochi multi-leader common-follower è che la best response del follower $R_{n+1}(x_L)$ può non essere un singleton. Quando ciò accade per almeno una coppia di strategie $(x_1,x_2)\in S_1\times S_2$, si presenta ambiguità: i leader non possono determinare univocamente il gioco indotto tra loro.
+
+\begin{example}[Quattro giochi indotti]
+Supponiamo due leader (I e II) con 2 strategie ciascuno e un follower con 4 strategie. Per ogni profilo $(x_I,x_{II})\in\{1,2\}\times\{1,2,3\}$, i leader calcolano la best response del follower $R_f(x_I,x_{II})$. Se per la coppia $(x_I,x_{II})=(1,1)$ la risposta del follower è ambigua (ad esempio strategie 1 o 2 sono entrambe ottimali), il valore della cella per i leader è incerto.
+
+I leader anticipano le risposte del follower su tutte le celle non ambigue, costruendo una matrice sommario; le celle ambigue rimangono un punto interrogativo ``?''. A seconda della scelta del follower per le celle ambigue, si inducono \textbf{4 giochi diversi} tra i leader (uno per ogni combinazione di risposte nelle celle ambigue), ognuno con potenzialmente diversi equilibri di Nash o nessun equilibrio.
+
+\begin{itemize}
+  \item Alcuni dei 4 giochi indotti possono avere NE; altri no.
+  \item Nessuno dei giochi indotti potrebbe ammettere un equilibrio Stackelberg-Nash generalizzato.
+  \item Le formulazioni OSN e PSN (ottimistica e pessimistica) gestiscono questa ambiguità scegliendo, rispettivamente, la risposta del follower più favorevole e più sfavorevole per il leader.
+\end{itemize}
+\end{example}
+
+\begin{remark}
+La mancanza di unicità della risposta del follower è un problema \textbf{strutturale} nei giochi multi-leader common-follower. Non dipende dalla specificità dell'esempio, ma emerge naturalmente ogniqualvolta il follower ha più best responses equivalent. Le formulazioni OSN e PSN sono gli strumenti standard per gestire questa incertezza.
+\end{remark}
+
+% ============================================================
+%  APPENDICE A – Bargaining
+% ============================================================
+\appendix
+
+\chapter{Teoria del Bargaining}
+\label{app:bargaining}
+
+Il \textbf{bargaining} (contrattazione) studia come due agenti dividono un surplus quando entrambi devono acconsentire. I modelli si dividono in assiomatici e sequenziali.
+
+\section{Nash Bargaining Solution}
+
+Il problema di Nash: dati un insieme fattibile $F\subset\mathbb{R}^2$ (compatto, convesso) e un \emph{disagreement point} $d\in F$, la soluzione di Nash è il punto che massimizza $(u_1-d_1)(u_2-d_2)$ su $F$, soggetto a $u\ge d$.
+
+Assiomi: efficienza di Pareto, simmetria, invarianza per trasformazioni affini, indipendenza dalle alternative irrilevanti (IIA).
+
+\section{Kalai--Smorodinsky}
+
+Sostituisce IIA con \emph{monotonicity}: se il problema si espande, nessuno perde. La soluzione KS è il punto sull'efficienza di Pareto che mantiene il rapporto costante $\frac{u_1-d_1}{u_2-d_2}=\frac{a_1-d_1}{a_2-d_2}$ dove $a_i=\max\{u_i : u\in F, u\ge d\}$.
+
+\section{Bargaining sequenziale}
+
+\paragraph{Ultimatum game.} Il giocatore 1 propone una divisione $(x,1-x)$; il giocatore 2 accetta o rifiuta. Il SPE unico: il giocatore 2 accetta qualsiasi offerta $\ge 0$; il giocatore 1 offre $x=1$ (tiene tutto). Empiricamente, offerte molto basse vengono rifiutate.
+
+\paragraph{Two-stage game.} Il giocatore 1 propone; se rifiutato, il giocatore 2 propone con payoff scontati $\delta\cdot$. Il SPE: 1 propone $(1/(1+\delta), \delta/(1+\delta))$ e 2 accetta.
+
+\paragraph{Infinite horizon (Rubinstein, 1982).} Con fattori di sconto $\delta_1,\delta_2$, l'unico SPE dà al giocatore 1 una quota $\frac{1-\delta_2}{1-\delta_1\delta_2}$.
+
+\paragraph{Baron--Ferejohn (1989).} Modello per votazioni in comitati: in ogni periodo viene estratto casualmente un ``proposer'' che propone una divisione; la proposta viene accettata se una maggioranza vota a favore.
+
+% ============================================================
+%  APPENDICE B – Matching
+% ============================================================
+\chapter{Teoria del Matching}
+\label{app:matching}
+
+\section{Top Trading Cycles (TTC)}
+
+Dato un insieme di agenti con preferenze sugli oggetti (inclusi quelli posseduti dagli altri), l'algoritmo TTC:
+\begin{enumerate}
+  \item Ogni agente ``punta'' all'oggetto preferito.
+  \item Si individuano i cicli nel grafo risultante.
+  \item Gli agenti nei cicli scambiano secondo i cicli e vengono rimossi.
+  \item Si ripete finché tutti sono stati assegnati.
+\end{enumerate}
+TTC è \emph{strategyproof} (incentive compatible) e \emph{core-stable} (nessun gruppo preferisce deviare).
+
+\section{Deferred Acceptance -- Gale--Shapley (1962)}
+
+Versione uomini-proposte:
+\begin{enumerate}
+  \item Ogni uomo propone alla donna in cima alla sua lista.
+  \item Ogni donna tiene provvisoriamente il migliore tra i proponenti e rifiuta gli altri.
+  \item I rifiutati propongono alla successiva nella propria lista.
+  \item Si ripete finché nessun uomo viene rifiutato.
+\end{enumerate}
+Il matching risultante è: (a) \emph{stabile} (nessuna coppia blocca); (b) ottimale per gli uomini tra tutti i matching stabili; (c) \emph{strategyproof} per le donne.
+
+\section{Impossibilità di Arrow e Gibbard--Satterthwaite}
+
+\begin{thmbox}{Teorema di Arrow (1951)}
+Nessuna funzione di scelta sociale soddisfa simultaneamente: unanimità (Pareto), indipendenza dalle alternative irrilevanti (IIA) e non-dittatura su un dominio di almeno 3 alternative.
+\end{thmbox}
+
+\begin{thmbox}{Teorema di Gibbard--Satterthwaite (1973/1975)}
+Ogni meccanismo di scelta collettiva su almeno 3 alternative che sia surjettivo e strategyproof è dittatoriale.
+\end{thmbox}
+
+% ============================================================
+%  APPENDICE C – Giochi Cooperativi
+% ============================================================
+\chapter{Giochi Cooperativi con Utilità Trasferibile}
+\label{app:cooperative}
+
+\section{Definizioni di base}
+
+\begin{defbox}{Coalitional TU Game}
+Un gioco cooperativo con utilità trasferibile (TU) è una coppia $(N,v)$ dove $N$ è l'insieme dei giocatori e $v:2^N\to\mathbb{R}$ è la \textbf{funzione caratteristica} con $v(\emptyset)=0$. $v(S)$ è il valore (payoff) che la coalizione $S$ può garantirsi.
+\end{defbox}
+
+\begin{defbox}{Superadditività}
+$(N,v)$ è \textbf{superadditivo} se per ogni $S,T\subseteq N$ disgiunti: $v(S\cup T)\ge v(S)+v(T)$. Intuitivamente: la cooperazione non fa mai danno.
+\end{defbox}
+
+\section{Il Core}
+
+\begin{defbox}{Imputazione e Core}
+Un vettore $x\in\mathbb{R}^n$ è un'\textbf{imputazione} se è \emph{socialmente razionale} ($x(N)=v(N)$) e \emph{individualmente razionale} ($x_i\ge v(\{i\})$ per ogni $i$). L'insieme delle imputazioni è $X(N,v)$.
+
+Il \textbf{core} è l'insieme
+\[
+  C(N,v) = \{x\in X(N,v) : x(S)\ge v(S)\;\forall\,S\subseteq N\}
+\]
+dove $x(S)=\sum_{i\in S}x_i$. Il core può essere vuoto.
+\end{defbox}
+
+\begin{defbox}{Balanced Game}
+$(N,v)$ è \textbf{balanced} se per ogni sistema bilanciato di pesi $\{\lambda_S\}_{S\subseteq N}$ (con $\sum_{S\ni i}\lambda_S=1$ per ogni $i$), si ha $\sum_S\lambda_S v(S)\le v(N)$. Ogni gioco bilanciato ha core non vuoto (Bondareva--Shapley, 1963/1967).
+\end{defbox}
+
+\section{Market games e giochi totalmente bilanciati}
+
+\begin{proposition}
+Ogni \emph{market game} è bilanciato, e quindi ha core non vuoto.
+\end{proposition}
+
+\begin{theorem}
+Un gioco TU è totalmente bilanciato (ogni sotto-gioco è bilanciato) se e solo se è un market game, se e solo se è un maximum flow game.
+\end{theorem}
+
+\section{Nucleolo}
+
+Quando il core è vuoto o troppo grande, si raffina la soluzione minimizzando la \emph{dissatisfazione coalitiva}.
+
+\begin{defbox}{Eccesso e Nucleolo}
+L'\textbf{eccesso} di $S$ per $x$ è $e(S,x)=v(S)-x(S)$ (misura di insoddisfazione). Il vettore $\theta(x)=(e(S_i,x))_{i\le 2^n}$ (ordinato dal più grande al più piccolo) è il \textbf{vettore ordinato di insoddisfazione}. Il \textbf{nucleolo} è l'insieme
+\[
+  \mathcal{N}(N,v) = \{x\in X(N,v) : \theta(x)\le_{\mathrm{lex}}\theta(y)\;\forall\,y\in X(N,v)\}.
+\]
+\end{defbox}
+
+\begin{theorem}[Non-vuotezza e unicità]
+Per ogni gioco TU con $X(N,v)\ne\emptyset$: il nucleolo è unico ($|\mathcal{N}(N,v)|=1$). Il prenucleolo $\mathcal{PN}(N,v)$ (definito su pre-imputazioni $x^0$ con $x(N)=v(N)$) è sempre unico.
+\end{theorem}
+
+\begin{proposition}[Proprietà del prenucleolo]
+Il prenucleolo soddisfa: \emph{null player} ($v(S\cup i)=v(S)\;\forall S \implies \mathcal{PN}_i=0$) e \emph{simmetria} ($v(S\cup i)=v(S\cup j)\;\forall S\implies\mathcal{PN}_i=\mathcal{PN}_j$).
+\end{proposition}
+
+\section{Valore di Shapley}
+
+\begin{defbox}{Shapley Value (Shapley, 1953)}
+Il \textbf{valore di Shapley} assegna a ogni giocatore il suo contributo marginale medio su tutte le possibili ordinazioni dei giocatori:
+\[
+  \mathrm{Sh}(v)_i = \frac{1}{n!}\sum_{\pi\in\Pi(N)} \bigl[v(P_i(\pi)\cup\{i\}) - v(P_i(\pi))\bigr]
+\]
+dove $\Pi(N)$ è l'insieme di tutte le permutazioni di $N$ e $P_i(\pi)=\{j\in N:\pi(j)<\pi(i)\}$ è l'insieme dei predecessori di $i$ nell'ordinazione $\pi$.
+
+Formula alternativa:
+\[
+  \mathrm{Sh}(v)_i = \frac{1}{n!}\sum_{S\subseteq N\setminus\{i\}} |S|!(n-|S|-1)!\bigl[v(S\cup\{i\})-v(S)\bigr].
+\]
+\end{defbox}
+
+\begin{thmbox}{Caratterizzazione assiomatica (Shapley, 1953)}
+Il valore di Shapley è l'unico concetto di soluzione \emph{single-valued} che soddisfa: \emph{efficienza} ($\sum_i\mathrm{Sh}(v)_i=v(N)$), \emph{simmetria}, \emph{null player} e \emph{additività} ($\mathrm{Sh}(v+w)=\mathrm{Sh}(v)+\mathrm{Sh}(w)$).
+\end{thmbox}
+
+\section{Indici di potere}
+
+\begin{defbox}{Shapley--Shubik Power Index (SSPI)}
+Per un gioco semplice monotono $(N,v)$, con $W(i)=\{S\subseteq N : v(S)=0,\,v(S\cup\{i\})=1\}$:
+\[
+  \mathrm{SSPI}(v)_i = \sum_{S\in W(i)}\frac{|S|!(n-|S|-1)!}{n!}.
+\]
+\end{defbox}
+
+\begin{defbox}{Banzhaf Power Index (BPI)}
+\[
+  \mathrm{BPI}(v)_i = \frac{|W(i)|}{2^{n-1}}.
+\]
+\end{defbox}
+Il BPI non soddisfa la proprietà di null player; l'SSPI corrisponde al valore di Shapley del gioco.
+
+% ============================================================
+\backmatter
+\end{document}

@@ -1,0 +1,371 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{geometry}
+\usepackage{xcolor}
+\usepackage{fancyhdr}
+
+\geometry{top=2cm, bottom=2cm, left=2cm, right=2cm}
+
+% Definizione stili per teoremi
+\theoremstyle{definition}
+\newtheorem{definition}{Definizione}[section]
+\newtheorem{proposition}[definition]{Proposizione}
+\newtheorem{theorem}[definition]{Teorema}
+
+% Colori
+\definecolor{darkblue}{RGB}{31, 78, 120}
+\definecolor{lightblue}{RGB}{46, 92, 138}
+
+% Intestazione
+\pagestyle{fancy}
+\lhead{Algorithmic Game Theory - Lecture 22}
+\rhead{}
+\cfoot{\thepage}
+
+\title{\textcolor{darkblue}{\Large Algorithmic Game Theory \\ Lecture 22 \\ Coalitional Structures and Core Approximations}}
+\author{Laurea Magistrale in Computer Science \\ 2025/26}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section*{Slide 1: Introduzione}
+
+Questo documento contiene gli appunti della Lezione 22 del corso di Algorithmic Game Theory.
+
+\textbf{Argomento principale:} The Core for Coalitional Structures and Core Approximations
+
+\newpage
+
+\section{The Core for Coalitional Structures}
+
+\subsection*{Strutture Coalitive}
+
+Supponiamo che vengano formate diverse coalizioni disgiunte: $\mathcal{P} \in \mathcal{P}(N)$.
+
+Una struttura coalitiva e una collezione di coalizioni disgiunte che partizionano l'insieme dei giocatori.
+
+\subsection*{Imputazioni per Strutture Coalitive}
+
+\begin{definition}[Imputazione per struttura coalitiva]
+Un vettore $x \in \mathbb{R}^n$ e un'imputazione per $(N, v)$ con rispetto a $\mathcal{P} \in \mathcal{P}(N)$ se e:
+\begin{itemize}
+    \item \textbf{Socialmente razionale (efficiente)}: $x(S) = v(S)$ per tutti i $S \in \mathcal{P}$
+    \item \textbf{Individualmente razionale}: $x_i \geq v(i)$ per ogni giocatore $i \in N$
+\end{itemize}
+\end{definition}
+
+L'insieme delle imputazioni e denotato da:
+\[
+X^n(P, v) = \{\text{imputazioni}\}
+\]
+
+\subsection*{Il Core di un Gioco}
+
+\begin{definition}[Core di un gioco]
+\[
+C(N, v, \mathcal{P}) = \left\{ x \in X^n(\mathcal{P}, v) : x(S) \geq v(S) \text{ per ogni } S \subseteq N \right\}
+\]
+
+Imputazioni che sono razionali per ogni possibile coalizione.
+\end{definition}
+
+\newpage
+
+\section{Superadditivity Drives Likely Coalitional Structures}
+
+\subsection*{Superadditività e Coalizioni}
+
+Sia $(N, v^*)$ il \textbf{superadditivo cover} di $(N, v)$, definito da:
+\[
+v^*(S) = \max_{T \in \mathcal{P}(S)} \sum_{T \in \mathcal{T}} v(T)
+\]
+
+\begin{theorem}[Strutture coalitive in giochi superadditivi]
+\[
+C(N, v, \mathcal{P}) = C(N, v^*) \cap X(\mathcal{P}, v)
+\]
+\end{theorem}
+
+\subsection*{Quando il Core e Non-Vuoto}
+
+Per una partizione $\mathcal{P} \in \mathcal{P}(N)$:
+
+\begin{itemize}
+    \item Se $v^*(N) = \sum_{T \in \mathcal{P}} v(T)$, allora $C(N, v, \mathcal{P}) = C(N, v^*)$
+
+    \item Se $v^*(N) > \sum_{T \in \mathcal{P}} v(T)$, allora $C(N, v, \mathcal{P}) = \emptyset$
+\end{itemize}
+
+Quando il grande gioco offre piu valore che le coalizioni separate, il core della struttura coalitiva non e vuoto.
+
+\newpage
+
+\section{Market Games with Agreement Costs}
+
+\subsection*{Configurazione del Gioco}
+
+Consideriamo un'economia con costi di accordo:
+\begin{itemize}
+    \item $N = P \cup B$ con $P = \{\text{produttori di vino}\}$ e $B = \{\text{produttori di bottiglie}\}$
+    \item $l_i$: litri di vino prodotto da $i \in P$
+    \item $b_i$: bottiglie prodotto da $i \in B$
+    \item $c$: costo di transazione per bottiglia prodotta
+\end{itemize}
+
+\subsection*{Funzione Caratteristica con Costi}
+
+\[
+v(S) = \min \left\{ \sum_{i \in S \cap P} l_i, \sum_{j \in S \cap B} b_j \right\} - c |S \cap P| \cdot |S \cap B|
+\]
+
+Il termine $-c |S \cap P| \cdot |S \cap B|$ rappresenta il costo totale di negoziazione tra produttori di vino e produttori di bottiglie nella coalizione $S$.
+
+\subsection*{Proprieta Fondamentali}
+
+Quando il costo di accordo e sufficientemente alto:
+\begin{itemize}
+    \item $C(N, v) = \emptyset$ (nessuna soluzione stabile)
+    \item Il core e vuoto perche il costo di coordinarsi supera i benefici
+\end{itemize}
+
+Se $v^*(N) = \sum_{T \in \mathcal{P}} v(T)$ (le coalizioni separate non hanno costi):
+\begin{itemize}
+    \item $\mathcal{P} = \{\{1, 3\}, \{2, 4\}\}$ (le partizioni ottimali)
+    \item Oppure $\mathcal{P} = \{\{2, 3, 5\}, \{1, 4\}\}$ (altre configurazioni equilibrate)
+\end{itemize}
+
+\newpage
+
+\section{Wishing to Be Back to a Unique Coalition}
+
+\subsection*{Setup Classico}
+
+Torniamo al problema classico del core:
+\begin{itemize}
+    \item $N = \{1, \ldots, n\}$: $n$ giocatori che cercano un accordo vincolante
+    \item Coalizione: $S \subseteq N$
+    \item Funzione caratteristica: $v : \mathcal{P}(N) \to \mathbb{R}$ (con $v(\emptyset) = 0$)
+    \item $v(S)$ = worth (valore) della coalizione $S$
+\end{itemize}
+
+\subsection*{La Grande Domanda}
+
+Supponiamo che la coalizione $N$ di tutti i giocatori si formi.
+
+\textcolor{orange}{\textbf{Come splitzeranno i giocatori il valore $v(N)$ tra loro?}}
+
+\subsection*{Preimputazioni}
+
+\begin{definition}[Preimputazione]
+Un vettore $x \in \mathbb{R}^n$ e una \textbf{preimputazione} per $(N, v)$ se e socialmente razionale, cioe $x(N) = v(N)$.
+\end{definition}
+
+L'insieme delle preimputazioni e:
+\[
+X^n(N, v) = \{\text{preimputazioni}\}
+\]
+
+Questo e un iperpiano e e sempre non-vuoto.
+
+\textcolor{orange}{\textbf{Quali preimputazioni sono ragionevoli/accettabili?}}
+
+\subsection*{Il Core di un Gioco}
+
+\begin{definition}[Core]
+\[
+C(N, v) = \left\{ x \in X^n(N, v) : x(S) \geq v(S) \text{ per ogni } S \subseteq N \right\}
+\]
+\end{definition}
+
+\newpage
+
+\section{Approximating the Core: Quasi Cores}
+
+\subsection*{Il Strong Epsilon-Core}
+
+\begin{definition}[Strong epsilon-core]
+Secondo Shapley-Shubik 1966:
+\[
+C_\varepsilon(N, v) = \left\{ x \in X^n(N, v) : x(S) \geq v(S) - \varepsilon \text{ per ogni } S \subseteq N \right\}
+\]
+
+dove $\varepsilon \in \mathbb{R}$.
+\end{definition}
+
+\subsection*{Proprieta dell'Epsilon-Core}
+
+\begin{itemize}
+    \item $C_0(N, v) = C(N, v)$ (il core classico)
+
+    \item Per $\varepsilon_1 \leq \varepsilon_2$: $C_{\varepsilon_1}(N, v) \subseteq C_{\varepsilon_2}(N, v)$
+
+    \item $C_\varepsilon(N, v) \neq \emptyset$ quando $\varepsilon$ e abbastanza grande
+
+    \item $C_\varepsilon(N, v) = \emptyset$ quando $\varepsilon$ e abbastanza piccolo (eventualmente negativo)
+\end{itemize}
+
+\newpage
+
+\section{The Weak Epsilon-Core}
+
+\begin{definition}[Weak epsilon-core]
+Secondo Shapley-Shubik 1966:
+\[
+\bar{C}_\varepsilon(N, v) = \left\{ x \in X^n(N, v) : x(S) \geq v(S) - |S| \cdot \varepsilon \right\}
+\]
+\end{definition}
+
+\subsection*{Proprieta del Weak Epsilon-Core}
+
+\begin{itemize}
+    \item Per $\varepsilon \geq 0$: $\bar{C}_\varepsilon(N, v) \subseteq C_\varepsilon(N, v) \subseteq C_{\varepsilon}(N, v)$
+
+    \item La relazione e invertita per $\varepsilon \leq 0$
+\end{itemize}
+
+\newpage
+
+\section{The Least Core}
+
+\subsection*{Definizione del Least Core}
+
+Sia $I(N, v) = \{\varepsilon \in \mathbb{R} : C_\varepsilon(N, v) \neq \emptyset\}$ l'insieme dei valori per cui il core non e vuoto.
+
+\begin{definition}[Least core]
+Secondo Maschler-Peleg-Shapley 1979:
+\[
+LC(N, v) = \bigcap_{\varepsilon \in I(N, v)} C_\varepsilon(N, v)
+\]
+\]
+\end{definition}
+
+\subsection*{Proprieta del Least Core}
+
+\begin{itemize}
+    \item $LC(N, v) \neq \emptyset$ (sempre non-vuoto)
+
+    \item $C(N, v) \neq \emptyset$ se e solo se $\bar{\varepsilon} \leq 0$, dove $\bar{\varepsilon}$ e il valore minimo
+
+    \item Equivalentemente: $LC(N, v) \subseteq C(N, v)$ se e solo se il core e non-vuoto
+\end{itemize}
+
+\subsection*{Caratterizzazione Alternativa}
+
+\begin{proposition}
+\[
+LC(N, v) = \arg \min \left\{ \max\{v(S) - x(S) : S \subseteq N\} : x \in X^n(N, v) \right\}
+\]
+\end{proposition}
+
+Il least core minimizza il massimo disagio di qualsiasi coalizione.
+
+\newpage
+
+\section{Market Games with Agreement Costs and Quasi Cores}
+
+\subsection*{Analisi con Costi di Accordo}
+
+Riprendiamo l'economia con costi di accordo:
+\[
+v(S) = \min \left\{ \sum_{i \in S \cap P} l_i, \sum_{j \in S \cap B} b_j \right\} - c |S \cap P| \cdot |S \cap B|
+\]
+
+\subsection*{Quando il Core e Non-Vuoto}
+
+\begin{itemize}
+    \item Quando $c$ e grande (molti costi di accordo): $C(N, v) = \emptyset$
+
+    \item Quando $c = 1$: il valore minimo $\bar{\varepsilon} = 1.5$
+
+    \item Il least core: $LC(N, v) = \{(t, 0.25 - t, 3.15 - t) : 0 \leq t \leq 1\}$
+\end{itemize}
+
+Il least core fornisce un modo per trovare allocazioni ragionevoli anche quando il core e vuoto.
+
+\newpage
+
+\section{The Least Core and Measure of Dissatisfaction}
+
+\subsection*{Il Least Core Revisitato}
+
+\[
+LC(N, v) = \arg \min \left\{ \max\{v(S) - x(S) : S \subseteq N\} : x \in X^n(N, v) \right\}
+\]
+
+\subsection*{Eccesso di una Coalizione}
+
+\begin{definition}[Eccesso di una coalizione]
+L'eccesso di una coalizione $S \subseteq N$ al vettore $x \in \mathbb{R}^n$ e:
+\[
+e(S, x) = v(S) - x(S)
+\]
+\end{definition}
+
+Questo rappresenta il disagio della coalizione $S$.
+
+\subsection*{Interpretazione dell'Eccesso}
+
+\begin{itemize}
+    \item $e(S, x) \leq 0$: la coalizione e soddisfatta
+
+    \item $e(S, x) > 0$: il valore fornisce una misura di insoddisfazione
+\end{itemize}
+
+\subsection*{Il Core via Eccessi}
+
+\begin{definition}[Core via eccessi]
+\[
+C_\varepsilon(N, v) = \left\{ x \in X^n(N, v) : e(S, x) \leq \varepsilon \text{ per ogni } S \subseteq N \right\}
+\]
+\end{definition}
+
+Il least core fornisce il massimo livello di insoddisfazione minimo possibile.
+
+\newpage
+
+\section{Iterate the Minimization of (Maximum) Dissatisfaction}
+
+\subsection*{Come Un Arbitro Dovrebbe Assegnare i Payoff}
+
+\textcolor{orange}{\textbf{Come dovrebbe un arbitro assegnare i payoff?}}
+
+\textbf{(La selezione di una suddivisione unica $x$ e richiesta)}
+
+\subsection*{Vettore Ordinato di Insoddisfazione}
+
+\begin{definition}[Ordered vector of dissatisfaction]
+Un vettore ordinato di insoddisfazione a $x \in \mathbb{R}^n$ e definito come:
+\[
+\theta(x) = (e(S_1, x), e(S_2, x), \ldots, e(S_{2^n}, x))
+\]
+
+dove $e(S_i, x) \geq e(S_{i+1}, x)$ per $i = 1, \ldots, 2^n - 1$.
+\end{definition}
+
+L'insieme di coalizioni con tutti i loro eccessi (escluso il grande gioco).
+
+\subsection*{L'Idea Fondamentale}
+
+Vogliamo \textbf{minimizzare l'insoddisfazione lessicograficamente}.
+
+\subsection*{Ordine Lessicografico}
+
+\begin{definition}[Lexicographic order]
+Dati $a, b \in \mathbb{R}^m$, diciamo $a \geq_{\text{lex}} b$ se:
+\begin{itemize}
+    \item Esiste $k$ tale che $a_i = b_i$ per ogni $i < k$ e $a_k > b_k$
+
+    \item Oppure $a = b$
+\end{itemize}
+\end{definition}
+
+Un ordine totale (riflessiva, antisimmetrica, transitiva e convessa).
+
+L'ordine non e continuo: $(a' >_{\text{lex}} a)$ puo comportare $(a' >_{\text{lex}} b)$ per $a' \approx a$ ma $b \neq a$.
+
+\end{document}
