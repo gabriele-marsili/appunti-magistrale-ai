@@ -1,0 +1,1126 @@
+\part{Deep Learning Fondamentale}
+
+\chapter{Convolutional Neural Networks (Lezioni 15--16)}
+
+\begin{risorsevideo}{GDL15--16 — Convolutional Neural Networks}
+\videolezione{delle lezioni GDL15 e GDL16}
+
+\medskip
+\video{https://www.youtube.com/watch?v=bNb2fEVKeEo}{CS231n — Lecture 5: Convolutional Neural Networks}{Stanford, ~1h10m}\\
+La lezione da cui deriva mezzo mondo: convoluzione, stride, padding, pooling e il conto delle dimensioni fatto passo passo alla lavagna. È anche la base del Midterm 2.
+
+\medskip
+\video{https://www.youtube.com/watch?v=DAOcjicFr1Y}{CS231n — Lecture 9: CNN Architectures}{Stanford, ~1h15m}\\
+LeNet, AlexNet, VGG, GoogLeNet, ResNet in ordine storico, con il ragionamento su \emph{perché} ogni architettura ha cambiato qualcosa. Da vedere prima di studiare la sezione sulle architetture.
+\end{risorsevideo}
+
+\section{Contesto storico e motivazioni biologiche}
+
+Le reti neurali convoluzionali (CNN) derivano da osservazioni neuroscientifiche fondamentali. Nel 1959, Hubel e Wiesel scoprirono che i neuroni della corteccia visiva dei gatti rispondono a stimoli locali e specifici, con proprietà di invarianza traslazionale. Questa osservazione biologica ha ispirato il design di modelli artificiali.
+
+Il \textbf{Neocognitron} di Fukushima (1980) introdusse il concetto di strati alternati per l'estrazione gerarchica di caratteristiche. Successivamente, \textbf{LeNet-5} di LeCun et al.\ (1989) dimostrò l'efficacia pratica delle CNN per il riconoscimento di cifre scritte a mano. Tuttavia, il vero punto di svolta fu \textbf{AlexNet} (Krizhevsky et al., 2012), che vinse la competizione ImageNet con un significativo margine di errore, segnando l'inizio della moderna era del deep learning.
+
+\section{Inductive biases nelle CNN}
+
+Le CNN incorporano tre importanti inductive biases che riducono lo spazio delle ipotesi e migliorano la generalizzazione:
+
+\begin{definition}[Local Connectivity]
+I neuroni in uno strato convoluzionale non sono connessi a tutti gli input, ma solo a una piccola regione locale (receptive field). Questo riflette il principio biologico che i neuroni visivi rispondono a stimoli locali.
+\end{definition}
+
+\begin{definition}[Parameter Sharing]
+Lo stesso filtro (kernel) è applicato a diverse posizioni nello spazio di input. Questo significa che i parametri che riconoscono un motivo in una posizione sono gli stessi che riconoscono lo stesso motivo in altre posizioni, favorendo l'equivarianza traslazionale.
+\end{definition}
+
+\begin{definition}[Pooling e Invarianza]
+Gli operatori di pooling (max, average) riducono le dimensioni spaziali e forniscono una forma di invarianza traslazionale: piccole traslazioni dell'input non modificano significativamente l'output poolato.
+\end{definition}
+
+\begin{trappola}{equivarianza, non invarianza}
+La frase ``la CNN è invariante alla traslazione'' si sente spesso ed è sbagliata, almeno per lo strato convoluzionale.
+
+La convoluzione è \textbf{equivariante}: se trasli l'input, la feature map si trasla della stessa quantità, $f(T_v x) = T_v f(x)$. L'informazione sulla posizione non viene persa, viene \emph{trasportata}. Ed è giusto che sia così: per la segmentazione o il rilevamento serve sapere \emph{dove} si trova la cosa, non solo che c'è.
+
+L'\textbf{invarianza}, $f(T_v x) = f(x)$, la introducono altri pezzi: il pooling la fornisce localmente e in modo approssimato, il global pooling finale la fornisce globalmente. È una scelta architetturale successiva, non una proprietà della convoluzione.
+
+\textbf{Perché è una trappola che conviene evitare}: confondere le due cose vuol dire non aver capito perché una CNN funziona sia per la classificazione (dove serve invarianza) sia per la segmentazione (dove servirebbe il contrario). La risposta corretta è che i layer convoluzionali danno equivarianza, e l'architettura decide se e dove convertirla in invarianza.
+\end{trappola}
+
+\section{Operazione di convoluzione}
+
+Formalmente, la convoluzione discreta 1D è definita come:
+\[
+(f * g)[n] = \sum_{k=-\infty}^{\infty} f[k] \, g[n-k]
+\]
+
+Per immagini 2D, la convoluzione è:
+\[
+(I * K)[i,j] = \sum_{m} \sum_{n} I[i+m, j+n] \, K[m,n]
+\]
+
+\begin{tcolorbox}[title=Nota: Cross-correlazione vs Convoluzione]
+Nelle reti neurali, l'operazione implementata è in realtà la \textbf{cross-correlazione}:
+\[
+(I \star K)[i,j] = \sum_{m} \sum_{n} I[i+m, j+n] \, K[m,n]
+\]
+A differenza della convoluzione, non si inverte il kernel. La denominazione ``convoluzione'' è mantenuta per convenzione, anche se tecnicamente si tratta di cross-correlazione.
+\end{tcolorbox}
+
+Le dimensioni dell'output di una convoluzione sono calcolate come:
+\[
+O = \left\lfloor \frac{I - K + 2P}{S} \right\rfloor + 1
+\]
+dove $I$ è la dimensione dell'input, $K$ è la dimensione del kernel, $P$ è il padding, e $S$ è lo stride.
+
+\begin{intuizione}{la convoluzione è un vincolo, non un'operazione}
+Il modo produttivo di vedere un layer convoluzionale non è ``un filtro che scorre'', ma \emph{un layer fully connected a cui sono stati imposti due vincoli}.
+
+Il primo è la \textbf{località}: ogni unità di output può guardare solo una finestra di input, tutti gli altri pesi sono forzati a zero. Il secondo è la \textbf{condivisione dei pesi}: la stessa finestra di pesi viene riusata in ogni posizione, invece di averne una diversa per punto.
+
+Perché questi due vincoli e non altri? Perché corrispondono a due fatti veri sulle immagini. La località riflette che i pixel correlati sono vicini. La condivisione riflette che un bordo è un bordo ovunque si trovi: la statistica dell'immagine è approssimativamente stazionaria per traslazione.
+
+Da qui discende tutto il resto. Il numero di parametri crolla, perché non dipende più dalla dimensione dell'input. L'equivarianza alla traslazione è automatica: se sposti l'input, la feature map si sposta uguale. E il modello generalizza meglio non perché sia ``più potente'' — è strettamente \emph{meno} espressivo di una fully connected — ma perché il vincolo imposto è quello giusto per il dominio.
+
+\textbf{Il corollario da dire all'orale}: se i dati non hanno struttura traslazionale (tabelle, feature non ordinate), quel bias diventa un handicap e la CNN perde il suo vantaggio. L'inductive bias aiuta solo quando è vero.
+\end{intuizione}
+
+\begin{esempiosvolto}{il conto dei parametri: 456 contro 14 milioni}
+Input $32 \times 32 \times 3$ (una immagine CIFAR). Applichiamo un layer convoluzionale con $6$ filtri $5 \times 5$, stride $1$, nessun padding.
+
+\medskip
+\textbf{Dimensione dell'output.}
+\[
+O = \left\lfloor \frac{I - K + 2P}{S} \right\rfloor + 1 = \frac{32 - 5 + 0}{1} + 1 = 28 \;\Rightarrow\; 28 \times 28 \times 6.
+\]
+
+\medskip
+\textbf{Parametri del layer convoluzionale.} Ogni filtro vede tutti e tre i canali di input:
+\[
+\underbrace{(5 \times 5 \times 3}_{\text{pesi per filtro}} + \underbrace{1)}_{\text{bias}} \times 6 = 76 \times 6 = \mathbf{456}.
+\]
+
+\medskip
+\textbf{Parametri di una fully connected che producesse lo stesso output.}
+\[
+(32 \cdot 32 \cdot 3) \times (28 \cdot 28 \cdot 6) = 3072 \times 4704 = \mathbf{14\,450\,688}.
+\]
+
+Un fattore $\approx 31\,700$. E si noti che i $456$ parametri \emph{non dipendono dalla dimensione dell'immagine}: su input $256 \times 256$ resterebbero $456$, mentre la fully connected esploderebbe ancora.
+
+\medskip
+\textbf{Campo recettivo, sullo stesso esempio.} Con la ricorrenza
+\[
+\text{RF}_\ell = \text{RF}_{\ell-1} + (k_\ell - 1)\, j_{\ell-1}, \qquad j_\ell = j_{\ell-1} \cdot s_\ell,
+\]
+tre convoluzioni $3\times 3$ stride $1$ danno $\text{RF} = 1 \to 3 \to 5 \to 7$. Se invece si inserisce un pooling $2\times 2$ in mezzo (conv3, pool2, conv3):
+\[
+1 \xrightarrow{\text{conv3}} 3 \ (j{=}1) \xrightarrow{\text{pool2}} 4 \ (j{=}2) \xrightarrow{\text{conv3}} 8 \ (j{=}2).
+\]
+
+\textbf{Che cosa mostra}: il downsampling è ciò che fa crescere il campo recettivo in fretta. Senza di esso servono molti layer per vedere l'immagine intera — ed è precisamente la ragione per cui esistono le convoluzioni dilate, che allargano l'RF senza pagare né in risoluzione né in parametri.
+\end{esempiosvolto}
+
+\section{Pooling e Feature Maps}
+
+Il \textbf{max pooling} divide l'input in regioni rettangolari e restituisce il valore massimo per ogni regione:
+\[
+\text{MaxPool}_{i,j} = \max_{m \in R_{i,j}} I[m]
+\]
+dove $R_{i,j}$ è la regione di pooling.
+
+L'\textbf{average pooling} calcola la media:
+\[
+\text{AvgPool}_{i,j} = \frac{1}{|R_{i,j}|} \sum_{m \in R_{i,j}} I[m]
+\]
+
+Ogni filtro produce una \textbf{feature map}, una rappresentazione 2D che evidenzia la presenza di un pattern specifico nell'input. Un layer convoluzionale con $F$ filtri produce $F$ feature maps.
+
+\subsection{Parametri per layer}
+
+Un layer convoluzionale che processa un input $H \times W \times C$ con $F$ filtri di dimensione $K \times K$ ha:
+\[
+\text{Parametri} = K \times K \times C \times F + F
+\]
+Il primo termine conta i pesi del kernel (condivisi), il secondo termine i bias.
+
+\section{Architetture CNN fondamentali}
+
+\subsection{LeNet-5 (1998)}
+
+LeNet-5 fu una delle prime architetture CNN di successo:
+\begin{itemize}
+\item Input: immagini $32 \times 32$ in scala di grigi
+\item C1: convoluzione $5 \times 5$, 6 filtri $\rightarrow$ $28 \times 28 \times 6$
+\item S2: max pooling $2 \times 2$ $\rightarrow$ $14 \times 14 \times 6$
+\item C3: convoluzione $5 \times 5$, 16 filtri $\rightarrow$ $10 \times 10 \times 16$
+\item S4: max pooling $2 \times 2$ $\rightarrow$ $5 \times 5 \times 16$
+\item F5, F6: fully connected con attivazioni tanh $\rightarrow$ output 10 classi
+\end{itemize}
+
+\subsection{AlexNet (2012)}
+
+AlexNet introdusse diversi elementi chiave che divennero standard:
+\begin{itemize}
+\item Profondità maggiore (8 layer)
+\item Funzione ReLU per attivazioni (più veloce di tanh e sigmoid)
+\item Dropout per regolarizzazione
+\item Data augmentation (rotazioni, crop, flip)
+\item Addestramento su GPU multi-GPU (NVIDIA GTX 580)
+\item Local Response Normalization (LRN)
+\end{itemize}
+
+\subsection{VGG Networks (2014)}
+
+VGG-16 e VGG-19 dimostrarono l'importanza della profondità:
+\begin{itemize}
+\item Architettura omogenea: only $3 \times 3$ convolutions
+\item Stacking di kernel piccoli $\approx$ kernel grandi ma con meno parametri e più non-linearità
+\item $3 \times 3$ è il kernel minimo che cattura vicini diagonali
+\item Receptive field di un kernel $7 \times 7$ si ottiene con 3 strati di $3 \times 3$
+\end{itemize}
+
+Parametri di VGG-16: $\sim 138$ milioni (molti nei layer FC).
+
+\subsection{ResNet (2015): Residual Connections}
+
+ResNet introdusse le \textbf{skip connections}, che permettono ai gradienti di fluire direttamente attraverso la rete:
+
+\begin{definition}[Residual Block]
+Un blocco residuale implementa:
+\[
+y = F(x, \{W_i\}) + x
+\]
+dove $F(x, \{W_i\})$ è la trasformazione residua (il ``percorso del residuo'') e $x$ è l'identità (``skip connection''). Se le dimensioni non corrispondono, si usa una convoluzione lineare per l'identità.
+\end{definition}
+
+Questo design risolve il \textbf{degradation problem}: con reti molto profonde senza skip connections, la perdita di addestramento aumenta (non è saturazione, ma una difficoltà intrinseca di apprendimento). Le skip connections alleviato questo problema.
+
+ResNet utilizza \textbf{He initialization} per i pesi:
+\[
+W_{ij} \sim \mathcal{N}(0, \sqrt{2/n_{in}})
+\]
+dove $n_{in}$ è il numero di input del neurone.
+
+\subsection{Inception e convoluzioni $1 \times 1$}
+
+L'architettura Inception utilizza rami paralleli con kernel di diverse dimensioni ($1 \times 1$, $3 \times 3$, $5 \times 5$) concatenando i risultati. Questo cattura pattern a diverse scale.
+
+Le convoluzioni $1 \times 1$ sono particolarmente utili per:
+\begin{itemize}
+\item \textbf{Channel mixing}: combinare informazioni da diversi canali
+\item \textbf{Dimensionality reduction}: ridurre il numero di canali prima di convoluzioni costose, riducendo i parametri e la computazione
+\end{itemize}
+
+\begin{trappola}{la convoluzione $1\times 1$ non è un'operazione inutile}
+A prima vista un kernel $1\times 1$ sembra non fare nulla: non guarda nessun vicino spaziale, quindi non può estrarre pattern locali. L'errore è pensare che una convoluzione agisca solo sullo spazio.
+
+Una $1\times 1$ su un input con $C_{\text{in}}$ canali è una \textbf{combinazione lineare completa lungo i canali}, applicata indipendentemente in ogni posizione: è un layer fully connected \emph{sulla dimensione dei canali}. Fa due cose preziose.
+
+\emph{Mixing dei canali}: ricombina le feature map fra loro, cosa che una convoluzione spaziale con gruppi separati non fa.
+
+\emph{Riduzione dimensionale a costo bassissimo}: portare $256$ canali a $64$ costa $256 \times 64 = 16\,384$ pesi, contro i $256 \times 64 \times 9 = 147\,456$ di una $3\times 3$. È il \emph{bottleneck} che rende praticabili i blocchi di ResNet ($1\times1 \to 3\times3 \to 1\times1$) e i moduli Inception: si comprime, si fa il lavoro spaziale costoso su pochi canali, si riespande.
+
+Le depthwise separable convolution sono la stessa idea portata all'estremo: convoluzione spaziale per canale, poi una $1\times1$ per mescolarli.
+\end{trappola}
+
+\section{Convoluzioni dilate e separabili}
+
+\subsection{Dilated Convolutions}
+
+Una convoluzione dilatata inserisce zeri tra gli elementi del kernel, con parametro dilation rate $d$:
+\[
+\text{Receptive field effettivo} = K + (K-1)(d-1)
+\]
+
+Per $K=3$ e $d=2$, il receptive field è $5$. Le convoluzioni dilate permettono di aumentare il receptive field senza aumentare il numero di parametri.
+
+\subsection{Depthwise Separable Convolutions}
+
+Una convoluzione depthwise separabile fattorizza una convoluzione standard in due operazioni:
+\[
+\text{Depthwise}: \text{ogni canale è convolto indipendentemente} \quad K \times K \times 1 \times C
+\]
+\[
+\text{Pointwise}: \text{convoluzioni } 1 \times 1 \text{ che mixano canali,} \quad 1 \times 1 \times C \times F
+\]
+
+Il numero di parametri passa da $K \times K \times C \times F$ a $K \times K \times C + C \times F$, una riduzione significativa quando $F$ è grande.
+
+\section{Receptive field analysis}
+
+Il receptive field è l'area dell'input che influenza un neurone in uno strato superiore. Per un neurone in posizione $(i,j)$ dopo $\ell$ layer:
+\[
+\text{RF}_\ell = 1 + \sum_{l=1}^{\ell} (K_l - 1) \prod_{k=l+1}^{\ell} S_k
+\]
+dove $K_l$ è la dimensione del kernel al layer $l$ e $S_k$ è lo stride.
+
+Un receptive field ampio è importante per catturare dipendenze a lungo raggio. Le architetture moderne come ResNet-50 hanno receptive field di centinaia di pixel.
+
+\section{Approfondimenti}
+
+\subsection{Domande d'esame}
+
+\begin{enumerate}
+\item Spiegare il concetto di parameter sharing nelle CNN e come contribuisce all'equivarianza traslazionale.
+\item Qual è la differenza tra convoluzione e cross-correlazione? Perché nelle reti neurali si implementa la cross-correlazione?
+\item Derivare la formula per le dimensioni dell'output di una convoluzione: $O = \frac{I - K + 2P}{S} + 1$.
+\item Descrivere il degradation problem in reti molto profonde e come ResNet lo risolve.
+\item Spiegare il ruolo delle skip connections nel migliorare il flusso dei gradienti durante il backpropagation.
+\item Quale architettura tra LeNet, VGG, ResNet sarebbe più adatta per un'immagine $224 \times 224$ RGB? Giustificare.
+\item Quali sono i vantaggi computazionali delle convoluzioni depthwise separabili?
+\item Come si calcola il receptive field di un neurone dopo 5 layer convoluzionali?
+\end{enumerate}
+
+\chapter{Propagazione dell'informazione in reti profonde (Lezione 17)}\label{ch:propagation}
+
+\begin{risorsevideo}{GDL17 — RNN e vanishing/exploding gradient}
+\videolezione{della lezione GDL17}
+
+\medskip
+\video{https://www.youtube.com/watch?v=dUzLD91Sj-o}{EECS 498 — Lecture 12: Recurrent Networks}{Michigan Online, ~1h10m}\\
+BPTT, flusso del gradiente e analisi del Jacobiano con le figure giuste. \textbf{Attenzione al nome}: GDL17 è ``Information Propagation in Deep Networks'', cioè RNN ed EVGP — \emph{non} belief propagation. È un equivoco che capita, visto il titolo.
+\end{risorsevideo}
+
+\section{RNN: basic architecture}
+
+Per dati sequenziali $\{x_t\}_{t=1}^{T}$ dove ogni $x_t \in \mathbb{R}^d$, una rete ricorrente mantiene uno stato nascosto $h_t \in \mathbb{R}^h$ aggiornato ad ogni passo:
+
+\begin{definition}[RNN Vanilla]
+\[
+h_t = \sigma(W_h h_{t-1} + W_x x_t + b)
+\]
+\[
+y_t = f(h_t)
+\]
+dove $\sigma$ è un'attivazione (tanh, ReLU), $W_h \in \mathbb{R}^{h \times h}$ sono i pesi ricorrenti, $W_x \in \mathbb{R}^{h \times d}$ sono i pesi di input, e $b \in \mathbb{R}^h$ sono i bias.
+\end{definition}
+
+La caratteristica fondamentale è il \textbf{parameter sharing} attraverso il tempo: gli stessi pesi $W_h, W_x, b$ sono usati a tutti i passi temporali. Questo riduce drasticamente il numero di parametri rispetto a una rete fully connected ``unrolled''.
+
+\section{Backpropagation Through Time (BPTT)}
+
+Per una loss $L = \sum_{t=1}^{T} L_t$, il gradiente rispetto ai pesi è:
+\[
+\frac{\partial L}{\partial W} = \sum_{t=1}^{T} \frac{\partial L_t}{\partial W}
+\]
+
+Per il calcolo di $\frac{\partial L_t}{\partial W}$, applichiamo la chain rule attraverso il tempo:
+\[
+\frac{\partial L_t}{\partial h_t} = \frac{\partial L_t}{\partial y_t} \frac{\partial y_t}{\partial h_t}
+\]
+\[
+\frac{\partial L_t}{\partial h_k} = \frac{\partial L_t}{\partial h_t} \prod_{j=k+1}^{t} \frac{\partial h_j}{\partial h_{j-1}} \quad (k < t)
+\]
+
+Il gradiente totale è:
+\[
+\frac{\partial L}{\partial h_t} = \frac{\partial L_t}{\partial h_t} + \frac{\partial L_{t+1}}{\partial h_t}
+\]
+
+\section{Gradient flow e Jacobian matrices}
+
+\begin{tcolorbox}[title=Analisi del flusso dei gradienti]
+La derivata dello stato nascosto rispetto a uno stato precedente è:
+\[
+\frac{\partial h_t}{\partial h_{t-1}} = \text{diag}(\sigma'(W_h h_{t-1} + W_x x_t + b)) \, W_h
+\]
+
+La derivata attraverso $\tau$ passi temporali è:
+\[
+\frac{\partial h_t}{\partial h_{t-\tau}} = \prod_{k=1}^{\tau} \frac{\partial h_{t-k+1}}{\partial h_{t-k}}
+\]
+
+Se denotiamo $J_k = \frac{\partial h_k}{\partial h_{k-1}}$, allora:
+\[
+\frac{\partial h_t}{\partial h_{t-\tau}} = \prod_{k=t-\tau+1}^{t} J_k
+\]
+\end{tcolorbox}
+
+Per la norma del gradiente lungo una traiettoria, consideriamo il caso semplificato dove $\sigma'$ è costante (approssimazione):
+\[
+\left\| \frac{\partial h_t}{\partial h_{t-\tau}} \right\| \approx |\sigma'|^\tau \|W_h\|^\tau
+\]
+
+Se $\|W_h\| < 1$, il gradiente decade esponenzialmente con $\tau$. Se $\|W_h\| > 1$, il gradiente cresce esponenzialmente.
+
+\section{Vanishing e exploding gradients}
+
+\subsection{Vanishing Gradient Problem}
+
+\begin{definition}[Vanishing Gradient]
+Nel regime in cui $\|W_h\| < 1$ o $\sigma'$ è piccolo (saturazione), il gradiente $\left\| \frac{\partial h_t}{\partial h_{t-\tau}} \right\|$ decresce esponenzialmente con $\tau$:
+\[
+\left\| \frac{\partial h_t}{\partial h_{t-\tau}} \right\| \lesssim \lambda^\tau, \quad \lambda < 1
+\]
+
+Per lunghe sequenze ($\tau \gg 1$), il gradiente diventa praticamente zero, rendendo impossibile apprendere dipendenze a lungo termine.
+\end{definition}
+
+Le cause principali sono:
+\begin{itemize}
+\item \textbf{Saturazione dell'attivazione}: sigmoid e tanh hanno derivate $\sigma' \in (0, 0.25]$ e $\sigma' \in (0, 1)$ rispettivamente
+\item \textbf{Piccoli pesi}: se gli elementi di $W_h$ sono inizializzati male, $\|W_h\|$ può essere $< 1$
+\item \textbf{Lunghe sequenze}: il decadimento esponenziale è più grave per $T$ grande
+\end{itemize}
+
+\subsection{Exploding Gradient Problem}
+
+\begin{definition}[Exploding Gradient]
+Quando $\|W_h\| > 1$, il gradiente cresce esponenzialmente:
+\[
+\left\| \frac{\partial h_t}{\partial h_{t-\tau}} \right\| \sim \lambda^\tau, \quad \lambda > 1
+\]
+
+Questo causa instabilità numerica e aggiornamenti di peso eccessivi.
+\end{definition}
+
+\begin{esempiosvolto}{perché il raggio spettrale decide tutto: i numeri su 50 passi}
+Consideriamo la ricorrenza lineare più semplice possibile, $h_t = w\, h_{t-1}$, e chiediamoci quanto vale il gradiente che dal tempo $T = 50$ torna al tempo $1$:
+\[
+\frac{\partial h_{50}}{\partial h_1} = w^{49}.
+\]
+
+\begin{center}
+\begin{tabular}{cll}
+\toprule
+$w$ & $w^{49}$ & effetto \\
+\midrule
+$0.5$ & $1.8 \times 10^{-15}$ & svanito: sotto la precisione utile di float32 \\
+$0.9$ & $5.7 \times 10^{-3}$ & svanito in pratica: contributo $175$ volte più piccolo di quello locale \\
+$1.0$ & $1$ & conservato \\
+$1.1$ & $1.07 \times 10^{2}$ & esploso: due ordini di grandezza \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Si noti quanto è stretta la finestra: fra $0.9$ e $1.1$ ci sono \emph{diciotto ordini di grandezza} di differenza sul gradiente a lungo raggio. Il caso $w = 1$ non è un compromesso raggiungibile per caso, è un punto di misura nulla.
+
+\medskip
+\textbf{Il caso generale.} Con $\vect{h}_t = \tanh(\mat{W}\vect{h}_{t-1} + \dots)$ il Jacobiano è $\mat{W}^\top \mathrm{diag}(1 - \tanh^2)$, e la norma del prodotto su $T$ passi è governata dal raggio spettrale $\rho(\mat{W})$. Poiché $\tanh'(\cdot) \leq 1$ sempre, il fattore diagonale può solo \emph{peggiorare} il vanishing: serve $\rho(\mat{W}) > 1$ anche solo per sperare di conservare il segnale, ma allora la dinamica in avanti tende a saturare o divergere. Il problema è strutturale, non un difetto di ottimizzazione.
+
+\medskip
+\textbf{Confronto con l'LSTM, che anticipa il capitolo seguente.} Nell'LSTM il cammino privilegiato è la cella, con $\partial c_t / \partial c_{t-1} = f_t$. Con un forget gate a $0.95$:
+\[
+0.95^{49} = 0.081,
+\]
+contro $5.7\times 10^{-3}$ della RNN con $w = 0.9$: un fattore $14$. Con $f_t = 0.99$ si arriva a $0.61$, cioè il gradiente attraversa $50$ passi perdendo meno del $40\%$.
+
+\textbf{Il punto concettuale}: l'LSTM non risolve il problema cambiando la matematica, ma rendendo $f_t$ un parametro \emph{appreso e vicino a 1 quando serve}, invece di una costante fissata dal raggio spettrale. La rete può decidere per quali dimensioni tenere il canale aperto e per quali chiuderlo.
+
+\textbf{E gli exploding gradients?} Sono il caso più facile dei due: si vedono subito (loss a NaN) e si curano con il gradient clipping, che è un cerotto ma efficace. Il vanishing è insidioso perché non dà nessun sintomo: la rete addestra, la loss scende, semplicemente non impara mai dipendenze lunghe.
+\end{esempiosvolto}
+
+\section{Soluzioni ai problemi di gradiente}
+
+\subsection{Gradient Clipping}
+
+\begin{tcolorbox}[title=Gradient Clipping]
+Se la norma del gradiente supera una soglia $\theta$:
+\[
+g \leftarrow g \cdot \frac{\theta}{\|g\|} \quad \text{if } \|g\| > \theta
+\]
+
+Questo limita la norma senza cambiare la direzione. È particolarmente efficace per l'exploding gradient.
+\end{tcolorbox}
+
+\subsection{Proper Weight Initialization}
+
+L'inizializzazione \textbf{ortogonale} dei pesi ricorrenti mantiene il singular spectrum di $W_h$ vicino a 1:
+\[
+W_h = QR \quad \text{dove } Q \text{ è ortogonale}
+\]
+
+Questo preserva la norma e facilita il gradient flow.
+
+\subsection{Alternative Activation Functions}
+
+ReLU riduce la saturazione, ma introduce nuove sfide (dead neurons). Le attivazioni leaky-ReLU ($f(x) = \alpha x$ for $x < 0$) migliorano il flusso dei gradienti.
+
+\subsection{Architetture specializzate}
+
+La soluzione più efficace è modificare l'architettura stessa:
+\begin{itemize}
+\item \textbf{LSTM} (Lesson 18): porte esplicite che gestiscono il flusso di informazione
+\item \textbf{Skip connections}: permettono ai gradienti di saltare i layer ricorrenti
+\item \textbf{Layer normalization}: stabilizza i gradienti normalizzando input ai layer
+\end{itemize}
+
+\section{Echo State Network perspective}
+
+Un \textbf{Echo State Network} (ESN) è una RNN con reservoir ricorrente casuale e peso di output addestrabile:
+\[
+h_t = \sigma(W_{\text{res}} h_{t-1} + W_{\text{in}} x_t)
+\]
+\[
+y_t = W_{\text{out}} h_t
+\]
+
+Solo $W_{\text{out}}$ è addestrabile; $W_{\text{res}}$ è fisso ma casuale. L'Echo State Property richiede che il comportamento asintoticamente dipenda solo dall'input attuale e passato, non dalle condizioni iniziali. Ciò è garantito dal:
+
+\begin{definition}[Spectral Radius Condition]
+\[
+\rho(W_{\text{res}}) < 1
+\]
+dove $\rho$ è il raggio spettrale (massimo valore assoluto degli autovalori).
+\end{definition}
+
+Con $\rho < 1$, i perturbazioni iniziali decadono, e il sistema dimenticauje lo stato iniziale. Questo fornisce una prospettiva diversa sul problema del vanishing gradient: con spectral radius ben controllato, i gradienti non spariscono automaticamente.
+
+\section{Approfondimenti}
+
+\subsection{Domande d'esame}
+
+\begin{enumerate}
+\item Scrivere la formula per $\frac{\partial h_t}{\partial h_{t-\tau}}$ in una RNN vanilla e analizzare quando il gradiente svanisce.
+\item Qual è la differenza tra vanishing e exploding gradients? Quali condizioni su $W_h$ le causano?
+\item Spiegare il meccanismo del gradient clipping e quando è più efficace.
+\item Perché l'inizializzazione ortogonale dei pesi ricorrenti aiuta il gradient flow?
+\item Descrivere l'Echo State Property e il ruolo della spectral radius.
+\item In una sequenza di 100 passi temporali con $\|W_h\| = 0.95$, quanto è ridotto il gradiente per un evento al passo 1 visto dal passo 100?
+\item Quali attivazioni sono preferibili per le RNN e perché?
+\end{enumerate}
+
+\chapter{Modelli ricorrenti con porte (Lezione 18)}
+
+\begin{risorsevideo}{GDL18 — LSTM, GRU, echo state network}
+\videolezione{della lezione GDL18}
+
+\medskip
+\video{https://www.youtube.com/watch?v=sSAMe9OaTkA}{CMU 11-785 — Lecture 14: Recurrent Networks II, Stability Analysis and LSTMs}{~1h20m}\\
+Parte dall'analisi di stabilità e ci costruisce sopra l'LSTM: è il video che rende ovvio \emph{perché} le porte sono fatte così invece di essere una lista di formule da memorizzare.
+
+\medskip
+\textbf{Buco dichiarato}: sugli \emph{Echo State Network} non esiste un video decente in circolazione. Su quella sezione le slide di Bacciu sono la fonte, e non a caso: è lui uno degli autori di riferimento del reservoir computing.
+\end{risorsevideo}
+
+\section{LSTM: long-short term memory}
+
+Le \textbf{LSTM} (Hochreiter \& Schmidhuber, 1997) risolvono il vanishing gradient problem introducendo un meccanismo di \textbf{memory cell} esplicito e porte che regolano il flusso di informazione.
+
+\begin{definition}[LSTM Cell]
+Una cella LSTM mantiene:
+\begin{itemize}
+\item \textbf{Cell state} $c_t$ (memoria a lungo termine)
+\item \textbf{Hidden state} $h_t$ (output / memoria a breve termine)
+\end{itemize}
+
+A ogni passo, quattro trasformazioni aggiornano questi stati:
+
+\textbf{Forget gate:} quale parte della cell state dimenticare
+\[
+f_t = \sigma(W_f [h_{t-1}, x_t] + b_f)
+\]
+
+\textbf{Input gate:} quali nuove informazioni scrivere
+\[
+i_t = \sigma(W_i [h_{t-1}, x_t] + b_i)
+\]
+
+\textbf{Candidate cell state:} cosa aggiungere
+\[
+\tilde{c}_t = \tanh(W_c [h_{t-1}, x_t] + b_c)
+\]
+
+\textbf{Cell state update:} combinazione additiva (cruciale!)
+\[
+c_t = f_t \odot c_{t-1} + i_t \odot \tilde{c}_t
+\]
+
+\textbf{Output gate:} quale parte della cell state esporre
+\[
+o_t = \sigma(W_o [h_{t-1}, x_t] + b_o)
+\]
+
+\textbf{Hidden state:} output della cella
+\[
+h_t = o_t \odot \tanh(c_t)
+\]
+
+dove $\odot$ denota elemento-wise multiplication e $[h_{t-1}, x_t]$ è la concatenazione.
+\end{definition}
+
+\section{Gradient flow in LSTM}
+
+La chiave del successo delle LSTM è il percorso additivo della cell state:
+\[
+\frac{\partial c_t}{\partial c_{t-1}} = f_t
+\]
+
+Questo è in contrasto con la RNN vanilla dove:
+\[
+\frac{\partial h_t}{\partial h_{t-1}} = \text{diag}(\sigma'(\cdot)) W_h
+\]
+
+Nel caso LSTM, il gradiente non subisce la moltiplicazione matriciale; è solo una moltiplicazione elemento-wise con $f_t \in [0, 1]$ (poiché $f_t$ è output di una sigmoid). Sebbene i valori di $f_t$ possano ancora causare decadimento, il meccanismo delle porte fornisce un controllo esplicito e apprendibile su cosa ritenere e cosa dimenticare.
+
+\begin{tcolorbox}[title=Vanishing gradient mitigation]
+Anche se in teoria $\prod_k f_t$ potrebbe ancora decadere, in pratica le porte sono apprese per mantenere $f_t \approx 1$ quando le dipendenze a lungo termine sono importanti, permettendo ai gradienti di fluire.
+\end{tcolorbox}
+
+\begin{intuizione}{le porte non ``ricordano'', decidono quanto lasciar passare}
+Il nome ``memoria'' inganna. Nell'LSTM non c'è nessun meccanismo di memorizzazione: c'è un'autostrada, la cella $\vect{c}_t$, e tre caselli che regolano il traffico.
+
+Il \emph{forget gate} decide quanta parte del contenuto attuale sopravvive: $\vect{c}_t = \vect{f}_t \odot \vect{c}_{t-1} + \dots$. Se $\vect{f}_t \approx 1$ il contenuto passa intatto; se $\vect{f}_t \approx 0$ viene azzerato. L'\emph{input gate} decide quanta della nuova informazione candidata entra. L'\emph{output gate} decide quanto della cella viene esposto verso l'esterno — la cella può quindi trattenere qualcosa senza usarlo subito, il che è la vera differenza con una RNN semplice.
+
+La ragione per cui questo risolve il vanishing è che l'aggiornamento della cella è \emph{additivo}, non moltiplicativo per una matrice. La derivata lungo quel cammino è $\vect{f}_t$, un numero fra $0$ e $1$ scelto dalla rete, invece di un prodotto di Jacobiani il cui modulo nessuno controlla. È il ``constant error carousel'' dell'articolo originale.
+
+\textbf{E la GRU?} Fonde cella e stato nascosto e riduce a due porte, legando input e forget in un unico $\vect{z}_t$: quello che entra è esattamente quello che non resta. Meno parametri, spesso prestazioni comparabili, a volte peggiori quando servono memorie molto lunghe — perché non può più tenere qualcosa in cella senza esporlo.
+
+\textbf{Il collegamento in avanti}: l'idea di un cammino additivo che protegge il gradiente è la stessa delle skip connection nelle ResNet, e la stessa delle connessioni residue dentro il blocco Transformer. Cambia il contesto, non il meccanismo — ed è il tipo di collegamento trasversale che vale punti all'orale.
+\end{intuizione}
+
+\section{GRU: gated recurrent unit}
+
+\begin{definition}[GRU]
+La GRU (Cho et al., 2014) è una variante semplificata della LSTM con 3 porte invece di 4:
+
+\textbf{Reset gate:} controllare quanto passato stato nascosto usare
+\[
+r_t = \sigma(W_r [h_{t-1}, x_t] + b_r)
+\]
+
+\textbf{Update gate:} bilanciare tra stato precedente e candidato
+\[
+z_t = \sigma(W_z [h_{t-1}, x_t] + b_z)
+\]
+
+\textbf{Candidate hidden state:}
+\[
+\tilde{h}_t = \tanh(W [r_t \odot h_{t-1}, x_t] + b)
+\]
+
+\textbf{Output:}
+\[
+h_t = (1 - z_t) \odot h_{t-1} + z_t \odot \tilde{h}_t
+\]
+
+La GRU ha meno parametri di LSTM ($3W + 3b$ vs $4W + 4b$), mantenendo performance comparabili.
+\end{definition}
+
+\section{Confronto LSTM vs GRU}
+
+\begin{itemize}
+\item \textbf{LSTM}: cell state separato, controllo fine con 4 porte, preferito per task critiche
+\item \textbf{GRU}: più leggero computazionalmente, meno parametri, spesso sufficiente per molti problemi
+\item Empiricamente, le performance sono simili su molti task; la scelta spesso dipende da considerazioni pratiche di velocità e memoria
+\end{itemize}
+
+\section{Bidirectional RNNs}
+
+Per task dove il contesto futuro è disponibile (classificazione di sequenza, tagging), conviene usare:
+\[
+h_t^{\rightarrow} = \text{RNN}_{\rightarrow}(x_t, h_{t-1}^{\rightarrow})
+\]
+\[
+h_t^{\leftarrow} = \text{RNN}_{\leftarrow}(x_t, h_{t+1}^{\leftarrow})
+\]
+\[
+h_t = [h_t^{\rightarrow}; h_t^{\leftarrow}]
+\]
+
+La concatenazione cattura informazioni da entrambe le direzioni.
+
+\section{Autoregressive modeling}
+
+Un modello generativo di sequenze fattorizza la probabilità congiunta come:
+\[
+P(x_{1:T}) = \prod_{t=1}^{T} P(x_t | x_{1:t-1})
+\]
+
+Una RNN apprendeeste distribuzioni condizionali:
+\[
+P(x_t | x_{1:t-1}) = \text{softmax}(W h_t + b)
+\]
+
+\subsection{Teacher forcing}
+
+Durante l'addestramento, il vero $x_{t-1}$ è fornito come input (non la predizione), permettendo parallelizzazione e accelerando la convergenza:
+\[
+h_t = \text{RNN}(x_{t-1}, h_{t-1}) \quad \text{(durante addestramento)}
+\]
+
+Durante la generazione (inference), la predizione è usata come input:
+\[
+\tilde{x}_t \sim P(x_t | x_{1:t-1}), \quad h_t = \text{RNN}(\tilde{x}_{t-1}, h_{t-1})
+\]
+
+Questo causa un \textbf{exposure bias}: il modello non vede i propri errori durante l'addestramento.
+
+\section{Approfondimenti}
+
+\subsection{Domande d'esame}
+
+\begin{enumerate}
+\item Descrivere la struttura completa di una cella LSTM e il ruolo di ciascuna porta.
+\item Perché l'aggiornamento della cell state in LSTM è additivo e non moltiplicativo? Quale vantaggio porta?
+\item Derivare $\frac{\partial c_t}{\partial c_{t-1}}$ in LSTM e confrontare con la RNN vanilla.
+\item Quali sono le differenze principali tra LSTM e GRU? Quale scegliereste per un task a risorse limitate?
+\item Spiegare il concetto di teacher forcing e l'exposure bias che causa.
+\item Come si estendono LSTM e GRU a bidirectional RNNs? Quando è utile?
+\item In un LSTM, se tutte le forget gates imparano a outputs $f_t \approx 0$, cosa succede alle informazioni a lungo termine? Quando sarebbe desiderabile?
+\end{enumerate}
+
+\chapter{Encoder-Decoder e Cross-Attention (Lezione 19)}
+
+\begin{risorsevideo}{GDL19 — Seq2seq e cross-attention}
+\videolezione{della lezione GDL19}
+
+\medskip
+\video{https://www.youtube.com/watch?v=YAgjfMR9R_M}{EECS 498 — Lecture 13: Attention}{Michigan Online, ~1h10m}\\
+Costruisce l'attenzione di Bahdanau partendo dal bottleneck del seq2seq e arriva fino alla self-attention: è esattamente il percorso di questo capitolo e del successivo, in un video solo.
+\end{risorsevideo}
+
+\section{Sequence-to-sequence tasks}
+
+Molti problemi nel NLP e nella visione richiedono una trasformazione da una sequenza variabile-lunghezza a un'altra:
+
+\begin{itemize}
+\item \textbf{Machine translation}: ``Hello world'' $\rightarrow$ ``Ciao mondo''
+\item \textbf{Summarization}: articolo lungo $\rightarrow$ sommario breve
+\item \textbf{Image captioning}: immagine $\rightarrow$ descrizione testuale
+\item \textbf{Question answering}: domanda $\rightarrow$ risposta
+\end{itemize}
+
+\section{Encoder-decoder con bottleneck}
+
+L'approccio classico usa un'architettura encoder-decoder:
+
+\begin{definition}[Encoder-Decoder Architecture]
+\textbf{Encoder:} elabora la sequenza di input e produce uno stato finale
+\[
+h_t = \text{RNN}_{\text{enc}}(x_t, h_{t-1}), \quad c = h_T
+\]
+
+\textbf{Decoder:} genera la sequenza di output, condizionata sul contesto $c$
+\[
+s_t = \text{RNN}_{\text{dec}}(y_{t-1}, s_{t-1}, c)
+\]
+\[
+P(y_t | \cdots) = \text{softmax}(W s_t + b)
+\]
+
+Il vettore $c = h_T$ è un \textbf{bottleneck}: contiene tutta l'informazione sull'input.
+\end{definition}
+
+\section{Information bottleneck problem}
+
+\begin{tcolorbox}[title=Problema del bottleneck]
+Comprimere un'intera sequenza di lunghezza variabile in un singolo vettore $c$ è problematico:
+\begin{itemize}
+\item Per input lunghi, il primo token ``dimenticato'' prima di generare l'output
+\item La capacità di memoria di $c$ è limitata
+\item Distanza tra input e output aumenta
+\end{itemize}
+
+Soprattutto per coppie di sequenze lunghe (traduzioni di articoli), il modello struggles.
+\end{tcolorbox}
+
+\section{Attention mechanism}
+
+La soluzione è permettere al decoder di \textbf{attentare} (fare focus) su diversi parti dell'input ad ogni step:
+
+\begin{definition}[Attention Mechanism (Bahdanau et al., 2015)]
+Anziché usare solo il contesto finale $c = h_T$, il decoder calcola un contesto dinamico $c_t$ a ogni step:
+\[
+c_t = \sum_{j=1}^{T} \alpha_{t,j} h_j
+\]
+
+dove i pesi di attention $\alpha_{t,j}$ indicano quanto il decoder dovrebbe ``guardare'' all'encoder output $h_j$:
+\[
+\alpha_{t,j} = \frac{\exp(e_{t,j})}{\sum_{k=1}^{T} \exp(e_{t,k})}
+\]
+
+Lo score di alignment $e_{t,j}$ misura la ``compatibilità'' tra lo stato del decoder $s_{t-1}$ e l'encoder output $h_j$. Una scelta comune è l'\textbf{additive attention}:
+\[
+e_{t,j} = v^\top \tanh(W_a s_{t-1} + U_a h_j)
+\]
+
+dove $v \in \mathbb{R}^{d_a}$, $W_a \in \mathbb{R}^{d_a \times d_s}$, $U_a \in \mathbb{R}^{d_a \times d_h}$.
+\end{definition}
+
+\begin{intuizione}{l'attenzione è un dizionario morbido}
+Il modo più economico per non perdersi fra query, key e value è pensare a una \texttt{dict} di Python.
+
+In un dizionario normale si presenta una chiave, si cerca l'unica chiave identica, si restituisce il valore associato. L'accesso è \emph{secco}: una chiave, un valore.
+
+L'attenzione fa la stessa cosa in versione differenziabile. La \emph{query} è ciò che sto cercando; le \emph{key} sono le etichette di ciò che è disponibile; i \emph{value} sono i contenuti. Solo che invece di cercare la chiave uguale, si misura la somiglianza fra query e ogni key (prodotto scalare), si trasforma in una distribuzione (softmax) e si restituisce la \emph{media pesata} di tutti i value. Non si prende un elemento: si prende un po' di tutti, in proporzione a quanto sono pertinenti.
+
+Questo spiega perché l'attenzione risolve il bottleneck. Nel seq2seq classico il decoder riceve un solo vettore $c = h_T$, e tutta la frase deve starci dentro. Con l'attenzione il decoder, a ogni passo, si costruisce il \emph{suo} contesto $c_t$ interrogando l'intera sequenza di encoder. Non c'è più compressione forzata, e la distanza fra un token di input e il punto in cui serve diventa un cammino di lunghezza $1$ invece che $T$.
+
+\textbf{Cross vs self, in una riga}: se le query vengono da una sequenza e key/value da un'altra, è \emph{cross}-attention (decoder che guarda l'encoder). Se tutte e tre vengono dalla stessa sequenza, è \emph{self}-attention. Il meccanismo è identico, cambia solo da dove si pescano i tre ingredienti.
+\end{intuizione}
+
+\section{Cross-attention vs self-attention}
+
+\begin{definition}[Cross-Attention]
+Nel framework di attention generale:
+\[
+\text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^\top}{\sqrt{d_k}}\right) V
+\]
+
+dove:
+\begin{itemize}
+\item \textbf{Query} $Q$: viene dal decoder (``cosa sto cercando?'')
+\item \textbf{Key} $K$ e \textbf{Value} $V$: vengono dall'encoder (``dove cercare?'')
+\end{itemize}
+
+In forma matriciale:
+\[
+Q = S W_Q, \quad K = H W_K, \quad V = H W_V
+\]
+
+dove $S \in \mathbb{R}^{B \times T_s \times d_s}$ è la sequenza di stati del decoder, $H \in \mathbb{R}^{B \times T_x \times d_h}$ è la sequenza di output dell'encoder, $B$ è batch size.
+\end{definition}
+
+\begin{esempiosvolto}{un passo di attenzione con tre chiavi}
+Sia $d_k = 2$, query $\vect{q} = (1, 0)$, e tre coppie chiave-valore:
+\[
+\vect{k}_1 = (1, 0), \quad \vect{k}_2 = (0, 1), \quad \vect{k}_3 = (0.7,\ 0.7),
+\qquad
+\vect{v}_1 = (1, 0), \quad \vect{v}_2 = (0, 2), \quad \vect{v}_3 = (3, 3).
+\]
+
+\medskip
+\textbf{Punteggi scalati.}
+\[
+e_j = \frac{\vect{q} \cdot \vect{k}_j}{\sqrt{d_k}} = \frac{(1,\ 0,\ 0.7)}{\sqrt 2} = (0.7071,\ 0,\ 0.4950).
+\]
+
+\textbf{Softmax.}
+\[
+\exp(e) = (2.0281,\ 1,\ 1.6405), \quad \textstyle\sum = 4.6686
+\;\Rightarrow\;
+\vect{\alpha} = (0.4344,\ 0.2142,\ 0.3514).
+\]
+
+\textbf{Output.}
+\[
+\sum_j \alpha_j \vect{v}_j = 0.4344(1,0) + 0.2142(0,2) + 0.3514(3,3) = (1.489,\ 1.483).
+\]
+
+Da leggere così: $\vect{k}_1$ è perfettamente allineata alla query e prende il peso maggiore; $\vect{k}_2$ è ortogonale e prende il minimo; $\vect{k}_3$ è a metà strada. Ma anche la chiave ortogonale contribuisce per il $21\%$ — il softmax non azzera mai nulla, ed è per questo che si parla di \emph{soft} alignment.
+
+\medskip
+\textbf{Perché si divide per $\sqrt{d_k}$: gli stessi numeri, senza scalatura.} Supponiamo $d_k = 64$ e prodotti scalari grezzi $(8,\ 0,\ 5.6)$, cioè gli stessi valori scalati moltiplicati per $\sqrt{64} = 8$. Allora
+\[
+\exp(8,\ 0,\ 5.6) = (2981,\ 1,\ 270) \;\Rightarrow\; \vect{\alpha} = (0.917,\ 0.0003,\ 0.083).
+\]
+L'entropia della distribuzione crolla da $1.026$ a $0.289$ nat (il massimo su tre elementi è $\log 3 = 1.099$).
+
+Il problema non è l'asimmetria in sé, è la \emph{saturazione}: quando il softmax è quasi one-hot, la sua derivata $\alpha_i(\delta_{ij} - \alpha_j)$ è vicina a zero ovunque, e il gradiente non passa più. Poiché con componenti a varianza unitaria il prodotto scalare in $d_k$ dimensioni ha deviazione standard $\sqrt{d_k}$, dividere per $\sqrt{d_k}$ riporta i logit a scala unitaria \emph{indipendentemente dalla dimensione}. Non è un fattore cosmetico: senza, i Transformer con $d_k$ grande non addestrano.
+\end{esempiosvolto}
+
+\section{Attention come soft alignment}
+
+\begin{tcolorbox}[title=Interpretazione]
+L'attention può essere vista come un \textbf{soft alignment} tra source e target. Nel machine translation, $\alpha_{t,j}$ indica quale token source influenza il token target al passo $t$.
+
+Visualizzando la matrice $\alpha$ (attention weights), si osservano spesso pattern diagonali leggermente shiftati, corrispondenti all'ordine naturale della traduzione. Deviazioni (ad es., salti) riflettono fenomeni linguistici come inversioni di ordine.
+\end{tcolorbox}
+
+\section{Encoder-decoder con attention}
+
+Integrando attention nel decoder:
+\[
+c_t = \text{Attention}(s_{t-1}, H, H)
+\]
+\[
+\tilde{s}_t = \text{tanh}(W_c [s_{t-1}, c_t])
+\]
+\[
+s_t = \text{RNN}_{\text{dec}}(\tilde{s}_t, s_{t-1})
+\]
+
+Oppure più comunemente, si combina context e decoder state:
+\[
+\tilde{s}_t = \text{RNN}_{\text{dec}}(y_{t-1}, s_{t-1})
+\]
+\[
+c_t = \sum_j \alpha_{t,j} h_j, \quad \alpha_{t,j} \propto \exp(e_{t,j}(s_t, h_j))
+\]
+\[
+\text{logits}_t = W[\tilde{s}_t; c_t] + b
+\]
+
+\section{Applicazioni dell'attention}
+
+Oltre al machine translation, l'attention è efficace in:
+
+\begin{itemize}
+\item \textbf{Image captioning}: visual attention su regioni della immagine
+\item \textbf{Document summarization}: attention su paragrafi source
+\item \textbf{Visual question answering}: cross-modal attention tra immagine e domanda
+\end{itemize}
+
+\section{Approfondimenti}
+
+\subsection{Domande d'esame}
+
+\begin{enumerate}
+\item Descrivere il problema del bottleneck nel encoder-decoder senza attention.
+\item Derivare la formula per i pesi di attention $\alpha_{t,j}$ e spiegare l'uso della softmax.
+\item Qual è la differenza tra attention additiva e moltiplicativa (dot-product)? Quali sono i vantaggi di ciascuna?
+\item In cross-attention, quale componente (Q, K, V) proviene dal decoder e quale dall'encoder?
+\item Come si interpreta geometricamente l'attention matrix in machine translation?
+\item Spiegare come l'attention mitiga il vanishing information problem per sequenze lunghe.
+\item In image captioning, come differisce l'attention rispetto al machine translation?
+\end{enumerate}
+
+\chapter{Transformers (Lezione 20)}
+
+\begin{risorsevideo}{GDL20 — Transformers}
+\videolezione{della lezione GDL20}
+
+\medskip
+\video{https://www.youtube.com/watch?v=bCz4OMemCcA}{Attention is All You Need — spiegazione del modello, inferenza e training}{Umar Jamil, ~1h}\\
+Il paper letto riga per riga, con le dimensioni dei tensori sempre a schermo. È il video che chiarisce i dettagli che le slide comprimono: masking, positional encoding, e che cosa cambia fra training e inferenza.
+
+\medskip
+\video{https://www.youtube.com/watch?v=YAgjfMR9R_M}{EECS 498 — Lecture 13: Attention}{Michigan Online, ~1h10m}\\
+La seconda metà arriva alla self-attention e al blocco Transformer: utile come ripasso rapido prima di questo capitolo.
+\end{risorsevideo}
+
+\section{Self-attention}
+
+Il Transformer (Vaswani et al., 2017) abbandona la ricorrenza a favore di \textbf{self-attention}, dove una sequenza attende a se stessa:
+
+\begin{definition}[Self-Attention]
+\[
+\text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^\top}{\sqrt{d_k}}\right) V
+\]
+
+dove \textbf{tutte} le query, key, e value vengono dalla stessa sequenza:
+\[
+Q = X W_Q, \quad K = X W_K, \quad V = X W_V
+\]
+
+dove $X \in \mathbb{R}^{n \times d}$ è la sequenza di input ($n$ token, dimensione $d$), e $W_Q, W_K, W_V \in \mathbb{R}^{d \times d_k}$.
+
+L'output è $n \times d$ dove ogni posizione $i$ attende a tutte le posizioni $j$, con peso proporzionale a $\exp(\frac{Q_i K_j^\top}{\sqrt{d_k}})$.
+\end{definition}
+
+\begin{tcolorbox}[title={Scala $1/\sqrt{d_k}$}]
+Il fattore di scala $\frac{1}{\sqrt{d_k}}$ previene la saturazione della softmax per dimensioni grandi. Se $d_k$ è grande, i prodotti $Q_i K_j^\top$ possono essere molto grandi, causando softmax a collassare in una distribuzione sharp (one-hot approssimativamente) con gradienti piccoli.
+
+Dividendo per $\sqrt{d_k}$ si normalizza la varianza: $\mathbb{E}[Q_i K_j^\top] = 0$ e $\text{Var}[Q_i K_j^\top] = 1$.
+\end{tcolorbox}
+
+\section{Multi-head attention}
+
+Una singola testa di attention cattura un tipo di dipendenza. Più teste, in parallelo, permettono di catturare diversi aspetti:
+
+\begin{definition}[Multi-Head Attention]
+\[
+\text{head}_i = \text{Attention}(X W_{Q,i}, X W_{K,i}, X W_{V,i})
+\]
+\[
+\text{MultiHead}(X) = \text{Concat}(\text{head}_1, \ldots, \text{head}_h) W_O
+\]
+
+dove $W_{Q,i}, W_{K,i}, W_{V,i} \in \mathbb{R}^{d \times d_k}$, e $W_O \in \mathbb{R}^{hd_k \times d}$.
+
+Tipicamente $h = 8$ o $h = 16$, e $d_k = d / h$ per mantenere la dimensione totale costante.
+\end{definition}
+
+\section{Positional encoding}
+
+A differenza delle RNN, il Transformer non ha nozione intrinseca di ordine. Per preservare l'informazione posizionale, si aggiungono \textbf{positional encodings}:
+
+\begin{definition}[Sinusoidal Positional Encoding]
+\[
+PE(\text{pos}, 2i) = \sin\left(\frac{\text{pos}}{10000^{2i/d}}\right)
+\]
+\[
+PE(\text{pos}, 2i+1) = \cos\left(\frac{\text{pos}}{10000^{2i/d}}\right)
+\]
+
+dove pos è la posizione nella sequenza (0, 1, ..., n-1) e $i$ è la dimensione (0, 1, ..., d/2-1).
+\end{definition}
+
+Le funzioni sinusoidali hanno la proprietà che $PE(\text{pos} + \Delta, \cdot)$ può essere espressa come una combinazione lineare di $PE(\text{pos}, \cdot)$, permettendo al modello di apprendere offset relativi.
+
+Un'alternativa è usare \textbf{learnable positional embeddings}, vettori $e_{\text{pos}} \in \mathbb{R}^d$ addestrati durante l'apprendimento.
+
+\section{Transformer block}
+
+Un blocco Transformer consiste di due sub-layer con residual connections e normalization:
+
+\begin{definition}[Transformer Block]
+\[
+X' = X + \text{MultiHeadAttention}(X)
+\]
+\[
+X'' = \text{LayerNorm}(X')
+\]
+\[
+Z = X'' + \text{FFN}(X'')
+\]
+
+dove (assumendo post-norm):
+\[
+\text{FFN}(x) = \max(0, x W_1 + b_1) W_2 + b_2
+\]
+
+In pre-norm (più stabile):
+\[
+X' = X + \text{MultiHeadAttention}(\text{LayerNorm}(X))
+\]
+\[
+Z = X' + \text{FFN}(\text{LayerNorm}(X'))
+\]
+
+Tipicamente $d_{\text{ff}} = 4 \times d$ (feed-forward hidden dimension è 4 volte la dimensione del modello).
+\end{definition}
+
+\section{Full Transformer architecture}
+
+\begin{definition}[Transformer Encoder-Decoder]
+\textbf{Encoder:} stack di $N$ blocchi, ciascuno con self-attention su tutta la sequenza source:
+\[
+H = \text{Encoder}(X)
+\]
+
+\textbf{Decoder:} stack di $N$ blocchi, ciascuno con:
+\begin{enumerate}
+\item \textbf{Masked self-attention} sulla sequenza target (non attende a posizioni future)
+\item \textbf{Cross-attention} sulla sequenza source
+\item \textbf{Feed-forward}
+\end{enumerate}
+
+\[
+Y = \text{Decoder}(y_{1:t-1}, H)
+\]
+
+La masked self-attention ha matrice di attenzione:
+\[
+\text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^\top + M}{\sqrt{d_k}}\right) V
+\]
+
+dove $M$ è una matrice che setta le posizioni future a $-\infty$:
+\[
+M_{ij} = \begin{cases} 0 & \text{se } j \leq i \\ -\infty & \text{se } j > i \end{cases}
+\]
+\end{definition}
+
+\section{Complexity analysis}
+
+\subsection{Self-attention complexity}
+
+La matrice di attenzione è $n \times n$ (dove $n$ è lunghezza sequenza), quindi:
+\[
+\text{Time complexity: } O(n^2 d)
+\]
+\[
+\text{Space complexity: } O(n^2 + nd)
+\]
+
+per immagazzinare la matrice di attenzione e gli input.
+
+\subsection{RNN complexity}
+
+Le RNN processano sequenzialmente:
+\[
+\text{Time complexity: } O(n d^2)
+\]
+\[
+\text{Space complexity: } O(d^2)
+\]
+
+per una RNN con dimensione nascosta $d$.
+
+Per sequenze lunghe, self-attention è più efficiente se $d > n$; per sequenze corte RNN è competitivo. Tuttavia, self-attention è completamente parallelizzabile (tutti i passi temporali contemporaneamente), mentre le RNN sono sequenziali. In pratica, Transformer è molto più veloce grazie alla parallelizzazione GPU.
+
+\begin{intuizione}{il Transformer scambia complessità per profondità di cammino}
+Il confronto con la RNN si riassume in due colonne, e conviene averle in testa esattamente così.
+
+Per una sequenza di lunghezza $n$ e dimensione $d$, la self-attention costa $\mathcal{O}(n^2 d)$ e la RNN $\mathcal{O}(n d^2)$. Quindi la self-attention è più economica finché $n < d$, e più costosa quando $n > d$. Con $n = 512$ e $d = 64$ i conti danno $1.7 \times 10^7$ contro $2.1 \times 10^6$: la self-attention costa $8$ volte tanto.
+
+Sembra una sconfitta, ma le colonne sono due. Il \emph{maximum path length} — quanti passi deve fare l'informazione per andare dal token $1$ al token $n$ — è $\mathcal{O}(n)$ per la RNN e $\mathcal{O}(1)$ per la self-attention. E le operazioni sequenziali obbligate sono $\mathcal{O}(n)$ per la RNN, $\mathcal{O}(1)$ per il Transformer.
+
+È qui che si decide tutto. La RNN ha un costo teorico più basso ma è \emph{intrinsecamente sequenziale}: non si può calcolare $h_t$ senza $h_{t-1}$, quindi le GPU restano in gran parte inutilizzate. Il Transformer fa più FLOP ma li fa tutti in parallelo, quindi il tempo di parete crolla. E il cammino di lunghezza $1$ significa che il gradiente fra due token qualsiasi non attraversa $n$ moltiplicazioni: il vanishing gradient a lungo raggio semplicemente non si pone.
+
+\textbf{Il prezzo, che va detto}: il termine $n^2$ in memoria è il vero limite, ed è la ragione dell'intera letteratura sugli efficient Transformer (Linformer, Performer, sparse attention). E il Transformer ha un inductive bias molto più debole della CNN o della RNN — nessuna località, nessuna nozione di ordine se non quella iniettata dal positional encoding — quindi ha bisogno di molti più dati per compensare ciò che le altre architetture avevano gratis.
+\end{intuizione}
+
+\section{Gradient flow advantage}
+
+Nel Transformer, any two positions are connected in $O(1)$ layers:
+\[
+\text{Distanza massima} = 1 \quad \text{(direct attention)}
+\]
+
+Nelle RNN, la distanza è $O(n)$, causando exploding/vanishing gradient per lunghe dipendenze. Questo è un grande vantaggio del Transformer.
+
+\section{Self-supervised training}
+
+\subsection{BERT (Bidirectional Encoder)}
+
+BERT usa un Transformer encoder con \textbf{masked language modeling}:
+\begin{itemize}
+\item 15\% dei token sono sostituiti da [MASK]
+\item Model deve predire i token originali da contesto biadi­rezionale
+\item Addestrato su miliardi di token non etichettati
+\end{itemize}
+
+\subsection{GPT (Generative Pre-training)}
+
+GPT usa un Transformer decoder con \textbf{autoregressive language modeling}:
+\begin{itemize}
+\item Predict il prossimo token data la sequenza passata
+\item Masked self-attention previene l'accesso a token futuri
+\item Addestrato su miliardi di token
+\end{itemize}
+
+\subsection{Pre-training e fine-tuning}
+
+Entrambi gli approcci seguono il paradigma:
+\[
+\text{Pre-training (non supervisionato, dati massicci)}
+\]
+\[
+\text{Fine-tuning (supervisionato, dati task-specific)}
+\]
+
+Il pre-training cattura pattern linguistici generali; il fine-tuning adatta al task specifico.
+
+\section{Inductive biases}
+
+A differenza delle CNN e RNN, il Transformer ha inductive biases deboli:
+
+\begin{itemize}
+\item \textbf{No locality}: self-attention attende a tutte le posizioni ugualmente (senza bias verso posizioni vicine)
+\item \textbf{No translation equivariance}: l'architettura è permutation-equivariant (con positional encodings)
+\item \textbf{Global dependencies}: preferenza per dipendenze globali
+\end{itemize}
+
+Questo richiede molti dati e paramet per imparare, ma fornisce flessibilità per catturare relazioni complesse (es., coreference resolution in NLP).
+
+\section{Appendix: Efficient Transformers}
+
+Per sequenze molto lunghe, la complessità $O(n^2)$ diventa proibitiva. Approcci alternativi:
+
+\begin{itemize}
+\item \textbf{Sparse attention}: attendance solo a un subset di posizioni (es., sparse patterns, local windows)
+\item \textbf{Linear attention}: approssimazione kernel che riduce a $O(n)$
+\item \textbf{Hierarchical attention}: windowed attention multi-scala
+\item \textbf{Recurrent Transformer}: combine attention con ricorrenza selettiva
+\end{itemize}
+
+\section{Approfondimenti}
+
+\subsection{Domande d'esame}
+
+\begin{enumerate}
+\item Spiegare il meccanismo di self-attention e come differ dalla cross-attention del capitolo precedente.
+\item Derivare la formula per multi-head attention e spiegare perché more heads permettono di catturare diverse dipendenze.
+\item Perché il fattore di scala $\frac{1}{\sqrt{d_k}}$ è importante nella self-attention?
+\item Descrivere le positional encodings sinusoidali. Quali proprietà hanno?
+\item Disegnare un blocco Transformer (pre-norm variant) e etichettare tutti i componenti.
+\item Qual è la differenza tra attention mascherato (nel decoder) e non mascherato (nell'encoder)?
+\item Confrontare complexity time e space di Transformer vs RNN. Quando è Transformer più efficiente?
+\item Spiegare come il Transformer affronta il problema di vanishing/exploding gradients meglio delle RNN.
+\item Descrivere il processo di pre-training e fine-tuning in BERT e GPT.
+\item In BERT, perché usiamo bidirectional attention durante pre-training, mentre in GPT usiamo masked attention?
+\end{enumerate}
+
+

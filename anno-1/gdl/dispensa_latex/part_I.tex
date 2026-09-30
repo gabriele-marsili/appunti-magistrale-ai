@@ -1,0 +1,818 @@
+
+\part{Fondamenti di Modelli Probabilistici e Causalità}
+
+% ============================================================
+\chapter{Introduzione al Corso}
+% ============================================================
+
+\begin{risorsevideo}{GDL1 — Inquadramento del corso}
+\videolezione{della lezione GDL1}
+
+\medskip
+\video{https://www.youtube.com/watch?v=XZ0PMRWXBEU}{Stanford CS236 — Lecture 1: Introduction to Deep Generative Models}{Stanford Online, ~1h15m}\\
+La stessa mappa concettuale del corso, vista da Stanford: perché si parte dai modelli probabilistici e quali famiglie generative esistono. Utile prima ancora di aprire le slide, per avere il quadro d'insieme.
+\end{risorsevideo}
+
+\section{Organizzazione e Filosofia}
+
+Il corso \textit{Generative and Deep Learning} (GDL) è tenuto dal Prof.\ Davide Bacciu e dal Dr.\ Riccardo Massidda presso il Dipartimento di Informatica dell'Università di Pisa. Il corso è strutturato in cinque moduli che costruiscono progressivamente la conoscenza:
+
+\begin{enumerate}
+    \item \textbf{Fondamenti di Modelli Probabilistici e Causalità}: probabilità, modelli grafici, reti Bayesiane, causalità, structure learning
+    \item \textbf{(Generative) Learning in modelli probabilistici}: apprendimento ML/MAP/Bayesiano, EM, HMM, inferenza variazionale, LDA, sampling, MRF
+    \item \textbf{Deep Learning fondamentale}: CNN, RNN, attention, Transformers, problemi di propagazione
+    \item \textbf{Generative Deep Learning}: autoencoder, GAN, diffusion models, flow models
+    \item \textbf{Modelli avanzati e applicazioni}
+\end{enumerate}
+
+La \textbf{filosofia del corso} è quella di partire dai modelli probabilistici classici (dove la probabilità è esplicita) per arrivare al deep learning generativo moderno, mostrando come i due approcci si connettano e si complementino.
+
+\begin{tcolorbox}[title=Riferimenti Bibliografici]
+\begin{itemize}
+    \item \textbf{Barber, D.} (2012). \textit{Bayesian Reasoning and Machine Learning}. Cambridge University Press. (Gratuito online, con codice)
+    \item \textbf{Prince, S.J.D.} (2023). \textit{Understanding Deep Learning}. MIT Press. (Gratuito online)
+\end{itemize}
+\end{tcolorbox}
+
+\section{Modalità di Esame}
+
+L'esame per gli studenti che frequentano le lezioni è composto da:
+\begin{enumerate}
+    \item \textbf{4 midterm assignments}: notebook Python individuali (3 individuali + 1 di gruppo), da consegnare ogni 3-4 settimane
+    \item \textbf{Esame orale finale}: discussione degli argomenti del programma
+\end{enumerate}
+
+\section{Approfondimenti}
+\subsection{Domande per l'Esame}
+\begin{enumerate}
+    \item Qual è la progressione logica dei cinque moduli del corso? Perché si inizia da modelli probabilistici e non direttamente dal deep learning?
+    \item Come si relazionano i modelli probabilistici grafici e le reti neurali profonde nell'ambito del generative deep learning?
+\end{enumerate}
+
+% ============================================================
+\chapter{Ripasso di Probabilità e Modelli Grafici Probabilistici}
+% ============================================================
+
+\begin{risorsevideo}{GDL2 — Probabilità e modelli grafici}
+\videolezione{della lezione GDL2}
+
+\medskip
+\video{https://www.youtube.com/watch?v=OSCKWTLaw6s}{Introduction to Probabilistic Graphical Models}{Kayhan Batmanghelich, ~1h}\\
+Versione estesa: parte dalle basi di probabilità e arriva al formalismo grafico. È il video più vicino al taglio di questa lezione.
+
+\medskip
+\video{https://www.youtube.com/watch?v=ju1Grt2hdko}{Graphical Models 1 — Christopher Bishop, MLSS 2013}{MPI-IS, ~1h30m}\\
+Più lungo e più elegante: se hai tempo, è la trattazione che rende ovvio il passaggio da congiunta a fattorizzazione.
+\end{risorsevideo}
+
+\section{Variabili Casuali}
+
+Una \textbf{variabile casuale} (RV) $X$ è una funzione che mappa gli esiti di un esperimento casuale a valori numerici. Si distinguono:
+
+\begin{itemize}
+    \item \textbf{Variabili discrete}: assumono valori in un insieme finito o numerabile $\mathcal{X}$. La \textit{PMF} (\textit{Probability Mass Function}) è $P(X{=}x) \in [0,1]$ con $\sum_{x} P(X{=}x) = 1$.
+    \item \textbf{Variabili continue}: la \textit{PDF} (\textit{Probability Density Function}) $p(x) \geq 0$ con $\int p(x)\,dx = 1$. La probabilità di un evento è $P(X \in A) = \int_A p(x)\,dx$.
+\end{itemize}
+
+\section{Distribuzioni Congiunte, Marginali e Condizionali}
+
+Per un insieme di $N$ RV $\{X_1, \ldots, X_N\}$:
+
+\begin{itemize}
+    \item \textbf{Distribuzione congiunta}: $P(x_1, \ldots, x_N)$ — richiede $k^N - 1$ parametri per $N$ RV discrete con $k$ valori
+    \item \textbf{Marginalizzazione}: $P(x_i) = \sum_{x_{-i}} P(x_1, \ldots, x_N)$
+    \item \textbf{Condizionale}: $P(x_i \mid x_j) = P(x_i, x_j) / P(x_j)$
+\end{itemize}
+
+\subsection{Regola della Catena (Chain Rule)}
+
+La distribuzione congiunta può sempre essere fattorizzata come:
+\[
+P(x_1, \ldots, x_N) = \prod_{i=1}^{N} P(x_i \mid x_1, \ldots, x_{i-1})
+\]
+
+Questa decomposizione è valida per qualsiasi ordinamento delle variabili. Il vantaggio si ottiene quando si sfruttano le \emph{indipendenze condizionali} per ridurre il numero di parametri.
+
+\begin{intuizione}{la chain rule non ``scopre'' niente, serve a fare spazio}
+La regola della catena vale sempre, per qualunque ordinamento: da sola non riduce di un solo parametro il costo della congiunta. Riscrivere $P(x_1,\dots,x_N)$ come prodotto di condizionate è solo un cambio di notazione.
+
+Il guadagno arriva al passo successivo, quando si \emph{cancellano} dei condizionanti perché sono irrilevanti: $P(x_i \mid x_1,\dots,x_{i-1}) = P(x_i \mid \text{pochi genitori})$. La chain rule apre gli slot; le indipendenze condizionali li svuotano. Tutta la teoria delle reti Bayesiane vive in questo secondo passo — ed è per questo che l'ordinamento delle variabili conta: un ordinamento sbagliato apre slot che nessuna indipendenza riesce poi a svuotare.
+\end{intuizione}
+
+\subsection{Teorema di Bayes}
+
+Dati un'ipotesi $h$ e osservazioni $\mathbf{d}$:
+\[
+P(h \mid \mathbf{d}) = \frac{P(\mathbf{d} \mid h)\, P(h)}{P(\mathbf{d})}
+\]
+dove:
+\begin{itemize}
+    \item $P(h)$: \textbf{prior} — probabilità dell'ipotesi prima di osservare i dati
+    \item $P(\mathbf{d} \mid h)$: \textbf{likelihood} — probabilità dei dati data l'ipotesi
+    \item $P(\mathbf{d}) = \sum_{h'} P(\mathbf{d}|h')P(h')$: \textbf{evidence} (costante di normalizzazione)
+    \item $P(h \mid \mathbf{d})$: \textbf{posterior} — probabilità dell'ipotesi dopo i dati
+\end{itemize}
+
+\begin{esempiosvolto}{il prior domina: test medico con bassa prevalenza}
+Una malattia ha prevalenza $P(D{=}1) = 0.01$. Il test ha sensibilità $P(+ \mid D{=}1) = 0.90$ e specificità $P(- \mid D{=}0) = 0.95$, quindi $P(+ \mid D{=}0) = 0.05$.
+
+Il test è positivo. Qual è la probabilità di essere malati?
+\[
+P(D{=}1 \mid +) = \frac{0.90 \cdot 0.01}{\underbrace{0.90 \cdot 0.01}_{0.0090} + \underbrace{0.05 \cdot 0.99}_{0.0495}} = \frac{0.0090}{0.0585} \approx 0.154.
+\]
+
+Il $15{,}4\%$, non il $90\%$. La ragione è tutta nell'evidence a denominatore: i sani sono $99$ volte più numerosi dei malati, quindi anche un $5\%$ di falsi positivi produce più positivi ($0.0495$) di quanti ne producano i veri malati ($0.0090$).
+
+\textbf{Perché ricordarselo}: il posterior è il prodotto \emph{prior $\times$ likelihood}, non la sola likelihood. Ogni volta che nel corso comparirà un MAP invece di un ML, il termine in più è esattamente il prior che qui vale $0.01$ e ribalta la conclusione.
+\end{esempiosvolto}
+
+\section{Indipendenza e Indipendenza Condizionale}
+
+\begin{definition}
+$X$ e $Y$ sono \textbf{indipendenti}, $X \perp Y$, se e solo se:
+\[
+P(X, Y) = P(X)\,P(Y) \quad \Leftrightarrow \quad P(X \mid Y) = P(X)
+\]
+\end{definition}
+
+\begin{definition}
+$X$ e $Y$ sono \textbf{condizionalmente indipendenti} dato $Z$, $X \perp Y \mid Z$, se e solo se:
+\[
+P(X, Y \mid Z) = P(X \mid Z)\,P(Y \mid Z)
+\]
+\end{definition}
+
+\begin{tcolorbox}[title=Nota Importante]
+$X \perp Y$ \textbf{non implica} $X \perp Y \mid Z$ e viceversa. Questo è fondamentale per capire d-separazione e il comportamento dei collider.
+\end{tcolorbox}
+
+\begin{intuizione}{condizionare non è ``restringere l'attenzione'', è cambiare mondo}
+L'errore tipico è pensare che condizionare su $Z$ possa solo \emph{ridurre} la dipendenza, perché ``si sa qualcosa in più''. Non è così: condizionare cambia la popolazione su cui si guarda, e in una popolazione selezionata possono nascere correlazioni che nella popolazione intera non esistevano.
+
+L'immagine giusta: due variabili indipendenti che concorrono a produrre un effetto comune. Finché guardi tutti, non c'è legame. Ma se guardi solo i casi in cui l'effetto si è verificato, allora sapere che una delle due cause non c'era ti dice che l'altra probabilmente c'era. La selezione ha creato la dipendenza. È esattamente il collider del capitolo successivo, ed è il motivo per cui la d-separazione ha una regola diversa per le strutture a $V$.
+\end{intuizione}
+
+\begin{esempiosvolto}{le due direzioni, con numeri minimi}
+\textbf{(a) $X \perp Y$ ma $X \not\perp Y \mid Z$.} Siano $X, Y$ due lanci di moneta equa indipendenti e $Z = X \oplus Y$ (XOR). Marginalmente $P(X{=}1,Y{=}1) = 0.25 = P(X{=}1)P(Y{=}1)$: indipendenti.
+
+Condizioniamo su $Z{=}0$. Allora $X = Y$ necessariamente, quindi $P(X{=}1 \mid Y{=}1, Z{=}0) = 1 \neq P(X{=}1 \mid Z{=}0) = 0.5$. Da indipendenza totale a dipendenza \emph{deterministica}, solo condizionando.
+
+\medskip
+\textbf{(b) $X \not\perp Y$ ma $X \perp Y \mid Z$.} Sia $Z \sim \text{Bernoulli}(0.5)$ una causa comune, e
+\[
+P(X{=}1 \mid Z{=}0) = 0.1, \quad P(X{=}1 \mid Z{=}1) = 0.9, \qquad
+P(Y{=}1 \mid Z{=}0) = 0.2, \quad P(Y{=}1 \mid Z{=}1) = 0.8,
+\]
+con $X \perp Y \mid Z$ per costruzione. Marginalizzando:
+\[
+P(X{=}1) = 0.5, \qquad P(Y{=}1) = 0.5, \qquad
+P(X{=}1, Y{=}1) = 0.5(0.1)(0.2) + 0.5(0.9)(0.8) = 0.37.
+\]
+Ma $P(X{=}1)P(Y{=}1) = 0.25 \neq 0.37$: marginalmente dipendenti. La dipendenza osservata è tutta prodotta da $Z$, e sparisce appena $Z$ è noto.
+
+\medskip
+\textbf{Morale}: (a) è il collider, (b) è la causa comune (confounder). Sono i due casi opposti, e la d-separazione serve esattamente a distinguerli guardando solo il grafo.
+\end{esempiosvolto}
+
+\section{Valore Atteso}
+
+\[
+\mathbb{E}_{x \sim p(X)}[f(x)] = \sum_x p(x)\,f(x) \quad \text{(discreto)}, \qquad \mathbb{E}[f(x)] = \int p(x)\,f(x)\,dx \quad \text{(continuo)}
+\]
+
+L'aspettazione è un operatore lineare: $\mathbb{E}[af(x) + bg(x)] = a\,\mathbb{E}[f(x)] + b\,\mathbb{E}[g(x)]$.
+
+Se $X \perp Y$: $\mathbb{E}_{x,y}[f(x)\,g(y)] = \mathbb{E}_x[f(x)] \cdot \mathbb{E}_y[g(y)]$.
+
+\section{Distribuzioni Notevoli}
+
+\subsection{Bernoulli e Categorica}
+\[
+\text{Bernoulli}(x \mid \lambda) = \lambda^x (1-\lambda)^{1-x}, \quad x \in \{0,1\}
+\]
+\[
+\text{Cat}(x \mid \boldsymbol{\lambda}) = \prod_{k=1}^K \lambda_k^{\mathbb{I}[x=k]}, \quad \sum_k \lambda_k = 1
+\]
+
+\subsection{Gaussiana Univariata e Multivariata}
+\[
+\mathcal{N}(x \mid \mu, \sigma^2) = \frac{1}{\sqrt{2\pi\sigma^2}} \exp\!\left(-\frac{(x-\mu)^2}{2\sigma^2}\right)
+\]
+\[
+\mathcal{N}(\mathbf{x} \mid \boldsymbol{\mu}, \boldsymbol{\Sigma}) = \frac{1}{(2\pi)^{D/2}|\boldsymbol{\Sigma}|^{1/2}} \exp\!\left(-\frac{1}{2}(\mathbf{x}-\boldsymbol{\mu})^\top \boldsymbol{\Sigma}^{-1} (\mathbf{x}-\boldsymbol{\mu})\right)
+\]
+
+\subsection{Beta e Dirichlet}
+
+La distribuzione \textbf{Beta}($\alpha$, $\beta$) con $\alpha, \beta > 0$ è definita su $[0,1]$:
+\[
+p(x \mid \alpha, \beta) = \frac{\Gamma(\alpha+\beta)}{\Gamma(\alpha)\Gamma(\beta)}\, x^{\alpha-1}(1-x)^{\beta-1}
+\]
+È la distribuzione coniugata della Bernoulli/Binomiale.
+
+La distribuzione \textbf{Dirichlet}($\boldsymbol{\alpha}$) è la generalizzazione multivariata sul simplesso:
+\[
+p(\boldsymbol{\mu} \mid \boldsymbol{\alpha}) = \frac{\Gamma(\sum_k \alpha_k)}{\prod_k \Gamma(\alpha_k)} \prod_{k=1}^K \mu_k^{\alpha_k - 1}, \quad \sum_k \mu_k = 1
+\]
+È la distribuzione coniugata della Categorica.
+
+\section{Framework dei Modelli Grafici}
+
+I modelli probabilistici grafici sono una coppia $(G, \mathcal{P})$ dove il grafo $G$ codifica le assunzioni di indipendenza condizionale. Affrontano tre problemi:
+
+\begin{enumerate}
+    \item \textbf{Rappresentazione}: codificare distribuzioni congiunte di alta dimensionalità in modo compatto
+    \item \textbf{Inferenza}: calcolare $P(X \mid \mathbf{d})$ per variabili di interesse $X$ dato evidenza $\mathbf{d}$
+    \item \textbf{Apprendimento}: stimare parametri $\theta$ (e struttura $G$) dai dati
+\end{enumerate}
+
+\subsection{Tipi di Inferenza}
+
+Dato un insieme di ipotesi $h \in H$ e osservazioni $\mathbf{d}$:
+\begin{itemize}
+    \item \textbf{Bayesiana}: $P(X \mid \mathbf{d}) = \sum_h P(X \mid h)\,P(h \mid \mathbf{d})$ — somma su tutte le ipotesi
+    \item \textbf{MAP}: $\hat{h}_{\text{MAP}} = \arg\max_h P(h \mid \mathbf{d}) = \arg\max_h P(\mathbf{d} \mid h)\,P(h)$
+    \item \textbf{ML}: $\hat{h}_{\text{ML}} = \arg\max_h P(\mathbf{d} \mid h)$ — equivalente a MAP con prior uniforme
+\end{itemize}
+
+\section{Approfondimenti}
+
+\subsection{Entropia e Divergenza KL}
+
+\begin{tcolorbox}[title=Entropia e Informazione]
+L'\textbf{entropia} di una distribuzione discreta misura l'incertezza media:
+\[H(X) = -\sum_x P(x)\log P(x) \geq 0\]
+La \textbf{divergenza di Kullback-Leibler} tra $P$ e $Q$ è:
+\[D_\text{KL}(P \| Q) = \sum_x P(x)\log\frac{P(x)}{Q(x)} \geq 0\]
+con uguaglianza sse $P = Q$. Non è simmetrica in generale.
+\end{tcolorbox}
+
+\subsection{Domande per l'Esame}
+\begin{enumerate}
+    \item Dimostrare la regola della catena. Quando è utile sfruttare le indipendenze condizionali?
+    \item Enunciare il Teorema di Bayes e spiegare prior, likelihood, posterior e evidence.
+    \item Dare un esempio dove $X \perp Y$ ma $X \not\perp Y \mid Z$ e viceversa.
+    \item Scrivere la PDF della Gaussiana multivariata. Cosa rappresenta la matrice $\boldsymbol{\Sigma}$?
+    \item Confrontare stima ML, MAP e Bayesiana. Pro e contro di ciascun approccio.
+    \item Qual è il ruolo della distribuzione Dirichlet come prior per distribuzioni categoriche?
+\end{enumerate}
+
+% ============================================================
+\chapter{Reti Bayesiane I: Rappresentazione e Fattorizzazione}
+% ============================================================
+
+\begin{risorsevideo}{GDL3 — Reti Bayesiane: rappresentazione}
+\videolezione{della lezione GDL3}
+
+\medskip
+\video{https://www.youtube.com/watch?v=ju1Grt2hdko}{Graphical Models 1 — Christopher Bishop, MLSS 2013}{MPI-IS, ~1h30m}\\
+Fattorizzazione, plate notation e ancestral sampling nella presentazione originale di Bishop: la fonte da cui derivano quasi tutte le slide su questo argomento.
+
+\medskip
+\video{https://www.youtube.com/watch?v=OSCKWTLaw6s}{Introduction to Probabilistic Graphical Models}{Batmanghelich, ~1h}\\
+Alternativa più breve e più diretta se ti serve solo il meccanismo della fattorizzazione.
+\end{risorsevideo}
+
+\section{Sfida Dimensionale}
+
+Rappresentare la distribuzione congiunta di $N$ variabili discrete con $k$ valori richiede $k^N - 1$ parametri. Con $N=100$ variabili binarie: $2^{100} \approx 10^{30}$ parametri — computazionalmente intrattabile.
+
+La soluzione è sfruttare le \emph{indipendenze condizionali} per fattorizzare la distribuzione in termini più semplici.
+
+\section{Definizione di Rete Bayesiana}
+
+\begin{definition}
+Una \textbf{rete Bayesiana} è una coppia $(G, \mathcal{P})$ dove:
+\begin{itemize}
+    \item $G = (\mathcal{V}, \mathcal{E})$ è un DAG (\textit{Directed Acyclic Graph})
+    \item I nodi $v \in \mathcal{V}$ rappresentano variabili casuali
+    \item Gli archi $e \in \mathcal{E}$ codificano relazioni di dipendenza condizionale
+    \item Ad ogni nodo $i$ è associata una CPT (\textit{Conditional Probability Table}): $P(x_i \mid \mathbf{x}_{pa(i)})$
+\end{itemize}
+\end{definition}
+
+\subsection{Fattorizzazione Congiunta}
+
+La distribuzione congiunta si fattorizza secondo la struttura del grafo:
+\[
+\boxed{P(x_1, \ldots, x_N) = \prod_{i \in \mathcal{V}} P(x_i \mid \mathbf{x}_{pa(i)})}
+\]
+
+Per nodi senza genitori: $P(x_i \mid \mathbf{x}_{pa(i)}) = P(x_i)$.
+
+\begin{tcolorbox}[title=Esempio: catena $X_1 \to X_2 \to X_3$]
+$P(x_1, x_2, x_3) = P(x_1)\,P(x_2 \mid x_1)\,P(x_3 \mid x_2)$
+
+Risparmio di parametri: invece di $k^3-1$, servono solo $k-1 + k(k-1) + k(k-1)$ parametri.
+\end{tcolorbox}
+
+\begin{esempiosvolto}{quanto si risparmia davvero: contiamo i parametri}
+Cinque variabili binarie $A, B, C, D, E$. Senza struttura, la congiunta costa $2^5 - 1 = 31$ parametri liberi.
+
+Ora imponiamo il DAG $A \to C$, $B \to C$, $C \to D$, $C \to E$. Ogni nodo costa $(k-1) \cdot k^{|\text{pa}|}$ parametri, con $k=2$:
+\[
+\underbrace{A: 1}_{\text{no genitori}} + \underbrace{B: 1}_{\text{no genitori}} + \underbrace{C: 1 \cdot 2^2 = 4}_{\text{due genitori}} + \underbrace{D: 1 \cdot 2 = 2}_{\text{un genitore}} + \underbrace{E: 1 \cdot 2 = 2}_{\text{un genitore}} = 10.
+\]
+
+Da $31$ a $10$: circa un terzo. E il risparmio esplode con $N$: per la catena $X_1 \to X_2 \to \cdots \to X_{100}$ su variabili binarie servono $1 + 99 \cdot 2 = 199$ parametri contro $2^{100} - 1 \approx 10^{30}$.
+
+\textbf{Il punto da dire all'orale}: il costo è esponenziale nel \emph{numero di genitori}, non nel numero di variabili. Un DAG con $100$ nodi ma un solo genitore ciascuno è banale; un DAG con $10$ nodi di cui uno ha $9$ genitori ha già $512$ parametri in quel singolo nodo. La sparsità che conta è quella locale.
+\end{esempiosvolto}
+
+\section{Local Markov Property}
+
+\begin{theorem}[Local Markov Property]
+In una rete Bayesiana, ogni nodo è condizionalmente indipendente da tutti i suoi non-discendenti, dati i suoi genitori:
+\[
+X_i \perp \text{NonDesc}(X_i) \mid \mathbf{X}_{pa(i)}
+\]
+\end{theorem}
+
+Questa proprietà è equivalente alla fattorizzazione congiunta ed è la base di tutte le indipendenze nella rete.
+
+\section{Notazione Plate}
+
+La \textbf{notazione plate} è una convenzione grafica per rappresentare in modo compatto variabili ripetute in un modello.
+
+Un rettangolo (plate) con etichetta $N$ che racchiude un nodo $X$ rappresenta $N$ copie i.i.d.\ di $X$: $X_1, X_2, \ldots, X_N$.
+
+\textbf{Esempio}: in un modello generativo per $N$ documenti con $K$ topic, si usano plates annidate per documenti e parole.
+
+\section{Ancestral Sampling}
+
+L'\textbf{ancestral sampling} genera campioni dalla distribuzione congiunta in modo efficiente:
+
+\begin{enumerate}
+    \item Ordinare i nodi in ordine topologico (ogni genitore precede i figli)
+    \item Per ogni nodo $i$ (in questo ordine):
+    \begin{itemize}
+        \item Se $pa(i) = \emptyset$: campionare $x_i \sim P(x_i)$
+        \item Altrimenti: campionare $x_i \sim P(x_i \mid \mathbf{x}_{pa(i)})$ usando i valori già campionati
+    \end{itemize}
+\end{enumerate}
+
+L'algoritmo produce campioni corretti da $P(\mathbf{x})$ per qualsiasi DAG.
+
+\begin{esempiosvolto}{ancestral sampling passo per passo}
+Rete $A \to C \leftarrow B$, tutte binarie, con
+\[
+P(A{=}1) = 0.3, \qquad P(B{=}1) = 0.6, \qquad
+P(C{=}1 \mid A,B) = \begin{cases}
+0.9 & A{=}1, B{=}1\\
+0.5 & A{=}1, B{=}0\\
+0.4 & A{=}0, B{=}1\\
+0.1 & A{=}0, B{=}0
+\end{cases}
+\]
+
+Un ordinamento topologico valido è $(A, B, C)$. Supponiamo di estrarre tre uniformi $u_1 = 0.21$, $u_2 = 0.77$, $u_3 = 0.35$ e di usare la convenzione ``$X{=}1$ se $u < P(X{=}1)$''.
+
+\begin{enumerate}
+  \item $A$: $u_1 = 0.21 < 0.3 \Rightarrow A = 1$.
+  \item $B$: $u_2 = 0.77 \not< 0.6 \Rightarrow B = 0$.
+  \item $C$: i genitori sono ora \emph{fissati} a $(A{=}1, B{=}0)$, quindi si legge la riga corrispondente della CPT: $P(C{=}1 \mid 1,0) = 0.5$. Poiché $u_3 = 0.35 < 0.5 \Rightarrow C = 1$.
+\end{enumerate}
+Il campione è $(A,B,C) = (1,0,1)$.
+
+\textbf{Due cose da notare.} Primo: non si è mai toccata la congiunta a $8$ celle — si sono lette tre tabelline locali. Secondo: l'ordinamento topologico non è un dettaglio implementativo ma la condizione di correttezza, perché quando arriva il turno di un nodo i suoi genitori devono già avere un valore. Se avessimo campionato $C$ per primo non avremmo saputo quale riga della CPT leggere.
+
+\textbf{Limite da conoscere}: l'ancestral sampling genera dalla congiunta, ma \emph{non} sa condizionare su evidenza sui discendenti. Per $P(A \mid C{=}1)$ questo schema costringe a generare e buttare via i campioni con $C{=}0$ — che è rejection sampling, con tutta la sua inefficienza (Parte~II, capitolo sui metodi di campionamento).
+\end{esempiosvolto}
+
+\section{Approfondimenti}
+
+\subsection{Risparmio di Parametri}
+
+\begin{tcolorbox}[title=Analisi del risparmio]
+Consideriamo $N$ variabili binarie. Una BN con struttura a catena $X_1 \to X_2 \to \cdots \to X_N$ richiede:
+\[1 + (N-1) \cdot 2 = 2N - 1 \text{ parametri}\]
+invece di $2^N - 1$. Per $N=20$: 39 vs 1.048.575 parametri.
+\end{tcolorbox}
+
+\subsection{Markov Equivalence}
+Due DAG sono \textbf{Markov equivalenti} se codificano esattamente le stesse indipendenze condizionali. Due DAG sono equivalenti sse hanno lo stesso scheletro (archi non orientati) e le stesse v-structure (collider $X \to Z \leftarrow Y$ con $X,Y$ non connessi). Questo implica che dai soli dati osservazionali si può identificare solo una classe di equivalenza.
+
+\subsection{Domande per l'Esame}
+\begin{enumerate}
+    \item Illustrare come una BN permette di ridurre il numero di parametri. Esempio numerico.
+    \item Enunciare la Local Markov Property e mostrare come segue dalla fattorizzazione.
+    \item Descrivere l'Ancestral Sampling. Perché produce campioni corretti dalla congiunta?
+    \item Cosa è la notazione plate? Esempio di utilizzo.
+    \item Due DAG con strutture diverse possono rappresentare le stesse distribuzioni? Quando?
+\end{enumerate}
+
+% ============================================================
+\chapter{Reti Bayesiane II: d-Separazione e Markov Blanket}
+% ============================================================
+
+\begin{risorsevideo}{GDL4 — d-separazione e Markov blanket}
+\videolezione{della lezione GDL4}
+
+\medskip
+\video{https://www.youtube.com/watch?v=oHfkTtcD5Ro}{Bayesian Networks: Independence and d-Separation}{UCLA Automated Reasoning Group, ~50m}\\
+La spiegazione migliore in circolazione su questo specifico argomento: costruisce le tre strutture una alla volta e mostra perché il collider si comporta al contrario. Se guardi un solo video di tutta la Parte I, guarda questo.
+
+\medskip
+\video{https://www.youtube.com/watch?v=ju1Grt2hdko}{Graphical Models 1 — Christopher Bishop}{MPI-IS, ~1h30m}\\
+Contiene anche d-separazione e Markov blanket, inseriti nel discorso più ampio sulla fattorizzazione.
+\end{risorsevideo}
+
+\section{d-Separazione}
+
+La \textbf{d-separazione} è il criterio grafico per determinare le indipendenze condizionali in una BN.
+
+\begin{definition}
+$X$ e $Y$ sono \textbf{d-separati} da $Z$ in un DAG ($X \perp_d Y \mid Z$) se ogni percorso non orientato tra $X$ e $Y$ è \emph{bloccato} da $Z$.
+
+Un percorso è \emph{bloccato} se esiste un nodo $W$ sul percorso tale che:
+\begin{enumerate}
+    \item $W$ è una \textbf{chain} ($\cdot \to W \to \cdot$) o \textbf{fork} ($\cdot \leftarrow W \to \cdot$) e $W \in Z$, oppure
+    \item $W$ è un \textbf{collider} ($\cdot \to W \leftarrow \cdot$) e né $W$ né alcun suo discendente è in $Z$
+\end{enumerate}
+\end{definition}
+
+\textbf{Soundness}: se $X \perp_d Y \mid Z$ nel grafo, allora $X \perp Y \mid Z$ nella distribuzione (sotto l'assunzione di fedeltà).
+
+\begin{intuizione}{la d-separazione è un problema di tubi, non di frecce}
+Il modo più rapido per non sbagliare: immagina che l'informazione scorra lungo i percorsi come acqua in un sistema di tubi, e che condizionare su un nodo significhi \emph{chiudere una valvola} in quel punto. Due variabili sono indipendenti se non esiste nessun tubo aperto che le colleghi.
+
+Per chain e fork la regola è quella che ti aspetti: il nodo intermedio è una valvola normale, osservarlo chiude il passaggio. Sono i due casi in cui il nodo intermedio è la ragione per cui le due variabili si somigliano, quindi conoscerlo esaurisce l'informazione.
+
+Il collider è una valvola \emph{montata al contrario}: da chiusa si apre quando la osservi. E c'è di più: si apre anche osservando un qualunque suo discendente, perché un discendente è una prova indiretta sul collider stesso.
+
+Attenzione a un punto che confonde spesso: la direzione delle frecce non dice se il percorso è aperto, dice solo \emph{che tipo di valvola} è ciascun nodo. Si guardano sempre i percorsi \emph{non orientati}: si può risalire una freccia contromano senza problemi.
+\end{intuizione}
+
+\section{Le Tre Strutture Fondamentali}
+
+\begin{center}
+\begin{tabular}{|l|c|c|}
+\hline
+\textbf{Struttura} & \textbf{Senza cond.} & \textbf{Condiz. su $Z$} \\
+\hline
+Chain: $X \to Z \to Y$ & $X \not\perp Y$ & $X \perp Y \mid Z$ \\
+Fork: $X \leftarrow Z \to Y$ & $X \not\perp Y$ & $X \perp Y \mid Z$ \\
+Collider: $X \to Z \leftarrow Y$ & $X \perp Y$ & $X \not\perp Y \mid Z$ \\
+\hline
+\end{tabular}
+\end{center}
+
+\subsection{Collider ed Explaining Away}
+
+Il comportamento del collider è controintuitivo e importante:
+
+\begin{tcolorbox}[title=Explaining Away]
+Se $X$ e $Y$ sono cause indipendenti di $Z$, marginalmente $X \perp Y$. Ma \textit{condizionando su $Z$}, $X$ e $Y$ diventano dipendenti: conoscere che $Z$ è avvenuto e che $X$ non è avvenuto aumenta la probabilità di $Y$.
+
+\textbf{Esempio}: $Z$ = ``la strada è bagnata'', $X$ = ``è piovuto'', $Y$ = ``l'irrigatore è acceso''. Marginalmente $X \perp Y$. Ma se sappiamo $Z$ = vero e $X$ = falso, allora $P(Y=\text{vero} \mid Z, \neg X)$ è alta.
+\end{tcolorbox}
+
+\begin{esempiosvolto}{la rete dell'allarme: d-separazione e explaining away con i numeri}
+Rete classica: $\text{Furto} \to \text{Allarme} \leftarrow \text{Terremoto}$, e $\text{Allarme} \to \text{John}$, $\text{Allarme} \to \text{Mary}$.
+
+\medskip
+\textbf{Parte 1 — leggere il grafo.}
+\begin{itemize}[leftmargin=1.4em]
+  \item $F \perp T$? L'unico percorso è $F \to A \leftarrow T$, un collider non osservato: \emph{bloccato}. Sì, indipendenti.
+  \item $F \perp T \mid A$? Lo stesso collider è ora osservato: il percorso si \emph{apre}. No, dipendenti.
+  \item $F \perp T \mid J$? $J$ è un discendente di $A$: apre comunque il collider. No, dipendenti — è l'errore che si fa più spesso.
+  \item $J \perp M \mid A$? L'unico percorso è $J \leftarrow A \to M$, un fork con il centro osservato: bloccato. Sì.
+  \item $J \perp M$? Stesso fork, ma senza osservare $A$: aperto. No.
+\end{itemize}
+
+\medskip
+\textbf{Parte 2 — vedere l'explaining away nei numeri.} Con
+$P(F{=}1) = 0.01$, $P(T{=}1) = 0.02$ e
+\[
+P(A{=}1 \mid F,T) = 0.95\ (1,1), \quad 0.94\ (1,0), \quad 0.29\ (0,1), \quad 0.001\ (0,0),
+\]
+si ottiene
+\[
+P(F{=}1) = 0.010 \;\longrightarrow\; P(F{=}1 \mid A{=}1) \approx 0.584 \;\longrightarrow\; P(F{=}1 \mid A{=}1, T{=}1) \approx 0.032.
+\]
+
+Il primo salto è l'evidenza che sale lungo la freccia: l'allarme suona, il furto diventa molto più probabile. Il secondo è l'explaining away: scoprire che c'è stato un terremoto \emph{spiega già} l'allarme, e la probabilità del furto crolla da $58\%$ a $3\%$, quasi tornando al valore a priori.
+
+\textbf{Il punto concettuale}: $F$ e $T$ non si sono mai influenzati causalmente. Quello che è cambiato è che, avendo fissato il loro effetto comune, le due cause si contendono la stessa spiegazione. Questa competizione è tutta la dipendenza introdotta dal condizionamento — e vale la pena dirlo con queste parole all'orale, perché mostra che hai capito che si tratta di un effetto della \emph{selezione}, non della causalità.
+\end{esempiosvolto}
+
+\section{Markov Blanket}
+
+\begin{definition}
+Il \textbf{Markov Blanket} di un nodo $X_i$ è il minimo insieme che rende $X_i$ condizionalmente indipendente da tutti gli altri nodi:
+\[
+MB(X_i) = \underbrace{\text{Genitori}(X_i)}_{\text{cause dirette}} \cup \underbrace{\text{Figli}(X_i)}_{\text{effetti diretti}} \cup \underbrace{\text{Co-genitori}(X_i)}_{\text{altri genitori dei figli}}
+\]
+\[
+X_i \perp (\mathcal{V} \setminus \{X_i\} \setminus MB(X_i)) \mid MB(X_i)
+\]
+\end{definition}
+
+Il Markov Blanket è fondamentale per:
+\begin{itemize}
+    \item Inferenza locale: $P(X_i \mid \text{resto}) = P(X_i \mid MB(X_i))$
+    \item Feature selection: le variabili in $MB(X_i)$ sono le uniche rilevanti per predire $X_i$
+\end{itemize}
+
+\begin{intuizione}{il Markov blanket è ``tutto ciò che serve sapere''}
+Se dovessi predire $X_i$ e potessi osservare qualunque cosa nella rete, quali variabili chiederesti? I genitori, ovviamente: sono le cause dirette. I figli, altrettanto ovviamente: sono le prove. Ma anche i \emph{co-genitori}, cioè gli altri genitori dei tuoi figli — e questa è la parte che sorprende.
+
+Il motivo è l'explaining away appena visto: se osservi un figlio, quel figlio è un collider, e osservarlo mette in competizione $X_i$ con gli altri genitori. Per neutralizzare quella competizione devi sapere anche come sono andati loro. Il co-genitore non è nel blanket perché influenza $X_i$, ma perché senza di lui l'informazione che arriva dal figlio è ambigua.
+
+Da qui la formula: genitori, figli, co-genitori. Nulla di più — tutto il resto della rete diventa irrilevante — e nulla di meno.
+\end{intuizione}
+
+\section{Faithfulness Assumption}
+
+\begin{definition}
+Una distribuzione $P$ è \textbf{fedele} al DAG $G$ se tutte e sole le indipendenze condizionali in $P$ sono spiegabili dalla d-separazione in $G$:
+\[X \perp Y \mid Z \text{ in } P \;\Leftrightarrow\; X \perp_d Y \mid Z \text{ in } G\]
+\end{definition}
+
+Senza faithfulness, non si può recuperare la struttura dai soli dati.
+
+\section{Approfondimenti}
+
+\subsection{Algoritmo per Verificare d-Separazione}
+\begin{enumerate}
+    \item Marcare come osservati tutti i nodi in $Z$
+    \item Per ogni percorso non diretto tra $X$ e $Y$, verificare se è bloccato:
+    \begin{itemize}
+        \item Chain/Fork con nodo osservato: bloccato
+        \item Collider con nodo non osservato (e nessun discendente osservato): bloccato
+    \end{itemize}
+    \item Se tutti i percorsi sono bloccati: $X \perp_d Y \mid Z$
+\end{enumerate}
+
+\subsection{Domande per l'Esame}
+\begin{enumerate}
+    \item Definire d-separazione e descrivere il criterio per catene, fork e collider.
+    \item Dato il DAG $A \to B \leftarrow C \to D$, verificare se $A \perp D$ e $A \perp D \mid C$.
+    \item Spiegare il fenomeno di explaining away con un esempio concreto.
+    \item Definire il Markov Blanket. Perché è importante per feature selection?
+    \item Cosa afferma la faithfulness assumption? Perché è necessaria per structure learning?
+\end{enumerate}
+
+% ============================================================
+\chapter{Causalità e Inferenza Causale}\label{ch:causality}
+
+\begin{risorsevideo}{GDL5 — Causalità, do-operator, SCM}
+\videolezione{della lezione GDL5}
+
+\medskip
+\video{https://www.youtube.com/watch?v=AuZu0L0PEgk}{Causal Models — lezione 4 del corso Causal Inference}{Brady Neal, ~1h}\\
+SCM, do-operator e modularità con lo stesso formalismo delle slide. Il corso di Neal è la fonte più vicina al taglio di Bacciu su questa parte.
+
+\medskip
+\video{https://www.youtube.com/watch?v=1_b7jgupoAE}{Causal Discovery from Observational Data — lezione 10}{Brady Neal, ~1h}\\
+Anticipa il capitolo successivo, ma vale la pena vederlo di seguito: rende chiaro perché la causalità non si legge dai dati osservativi senza assunzioni.
+\end{risorsevideo}
+% ============================================================
+
+\section{Correlazione vs.\ Causalità}
+
+\begin{tcolorbox}[title=Principio Fondamentale]
+\textbf{Correlazione non implica causalità}. Strutture causali radicalmente diverse possono produrre le stesse indipendenze condizionali osservabili. È impossibile distinguerle con soli dati osservazionali.
+\end{tcolorbox}
+
+\textbf{Esempio}: se osserviamo $X \perp Y \mid Z$, questo è compatibile con:
+\begin{itemize}
+    \item $X \to Z \to Y$ (catena causale)
+    \item $X \leftarrow Z \to Y$ (causa comune)
+    \item $X \to Z \leftarrow Y$ (collider, se non si condiziona)
+\end{itemize}
+
+\section{Reti Bayesiane Causali e l'Operatore $do(\cdot)$}
+
+In una \textbf{rete Bayesiana causale}, gli archi hanno significato causale: $X \to Y$ significa che $X$ è causa diretta di $Y$.
+
+\subsection{Osservazione vs.\ Intervento}
+
+\begin{definition}
+L'\textbf{intervento} $do(X = x)$ imposta deterministicamente $X = x$, rimuovendo tutti gli archi entranti in $X$ nel grafo causale (``mutilated graph'').
+\end{definition}
+
+\[
+P(Y \mid X=x) \neq P(Y \mid do(X=x)) \quad \text{in generale}
+\]
+
+La differenza è cruciale: $P(Y \mid X=x)$ è confusa dalle cause comuni di $X$ e $Y$; $P(Y \mid do(X=x))$ è l'effetto causale puro.
+
+\begin{intuizione}{$do(x)$ è chirurgia sul grafo, non condizionamento}
+$P(y \mid x)$ e $P(y \mid do(x))$ rispondono a due domande diverse, e la differenza si vede meglio sul grafo che nelle formule.
+
+$P(y \mid x)$ significa: \emph{ho osservato} che $X$ vale $x$; restringo l'attenzione a quella sottopopolazione. Ma le persone in cui $X = x$ ci sono finite per delle ragioni, e quelle ragioni influenzano anche $Y$. L'osservazione porta con sé tutto il bagaglio delle cause di $X$.
+
+$P(y \mid do(x))$ significa: \emph{ho imposto} $X = x$ dall'esterno. Nessuno ha più scelto $X$ in base alle proprie caratteristiche, quindi tutte le frecce che entravano in $X$ vanno \emph{tagliate}. Il grafo mutilato $G_{\bar X}$ è il modello del mondo dopo l'intervento, e la formula di aggiustamento non è altro che il calcolo di $P(y)$ in quel grafo.
+
+Da qui la regola pratica: la differenza fra i due è tutta nei percorsi \emph{backdoor}, quelli che entrano in $X$ da dietro. Se non ce ne sono, osservare e intervenire coincidono e $P(y \mid do(x)) = P(y \mid x)$. È il motivo per cui un esperimento randomizzato funziona: la randomizzazione taglia le frecce entranti \emph{fisicamente}, invece che sulla lavagna.
+\end{intuizione}
+
+\subsection{Formula di Aggiustamento (Adjustment Formula)}
+
+Se $\mathbf{Z}$ è un insieme di variabili che blocca tutti i percorsi confondenti tra $X$ e $Y$ (backdoor criterion):
+\[
+P(Y \mid do(X=x)) = \sum_{\mathbf{z}} P(Y \mid X=x, \mathbf{Z}=\mathbf{z})\,P(\mathbf{Z}=\mathbf{z})
+\]
+
+\begin{esempiosvolto}{paradosso di Simpson: aggiustare ribalta la conclusione}
+Due trattamenti per i calcoli renali, $A$ (chirurgia aperta) e $B$ (percutanea), su $700$ pazienti. Il confondente $Z$ è la gravità del caso (calcoli piccoli o grandi), che influenza sia il trattamento scelto sia la guarigione: $Z \to T$ e $Z \to R$, oltre a $T \to R$.
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+ & calcoli piccoli & calcoli grandi & \textbf{totale} \\
+\midrule
+Trattamento $A$ & $81/87 = 0.93$ & $192/263 = 0.73$ & $273/350 = \mathbf{0.78}$ \\
+Trattamento $B$ & $234/270 = 0.87$ & $55/80 = 0.69$ & $289/350 = \mathbf{0.83}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Guardando i totali, $B$ sembra migliore ($0.83$ contro $0.78$). Ma $A$ è migliore \emph{in entrambi i sottogruppi}. Questo è il paradosso.
+
+La spiegazione sta nell'assegnazione: ai casi gravi (calcoli grandi, prognosi peggiore) è stato dato quasi sempre $A$, ai casi lievi quasi sempre $B$. Il confronto grezzo sta confrontando anche le gravità, non solo i trattamenti.
+
+Applichiamo la formula di aggiustamento su $Z$, con $P(\text{piccoli}) = 357/700 = 0.51$ e $P(\text{grandi}) = 343/700 = 0.49$:
+\begin{align*}
+P(R{=}1 \mid do(T{=}A)) &= 0.51 \cdot 0.931 + 0.49 \cdot 0.730 = \mathbf{0.833},\\
+P(R{=}1 \mid do(T{=}B)) &= 0.51 \cdot 0.867 + 0.49 \cdot 0.688 = \mathbf{0.779}.
+\end{align*}
+
+Aggiustando, l'ordine si ribalta e coincide con quello dei sottogruppi: $A$ è il trattamento migliore.
+
+\textbf{Che cosa ha fatto l'aggiustamento}: ha ricalcolato le medie usando la \emph{stessa} distribuzione di gravità per entrambi i trattamenti, cioè quella della popolazione complessiva. È esattamente ciò che farebbe un esperimento randomizzato, dove la gravità si distribuisce ugualmente nei due bracci.
+
+\textbf{Attenzione al rovescio della medaglia}: aggiustare non è sempre giusto. Se $Z$ fosse stato un \emph{collider} o una variabile a valle del trattamento (un mediatore), condizionare avrebbe \emph{introdotto} bias invece di rimuoverlo. È il backdoor criterion a dire su cosa si aggiusta, e la risposta dipende dal grafo, non dai dati.
+\end{esempiosvolto}
+
+\section{Modelli Causali Strutturali (SCM)}
+
+\begin{definition}
+Un \textbf{Modello Causale Strutturale} (SCM) è un sistema di equazioni strutturali:
+\[X_i = f_i(PA_i,\, U_i), \quad i = 1, \ldots, N\]
+dove $PA_i$ sono i genitori causali di $X_i$ e $U_i \sim p(U_i)$ è un termine di rumore esogeno (indipendente per variabili diverse).
+\end{definition}
+
+Un intervento $do(X_j = c)$ modifica l'equazione: $X_j = c$ (fisso), rimuovendo l'influenza di $PA_j$ e $U_j$.
+
+\section{Gerarchia Causale di Pearl}
+
+\begin{enumerate}
+    \item \textbf{Livello 1 — Associazione}: $P(Y \mid X=x)$ — da dati osservazionali
+    \item \textbf{Livello 2 — Intervento}: $P(Y \mid do(X=x))$ — richiede esperimenti o do-calculus
+    \item \textbf{Livello 3 — Controfattuali}: ``Se avessi fatto $X=x'$ invece di $X=x$, cosa sarebbe successo a $Y$?'' — richiede SCM
+\end{enumerate}
+
+Ogni livello è strettamente più informativo del precedente e non è derivabile da livelli inferiori in generale.
+
+\begin{trappola}{``nel dubbio condiziono su tutto''}
+È l'errore più costoso di tutta la Parte~I, perché suona prudente. L'intuizione statistica standard dice: più variabili controllo, meno confondimento resta. Sui grafi causali è falso.
+
+Condizionare su un \textbf{collider}, o su un suo discendente, \emph{apre} un percorso che era chiuso e \textbf{introduce} una dipendenza spuria che prima non c'era. Condizionare su un \textbf{mediatore}, cioè una variabile a valle del trattamento sul cammino causale, blocca parte dell'effetto che si voleva misurare e produce una stima distorta verso il basso.
+
+Quindi non esiste un insieme di aggiustamento ``sicuro per costruzione'': l'insieme giusto va scelto, e a dire quale sia è il grafo, tramite il \emph{backdoor criterion}. La regola in due punti: $Z$ non deve contenere discendenti di $X$, e $Z$ deve bloccare tutti i percorsi backdoor da $X$ a $Y$.
+
+\textbf{Come dirlo all'orale}: ``aggiustare non è gratis: ogni variabile aggiunta può chiudere un percorso spurio ma anche aprirne uno''. È la frase che distingue chi ha capito la d-separazione da chi ha memorizzato la formula di aggiustamento.
+\end{trappola}
+
+\section{Do-Calculus}
+
+Pearl ha formulato tre regole per derivare $P(Y \mid do(X))$ da distribuzioni osservabili, quando possibile. Queste regole determinano la \textbf{identificabilità} dell'effetto causale.
+
+\begin{definition}
+Un effetto causale $P(Y \mid do(X=x))$ è \textbf{identificabile} se può essere espresso come funzione deterministica della distribuzione osservazionale $P(\mathbf{X})$.
+\end{definition}
+
+\section{Approfondimenti}
+
+\subsection{Backdoor Criterion}
+Un insieme $\mathbf{Z}$ soddisfa il \textbf{backdoor criterion} rispetto a $(X, Y)$ se:
+\begin{enumerate}
+    \item Nessun nodo in $\mathbf{Z}$ è discendente di $X$
+    \item $\mathbf{Z}$ blocca tutti i percorsi ``backdoor'' tra $X$ e $Y$ (percorsi con archi entranti in $X$)
+\end{enumerate}
+Se il backdoor criterion è soddisfatto, la formula di aggiustamento è valida.
+
+\subsection{Domande per l'Esame}
+\begin{enumerate}
+    \item Perché correlazione non implica causalità? Esempio con tre strutture causali diverse compatibili.
+    \item Definire l'operatore $do(\cdot)$. Come differisce da condizionare su un'osservazione?
+    \item Data una struttura con confondimento $C \to X$, $C \to Y$, $X \to Y$, derivare $P(Y \mid do(X))$.
+    \item Cos'è uno SCM? Come si rappresenta un intervento in uno SCM?
+    \item Descrivere la gerarchia causale. Perché i controfattuali sono al livello più alto?
+    \item Cos'è il backdoor criterion? Darne un'applicazione pratica.
+\end{enumerate}
+
+% ============================================================
+\chapter{Apprendimento di Strutture (Structure Learning)}
+\label{ch:structure_learning}
+
+\begin{risorsevideo}{GDL6 — Structure learning e causal discovery}
+\videolezione{della lezione GDL6}
+
+\medskip
+\video{https://www.youtube.com/watch?v=1_b7jgupoAE}{Causal Discovery from Observational Data}{Brady Neal, ~1h}\\
+Copre PC, classi di equivalenza di Markov e il ruolo delle assunzioni parametriche: è la mappa completa di questo capitolo.
+
+\medskip
+\video{https://www.youtube.com/watch?v=AuZu0L0PEgk}{Causal Models}{Brady Neal, ~1h}\\
+Da rivedere se le nozioni di faithfulness e di equivalenza di Markov non sono ancora solide: qui vengono introdotte con calma.
+\end{risorsevideo}
+% ============================================================
+
+\section{Il Problema}
+
+Dati $N$ campioni i.i.d.\ $D = \{\mathbf{x}^{(1)}, \ldots, \mathbf{x}^{(N)}\}$ di $d$ variabili, trovare il DAG $G^*$ che ha generato i dati. Le principali difficoltà sono:
+
+\begin{itemize}
+    \item \textbf{Markov equivalence}: solo la classe di equivalenza è identificabile dai dati osservazionali
+    \item \textbf{Complessità}: il numero di DAG cresce super-esponenzialmente con $d$
+    \item \textbf{Errori statistici}: test di indipendenza con dati finiti sono soggetti a falsi positivi/negativi
+\end{itemize}
+
+\section{Metodi Basati su Vincoli: PC Algorithm}
+
+Usano test di indipendenza condizionale (CI test) per rimuovere archi e orientarli.
+
+\subsection{Fase 1: Skeleton Learning}
+\begin{enumerate}
+    \item Iniziare con grafo non diretto completo su $d$ nodi
+    \item Per ogni coppia $(i,j)$, testare $X_i \perp X_j \mid \mathbf{S}$ per sottoinsiemi $\mathbf{S}$ crescenti:
+    \begin{itemize}
+        \item Se CI trovata: rimuovere arco $i$--$j$, salvare il separating set $sep(i,j) = \mathbf{S}$
+    \end{itemize}
+\end{enumerate}
+\subsection{Fase 2: Orientamento dei Collider}
+\begin{enumerate}
+    \item Per ogni tripletta $i$--$k$--$j$ con arco $i$--$j$ assente: se $k \notin sep(i,j)$ allora $i \to k \leftarrow j$
+\end{enumerate}
+\subsection{Fase 3: Regole di Meek}
+Orientare gli archi rimanenti per evitare cicli e nuove v-structure non giustificate.
+
+\begin{tcolorbox}[title=Proprietà del PC]
+Sotto faithfulness e con test CI perfetti, PC recupera la CPDAG (Completed Partially DAG) corretta, che rappresenta la Markov equivalence class.
+\end{tcolorbox}
+
+\begin{esempiosvolto}{PC su tre nodi, a mano}
+Variabili $X, Y, Z$ con la vera struttura $X \to Z \leftarrow Y$ (e $X \perp Y$).
+
+\textbf{Fase 1 — scheletro.} Si parte dal grafo completo non orientato: $X-Y$, $X-Z$, $Y-Z$.
+\begin{itemize}[leftmargin=1.4em]
+  \item Ordine $0$ (nessun condizionante): si testa $X \perp Y$. Il test passa $\Rightarrow$ si rimuove l'arco $X-Y$ e si registra $\text{sepset}(X,Y) = \emptyset$. Si testano anche $X \perp Z$ e $Y \perp Z$: entrambi falliscono, gli archi restano.
+  \item Ordine $1$: per l'arco $X-Z$ l'unico condizionante possibile è $Y$; il test $X \perp Z \mid Y$ fallisce. Idem per $Y-Z$ con $X$. Nessuna rimozione.
+\end{itemize}
+Scheletro finale: $X - Z - Y$.
+
+\textbf{Fase 2 — orientamento dei collider.} Per ogni tripla non adiacente $X - Z - Y$ (cioè $X$ e $Y$ non collegati) si guarda il sepset: $Z \notin \text{sepset}(X,Y) = \emptyset$, quindi la tripla è un \emph{v-structure} e si orienta $X \to Z \leftarrow Y$.
+
+\textbf{Fase 3 — regole di Meek.} Non restano archi da orientare. Risultato: la struttura vera, recuperata esattamente.
+
+\medskip
+\textbf{Ora il caso in cui non funziona.} Se la vera struttura fosse stata la catena $X \to Z \to Y$, la Fase 1 avrebbe prodotto lo stesso scheletro $X - Z - Y$, ma il test che rimuove $X-Y$ sarebbe passato \emph{condizionando su $Z$}, cioè con $\text{sepset}(X,Y) = \{Z\}$. Poiché ora $Z \in \text{sepset}$, non è un collider e non si orienta nulla.
+
+Il risultato sarebbe la CPDAG $X - Z - Y$, che rappresenta tre DAG indistinguibili: $X \to Z \to Y$, $X \leftarrow Z \leftarrow Y$ e $X \leftarrow Z \to Y$. Tutti e tre implicano le stesse indipendenze, quindi \emph{nessun} algoritmo basato su dati osservativi può sceglierne uno.
+
+\textbf{Il punto da portare all'orale}: il collider è l'unica struttura con una firma osservazionale propria, ed è per questo che è l'unica che PC riesce a orientare senza assunzioni aggiuntive. Per andare oltre servono interventi (Cap.~\ref{ch:causality}) oppure ipotesi parametriche come gli ANM.
+\end{esempiosvolto}
+
+\section{Metodi Score-based: GES}
+
+\textbf{GES} (Greedy Equivalence Search) massimizza uno score di qualità del modello.
+
+\subsection{Score BIC}
+\[
+\text{BIC}(G \mid D) = \log P(D \mid G, \hat{\theta}_G) - \frac{\text{dim}(G)}{2}\log N
+\]
+Il termine di penalità contrasta l'overfitting di grafi troppo complessi.
+
+\subsection{Algoritmo GES}
+\begin{enumerate}
+    \item \textbf{Fase Forward}: aggiungere archi uno alla volta, scegliendo ogni volta quello che aumenta di più il BIC, finché non si può migliorare
+    \item \textbf{Fase Backward}: rimuovere archi uno alla volta, scegliendo quello che aumenta di più il BIC, finché non si può migliorare
+\end{enumerate}
+
+\section{Assunzioni Parametriche: Additive Noise Models (ANM)}
+
+\begin{definition}
+Un modello $Y = f(X) + N$, con $N \perp X$, è un \textbf{Additive Noise Model}. Se $f$ è non-lineare o il rumore è non-Gaussiano, la direzione causale $X \to Y$ è identificabile.
+\end{definition}
+
+Il modello \textbf{LiNGAM} (Linear Non-Gaussian Acyclic Model) assume:
+\[\mathbf{x} = B\mathbf{x} + \mathbf{u}\]
+dove $B$ è la matrice degli effetti diretti (triangolare inferiore per un DAG) e $\mathbf{u}$ ha componenti indipendenti non-Gaussiane. In questo caso il DAG è identificabile.
+
+\section{FCI per Variabili Latenti}
+
+Quando ci sono variabili latenti confondenti, il PC assume incorrettamente l'assenza di confondimento. L'algoritmo \textbf{FCI} (Fast Causal Inference) gestisce variabili latenti usando archi bidirezionali $X \leftrightarrow Y$ per rappresentare possibile confondimento nascosto.
+
+\section{Approfondimenti}
+\subsection{Domande per l'Esame}
+\begin{enumerate}
+    \item Descrivere le tre fasi dell'algoritmo PC. Perché produce una CPDAG e non un DAG unico?
+    \item Definire il BIC score. Perché include un termine di penalità?
+    \item Descrivere GES (fasi forward e backward). Quale proprietà di convergenza ha?
+    \item Cos'è un Additive Noise Model? Perché consente di identificare la direzione causale?
+    \item Qual è la differenza tra PC e FCI? Quando si usa FCI?
+    \item Implementare lo pseudocodice per la skeleton learning del PC.
+\end{enumerate}

@@ -1,0 +1,427 @@
+%===============================================================
+%  PART V — Graph Neural Networks
+%===============================================================
+\part{Graph Neural Networks}
+\label{part:gnn}
+
+\begin{remark}[Materia d'esame]
+Come esplicitamente indicato dal prof nella lezione finale (GDL35), il modulo \emph{Deep Learning for Graphs II — Advanced Models} (GDL33) \textbf{non} è materia d'esame. Questa Parte copre solo il modulo fondamentale (GDL32): formalizzazione del task, message passing, varianti convolutive, attention-based e graph transformer.
+\end{remark}
+
+%===============================================================
+\chapter{Fondamenti di Deep Learning per Grafi}
+
+\begin{risorsevideo}{GDL32 — Deep learning per grafi: fondamenti}
+\videolezione{della lezione GDL32}
+
+\medskip
+\video{https://www.youtube.com/watch?v=uF53xsT7mjc}{Theoretical Foundations of Graph Neural Networks}{Petar Veličković, ~1h}\\
+Tenuto dall'autore di GAT: costruisce le GNN partendo dall'invarianza per permutazione, cioè dalla stessa logica di inductive bias usata per le CNN nella Parte~III. È la fonte migliore per capire \emph{perché} il message passing ha quella forma.
+
+\medskip
+\video{https://www.youtube.com/watch?v=PMtQoiXOIR4}{Physics-inspired Graph Neural Networks}{Michael Bronstein, LMS/IMA 2023, ~1h}\\
+Riguarda soprattutto oversmoothing e oversquashing, quindi la parte ``avanzata''. \textbf{Attenzione}: la lezione GDL33 \emph{Deep Learning for Graphs II — Advanced Models} è stata esplicitamente esclusa dal materiale d'esame (slide GDL35, ``Deep learning for graph II: Advanced models lecture is not part of exam materials''). Questo video resta utile per capire meglio le patologie citate nel Cap.~\ref{ch:gat}, ma non è materiale da studiare per l'orale.
+\end{risorsevideo}
+\label{ch:gnn-fund}
+
+\section{Perché i grafi?}
+
+Molti dati reali sono \emph{intrinsecamente relazionali}: molecole (atomi e legami), reti sociali, knowledge graph, point cloud, sistemi software, mesh 3D, sistemi fisici interagenti. Un modello che ignora la struttura relazionale (es.\ trattando i nodi come iid) perde informazione cruciale: il \emph{contesto} di un nodo è il suo intorno.
+
+\section{Formalizzazione del task}
+
+\begin{definition}[Grafo]
+Un grafo è una tupla $G = (V, E, X, X^E)$ dove $V$ è l'insieme dei nodi, $E \subseteq V \times V$ degli archi, $X = \{\vect{x}_v\}_{v\in V}$ feature di nodo, $X^E$ feature di arco (opzionali). Il grafo può essere diretto/non diretto, ciclico/aciclico, con/senza etichette.
+\end{definition}
+
+\subsection{Tassonomia dei task}
+
+\begin{description}
+  \item[Node-level] data una graph singolo $G$ e un nodo $v$, prediciamo una label $y_v$ (classificazione/regressione di nodo). Esempio: identificazione di account fraudolenti in una social network.
+  \item[Link prediction] data una coppia $(u,v)$, prevediamo l'esistenza/peso dell'arco. Esempio: recommender system.
+  \item[Community detection] partizione di $V$ in cluster.
+  \item[Graph-level] dato un dataset $\{(G_i, y_i)\}$ di grafi iid, classifichiamo/regressiamo l'intero grafo. Esempio: predizione di proprietà molecolari.
+  \item[Trasduttivo vs induttivo] trasduttivo: training e test sullo stesso grafo (i nodi di test sono visibili in training senza label). Induttivo: test su grafi mai visti.
+  \item[Strutturato] output stesso un grafo (generazione). Vedi modelli generativi su grafi (cenni in GDL33, fuori esame).
+\end{description}
+
+\section{Prospettiva storica}
+
+\subsection{Modelli contractive (Scarselli et al.\ 2009)}
+La prima Graph Neural Network. Si calcola uno stato $\vect{h}_v$ per ogni nodo come punto fisso di un'iterazione contractive:
+\[
+\vect{h}_v = f(\vect{x}_v, \{\vect{h}_u\}_{u\in N(v)}, \{\vect{x}_{uv}\}),
+\]
+con $f$ scelta in modo che la trasformazione globale sia contraente (vincolando i pesi). Il punto fisso esiste per il teorema di Banach.
+
+\subsection{Modelli contextual (Micheli 2009, NN4G)}
+Approccio feedforward: si compone una sequenza di layer dove il layer $\ell$ usa solo informazioni \emph{congelate} del layer $\ell-1$. La ricorsione viene quindi sostituita da gerarchia (layering), e il training è layerwise.
+
+\subsection{Deep Graph Network — la sintesi moderna}
+Encoder $G \mapsto \{\vect{h}_v\}$ via $L$ layer di propagazione, seguito da un decoder per il task specifico. Architetture moderne (GCN, GraphSAGE, GAT, GIN, Graph Transformer) sono varianti della stessa idea.
+
+%===============================================================
+\begin{tcolorbox}[mywarn, title={Domande d'esame — Fondamenti di DL per grafi}]
+\begin{enumerate}
+  \item Perché non si può applicare direttamente una CNN a un grafo? Elenca gli ostacoli strutturali (nessun ordine canonico dei vicini, grado variabile, assenza di una griglia).
+  \item Che cosa significa \emph{invarianza per permutazione} e perché è un requisito e non una comodità? Distinguila dall'\emph{equivarianza} e di' quale serve a livello di nodo e quale a livello di grafo.
+  \item Descrivi la tassonomia dei task su grafi: node-level, edge-level, graph-level. Per ciascuno un esempio e che cosa cambia nel readout.
+  \item Che differenza c'è fra setting \emph{transduttivo} e \emph{induttivo}? Quali modelli funzionano solo nel primo caso e perché.
+  \item Confronta i modelli \emph{contractive} di Scarselli (2009) e quelli \emph{contextual} di Micheli (NN4G, 2009). Che cosa impone il vincolo di contrattività e come lo si evita impilando layer.
+  \item Che cos'è un Deep Graph Network nella sintesi moderna, e in che senso unifica i due filoni storici?
+\end{enumerate}
+\end{tcolorbox}
+
+%===============================================================
+\chapter{Message Passing e GNN Convoluzionali}
+\label{ch:gnn-mp}
+
+\begin{risorsevideo}{GDL32 — Message passing, GCN, GraphSAGE, GIN}
+\videolezione{della lezione GDL32}
+
+\medskip
+\video{https://www.youtube.com/watch?v=uF53xsT7mjc}{Theoretical Foundations of Graph Neural Networks}{Petar Veličković, ~1h}\\
+La parte centrale è esattamente questo capitolo: derivazione dello schema di message passing dall'invarianza per permutazione, e la gerarchia convolutional / attentional / message-passing.
+\end{risorsevideo}
+
+\section{Schema generale: message passing}
+
+\begin{definition}[Message Passing Neural Network, Gilmer 2017]
+A ogni layer $\ell = 0, 1, \dots, L-1$:
+\begin{align}
+\vect{m}_v^{(\ell+1)} &= \mathrm{AGGREGATE}^{(\ell)}\!\left(\{\vect{h}_u^{(\ell)} : u \in N(v)\}\right) \label{eq:mp-agg}\\
+\vect{h}_v^{(\ell+1)} &= \mathrm{UPDATE}^{(\ell)}\!\left(\vect{h}_v^{(\ell)},\, \vect{m}_v^{(\ell+1)}\right) \label{eq:mp-upd}
+\end{align}
+con $\vect{h}_v^{(0)} = \vect{x}_v$. Per task graph-level si aggrega:
+\[
+\vect{h}_G = \mathrm{READOUT}(\{\vect{h}_v^{(L)} : v \in V\}).
+\]
+\end{definition}
+
+Requisiti su AGGREGATE: \textbf{invariante per permutazione} dei vicini (altrimenti il modello dipenderebbe dall'ordine arbitrario di numerazione dei nodi). Esempi: somma, media, max, attention weighted sum.
+
+\begin{intuizione}{message passing è belief propagation con i pesi imparati}
+Questo è il collegamento trasversale più redditizio dell'intero corso, ed è il tipo di domanda che il prof usa come terza domanda dell'orale.
+
+Nella belief propagation (Parte~I) ogni nodo di un grafo probabilistico raccoglie messaggi dai vicini, li combina e aggiorna la propria credenza. I messaggi sono determinati dai potenziali del modello, la regola di combinazione è fissata dalle regole della probabilità, e si itera fino a convergenza.
+
+In una GNN succede la stessa cosa con tre sostituzioni: i messaggi sono \emph{funzioni apprese} invece che determinate dai potenziali; la combinazione è una rete neurale invece che un prodotto di fattori; e non si itera fino a convergenza ma per un numero fisso $L$ di layer.
+
+Da questo parallelo si legge subito il resto:
+\begin{itemize}[leftmargin=1.4em]
+  \item l'\textbf{invarianza per permutazione} di AGGREGATE non è una scelta di comodo: senza, il modello dipenderebbe dalla numerazione arbitraria dei nodi, che non è un'informazione reale del grafo;
+  \item il numero di layer $L$ è il \emph{raggio} entro cui l'informazione può viaggiare, esattamente come il campo recettivo di una CNN. Da qui l'under-reaching: con $L$ layer non si vedono nodi a distanza $> L$;
+  \item la stessa struttura ricompare nel Transformer, che è una GNN su grafo completo con attenzione come funzione di aggregazione. CNN, GNN e Transformer differiscono per \emph{quale grafo} si assume, non per il meccanismo.
+\end{itemize}
+\end{intuizione}
+
+\section{Convolutional Graph Networks}
+
+\subsection{Approccio spettrale}
+Esiste una nozione di convoluzione su grafi basata sul \emph{Laplaciano} $L = D - A$ (o sua versione normalizzata $\tilde L = I - D^{-1/2} A D^{-1/2}$). Decomponendo $\tilde L = U \Lambda U^\top$:
+\[
+\vect{f} *_G \vect{g} = U \mat{W}(\Lambda) U^\top \vect{f},
+\]
+dove $\mat{W}(\Lambda)$ è una funzione diagonale dei autovalori, parametrizzata. \textbf{Limite}: $U$ dipende dal grafo, quindi non si generalizza a grafi diversi (poco utile in setting induttivo).
+
+\subsection{Graph Convolutional Network (GCN, Kipf \& Welling 2017)}
+Approssimazione di primo ordine di un filtro spettrale di Chebyshev:
+\begin{equation}\label{eq:gcn}
+\boxed{\;\vect{H}^{(\ell+1)} = \sigma\!\left(\tilde D^{-1/2} \tilde A \tilde D^{-1/2}\, \vect{H}^{(\ell)} \mat{W}^{(\ell)}\right),\;}
+\end{equation}
+con $\tilde A = A + I$ (self-loop), $\tilde D$ matrice diagonale dei gradi di $\tilde A$. Per nodo:
+\[
+\vect{h}_v^{(\ell+1)} = \sigma\!\left(\mat{W}^{(\ell)}\!\sum_{u \in N(v) \cup \{v\}} \frac{1}{\sqrt{\tilde d_v \tilde d_u}}\, \vect{h}_u^{(\ell)}\right).
+\]
+È un caso particolare di message passing con AGGREGATE $=$ media pesata Laplacian-normalized.
+
+\textbf{Limiti GCN}:
+\begin{itemize}
+  \item normalization fissata: non discrimina vicini in modo adattivo;
+  \item over-smoothing dopo molti layer (vedi sotto);
+  \item assume grafo omofilo (vicini simili).
+\end{itemize}
+
+\begin{esempiosvolto}{un layer di GCN calcolato a mano}
+Grafo a catena su quattro nodi: $1 - 2 - 3 - 4$. Feature scalari $\vect{h}^{(0)} = (1,\ 2,\ 3,\ 4)$, $\mat{W} = 1$ per semplicità.
+
+\textbf{Passo 1 — self-loop e gradi.} $\tilde{\mat{A}} = \mat{A} + \mat{I}$ dà gradi $\tilde d = (2,\ 3,\ 3,\ 2)$: i nodi interni hanno due vicini più sé stessi, quelli terminali uno più sé stessi.
+
+\textbf{Passo 2 — propagazione normalizzata.} Con $h_i' = \sum_{j \in N(i) \cup \{i\}} \frac{h_j}{\sqrt{\tilde d_i \tilde d_j}}$:
+\[
+h_1' = \frac{1}{\sqrt{2 \cdot 2}} + \frac{2}{\sqrt{2 \cdot 3}} = 0.500 + 0.816 = 1.316,
+\]
+\[
+h_2' = \frac{1}{\sqrt{6}} + \frac{2}{3} + \frac{3}{3} = 0.408 + 0.667 + 1.000 = 2.075,
+\]
+\[
+h_3' = \frac{2}{3} + \frac{3}{3} + \frac{4}{\sqrt{6}} = 3.300, \qquad
+h_4' = \frac{3}{\sqrt{6}} + \frac{4}{2} = 3.225.
+\]
+
+Si osservi che $h_4$ è \emph{sceso} da $4$ a $3.225$ e $h_1$ è \emph{salito} da $1$ a $1.316$: un layer di GCN è un'operazione di media locale, cioè un passo di smoothing sul grafo. Il self-loop serve proprio a evitare che il nodo dimentichi sé stesso, e la normalizzazione $1/\sqrt{\tilde d_i \tilde d_j}$ a evitare che i nodi ad alto grado dominino.
+
+\medskip
+\textbf{Passo 3 — l'over-smoothing, misurato.} Iterando lo stesso operatore, l'energia di Dirichlet $\sum_{(i,j) \in E} \big(h_i/\sqrt{\tilde d_i} - h_j/\sqrt{\tilde d_j}\big)^2$, che misura quanto le rappresentazioni dei nodi adiacenti differiscono, crolla:
+\begin{center}
+\begin{tabular}{lccccc}
+\toprule
+layer & $0$ & $1$ & $2$ & $10$ & $20$ \\
+\midrule
+energia & $1.736$ & $0.712$ & $0.370$ & $2.3\times 10^{-3}$ & $4.2 \times 10^{-6}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+E la cosa peggiore è la prossima. Partendo da due input \emph{completamente diversi}, $(1,2,3,4)$ e $(10,-5,0,3)$, dopo $30$ layer entrambi convergono alla stessa direzione $(0.447,\ 0.548,\ 0.548,\ 0.447) \propto \sqrt{\tilde d}$. La rappresentazione finale dipende solo dai \emph{gradi}: tutta l'informazione contenuta nelle feature è stata cancellata.
+
+\textbf{Il punto da dire}: l'over-smoothing non è un difetto di ottimizzazione, è una proprietà spettrale dell'operatore di propagazione. $\mat{S} = \tilde{\mat{D}}^{-1/2}\tilde{\mat{A}}\tilde{\mat{D}}^{-1/2}$ ha autovalore dominante $1$ con autovettore $\sqrt{\tilde d}$, e iterare $\mat{S}^L$ proietta tutto su quell'autovettore. È per questo che le GNN profonde non funzionano ``e basta'', e perché i rimedi (residual connection, jumping knowledge, PairNorm) agiscono tutti impedendo alla dinamica di raggiungere quel punto fisso.
+
+\textbf{Riscontro}: l'esercizio \texttt{14\_gnn} misura la stessa quantità su un grafo più grande e ottiene $2.21 \to 0.110 \to 1.7\times 10^{-5}$.
+\end{esempiosvolto}
+
+\subsection{GraphSAGE (Hamilton et al.\ 2017)}
+Pensato esplicitamente per setting induttivo:
+\[
+\vect{h}_v^{(\ell+1)} = \sigma\!\left(\mat{W}^{(\ell)}\, [\,\vect{h}_v^{(\ell)} \,\|\, \mathrm{AGG}(\{\vect{h}_u^{(\ell)}\}_{u\in N(v)})\,]\right).
+\]
+AGG può essere mean, max-pool, LSTM. Si campiona un subset di vicini per scalabilità.
+
+\subsection{Graph Isomorphism Network (GIN, Xu et al.\ 2019)}
+Studio dell'\emph{espressività} delle GNN.
+
+\begin{theorem}[Limite Weisfeiler-Lehman]
+Una GNN basata su message passing distingue al massimo le coppie di grafi che il test di Weisfeiler-Lehman (1-WL) distingue.
+\end{theorem}
+
+Per raggiungere il limite, AGGREGATE deve essere \emph{iniettiva}. Sum-aggregation $+$ MLP è iniettiva su multiset (sotto ipotesi tecniche), mean/max no. GIN:
+\[
+\vect{h}_v^{(\ell+1)} = \mathrm{MLP}^{(\ell)}\!\left((1+\epsilon^{(\ell)})\vect{h}_v^{(\ell)} + \sum_{u\in N(v)} \vect{h}_u^{(\ell)}\right).
+\]
+
+\begin{tcolorbox}[mybox, title={GCN vs GraphSAGE vs GIN}]
+\begin{tabular}{lll}
+\toprule
+Modello & AGGREGATE & Note\\
+\midrule
+GCN & media Laplacian-norm & implicito, semplice, soffre over-smoothing\\
+GraphSAGE & mean/max/LSTM su sample & induttivo, scalabile\\
+GIN & sum + MLP & massima expressività (1-WL)\\
+\bottomrule
+\end{tabular}
+\end{tcolorbox}
+
+\begin{esempiosvolto}{perché GIN è più espressivo: due multiset, un aggregatore}
+La domanda dietro GIN è: quando due nodi diversi ricevono la stessa rappresentazione, e quindi il modello non riesce a distinguerli?
+
+Consideriamo un nodo $u$ con tre vicini tutti di feature $1$, e un nodo $v$ con due vicini tutti di feature $1$. I due multiset dei vicini sono
+\[
+\{\!\{1, 1, 1\}\!\} \qquad \text{e} \qquad \{\!\{1, 1\}\!\}.
+\]
+
+\begin{center}
+\begin{tabular}{lccl}
+\toprule
+aggregatore & su $\{\!\{1,1,1\}\!\}$ & su $\{\!\{1,1\}\!\}$ & li distingue? \\
+\midrule
+media  & $1$ & $1$ & \textbf{no} \\
+max    & $1$ & $1$ & \textbf{no} \\
+somma  & $3$ & $2$ & \textbf{sì} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Media e max sono \emph{invarianti alla molteplicità}: perdono l'informazione su quante volte un elemento compare. Poiché GCN usa una media (normalizzata) e GraphSAGE-mean pure, entrambi non riescono a distinguere questi due intorni — e quindi non distinguono grafi che differiscono solo per il numero di vicini identici.
+
+La somma conserva la molteplicità. GIN sfrutta questo fatto:
+\[
+\vect{h}_v^{(\ell+1)} = \mathrm{MLP}\Big((1+\epsilon)\,\vect{h}_v^{(\ell)} + \sum_{u \in N(v)} \vect{h}_u^{(\ell)}\Big),
+\]
+e Xu et al.\ dimostrano che con una MLP sufficientemente espressiva questo schema è \emph{tanto potente quanto il test di Weisfeiler-Lehman a 1 dimensione}, che è il limite superiore di ciò che il message passing può distinguere.
+
+\textbf{Il limite superiore va detto insieme al risultato}: 1-WL non distingue tutto. Due grafi regolari con lo stesso grado — per esempio un ciclo a sei nodi e due triangoli disgiunti — sono indistinguibili da \emph{qualunque} GNN a message passing, GIN incluso, perché ogni nodo ha esattamente lo stesso intorno a ogni distanza. Per superare questa barriera servono feature posizionali, conteggi di sottostrutture, o attenzione globale.
+
+\textbf{E il termine $\epsilon$?} Serve a distinguere il contributo del nodo stesso da quello dei vicini. Con $\epsilon = 0$ il nodo verrebbe sommato al pari di un vicino, e due situazioni diverse potrebbero collassare.
+\end{esempiosvolto}
+
+\section{Edge features}
+
+Quando gli archi hanno feature $\vect{x}_{uv}$, si estende il messaggio:
+\[
+\vect{m}_v^{(\ell+1)} = \mathrm{AGG}\!\left(\{\phi(\vect{h}_u^{(\ell)}, \vect{x}_{uv}) : u\in N(v)\}\right),
+\]
+con $\phi$ una piccola rete. Esempi: \emph{Relational GCN} per knowledge graph (diversi $\mat{W}_r$ per tipo di relazione), \emph{MPNN} per chimica.
+
+%===============================================================
+\begin{tcolorbox}[mywarn, title={Domande d'esame — Message passing e GNN convoluzionali}]
+\begin{enumerate}
+  \item Definisci formalmente il message passing. Quali requisiti deve soddisfare AGGREGATE, e che cosa succede se non li soddisfa?
+  \item Scrivi la regola di aggiornamento della GCN in forma matriciale e per singolo nodo. Da quale approssimazione spettrale deriva, e da dove viene $\tilde{\mat{D}}^{-1/2}\tilde{\mat{A}}\tilde{\mat{D}}^{-1/2}$?
+  \item Perché l'approccio spettrale puro non si generalizza a grafi diversi da quello di training?
+  \item A che cosa serve il self-loop in GCN? E la normalizzazione simmetrica?
+  \item Che cosa cambia GraphSAGE rispetto a GCN, e quale problema pratico risolve il sampling dei vicini?
+  \item Enuncia il legame fra GNN a message passing e il test di Weisfeiler-Lehman a una dimensione. Quale aggregazione raggiunge quel limite, e perché somma e media non sono equivalenti?
+  \item Fai un esempio di due grafi che nessuna GNN a message passing standard, GIN incluso, riesce a distinguere. Che cosa servirebbe per superare la barriera?
+  \item A che cosa serve il termine $\epsilon$ nella formulazione di GIN?
+  \item Come si incorporano le feature sugli archi nello schema di message passing?
+  \item Confronta message passing nelle GNN e belief propagation nei modelli grafici probabilistici: che cosa è analogo e che cosa è diverso.
+  \item Confronta GCN, GraphSAGE e GIN su AGGREGATE, espressività e scalabilità.
+\end{enumerate}
+\end{tcolorbox}
+
+%===============================================================
+\chapter{Graph Attention e Graph Transformer}
+\label{ch:gat}
+
+\begin{risorsevideo}{GDL32 — Graph attention e graph transformer}
+\videolezione{della lezione GDL32, parte finale}
+
+\medskip
+\video{https://www.youtube.com/watch?v=uF53xsT7mjc}{Theoretical Foundations of Graph Neural Networks}{Petar Veličković, ~1h}\\
+Veličković è il primo autore di GAT: la parte su attenzione sui grafi è raccontata da chi l'ha proposta.
+
+\medskip
+\video{https://www.youtube.com/watch?v=bCz4OMemCcA}{Attention is All You Need — spiegazione del modello}{Umar Jamil, ~1h}\\
+Da rivedere per il ponte concettuale: il graph transformer è self-attention su grafo completo più un positional encoding strutturale. Se il meccanismo di attenzione è solido, questo capitolo si riduce a ``dove va la struttura del grafo''.
+\end{risorsevideo}
+
+\section{Graph Attention Network (GAT, Veličković et al.\ 2018)}
+
+Idea: pesare i vicini in modo adattivo via attention. Per ogni coppia $(v, u \in N(v) \cup \{v\})$:
+\begin{align}
+e_{vu}^{(\ell)} &= \mathrm{LeakyReLU}\!\left(\vect{a}^\top [\mat{W}\vect{h}_v^{(\ell)} \,\|\, \mat{W}\vect{h}_u^{(\ell)}]\right)\\
+\alpha_{vu}^{(\ell)} &= \frac{\exp(e_{vu}^{(\ell)})}{\sum_{u'\in N(v)\cup\{v\}} \exp(e_{vu'}^{(\ell)})}\\
+\vect{h}_v^{(\ell+1)} &= \sigma\!\left(\sum_{u\in N(v)\cup\{v\}} \alpha_{vu}^{(\ell)}\, \mat{W}\vect{h}_u^{(\ell)}\right).
+\end{align}
+
+Multi-head: $K$ teste indipendenti, output concatenato (layer intermedi) o medio (output layer).
+
+\paragraph{Differenza con il self-attention del Transformer.} Nel Transformer standard ogni token attiva su tutti gli altri (grafo completo). Nel GAT l'attention è ristretta ai vicini effettivi $N(v)$ del grafo: si rispetta l'\emph{inductive bias} strutturale.
+
+\begin{esempiosvolto}{GAT contro GCN sullo stesso intorno}
+Nodo $v$ con vicinato $\{v, u_1, u_2\}$ (self-loop incluso) e feature trasformate $\mat{W}\vect{h} = (1,\ 2,\ 3)$.
+
+\medskip
+\textbf{GCN.} I coefficienti sono \emph{fissati dalla struttura}: con gradi uguali si ottiene una media semplice,
+\[
+\vect{h}'_v = \frac{1 + 2 + 3}{3} = 2.0.
+\]
+
+\medskip
+\textbf{GAT.} I coefficienti sono \emph{calcolati dalle feature}. Supponiamo che il meccanismo di attenzione produca i punteggi non normalizzati
+\[
+e = \big(\underbrace{0.5}_{\text{self}},\ \underbrace{1.2}_{u_1},\ \underbrace{-0.3}_{u_2}\big),
+\qquad e_{vu} = \mathrm{LeakyReLU}\big(\vect{a}^\top [\mat{W}\vect{h}_v \,\|\, \mat{W}\vect{h}_u]\big).
+\]
+Softmax sul vicinato:
+\[
+\exp(e) = (1.649,\ 3.320,\ 0.741), \quad \textstyle\sum = 5.710
+\;\Rightarrow\;
+\alpha = (0.289,\ 0.582,\ 0.130).
+\]
+\[
+\vect{h}'_v = 0.289(1) + 0.582(2) + 0.130(3) = 1.841.
+\]
+
+\medskip
+\textbf{La differenza in una frase.} GCN pesa i vicini in base a \emph{quanti} sono (e ai loro gradi); GAT in base a \emph{chi} sono. Qui $u_1$ prende il $58\%$ del peso e $u_2$ il $13\%$, mentre GCN avrebbe dato $33\%$ a ciascuno.
+
+\textbf{Le tre conseguenze da nominare all'orale.} Primo: GAT è \emph{induttivo} — i coefficienti dipendono dalle feature, non dalla matrice di adiacenza, quindi funziona su grafi mai visti, a differenza dei metodi spettrali. Secondo: è interpretabile, perché gli $\alpha$ dicono a chi il nodo ha guardato. Terzo, e va detto: essendo l'attenzione una media pesata normalizzata, GAT eredita il limite di espressività della media — non distingue le molteplicità, quindi resta sotto il potere di GIN sul test di Weisfeiler-Lehman. Attenzione e potere discriminativo sono due assi diversi.
+
+\textbf{Multi-head}: come nel Transformer, si calcolano $K$ attenzioni indipendenti e si concatenano (nei layer intermedi) o si mediano (nel layer finale). Serve a stabilizzare il training e a permettere di guardare a più relazioni contemporaneamente.
+\end{esempiosvolto}
+
+\section{Graph Transformer}
+
+Si applica self-attention completa a tutti i nodi (non solo i vicini), pagando il costo $\mathcal{O}(|V|^2)$. La struttura del grafo viene ri-iniettata via \emph{positional/structural encoding}.
+
+\subsection{Positional encoding per grafi}
+\begin{description}
+  \item[Locali] random-walk landing probabilities di lunghezza $k$.
+  \item[Globali] autovettori del Laplaciano $\tilde L$ (analoghi alle frequenze di Fourier).
+  \item[Relativi] distanze pairwise (shortest path, resistance distance).
+\end{description}
+
+\subsection{GPS (Rampášek et al.\ 2022)}
+Combina message passing locale (per inductive bias strutturale) e self-attention globale (per long-range dependencies):
+\[
+\vect{h}_v^{(\ell+1)} = \mathrm{MPNN}_v(\vect{h}^{(\ell)}) + \mathrm{GlobalAttn}_v(\vect{h}^{(\ell)}).
+\]
+
+\section{Pooling e gerarchia}
+
+Per task graph-level la sola READOUT (sum/mean/max) ignora la struttura gerarchica. Alternative:
+\begin{description}
+  \item[DiffPool (Ying et al.\ 2018)] apprende un assignment soft $\mat{S} \in \mathbb{R}^{|V|\times K}$ che mappa nodi a cluster:
+  \[
+  \vect{X}' = \mat{S}^\top \vect{X}, \quad \mat{A}' = \mat{S}^\top \mat{A} \mat{S}.
+  \]
+  \item[Top-K Pooling] mantiene i nodi con score più alto.
+  \item[Edge contraction] coarsening basato su criteri grafici.
+\end{description}
+
+\section{Patologie}
+
+\subsection{Over-smoothing}
+Dopo molti layer di message passing, le rappresentazioni dei nodi diventano simili. Le AGGREGATE basate su media tendono a un punto fisso costante. Mitigazioni: residual connection, jumping knowledge, normalization (PairNorm), modelli con bias verso identità.
+
+\subsection{Over-squashing}
+Un nodo deve aggregare informazioni da una vicinanza che cresce esponenzialmente con il numero di layer, attraverso un vettore di dimensione fissata. Informazione "schiacciata" in un canale stretto. Mitigazioni: edge rewiring, virtual nodes, attention globale.
+
+\begin{trappola}{over-smoothing e over-squashing non sono la stessa cosa}
+Vengono nominati insieme e confusi di continuo. Sono due patologie diverse, con cause diverse e rimedi diversi.
+
+\textbf{Over-smoothing è omogeneizzazione}: dopo molti layer le rappresentazioni dei nodi convergono allo stesso punto e diventano indistinguibili. La causa è spettrale — iterare l'operatore di propagazione proietta tutto sull'autovettore dominante. Il sintomo è che nodi diversi ricevono la stessa rappresentazione. I rimedi agiscono sulla dinamica: residual connection, jumping knowledge, PairNorm.
+
+\textbf{Over-squashing è perdita di banda}: un nodo deve comprimere l'informazione proveniente da un vicinato che cresce esponenzialmente col numero di layer dentro un vettore di dimensione fissa. La causa è la topologia — colli di bottiglia nel grafo attraverso cui deve passare troppa informazione. Il sintomo è che le dipendenze a lungo raggio non arrivano, anche con abbastanza layer. I rimedi agiscono sul grafo o sul canale: rewiring, virtual node, attenzione globale.
+
+\textbf{La verifica rapida}: se aggiungere layer peggiora, è over-smoothing. Se aggiungere layer non basta mai perché l'informazione lontana non arriva comunque, è over-squashing. E se il problema è semplicemente che con $L$ layer non si raggiungono nodi a distanza maggiore di $L$, non è nessuna delle due: è \emph{under-reaching}, ed è l'unica delle tre che si risolve davvero aggiungendo layer — pagando però in over-smoothing.
+\end{trappola}
+
+\subsection{Under-reaching}
+Con $L$ layer si raggiungono solo i nodi a distanza $\leq L$. Per dipendenze a lungo raggio servono molti layer (che amplificano over-smoothing/squashing) o attention globale.
+
+\section{Modelli randomized: Reservoir per grafi}
+
+Estensione delle Echo State Network (Parte III, RNN) ai grafi: i pesi di message passing sono fissi (random, contractive), si addestra solo il readout lineare:
+\[
+\vect{h}(v) = \tanh\!\left(\mat{V}\vect{x}_v + \sum_{u\in N(v)} \mat{W}\vect{h}(u)\right),
+\]
+con $\rho(\mat{W}) < 1$. Training closed-form (regressione ridge). Vantaggi: addestramento veloce, pochi iperparametri. Limiti: meno espressivo di un GNN trained end-to-end.
+
+\begin{tcolorbox}[mybox, title={Quando usare quale GNN}]
+\begin{description}[leftmargin=4em,style=nextline]
+  \item[Grafo omofilo (vicini simili)] GCN o GraphSAGE.
+  \item[Bisogno di pesare i vicini in modo adattivo] GAT.
+  \item[Massima espressività (chimica computazionale)] GIN o MPNN custom.
+  \item[Long-range dependencies] Graph Transformer (GPS).
+  \item[Dataset piccoli / training rapido] Graph Echo State Network.
+  \item[Grafi con archi tipizzati (knowledge graph)] R-GCN.
+  \item[Task graph-level con gerarchia] DiffPool o Top-K Pooling.
+\end{description}
+\end{tcolorbox}
+
+\begin{tcolorbox}[mybox, title={Connessioni}]
+\begin{itemize}
+  \item Message passing $\leftrightarrow$ Belief Propagation: la stessa idea di aggregazione locale dei messaggi (Parte I, reti Bayesiane). La differenza: in PGM i messaggi sono distribuzioni, in GNN sono embedding.
+  \item GAT $\leftrightarrow$ self-attention del Transformer (Parte III): stessa formula, ristretta ai vicini.
+  \item GNN $\leftrightarrow$ CNN: una CNN è un GNN su grafo regolare (griglia). La GCN generalizza la convoluzione a grafi.
+  \item Graph generation $\leftrightarrow$ modelli generativi (Parte IV): graph VAE, graph diffusion (fuori esame).
+\end{itemize}
+\end{tcolorbox}
+
+\begin{tcolorbox}[mywarn, title={Domande d'esame — Graph attention, transformer e patologie}]
+\begin{enumerate}
+  \item Scrivi le equazioni del GAT. Qual è la differenza concettuale fra l'attenzione di un GAT e la self-attention di un Transformer?
+  \item Quando preferiresti un GAT a una GCN, e viceversa? Che cosa guadagni e che cosa perdi.
+  \item Un GAT è più espressivo di un GIN sul test 1-WL? Motiva la risposta.
+  \item A che cosa serve il multi-head in un GAT, e perché nei layer intermedi si concatena mentre nell'ultimo si media?
+  \item Che cos'è un Graph Transformer? Perché serve un positional encoding \emph{strutturale} e che forme può prendere?
+  \item Come si fa pooling gerarchico in una GNN? Spiega DiffPool.
+  \item Che cos'è l'\emph{over-smoothing}? Da che cosa è causato a livello spettrale e come si mitiga.
+  \item Che cos'è l'\emph{over-squashing}? Distinguilo con precisione dall'over-smoothing e di' come un'attenzione globale lo attenua.
+  \item Che cos'è l'\emph{under-reaching}? Perché non si risolve semplicemente aggiungendo layer.
+  \item Che cosa sono i modelli reservoir per grafi? Che cosa si addestra e che cosa resta fisso, e quale condizione deve soddisfare $\mat{W}$.
+  \item Il denoiser di GrIDDD (Parte~\ref{part:griddd}) è un graph transformer: le patologie di questo capitolo valgono anche lì? Che cosa succede a un nodo appena inserito, che ha pochissimi archi?
+\end{enumerate}
+\end{tcolorbox}

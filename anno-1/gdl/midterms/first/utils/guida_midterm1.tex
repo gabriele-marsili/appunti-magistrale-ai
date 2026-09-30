@@ -1,0 +1,899 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[italian]{babel}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{tcolorbox}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{listings}
+
+\geometry{margin=2.5cm}
+\hypersetup{colorlinks=true, linkcolor=blue!70!black, urlcolor=blue!70!black}
+
+\definecolor{boxblue}{RGB}{230,240,255}
+\definecolor{boxred}{RGB}{255,235,235}
+\definecolor{boxgreen}{RGB}{230,255,235}
+\definecolor{boxyellow}{RGB}{255,250,220}
+\definecolor{codebg}{RGB}{245,245,245}
+
+\newtcolorbox{infobox}[1][]{colback=boxblue, colframe=blue!50!black, title={#1}, fonttitle=\bfseries}
+\newtcolorbox{warnbox}[1][]{colback=boxred, colframe=red!50!black, title={#1}, fonttitle=\bfseries}
+\newtcolorbox{tipbox}[1][]{colback=boxgreen, colframe=green!50!black, title={#1}, fonttitle=\bfseries}
+\newtcolorbox{exbox}[1][]{colback=boxyellow, colframe=orange!60!black, title={#1}, fonttitle=\bfseries}
+
+\lstset{
+    backgroundcolor=\color{codebg},
+    basicstyle=\ttfamily\small,
+    frame=single,
+    framerule=0.5pt,
+    rulecolor=\color{gray!50},
+    breaklines=true,
+    columns=fullflexible,
+    keepspaces=true,
+    showstringspaces=false,
+    commentstyle=\color{green!50!black},
+    keywordstyle=\color{blue!70!black},
+}
+
+\title{\textbf{Guida al Midterm 1}\\[0.3em]\large Gaussian Mixture Model con EM Algorithm\\[0.2em]\normalsize Versione dettagliata con esempi concreti}
+\author{GDL -- Generative and Deep Learning (UniPI)}
+\date{}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+%=============================================================================
+\section{Panoramica del compito}
+%=============================================================================
+
+Si richiede di implementare un \textbf{Gaussian Mixture Model (GMM)} addestrato tramite l'algoritmo \textbf{Expectation-Maximization (EM)}, con selezione del modello tramite \textbf{BIC}. Nello specifico:
+
+\begin{enumerate}
+    \item \texttt{log\_likelihood(samples)} -- calcola $\log P(\mathbf{X}\mid\boldsymbol{\theta})$
+    \item \texttt{fit(samples)} -- addestra i parametri con EM
+    \item \texttt{bic(samples)} -- calcola il Bayesian Information Criterion
+    \item Selezionare il miglior $K$ tra $\{1,\ldots,6\}$ massimizzando il BIC
+\end{enumerate}
+
+\begin{warnbox}[Vincolo importante]
+La matrice di covarianza \`e \textbf{diagonale}: per ogni Gaussiana $k$ si memorizza solo un vettore di varianze $\boldsymbol{\sigma}_k$ di dimensione $d$ (non una matrice $d \times d$).
+\end{warnbox}
+
+%-----------------------------------------------------------------------------
+\subsection{Il dataset di training}
+%-----------------------------------------------------------------------------
+
+Il file \texttt{train.csv} contiene:
+\begin{itemize}
+    \item $N = 800$ campioni (righe)
+    \item $d = 5$ feature (colonne): \texttt{x1, x2, x3, x4, x5}
+    \item Valori continui a virgola mobile (es.\ $-1.988$, $0.309$, ecc.)
+\end{itemize}
+
+Quando nel codice di training si fa \texttt{train\_df = pd.read\_csv('train.csv')}, si ottiene un DataFrame pandas. La riga \texttt{gmm.fit(train\_df.values)} passa al metodo \texttt{fit} un \textbf{array numpy} di shape \texttt{(800, 5)}.
+
+\begin{exbox}[Come pensare ai dati]
+Immagina una tabella con 800 righe e 5 colonne. Ogni riga \`e un \textbf{punto} in uno spazio a 5 dimensioni. Il GMM cerca di spiegare questi 800 punti come generati da una miscela di $K$ ``nuvole'' gaussiane, ognuna con il suo centro ($\boldsymbol{\mu}_k$), la sua dispersione ($\boldsymbol{\sigma}_k$) e il suo peso ($\pi_k$).
+\end{exbox}
+
+\begin{infobox}[Notazione: come leggere gli indici]
+In tutto il documento:
+\begin{itemize}
+    \item $j = 1,\ldots,N$ indicizza i \textbf{campioni} (righe del dataset, $N=800$)
+    \item $k = 1,\ldots,K$ indicizza le \textbf{componenti} Gaussiane (cluster)
+    \item $l = 1,\ldots,d$ indicizza le \textbf{feature}/dimensioni (colonne, $d=5$)
+    \item $\mathbf{x}_j \in \mathbb{R}^d$ \`e il $j$-esimo campione (un vettore di 5 numeri)
+    \item $x_{j,l}$ \`e la $l$-esima feature del $j$-esimo campione (un singolo numero)
+\end{itemize}
+\end{infobox}
+
+%=============================================================================
+\section{Cos'\`e un GMM}
+%=============================================================================
+
+Un GMM modella i dati come provenienti da una \textbf{miscela di $K$ distribuzioni Gaussiane}. L'idea intuitiva: nei dati ci sono $K$ ``gruppi'' (cluster), ognuno con una forma a campana multidimensionale. Non sappiamo a quale gruppo appartenga ciascun dato (variabile \textbf{latente/nascosta} $z$).
+
+\medskip
+Il processo generativo per ogni dato $\mathbf{x}$ \`e:
+\begin{enumerate}
+    \item \textbf{Scegli un cluster} $k$ con probabilit\`a $\pi_k$ (es.\ 30\% cluster 1, 50\% cluster 2, 20\% cluster 3)
+    \item \textbf{Genera} $\mathbf{x}$ dalla Gaussiana $\mathcal{N}(\boldsymbol{\mu}_k, \boldsymbol{\Sigma}_k)$ di quel cluster
+\end{enumerate}
+
+La densit\`a di probabilit\`a per un singolo punto $\mathbf{x}$ \`e:
+\begin{equation}
+    \boxed{P(\mathbf{x}\mid\boldsymbol{\theta}) = \sum_{k=1}^{K} \pi_k \;\mathcal{N}(\mathbf{x}\mid\boldsymbol{\mu}_k, \boldsymbol{\sigma}_k)}
+    \label{eq:gmm}
+\end{equation}
+
+\textbf{I parametri del modello} $\boldsymbol{\theta} = (\boldsymbol{\pi}, \boldsymbol{\mu}, \boldsymbol{\sigma})$ sono:
+\begin{itemize}
+    \item $\pi_k$: peso della $k$-esima componente (\emph{mixing coefficient}), con $\sum_{k=1}^K \pi_k = 1$
+
+    \texttt{\_pi}: array numpy di shape \texttt{(K,)}, es.\ per $K=3$: \texttt{[0.3, 0.5, 0.2]}
+
+    \item $\boldsymbol{\mu}_k \in \mathbb{R}^d$: vettore media della $k$-esima Gaussiana (il ``centro'' del cluster)
+
+    \texttt{\_mu}: array numpy di shape \texttt{(K, d)}, es.\ per $K=3, d=5$: shape \texttt{(3, 5)}
+
+    \item $\boldsymbol{\sigma}_k \in \mathbb{R}^d$: vettore di varianze diagonali (la ``dispersione'' del cluster lungo ogni asse)
+
+    \texttt{\_sigma}: array numpy di shape \texttt{(K, d)}, es.\ per $K=3, d=5$: shape \texttt{(3, 5)}
+\end{itemize}
+
+%-----------------------------------------------------------------------------
+\subsection{Gaussiana multivariata con covarianza diagonale}
+%-----------------------------------------------------------------------------
+
+Poich\'e $\boldsymbol{\Sigma}_k$ \`e diagonale, la densit\`a si \textbf{fattorizza} come prodotto sulle dimensioni. Questo \`e il punto chiave che semplifica enormemente il calcolo.
+
+\begin{equation}
+    \mathcal{N}(\mathbf{x}\mid\boldsymbol{\mu}_k, \boldsymbol{\sigma}_k) = \prod_{l=1}^{d} \frac{1}{\sqrt{2\pi\,\sigma_{k,l}^2}} \exp\!\left(-\frac{(x_l - \mu_{k,l})^2}{2\,\sigma_{k,l}^2}\right)
+\end{equation}
+
+\begin{exbox}[Esempio concreto con il nostro dataset ($d=5$)]
+Supponiamo di avere la componente $k=1$ con:
+\begin{itemize}
+    \item $\boldsymbol{\mu}_1 = (-2.0,\; 0.5,\; -1.0,\; 2.0,\; -3.0)$ -- il centro
+    \item $\boldsymbol{\sigma}_1^2 = (1.5,\; 1.0,\; 2.0,\; 1.5,\; 1.0)$ -- le varianze
+\end{itemize}
+Per il punto $\mathbf{x}_1 = (-1.99,\; -1.15,\; 0.31,\; 1.43,\; -4.13)$ dal dataset, calcoliamo:
+$$\mathcal{N}(\mathbf{x}_1\mid\boldsymbol{\mu}_1, \boldsymbol{\sigma}_1) = \underbrace{\frac{1}{\sqrt{2\pi \cdot 1.5}}e^{-\frac{(-1.99+2.0)^2}{2 \cdot 1.5}}}_{\text{dim.\ 1}} \times \underbrace{\frac{1}{\sqrt{2\pi \cdot 1.0}}e^{-\frac{(-1.15-0.5)^2}{2 \cdot 1.0}}}_{\text{dim.\ 2}} \times \cdots$$
+Ogni fattore \`e una Gaussiana \textbf{univariata} indipendente. Questo \`e il vantaggio della covarianza diagonale!
+\end{exbox}
+
+In \textbf{log-space} (fondamentale per l'implementazione):
+
+\begin{equation}
+    \boxed{\log \mathcal{N}(\mathbf{x}\mid\boldsymbol{\mu}_k, \boldsymbol{\sigma}_k) = -\frac{d}{2}\log(2\pi) - \frac{1}{2}\sum_{l=1}^{d}\log\sigma_{k,l}^2 - \frac{1}{2}\sum_{l=1}^{d}\frac{(x_l - \mu_{k,l})^2}{\sigma_{k,l}^2}}
+    \label{eq:log_gauss}
+\end{equation}
+
+\begin{tipbox}[Come tradurlo in numpy -- ragionamento]
+L'equazione~\eqref{eq:log_gauss} con un singolo campione $\mathbf{x}_j$ e una singola componente $k$ produce \textbf{uno scalare}. Ma in numpy puoi calcolarla per \textbf{tutti i campioni e tutte le componenti in una volta} usando il broadcasting:
+\begin{itemize}
+    \item \texttt{samples} ha shape \texttt{(N, d)} $= (800, 5)$
+    \item \texttt{\_mu} ha shape \texttt{(K, d)}
+    \item \texttt{\_sigma} ha shape \texttt{(K, d)} (le varianze)
+\end{itemize}
+Se espandi \texttt{samples} a shape \texttt{(N, 1, d)} e \texttt{\_mu} a shape \texttt{(1, K, d)}, la differenza \texttt{samples[:, None, :] - \_mu[None, :, :]} ha shape \texttt{(N, K, d)} e contiene tutte le differenze $(x_{j,l} - \mu_{k,l})$ per ogni $j, k, l$. Poi puoi sommare lungo l'asse $d$ (l'ultimo) per ottenere una matrice \texttt{(N, K)}: la log-densit\`a di ogni campione sotto ogni componente.
+\end{tipbox}
+
+\begin{infobox}[Che cosa salvare in \texttt{\_sigma}?]
+Puoi scegliere se salvare le \textbf{varianze} $\sigma_{k,l}^2$ o le \textbf{deviazioni standard} $\sigma_{k,l}$. L'importante \`e essere coerenti. Consiglio: salva le \textbf{varianze} ($\sigma^2$), cos\`i le formule del M-step e della Gaussiana corrispondono direttamente. Quando calcoli la log-Gaussiana, il termine $\log \sigma_{k,l}^2$ diventa semplicemente \texttt{np.log(\_sigma)}.
+\end{infobox}
+
+%=============================================================================
+\section{Log-Likelihood: il cuore della valutazione}
+%=============================================================================
+
+La \textbf{log-likelihood} misura quanto bene il modello spiega i dati. Pi\`u \`e alta, meglio \`e.
+
+%-----------------------------------------------------------------------------
+\subsection{Le tre sommatorie: $l$, $k$, $j$}
+%-----------------------------------------------------------------------------
+
+Il calcolo della log-likelihood coinvolge \textbf{tre sommatorie annidate}, ognuna su un indice diverso. \`E fondamentale capire cosa fa ognuna:
+
+\begin{center}
+\begin{tabular}{clcl}
+    \toprule
+    \textbf{Indice} & \textbf{Su cosa somma} & \textbf{Range} & \textbf{Cosa produce} \\
+    \midrule
+    $l$ & le \textbf{feature} (colonne) & $1 \ldots d = 5$ & la log-Gaussiana di un singolo $(j, k)$ \\
+    $k$ & le \textbf{componenti} (cluster) & $1 \ldots K$ & la log-prob.\ di un singolo campione $j$ \\
+    $j$ & i \textbf{campioni} (righe) & $1 \ldots N = 800$ & la log-likelihood totale (scalare) \\
+    \bottomrule
+\end{tabular}
+\end{center}
+
+Vediamole una per una, dall'interno verso l'esterno.
+
+%-----------------------------------------------------------------------------
+\subsection{Sommatoria su $l$ (feature): la log-Gaussiana}
+%-----------------------------------------------------------------------------
+
+Fissato un campione $j$ e una componente $k$, la log-Gaussiana (eq.~\eqref{eq:log_gauss}) somma sulle $d=5$ feature:
+
+\begin{equation*}
+    \log \mathcal{N}(\mathbf{x}_j\mid\boldsymbol{\mu}_k, \boldsymbol{\sigma}_k) =
+    \underbrace{-\frac{d}{2}\log(2\pi)}_{\text{costante}}
+    \underbrace{- \frac{1}{2}\sum_{l=1}^{d}\log\sigma_{k,l}^2}_{\text{somma su le 5 feature}}
+    \underbrace{- \frac{1}{2}\sum_{l=1}^{d}\frac{(x_{j,l} - \mu_{k,l})^2}{\sigma_{k,l}^2}}_{\text{somma su le 5 feature}}
+\end{equation*}
+
+\begin{exbox}[Esempio numerico: $\log\mathcal{N}$ per $j=1$, $k=1$, $d=5$]
+Con: $\mathbf{x}_1 = (-2.0,\; -1.2,\; 0.3,\; 1.4,\; -4.1)$, $\boldsymbol{\mu}_1 = (-2.0,\; 0.5,\; -1.0,\; 2.0,\; -3.0)$, $\boldsymbol{\sigma}_1^2 = (1.5,\; 1.0,\; 2.0,\; 1.5,\; 1.0)$
+
+\medskip
+\textbf{Termine 1} (costante): $-\frac{5}{2}\log(2\pi) = -2.5 \times 1.838 = -4.594$
+
+\medskip
+\textbf{Termine 2} (somma di 5 log-varianze, scritti uno per uno):
+\begin{align*}
+\sum_{l=1}^{5} \log\sigma_{1,l}^2 &= \log(1.5) + \log(1.0) + \log(2.0) + \log(1.5) + \log(1.0) \\
+&= 0.405 + 0 + 0.693 + 0.405 + 0 = 1.503
+\end{align*}
+Moltiplicato per $-\frac{1}{2}$: $-0.752$
+
+\medskip
+\textbf{Termine 3} (somma di 5 scarti quadratici normalizzati, scritti uno per uno):
+\begin{align*}
+\sum_{l=1}^{5}\frac{(x_{1,l} - \mu_{1,l})^2}{\sigma_{1,l}^2} &= \frac{(-2+2)^2}{1.5} + \frac{(-1.2-0.5)^2}{1.0} + \frac{(0.3+1)^2}{2.0} + \frac{(1.4-2)^2}{1.5} + \frac{(-4.1+3)^2}{1.0} \\
+&= \frac{0}{1.5} + \frac{2.89}{1.0} + \frac{1.69}{2.0} + \frac{0.36}{1.5} + \frac{1.21}{1.0} \\
+&= 0 + 2.89 + 0.845 + 0.24 + 1.21 = 5.185
+\end{align*}
+Moltiplicato per $-\frac{1}{2}$: $-2.593$
+
+\medskip
+\textbf{Risultato}: $\log\mathcal{N}(\mathbf{x}_1\mid\boldsymbol{\mu}_1, \boldsymbol{\sigma}_1) = -4.594 + (-0.752) + (-2.593) = \mathbf{-7.939}$
+
+\medskip
+Questo singolo numero dice: ``il campione $\mathbf{x}_1$ sotto la Gaussiana $k=1$ ha log-densit\`a $-7.939$''.
+
+La sommatoria su $l$ ha ``consumato'' le 5 dimensioni, producendo \textbf{un solo numero} per la coppia $(j=1, k=1)$.
+\end{exbox}
+
+Calcolando questo per \textbf{ogni} combinazione di $j$ e $k$, ottieni una matrice di shape $(N, K)$ --- la log-densit\`a di ogni campione sotto ogni componente. La chiamiamo \texttt{log\_gauss}.
+
+%-----------------------------------------------------------------------------
+\subsection{Sommatoria su $k$ (componenti): la probabilit\`a del campione}
+%-----------------------------------------------------------------------------
+
+Prima di sommare su $k$, aggiungi il peso $\log\pi_k$ a ogni colonna della matrice \texttt{log\_gauss}:
+
+$$\texttt{log\_weighted}[j, k] = \log\pi_k + \texttt{log\_gauss}[j, k]$$
+
+Questa matrice ha ancora shape $(N, K)$ e si chiama \texttt{log\_weighted}. Ogni elemento contiene:
+$$\texttt{log\_weighted}[j, k] = \log\pi_k + \log\mathcal{N}(\mathbf{x}_j\mid\boldsymbol{\mu}_k, \boldsymbol{\sigma}_k) = \log\!\bigl(\pi_k \cdot \mathcal{N}(\mathbf{x}_j\mid\boldsymbol{\mu}_k, \boldsymbol{\sigma}_k)\bigr)$$
+
+Ora, per ottenere $\log P(\mathbf{x}_j\mid\boldsymbol{\theta})$, devi ``ricombinare'' le $K$ componenti con il logsumexp sulla riga $j$:
+
+$$\log P(\mathbf{x}_j\mid\boldsymbol{\theta}) = \log\!\left(\sum_{k=1}^{K} e^{\texttt{log\_weighted}[j,k]}\right) = \operatorname{logsumexp}_k\!\bigl(\texttt{log\_weighted}[j,:]\bigr)$$
+
+Risultato: un vettore di $N$ valori, uno per campione. Lo chiamiamo \texttt{log\_denom}.
+
+\begin{exbox}[Esempio: dalla matrice al vettore, con $K=3$]
+Supponiamo che per il campione $j=1$ i tre valori di \texttt{log\_weighted} siano:
+\begin{center}
+\begin{tabular}{ccc}
+$k=1$ & $k=2$ & $k=3$ \\
+\midrule
+$-8.855$ & $-7.450$ & $-9.200$ \\
+\end{tabular}
+\end{center}
+
+Applico logsumexp: $a^* = -7.450$
+$$\log P(\mathbf{x}_1\mid\boldsymbol{\theta}) = -7.450 + \log\!\bigl(e^{-8.855+7.450} + e^{0} + e^{-9.200+7.450}\bigr)$$
+$$= -7.450 + \log(e^{-1.405} + 1 + e^{-1.750}) = -7.450 + \log(0.245 + 1 + 0.174)$$
+$$= -7.450 + \log(1.419) = -7.450 + 0.350 = \mathbf{-7.100}$$
+
+La sommatoria su $k$ ha ``consumato'' le $K$ componenti, producendo \textbf{un solo numero} per il campione $j=1$.
+\end{exbox}
+
+%-----------------------------------------------------------------------------
+\subsection{Sommatoria su $j$ (campioni): la log-likelihood}
+%-----------------------------------------------------------------------------
+
+Infine, sommi su tutti gli $N$ campioni:
+\begin{equation}
+    \log P(\mathbf{X}\mid\boldsymbol{\theta}) = \sum_{j=1}^{N} \texttt{log\_denom}[j]
+    \label{eq:ll}
+\end{equation}
+
+Risultato: \textbf{uno scalare}. Questo \`e il valore che restituisce \texttt{log\_likelihood()}.
+
+\begin{infobox}[Riepilogo: le tre sommatorie riducono le dimensioni]
+\begin{center}
+\begin{tabular}{ll}
+\textbf{Partenza:} & dataset $(N, d)$ + parametri $(K, d)$ \\
+$\xrightarrow{\sum_l}$ & matrice \texttt{log\_gauss} di shape $(N, K)$ --- consuma le $d$ feature \\
+$\xrightarrow{+\log\pi}$ & matrice \texttt{log\_weighted} di shape $(N, K)$ --- aggiunge i pesi \\
+$\xrightarrow{\text{logsumexp}_k}$ & vettore \texttt{log\_denom} di shape $(N,)$ --- consuma le $K$ componenti \\
+$\xrightarrow{\sum_j}$ & scalare (log-likelihood) --- consuma gli $N$ campioni \\
+\end{tabular}
+\end{center}
+\end{infobox}
+
+%-----------------------------------------------------------------------------
+\subsection{Trucco Log-Sum-Exp: perch\'e e come}
+%-----------------------------------------------------------------------------
+
+\textbf{Il problema.} Nella sommatoria su $k$, dobbiamo calcolare $\log\!\bigl(\sum_k e^{a_k}\bigr)$. Se $a_k$ sono molto negativi (es.\ $-500$), allora $e^{a_k} \approx 0$ e il computer lo arrotonda a $0$. Poi $\log(0) = -\infty$. Risultato: calcolo inutile.
+
+\textbf{La soluzione.} Sottrarre il massimo prima di esponenziare:
+\begin{equation}
+    \boxed{\log\!\left(\sum_k e^{a_k}\right) = a^* + \log\!\left(\sum_k e^{a_k - a^*}\right), \qquad a^* = \max_k\, a_k}
+    \label{eq:logsumexp}
+\end{equation}
+
+\textbf{Perch\'e funziona.} Dopo aver sottratto $a^*$, almeno un termine \`e $e^0 = 1$, e gli altri sono $e^{\text{negativo}} \leq 1$. La somma \`e quindi $\geq 1$, e il logaritmo non esplode.
+
+\begin{exbox}[Esempio numerico]
+Supponiamo $K = 3$ e per un certo campione $j$:
+$$a_{j,1} = -502.3, \quad a_{j,2} = -498.1, \quad a_{j,3} = -501.7$$
+\textbf{Senza trucco:} $e^{-502.3} + e^{-498.1} + e^{-501.7} \approx 0 + 0 + 0 = 0$ $\Rightarrow$ $\log(0)$ = errore!
+
+\textbf{Con trucco:} $a^* = -498.1$
+$$a_{j,1} - a^* = -4.2, \quad a_{j,2} - a^* = 0, \quad a_{j,3} - a^* = -3.6$$
+$$\log\!\left(e^{-4.2} + e^{0} + e^{-3.6}\right) = \log(0.015 + 1 + 0.027) = \log(1.042) = 0.041$$
+Risultato finale: $-498.1 + 0.041 = -498.06$. Nessun problema numerico!
+\end{exbox}
+
+%=============================================================================
+\section{La funzione \texttt{\_compute\_log\_weighted}: dal concetto al codice}
+%=============================================================================
+
+Questa funzione calcola la matrice \texttt{log\_weighted} di shape $(N, K)$ descritta sopra. \`E il \textbf{mattone fondamentale} che viene riusato sia da \texttt{log\_likelihood} sia dall'E-step di EM.
+
+\medskip
+Ogni elemento della matrice contiene:
+$$\texttt{log\_weighted}[j, k] = \underbrace{\log\pi_k}_{\text{peso}} + \underbrace{\log\mathcal{N}(\mathbf{x}_j\mid\boldsymbol{\mu}_k, \boldsymbol{\sigma}_k)}_{\text{log-Gaussiana (la somma su $l$)}}$$
+
+%-----------------------------------------------------------------------------
+\subsection{Dalla formula alla log-Gaussiana: i tre pezzi}
+%-----------------------------------------------------------------------------
+
+Ricordiamo la formula~\eqref{eq:log_gauss} per un singolo $(j, k)$:
+$$\log \mathcal{N}(\mathbf{x}_j\mid\boldsymbol{\mu}_k, \boldsymbol{\sigma}_k) = \underbrace{-\frac{d}{2}\log(2\pi)}_{\textbf{PEZZO A}} \underbrace{- \frac{1}{2}\sum_{l=1}^{d}\log\sigma_{k,l}^2}_{\textbf{PEZZO B}} \underbrace{- \frac{1}{2}\sum_{l=1}^{d}\frac{(x_{j,l} - \mu_{k,l})^2}{\sigma_{k,l}^2}}_{\textbf{PEZZO C}}$$
+
+Vediamo come calcolare ciascuno in numpy, pezzo per pezzo.
+
+%-----------------------------------------------------------------------------
+\subsection{PEZZO A: la costante $-\frac{d}{2}\log(2\pi)$}
+%-----------------------------------------------------------------------------
+
+\`E un singolo numero, uguale per tutti i campioni e tutte le componenti. Con $d = 5$:
+$$-\frac{5}{2}\log(2\pi) = -2.5 \times 1.838 = -4.594$$
+
+In numpy: semplicemente \texttt{-0.5 * d * np.log(2 * np.pi)}.
+
+%-----------------------------------------------------------------------------
+\subsection{PEZZO B: $-\frac{1}{2}\sum_{l=1}^{d}\log\sigma_{k,l}^2$}
+%-----------------------------------------------------------------------------
+
+Questo pezzo dipende solo da $k$ (non da $j$): le varianze sono propriet\`a della componente, non del campione.
+
+\texttt{self.\_sigma} ha shape $(K, d)$, es.\ con $K=3$, $d=5$:
+$$\texttt{\_sigma} = \begin{pmatrix} \sigma_{1,1}^2 & \sigma_{1,2}^2 & \sigma_{1,3}^2 & \sigma_{1,4}^2 & \sigma_{1,5}^2 \\ \sigma_{2,1}^2 & \sigma_{2,2}^2 & \sigma_{2,3}^2 & \sigma_{2,4}^2 & \sigma_{2,5}^2 \\ \sigma_{3,1}^2 & \sigma_{3,2}^2 & \sigma_{3,3}^2 & \sigma_{3,4}^2 & \sigma_{3,5}^2 \end{pmatrix}$$
+
+Operazioni:
+\begin{enumerate}
+    \item \texttt{np.log(self.\_sigma)} --- prende il $\log$ di ogni elemento. Shape: ancora $(K, d)$
+    \item \texttt{np.sum(..., axis=1)} --- somma lungo l'asse 1, cio\`e \textbf{lungo le colonne} (le $d$ feature). Questo fa la $\sum_{l=1}^d$. Shape risultante: $(K,)$ --- un valore per componente
+\end{enumerate}
+
+In numpy: \texttt{log\_var\_sum = np.sum(np.log(self.\_sigma), axis=1)} --- shape $(K,)$.
+
+\begin{exbox}[Esempio con $K=3$, $d=5$]
+Se $\texttt{\_sigma} = \bigl[\![1.5, 1.0, 2.0, 1.5, 1.0],\; [0.8, 1.2, 0.5, 2.0, 1.5],\; [1.0, 1.0, 1.0, 1.0, 1.0]\!\bigr]$:
+
+\texttt{np.log(\_sigma)} $\to$ $\bigl[\![0.41, 0, 0.69, 0.41, 0],\; [-0.22, 0.18, -0.69, 0.69, 0.41],\; [0, 0, 0, 0, 0]\!\bigr]$
+
+\texttt{np.sum(..., axis=1)} $\to$ $[1.50,\; 0.37,\; 0]$ --- shape $(3,)$, un valore per ognuna delle 3 componenti.
+\end{exbox}
+
+%-----------------------------------------------------------------------------
+\subsection{PEZZO C: $-\frac{1}{2}\sum_{l=1}^{d}\frac{(x_{j,l} - \mu_{k,l})^2}{\sigma_{k,l}^2}$}
+%-----------------------------------------------------------------------------
+
+Questo \`e il pezzo pi\`u complesso perch\'e dipende sia da $j$ sia da $k$. Scomponilo in sotto-operazioni:
+
+\bigskip
+\textbf{Sotto-passo C1: le differenze $(x_{j,l} - \mu_{k,l})$}
+
+Hai \texttt{samples} di shape $(N, d)$ e \texttt{\_mu} di shape $(K, d)$. Vuoi calcolare la differenza per \textbf{ogni} combinazione $(j, k, l)$. Il trucco in numpy \`e aggiungere un asse per rendere le dimensioni compatibili:
+
+\begin{itemize}
+    \item \texttt{samples[:, None, :]} --- da shape $(N, d)$ a shape $(N, 1, d)$. Il \texttt{None} aggiunge un asse ``vuoto'' in mezzo.
+    \item \texttt{self.\_mu[None, :, :]} --- da shape $(K, d)$ a shape $(1, K, d)$. Il \texttt{None} aggiunge un asse all'inizio.
+    \item La sottrazione produce shape $(N, K, d)$: numpy ``replica'' automaticamente lungo gli assi di dimensione 1.
+\end{itemize}
+
+\begin{exbox}[Cosa contiene il risultato $(N, K, d)$]
+L'elemento $[j, k, l]$ contiene $x_{j,l} - \mu_{k,l}$, cio\`e ``di quanto il campione $j$ si discosta dal centro $k$ lungo la feature $l$''. Con $N=800$, $K=3$, $d=5$ ottieni un array 3D di $800 \times 3 \times 5 = 12\,000$ numeri --- tutte le differenze possibili!
+\end{exbox}
+
+\bigskip
+\textbf{Sotto-passo C2: eleva al quadrato}
+
+\texttt{diff\_sq = diff ** 2} --- shape ancora $(N, K, d)$. Ogni elemento ora contiene $(x_{j,l} - \mu_{k,l})^2$.
+
+\bigskip
+\textbf{Sotto-passo C3: dividi per le varianze}
+
+\texttt{self.\_sigma} ha shape $(K, d)$. Per dividerlo con \texttt{diff\_sq} di shape $(N, K, d)$, devi aggiungere un asse:
+
+\texttt{self.\_sigma[None, :, :]} ha shape $(1, K, d)$ $\Rightarrow$ numpy lo replica $N$ volte.
+
+\texttt{scaled = diff\_sq / self.\_sigma[None, :, :]} --- shape $(N, K, d)$. L'elemento $[j,k,l]$ ora contiene $\frac{(x_{j,l} - \mu_{k,l})^2}{\sigma_{k,l}^2}$.
+
+\bigskip
+\textbf{Sotto-passo C4: somma sulle feature}
+
+\texttt{mahal = np.sum(scaled, axis=2)} --- somma sull'asse 2 (l'ultimo, quello delle $d$ feature). Questo fa la $\sum_{l=1}^d$. Shape risultante: $(N, K)$.
+
+L'elemento $[j, k]$ contiene $\sum_{l=1}^{d}\frac{(x_{j,l} - \mu_{k,l})^2}{\sigma_{k,l}^2}$ --- un singolo numero che dice ``quanto \`e distante il campione $j$ dalla Gaussiana $k$''.
+
+%-----------------------------------------------------------------------------
+\subsection{Assemblare i tre pezzi}
+%-----------------------------------------------------------------------------
+
+$$\texttt{log\_gauss} = \underbrace{-0.5 \cdot d \cdot \log(2\pi)}_{\text{PEZZO A: scalare}} + \underbrace{(-0.5) \cdot \texttt{log\_var\_sum}}_{\text{PEZZO B: shape $(K,)$}} + \underbrace{(-0.5) \cdot \texttt{mahal}}_{\text{PEZZO C: shape $(N, K)$}}$$
+
+Il PEZZO B ha shape $(K,)$, ma deve sommarsi con il PEZZO C di shape $(N, K)$. Si usa \texttt{log\_var\_sum[None, :]} per portarlo a shape $(1, K)$, poi numpy lo replica per tutte le $N$ righe.
+
+Risultato: \texttt{log\_gauss} ha shape $(N, K)$.
+
+\medskip
+\textbf{Infine}, aggiungi $\log\pi_k$:
+
+\texttt{np.log(self.\_pi)} ha shape $(K,)$. Con \texttt{[None, :]} diventa $(1, K)$, poi broadcast a $(N, K)$.
+
+$$\texttt{log\_weighted} = \texttt{log\_gauss} + \texttt{np.log(self.\_pi)[None, :]}$$
+
+Shape finale: $(N, K)$.
+
+%-----------------------------------------------------------------------------
+\subsection{Da \texttt{log\_weighted} a \texttt{log\_likelihood}}
+%-----------------------------------------------------------------------------
+
+Ora hai la matrice \texttt{log\_weighted} di shape $(N, K)$. Per la log-likelihood:
+
+\begin{enumerate}
+    \item \textbf{Logsumexp per ogni riga} (sommatoria su $k$):
+    \begin{itemize}
+        \item Trova il massimo di ogni riga: \texttt{a\_max = np.max(log\_weighted, axis=1)} --- shape $(N,)$
+        \item Sottrai, esponenzia, somma, log:
+
+        \texttt{log\_denom = a\_max + np.log(np.sum(np.exp(log\_weighted - a\_max[:, None]), axis=1))}
+
+        Il \texttt{a\_max[:, None]} trasforma shape $(N,)$ in $(N, 1)$ per poterlo sottrarre da ogni colonna della matrice $(N, K)$. Dopo \texttt{np.sum(..., axis=1)} si ottiene shape $(N,)$.
+    \end{itemize}
+    \item \textbf{Somma su tutti i campioni} (sommatoria su $j$):
+
+    \texttt{return np.sum(log\_denom)} --- uno scalare
+\end{enumerate}
+
+\begin{tipbox}[La matrice \texttt{log\_weighted} si riusa ovunque]
+La stessa matrice \texttt{log\_weighted} e lo stesso vettore \texttt{log\_denom} servono anche nell'E-step per calcolare le responsabilit\`a (Sezione~6.1). Per questo conviene mettere il calcolo in una funzione separata \texttt{\_compute\_log\_weighted}.
+\end{tipbox}
+
+%=============================================================================
+\section{Inizializzazione con K-Means++}
+%=============================================================================
+
+L'inizializzazione dei centri ($\boldsymbol{\mu}$) \`e cruciale. K-means++ sceglie $K$ punti dal dataset in modo che siano \textbf{ben distanziati} tra loro, aumentando le probabilit\`a che EM converga a una buona soluzione.
+
+%-----------------------------------------------------------------------------
+\subsection{L'algoritmo K-Means++ passo passo}
+%-----------------------------------------------------------------------------
+
+\begin{algorithm}[H]
+\caption{K-Means++ -- inizializzazione dei centri}
+\begin{algorithmic}[1]
+\Require Dataset $\mathbf{X} \in \mathbb{R}^{N \times d}$, numero di centri $K$
+\Ensure Centri iniziali $\boldsymbol{\mu}_1, \ldots, \boldsymbol{\mu}_K$
+
+\State \textbf{Passo 1:} Scegli $\boldsymbol{\mu}_1$ uniformemente a caso tra gli $N$ campioni
+\For{$k = 2, \ldots, K$}
+    \State \textbf{Passo 2:} Per ogni campione $\mathbf{x}_j$, calcola la distanza al centro pi\`u vicino \textbf{gi\`a scelto}:
+    $$D(\mathbf{x}_j) = \min_{k' < k} \|\mathbf{x}_j - \boldsymbol{\mu}_{k'}\|^2$$
+    \State \textbf{Passo 3:} Scegli $\boldsymbol{\mu}_k$ tra i campioni con probabilit\`a proporzionale a $D(\mathbf{x}_j)$:
+    $$P(\text{scegli } \mathbf{x}_j) = \frac{D(\mathbf{x}_j)}{\sum_{i=1}^{N} D(\mathbf{x}_i)}$$
+\EndFor
+\end{algorithmic}
+\end{algorithm}
+
+\begin{exbox}[Esempio con $K=3$ e i nostri dati]
+\begin{enumerate}
+    \item \textbf{Passo 1:} Scegli a caso il campione $\mathbf{x}_{42}$ come $\boldsymbol{\mu}_1$
+    \item \textbf{Per $k=2$:} Calcola la distanza di ogni campione da $\boldsymbol{\mu}_1$. I campioni pi\`u lontani hanno pi\`u probabilit\`a di essere scelti. Supponiamo venga scelto $\mathbf{x}_{317}$ come $\boldsymbol{\mu}_2$
+    \item \textbf{Per $k=3$:} Calcola per ogni campione la distanza \textbf{minima} da $\boldsymbol{\mu}_1$ e $\boldsymbol{\mu}_2$. I campioni lontani da \emph{entrambi} i centri gi\`a scelti hanno pi\`u probabilit\`a. Viene scelto $\mathbf{x}_{150}$ come $\boldsymbol{\mu}_3$
+\end{enumerate}
+Risultato: tre centri ben separati nello spazio 5-dimensionale!
+\end{exbox}
+
+\begin{tipbox}[Ragionamento per l'implementazione]
+La distanza (euclidea al quadrato) tra un campione $\mathbf{x}_j$ e un centro $\boldsymbol{\mu}_{k'}$ con $d=5$ feature \`e:
+$$\|\mathbf{x}_j - \boldsymbol{\mu}_{k'}\|^2 = \sum_{l=1}^{5} (x_{j,l} - \mu_{k',l})^2$$
+Per la scelta probabilistica: una volta calcolate tutte le distanze $D(\mathbf{x}_j)$, le normalizzi dividendo per la loro somma (ottieni una distribuzione di probabilit\`a), e poi campioni un indice secondo quella distribuzione (\texttt{np.random.choice} con il parametro \texttt{p}).
+\end{tipbox}
+
+%-----------------------------------------------------------------------------
+\subsection{Inizializzazione completa}
+%-----------------------------------------------------------------------------
+
+Dopo aver ottenuto i centri con K-means++, si inizializzano tutti i parametri:
+
+\begin{enumerate}
+    \item $\boldsymbol{\pi}$: pesi uniformi $\pi_k = 1/K$ per ogni $k$
+
+    \item $\boldsymbol{\mu}$: i $K$ centri ottenuti da K-means++
+
+    \item $\boldsymbol{\sigma}$: diverse opzioni ragionevoli:
+    \begin{itemize}
+        \item \textbf{Varianza globale}: calcola la varianza di tutti i dati lungo ogni dimensione, e usala per tutte le $K$ componenti. Formalmente: $\sigma_{k,l}^2 = \text{Var}(\mathbf{X}_{:,l})$ per ogni $k$.
+        \item \textbf{Varianze unitarie}: $\sigma_{k,l}^2 = 1$ per tutti.
+    \end{itemize}
+\end{enumerate}
+
+\begin{exbox}[Esempio concreto per $K=3$, $d=5$]
+Dopo l'inizializzazione:
+\begin{itemize}
+    \item \texttt{\_pi = [1/3, 1/3, 1/3]} -- shape \texttt{(3,)}
+    \item \texttt{\_mu = [[centro1], [centro2], [centro3]]} -- shape \texttt{(3, 5)}, tre punti dal dataset
+    \item \texttt{\_sigma = [[var\_x1, var\_x2, ..., var\_x5],} \texttt{[var\_x1, ...], [var\_x1, ...]]} -- shape \texttt{(3, 5)}, stesse varianze per ogni componente
+\end{itemize}
+\end{exbox}
+
+%=============================================================================
+\section{Algoritmo EM: spiegazione dettagliata}
+%=============================================================================
+
+L'idea di fondo dell'EM: se sapessimo a quale cluster appartiene ogni punto, potremmo calcolare i parametri con semplici medie pesate (come nel caso ``fully observed'' della lezione GDL7). Ma non lo sappiamo! Allora:
+
+\begin{enumerate}
+    \item \textbf{E-step}: ``fingi'' di saperlo, stimando le probabilit\`a di appartenenza (responsabilit\`a)
+    \item \textbf{M-step}: usa quelle stime per aggiornare i parametri come se i dati fossero completi
+    \item \textbf{Ripeti}: le stime migliorano $\to$ i parametri migliorano $\to$ le stime migliorano $\to$ \ldots
+\end{enumerate}
+
+%-----------------------------------------------------------------------------
+\subsection{E-Step (Expectation) -- passo passo}
+%-----------------------------------------------------------------------------
+
+\textbf{Obiettivo}: calcolare la matrice delle \textbf{responsabilit\`a} $\boldsymbol{\gamma}$ di shape $(N, K)$.
+
+L'elemento $\gamma_{j,k}$ risponde alla domanda: ``\emph{data l'osservazione $\mathbf{x}_j$ e i parametri attuali, qual \`e la probabilit\`a che $\mathbf{x}_j$ provenga dalla componente $k$?}''
+
+\begin{equation}
+    \boxed{\gamma_{j,k} = P(z_j = k \mid \mathbf{x}_j, \boldsymbol{\theta}) = \frac{\pi_k \;\mathcal{N}(\mathbf{x}_j\mid\boldsymbol{\mu}_k, \boldsymbol{\sigma}_k)}{\displaystyle\sum_{k'=1}^{K} \pi_{k'} \;\mathcal{N}(\mathbf{x}_j\mid\boldsymbol{\mu}_{k'}, \boldsymbol{\sigma}_{k'})}}
+    \label{eq:responsibilities}
+\end{equation}
+
+\textbf{Procedura concreta:}
+
+\begin{enumerate}
+    \item \textbf{Calcola la matrice} \texttt{log\_weighted} di shape $(N, K)$:
+    $$\texttt{log\_weighted}[j, k] = \log\pi_k + \log\mathcal{N}(\mathbf{x}_j\mid\boldsymbol{\mu}_k, \boldsymbol{\sigma}_k)$$
+    Questo \`e esattamente la stessa matrice di cui parlavo nella Sezione~3. La log-Gaussiana si calcola con l'eq.~\eqref{eq:log_gauss}.
+
+    \item \textbf{Calcola il denominatore} (un vettore di $N$ valori) applicando logsumexp lungo l'asse delle $K$ componenti:
+    $$\texttt{log\_denom}[j] = \operatorname{logsumexp}_k\!\bigl(\texttt{log\_weighted}[j, :]\bigr)$$
+
+    \item \textbf{Calcola $\boldsymbol{\gamma}$} sottraendo ed esponenziando:
+    $$\gamma_{j,k} = \exp\!\bigl(\texttt{log\_weighted}[j,k] - \texttt{log\_denom}[j]\bigr)$$
+\end{enumerate}
+
+\begin{exbox}[Esempio numerico per un campione $j$ con $K=3$]
+Supponiamo:
+$$\texttt{log\_weighted}[j, :] = [-502.3, \;\; -498.1, \;\; -501.7]$$
+\begin{enumerate}
+    \item $\texttt{log\_denom}[j] = \operatorname{logsumexp}(-502.3, -498.1, -501.7) = -498.06$ \quad (vedi esempio Sez.~3.1)
+    \item $\gamma_{j,1} = e^{-502.3 - (-498.06)} = e^{-4.24} = 0.014$
+    \item $\gamma_{j,2} = e^{-498.1 - (-498.06)} = e^{-0.04} = 0.960$
+    \item $\gamma_{j,3} = e^{-501.7 - (-498.06)} = e^{-3.64} = 0.026$
+\end{enumerate}
+Verifica: $0.014 + 0.960 + 0.026 = 1.0$ {\color{green!50!black}\checkmark}
+
+\textbf{Interpretazione}: il campione $\mathbf{x}_j$ appartiene quasi sicuramente alla componente 2 (96\%).
+\end{exbox}
+
+\begin{warnbox}[Controllo di correttezza]
+Ogni riga di $\boldsymbol{\gamma}$ deve sommare a 1 (a meno di errori di arrotondamento). Se non somma a 1, c'\`e un bug.
+\end{warnbox}
+
+%-----------------------------------------------------------------------------
+\subsection{M-Step (Maximization) -- passo passo}
+%-----------------------------------------------------------------------------
+
+\textbf{Obiettivo}: aggiornare $\boldsymbol{\pi}, \boldsymbol{\mu}, \boldsymbol{\sigma}$ usando le responsabilit\`a $\boldsymbol{\gamma}$ appena calcolate.
+
+\medskip
+\textbf{Passo 0 -- Conta effettiva:} Per ogni componente $k$, calcola quanti campioni ``le appartengono'' (in senso pesato):
+\begin{equation}
+    N_k = \sum_{j=1}^{N} \gamma_{j,k}
+\end{equation}
+Questo \`e un vettore di $K$ valori. Rappresenta il ``numero effettivo'' di punti assegnati a ciascun cluster. La somma di tutti gli $N_k$ d\`a $N$.
+
+\begin{exbox}[Esempio con $K=3$, $N=800$]
+Dopo l'E-step, potremmo ottenere $N_1 = 240.5$, $N_2 = 380.2$, $N_3 = 179.3$.
+
+Nota che sono numeri reali (non interi!) perch\'e i punti hanno appartenenza ``morbida'' a pi\`u cluster. $240.5 + 380.2 + 179.3 = 800$ {\color{green!50!black}\checkmark}
+\end{exbox}
+
+\bigskip
+\textbf{Passo 1 -- Aggiorna i pesi:}
+\begin{equation}
+    \boxed{\pi_k^{(\text{new})} = \frac{N_k}{N}}
+\end{equation}
+La frazione di campioni ``assegnati'' a ogni componente. Per l'esempio sopra: $\pi_1 = 0.301$, $\pi_2 = 0.475$, $\pi_3 = 0.224$.
+
+\bigskip
+\textbf{Passo 2 -- Aggiorna le medie:}
+\begin{equation}
+    \boxed{\mu_{k,l}^{(\text{new})} = \frac{\displaystyle\sum_{j=1}^{N} \gamma_{j,k}\; x_{j,l}}{N_k}}
+    \label{eq:mu_update}
+\end{equation}
+
+\`E una \textbf{media pesata} dei dati, dove i pesi sono le responsabilit\`a. I campioni che ``appartengono di pi\`u'' alla componente $k$ (alti $\gamma_{j,k}$) pesano di pi\`u nel determinare il centro.
+
+\begin{tipbox}[Ragionamento per l'implementazione]
+L'eq.~\eqref{eq:mu_update} per tutte le componenti e tutte le dimensioni si pu\`o scrivere come un prodotto matrice:
+\begin{itemize}
+    \item $\boldsymbol{\gamma}^T$ ha shape $(K, N)$
+    \item $\mathbf{X}$ ha shape $(N, d)$
+    \item $\boldsymbol{\gamma}^T \cdot \mathbf{X}$ ha shape $(K, d)$ -- esattamente la forma di $\boldsymbol{\mu}$!
+\end{itemize}
+Poi dividi ogni riga $k$ per $N_k$.
+\end{tipbox}
+
+\bigskip
+\textbf{Passo 3 -- Aggiorna le varianze:}
+\begin{equation}
+    \boxed{\sigma_{k,l}^{2\,(\text{new})} = \frac{\displaystyle\sum_{j=1}^{N} \gamma_{j,k}\;\bigl(x_{j,l} - \mu_{k,l}^{(\text{new})}\bigr)^2}{N_k}}
+    \label{eq:sigma_update}
+\end{equation}
+
+\`E la \textbf{varianza pesata} dei dati rispetto al nuovo centro. Nota: si usano le medie $\boldsymbol{\mu}^{(\text{new})}$ appena calcolate!
+
+\begin{tipbox}[Ragionamento per l'implementazione]
+Il termine $(x_{j,l} - \mu_{k,l}^{(\text{new})})^2$ per tutti i $j, k, l$ si ottiene con lo stesso trucco del broadcasting:
+\begin{itemize}
+    \item \texttt{diff = samples[:, None, :] - mu\_new[None, :, :]} ha shape $(N, K, d)$
+    \item \texttt{diff\_sq = diff ** 2} ha shape $(N, K, d)$
+    \item Moltiplica per $\gamma_{j,k}$ (espanso a shape $(N, K, 1)$), somma sull'asse $j$ (asse 0), e dividi per $N_k$
+\end{itemize}
+\end{tipbox}
+
+\begin{warnbox}[Floor sulle varianze -- FONDAMENTALE]
+Dopo aver aggiornato $\boldsymbol{\sigma}$, applica un valore minimo:
+$$\sigma_{k,l}^2 \leftarrow \max\!\left(\sigma_{k,l}^2, \;\epsilon\right), \quad \epsilon = 10^{-6}$$
+Senza questo, una varianza a zero causa $\log(0) = -\infty$ e divisione per zero nella log-Gaussiana.
+\end{warnbox}
+
+%-----------------------------------------------------------------------------
+\subsection{Criterio di convergenza}
+%-----------------------------------------------------------------------------
+
+Dopo ogni iterazione di E+M, calcola la log-likelihood (eq.~\eqref{eq:ll}). Fermati quando:
+\begin{equation}
+    \bigl|\log\mathcal{L}^{(t+1)} - \log\mathcal{L}^{(t)}\bigr| < \varepsilon \qquad (\text{es.\ } \varepsilon = 10^{-6})
+\end{equation}
+oppure si raggiunge un numero massimo di iterazioni (es.\ 200).
+
+\begin{infobox}[Teorema di Dempster, Laird e Rubin (1977)]
+L'algoritmo EM garantisce che la log-likelihood sia \textbf{monotonicamente non-decrescente} ad ogni iterazione:
+$$\log\mathcal{L}(\boldsymbol{\theta}^{(t+1)}\mid\mathbf{X}) \geq \log\mathcal{L}(\boldsymbol{\theta}^{(t)}\mid\mathbf{X})$$
+Se la log-likelihood scende, c'\`e un bug. Attenzione: ``non-decrescente'' non significa che raggiunga il massimo globale. EM pu\`o restare intrappolato in un massimo \textbf{locale}.
+\end{infobox}
+
+%-----------------------------------------------------------------------------
+\subsection{Schema complessivo dell'algoritmo}
+%-----------------------------------------------------------------------------
+
+\begin{algorithm}[H]
+\caption{EM per GMM con covarianza diagonale -- versione dettagliata}
+\begin{algorithmic}[1]
+\Require $\mathbf{X} \in \mathbb{R}^{N \times d}$ (il dataset), $K$ (numero componenti), $\varepsilon$ (tolleranza), $T_{\max}$ (max iter.)
+\Ensure Parametri ottimizzati $\boldsymbol{\pi}, \boldsymbol{\mu}, \boldsymbol{\sigma}$
+
+\State Inizializza $\boldsymbol{\mu}$ con K-means++, $\boldsymbol{\pi} \leftarrow [1/K, \ldots, 1/K]$, $\boldsymbol{\sigma} \leftarrow$ varianza globale
+\State $\text{prev\_ll} \leftarrow -\infty$
+
+\For{$t = 1, \ldots, T_{\max}$}
+
+    \Statex \hspace{1em}\textbf{--- E-Step ---}
+    \For{ogni campione $j$ e componente $k$}
+        \State $\texttt{log\_w}[j,k] \leftarrow \log\pi_k + \log\mathcal{N}(\mathbf{x}_j\mid\boldsymbol{\mu}_k, \boldsymbol{\sigma}_k)$ \quad \emph{(eq.~\eqref{eq:log_gauss})}
+    \EndFor
+    \For{ogni campione $j$}
+        \State $\texttt{log\_d}[j] \leftarrow \operatorname{logsumexp}_k(\texttt{log\_w}[j,:])$ \quad \emph{(eq.~\eqref{eq:logsumexp})}
+    \EndFor
+    \State $\gamma_{j,k} \leftarrow \exp(\texttt{log\_w}[j,k] - \texttt{log\_d}[j])$ \quad per ogni $j, k$
+
+    \Statex \hspace{1em}\textbf{--- M-Step ---}
+    \State $N_k \leftarrow \sum_j \gamma_{j,k}$ \quad per ogni $k$
+    \State $\pi_k \leftarrow N_k / N$ \quad per ogni $k$
+    \State $\mu_{k,l} \leftarrow \sum_j \gamma_{j,k}\, x_{j,l} \;/\; N_k$ \quad per ogni $k, l$  \quad \emph{(eq.~\eqref{eq:mu_update})}
+    \State $\sigma_{k,l}^2 \leftarrow \sum_j \gamma_{j,k}\,(x_{j,l} - \mu_{k,l})^2 \;/\; N_k$ \quad per ogni $k, l$ \quad \emph{(eq.~\eqref{eq:sigma_update})}
+    \State $\sigma_{k,l}^2 \leftarrow \max(\sigma_{k,l}^2, 10^{-6})$ \quad \emph{(floor)}
+
+    \Statex \hspace{1em}\textbf{--- Convergenza ---}
+    \State $\text{ll} \leftarrow \sum_j \texttt{log\_d}[j]$ \quad \emph{(la log-likelihood \`e la somma dei log-denominatori!)}
+    \If{$|\text{ll} - \text{prev\_ll}| < \varepsilon$}
+        \State \textbf{break}
+    \EndIf
+    \State $\text{prev\_ll} \leftarrow \text{ll}$
+\EndFor
+\end{algorithmic}
+\end{algorithm}
+
+\begin{tipbox}[Osservazione cruciale -- riga 15]
+Il vettore $\texttt{log\_d}[j]$ calcolato nell'E-step \`e esattamente $\log P(\mathbf{x}_j\mid\boldsymbol{\theta})$! Quindi la log-likelihood \`e semplicemente la somma di quei valori. Non serve ricalcolarla separatamente: \`e un sottoprodotto gratuito dell'E-step.
+\end{tipbox}
+
+%=============================================================================
+\section{BIC (Bayesian Information Criterion)}
+%=============================================================================
+
+Il BIC bilancia la bont\`a di adattamento con la complessit\`a del modello:
+
+\begin{equation}
+    \boxed{\text{BIC} = \log P(\mathbf{X}\mid\boldsymbol{\theta}) - \frac{|\boldsymbol{\theta}|}{2}\log n}
+\end{equation}
+
+dove:
+\begin{itemize}
+    \item $\log P(\mathbf{X}\mid\boldsymbol{\theta})$ \`e la log-likelihood (calcolata sopra)
+    \item $n = N = 800$ \`e il numero di campioni
+    \item $|\boldsymbol{\theta}|$ \`e il \textbf{numero totale di parametri liberi}
+\end{itemize}
+
+%-----------------------------------------------------------------------------
+\subsection{Conteggio dei parametri $|\boldsymbol{\theta}|$}
+%-----------------------------------------------------------------------------
+
+Con $K$ componenti, dati $d$-dimensionali e covarianza diagonale:
+
+\begin{center}
+\begin{tabular}{lccc}
+    \toprule
+    \textbf{Parametri} & \textbf{Formula} & \textbf{Es.\ $K\!=\!3, d\!=\!5$} & \textbf{Spiegazione} \\
+    \midrule
+    $\boldsymbol{\pi}$ (pesi) & $K - 1$ & $2$ & vincolo $\sum = 1$, solo $K\!-\!1$ liberi \\
+    $\boldsymbol{\mu}$ (medie) & $K \cdot d$ & $15$ & $K$ vettori di dimensione $d$ \\
+    $\boldsymbol{\sigma}$ (var.\ diag.) & $K \cdot d$ & $15$ & $K$ vettori di $d$ varianze \\
+    \midrule
+    \textbf{Totale} & $(K\!-\!1) + 2Kd$ & $32$ & \\
+    \bottomrule
+\end{tabular}
+\end{center}
+
+\begin{exbox}[Esempio: BIC per diversi $K$ con $N=800$, $d=5$]
+\begin{center}
+\begin{tabular}{ccccc}
+    \toprule
+    $K$ & $|\boldsymbol{\theta}|$ & Penalit\`a $\frac{|\boldsymbol{\theta}|}{2}\log 800$ & LL (ipotetica) & BIC \\
+    \midrule
+    1 & $0 + 10 = 10$ & $33.4$ & $-5200$ & $-5233.4$ \\
+    2 & $1 + 20 = 21$ & $70.2$ & $-4800$ & $-4870.2$ \\
+    3 & $2 + 30 = 32$ & $106.9$ & $-4500$ & $-4606.9$ \\
+    4 & $3 + 40 = 43$ & $143.7$ & $-4480$ & $-4623.7$ \\
+    5 & $4 + 50 = 54$ & $180.4$ & $-4475$ & $-4655.4$ \\
+    6 & $5 + 60 = 65$ & $217.2$ & $-4472$ & $-4689.2$ \\
+    \bottomrule
+\end{tabular}
+\end{center}
+In questo esempio il BIC migliore (pi\`u alto, meno negativo) \`e $K=3$: la LL migliora molto da 1 a 3, ma da 3 in poi il guadagno non compensa la penalit\`a di complessit\`a.
+\end{exbox}
+
+\begin{infobox}[Selezione del modello]
+Si vuole \textbf{massimizzare} il BIC (cio\`e trovare il valore \textbf{meno negativo}). Il modello con il BIC pi\`u alto \`e quello migliore. Il termine $-\frac{|\boldsymbol{\theta}|}{2}\log n$ penalizza modelli con troppi parametri (K alto), evitando l'overfitting.
+\end{infobox}
+
+%=============================================================================
+\section{Riepilogo operativo metodo per metodo}
+%=============================================================================
+
+%-----------------------------------------------------------------------------
+\subsection{\texttt{\_\_init\_\_(self, n\_categories, n\_features)}}
+%-----------------------------------------------------------------------------
+
+Questa funzione viene chiamata \textbf{prima} di \texttt{fit}. Puoi solo preparare le strutture dati qui, oppure rimandare l'inizializzazione vera (che dipende dai dati) all'inizio di \texttt{fit}.
+
+\begin{enumerate}
+    \item Salva \texttt{n\_categories} (= $K$) e \texttt{n\_features} (= $d$)
+    \item Puoi mettere \texttt{\_pi}, \texttt{\_mu}, \texttt{\_sigma} a \texttt{None} qui e inizializzarli in \texttt{fit} quando hai accesso ai dati
+\end{enumerate}
+
+%-----------------------------------------------------------------------------
+\subsection{\texttt{fit(self, samples)}}
+%-----------------------------------------------------------------------------
+
+Input: \texttt{samples} \`e un array numpy di shape \texttt{(N, d)} = \texttt{(800, 5)}.
+
+\begin{enumerate}
+    \item \textbf{Inizializza} $\boldsymbol{\mu}$ con K-means++ (usando i \texttt{samples})
+    \item \textbf{Inizializza} $\boldsymbol{\pi}$ a $[1/K, \ldots, 1/K]$
+    \item \textbf{Inizializza} $\boldsymbol{\sigma}$ alla varianza globale di ogni feature
+    \item \textbf{Loop EM}: ripeti per max iterazioni o fino a convergenza:
+    \begin{enumerate}[label=\roman*.]
+        \item Calcola \texttt{log\_gauss} di shape $(N, K)$ con eq.~\eqref{eq:log_gauss}
+        \item Calcola \texttt{log\_weighted} $= \log\boldsymbol{\pi} + \texttt{log\_gauss}$, shape $(N, K)$
+        \item Calcola \texttt{log\_denom} applicando logsumexp lungo asse 1, shape $(N,)$
+        \item Calcola $\boldsymbol{\gamma} = \exp(\texttt{log\_weighted} - \texttt{log\_denom}[:, \text{None}])$, shape $(N, K)$
+        \item Calcola $N_k = \boldsymbol{\gamma}.\text{sum(axis=0)}$, shape $(K,)$
+        \item Aggiorna $\boldsymbol{\pi} = N_k / N$
+        \item Aggiorna $\boldsymbol{\mu} = \boldsymbol{\gamma}^T \cdot \mathbf{X} \;/\; N_k[:, \text{None}]$
+        \item Aggiorna $\boldsymbol{\sigma}$ con eq.~\eqref{eq:sigma_update}, applica floor
+        \item Calcola $\text{ll} = \texttt{log\_denom}.\text{sum()}$ (la log-likelihood)
+        \item Se $|\text{ll} - \text{prev\_ll}| < \varepsilon$: break
+    \end{enumerate}
+\end{enumerate}
+
+%-----------------------------------------------------------------------------
+\subsection{\texttt{log\_likelihood(self, samples) $\to$ scalare}}
+%-----------------------------------------------------------------------------
+
+Input: array numpy di shape \texttt{(N, d)}. Pu\`o essere il train set o il test set.
+
+\begin{enumerate}
+    \item Calcola \texttt{log\_gauss} di shape $(N, K)$ usando i parametri gi\`a fittati
+    \item Calcola \texttt{log\_weighted} $= \log\boldsymbol{\pi} + \texttt{log\_gauss}$
+    \item Applica logsumexp lungo l'asse delle componenti $\Rightarrow$ vettore di shape $(N,)$
+    \item Restituisci la \textbf{somma} $\Rightarrow$ uno scalare
+\end{enumerate}
+
+\begin{infobox}[Riuso del codice]
+La logica di \texttt{log\_likelihood} \`e identica ai passi (i)--(iii) dell'E-step, seguiti dalla somma. Conviene scrivere una funzione ausiliaria che calcola la matrice \texttt{log\_weighted} e il vettore \texttt{log\_denom}, e richiamarla sia da \texttt{fit} che da \texttt{log\_likelihood}.
+\end{infobox}
+
+%-----------------------------------------------------------------------------
+\subsection{\texttt{bic(self, samples) $\to$ scalare}}
+%-----------------------------------------------------------------------------
+
+\begin{enumerate}
+    \item $\text{ll} \leftarrow \texttt{self.log\_likelihood(samples)}$
+    \item $|\boldsymbol{\theta}| \leftarrow (\texttt{n\_categories} - 1) + 2 \cdot \texttt{n\_categories} \cdot d$
+    \item $n \leftarrow$ numero di righe di \texttt{samples}
+    \item Restituisci $\text{ll} - \frac{|\boldsymbol{\theta}|}{2} \cdot \log(n)$ \quad (usa $\log$ naturale, cio\`e \texttt{np.log})
+\end{enumerate}
+
+%=============================================================================
+\section{Insidie comuni e consigli}
+%=============================================================================
+
+\begin{warnbox}[Errori frequenti]
+\begin{enumerate}
+    \item \textbf{Dimenticare il log-sum-exp}: se calcoli la Gaussiana senza log e poi fai il prodotto, i numeri vanno a zero (underflow). Lavora SEMPRE in log-space.
+
+    \item \textbf{Varianze a zero}: una componente che ``cattura'' pochissimi punti pu\`o avere varianza $\to 0$. Applica sempre il floor $\sigma_{k,l}^2 \geq 10^{-6}$.
+
+    \item \textbf{Confondere $\sigma^2$ e $\sigma$}: se in \texttt{\_sigma} salvi le deviazioni standard ma nelle formule usi le varianze (o viceversa), i risultati sono sbagliati. Scegli una convenzione e mantienila.
+
+    \item \textbf{Broadcasting errato}: il broadcasting di numpy \`e potente ma insidioso. Controlla sempre le shape intermedie con \texttt{.shape}.
+
+    \item \textbf{Non aggiornare $\boldsymbol{\mu}$ prima di $\boldsymbol{\sigma}$}: la formula~\eqref{eq:sigma_update} usa le medie \textbf{nuove}. Se usi quelle vecchie, la log-likelihood potrebbe non crescere monotonamente.
+
+    \item \textbf{Log-likelihood che non cresce}: se la LL scende tra un'iterazione e l'altra, c'\`e un bug (vedi teorema EM). Stampa la LL ad ogni iterazione durante il debug.
+
+    \item \textbf{Inizializzazione nell'\texttt{\_\_init\_\_}}: non puoi fare K-means++ nell'\texttt{\_\_init\_\_} perch\'e non hai ancora i dati. Fallo all'inizio di \texttt{fit}.
+\end{enumerate}
+\end{warnbox}
+
+%=============================================================================
+\section{Collegamento con le lezioni (GDL7 e GDL8)}
+%=============================================================================
+
+\begin{description}
+    \item[GDL7 -- Learning with fully observed variables:] Introduce il Maximum Likelihood Estimation nel caso in cui tutte le variabili sono osservate. Con dati completi, i parametri ML si ottengono in forma chiusa (es.\ media campionaria, varianza campionaria). Il midterm estende questo al caso con variabili latenti.
+
+    \item[GDL8 -- Learning with hidden variables:] Affronta il caso in cui esistono \textbf{variabili latenti} (come $z$ nel GMM). La log-likelihood non si pu\`o massimizzare direttamente, quindi si usa l'algoritmo EM:
+    \begin{itemize}
+        \item Si introduce la \emph{complete likelihood} $\mathcal{L}_c(\boldsymbol{\theta}\mid\mathbf{X}, \mathbf{Z})$
+        \item L'E-step calcola l'\textbf{aspettativa} della complete log-likelihood rispetto alla distribuzione posteriore delle variabili latenti:
+        \begin{equation*}
+            Q(\boldsymbol{\theta}\mid\boldsymbol{\theta}^{(t)}) = \sum_{j=1}^N\sum_{k=1}^K P(z_j = k \mid \mathbf{x}_j, \boldsymbol{\theta}^{(t)}) \log\!\bigl(\pi_k\, P(\mathbf{x}_j\mid \mu_k, \sigma_k)\bigr)
+        \end{equation*}
+        I termini $P(z_j = k \mid \mathbf{x}_j, \boldsymbol{\theta}^{(t)})$ sono esattamente le responsabilit\`a $\gamma_{j,k}$.
+        \item L'M-step \textbf{massimizza} $Q$ rispetto a $\boldsymbol{\theta}$, derivando e ponendo a zero:
+        \begin{equation*}
+            \boldsymbol{\theta}^{(t+1)} = \arg\max_{\boldsymbol{\theta}}\; Q(\boldsymbol{\theta}\mid\boldsymbol{\theta}^{(t)})
+        \end{equation*}
+        Da cui si ottengono le formule chiuse~\eqref{eq:mu_update} e~\eqref{eq:sigma_update}.
+        \item Il teorema di Dempster--Laird--Rubin garantisce convergenza monotona della log-likelihood.
+    \end{itemize}
+\end{description}
+
+\end{document}

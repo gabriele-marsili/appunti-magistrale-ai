@@ -1,0 +1,273 @@
+%===============================================================
+%  PART VII — Il paper del quarto assignment: GrIDDD
+%===============================================================
+\part{Il paper del quarto assignment: GrIDDD}
+\label{part:griddd}
+
+Questa parte non corrisponde a una lezione del corso: tratta il paper oggetto del quarto assignment. \textbf{Correzione rispetto alla prima stesura}: qui era scritto che l'orale ``tipicamente prende avvio'' dal paper. Il resoconto di un appello reale (Appendice~\ref{ch:appelli}) mostra che in sei esami consecutivi il paper \emph{non è mai stato chiesto}. Resta da chiarire se quei candidati avessero già presentato separatamente il quarto assignment; finché non è chiaro, questa parte va considerata materiale da conoscere ma non il punto di partenza probabile. Il paper è utile anche come banco di prova trasversale, perché tocca contemporaneamente la Parte~IV (diffusion, classifier-free guidance), la Parte~V (message passing e graph transformer) e la Parte~II (catene di Markov, stati assorbenti, ELBO).
+
+%===============================================================
+\chapter{GrIDDD: Graph Diffusion that can Insert and Delete}
+\label{ch:griddd}
+
+\begin{tcolorbox}[mybox, title={Fonti}]
+M.\ Ninniri, M.\ Podda, D.\ Bacciu, \emph{Graph Diffusion that can Insert and Delete}, 39th Conference on Neural Information Processing Systems (NeurIPS 2025). Preprint \texttt{arXiv:2506.15725v2}, 30 ottobre 2025.
+
+\medskip
+Codice: \url{https://github.com/mninniri/GrIDDD}
+
+\medskip
+Materiali locali: \texttt{midterms/fourth/GrIDDD\_paper.pdf}, il poster \texttt{GrIDDD\_poster.pdf}, e i due riassunti in \texttt{utils and paper/}. \textbf{Bacciu è coautore}, quindi se il paper viene toccato è ragionevole che le domande scavino da lì verso il programma. Ma si veda la correzione in apertura di parte: nell'appello osservato non è mai comparso.
+\end{tcolorbox}
+
+\section{Il problema: i diffusion model su grafi hanno taglia fissa}
+
+Un DDPM discreto su grafi molecolari (DiGress, MiDi, FreeGress) parte da un grafo latente rumoroso e lo denoizza fino a una molecola valida. Ma il numero di nodi va deciso \emph{prima} di iniziare la diffusione, e da quel momento non cambia più: il processo agisce sui \emph{tipi} di atomo e di legame, non sulla cardinalità del grafo.
+
+\begin{intuizione}{perché la taglia fissa è un problema per le molecole e non per le immagini}
+Per un'immagine la risoluzione è una scelta a monte: nessuno chiede a un modello di generare ``un'immagine il cui numero di pixel sia ottimale per la proprietà richiesta''. Il numero di pixel non è una proprietà dell'oggetto, è una proprietà del formato.
+
+Per una molecola no. Molte proprietà chimiche \textbf{correlano direttamente col numero di atomi}: il peso molecolare in modo quasi definitorio, ma anche LogP e QED in modo forte. Se il target è ``peso molecolare $250$'', la taglia del grafo non è un iperparametro da fissare da fuori: è parte della risposta.
+
+La differenza si vede meglio confrontando i due task del paper. Nel \emph{property targeting} si genera da zero una molecola con una proprietà voluta: qui si può ancora barare, indovinando la taglia con un modello ausiliario e poi generando a taglia fissa. Nella \emph{property optimization} si parte da una molecola esistente e la si modifica per migliorarne una proprietà mantenendo una similarità minima: qui la taglia è legata alla struttura che si sta modificando, e fissarla dall'esterno significa vietarsi metà dello spazio delle soluzioni.
+
+\textbf{Il claim del paper in una frase}: rendere la taglia del grafo una variabile del processo di diffusione, permettendo inserimenti e cancellazioni \emph{monotone} di nodi sia nel forward sia nel reverse, e incorporandoli \emph{durante il training} anziché come post-processing.
+\end{intuizione}
+
+\section{Che cosa facevano gli altri, e perché non basta}
+
+\begin{description}[leftmargin=2.5em,style=nextline]
+  \item[DiGress, MiDi] campionano il numero di nodi dalla distribuzione empirica delle taglie del training set. La taglia è quindi indipendente dal condizionamento.
+  \item[FreeGress] (stesso gruppo, lavoro precedente) predice la taglia con un classificatore ausiliario a partire dall'informazione di condizionamento. Meglio, ma resta una decisione presa \emph{prima} e mai rivista.
+\end{description}
+
+Entrambe le strategie aggirano il problema invece di risolverlo, e la differenza si vede nei numeri: su peso molecolare FreeGress dimezza il proprio errore \emph{grazie} alla rete che indovina la taglia, mentre GrIDDD fa meglio senza conoscere a priori la distribuzione delle taglie.
+
+\section{Lo schema degli edit: quanti, e quando}
+
+Sia $G^0$ il grafo dei dati con $n^0$ nodi e $G^T$ il latente con $n^T$ nodi. Il numero di operazioni di edit è
+\[
+|\Delta^T| = n^T - n^0,
+\]
+con $\Delta^T > 0$ inserimenti (nel forward), $\Delta^T < 0$ cancellazioni, $\Delta^T = 0$ il caso classico. Gli edit sono \textbf{monotoni}: un nodo inserito non viene poi cancellato, e viceversa.
+
+Il \emph{quando} è governato dal valore assoluto della densità di una distribuzione logistica, normalizzata in modo che $\sum_{t=0}^{T}\zeta'(t) = 1$ e $\zeta'(0) = \zeta'(T) = 0$:
+\[
+\zeta'(t) = \left|\frac{e^{(t-D)/w}}{w\,\big(e^{(t-D)/w}+1\big)^2}\right|.
+\]
+$D$ indica il timestep in cui gli edit sono massimizzati, $w$ la ripidità della curva. Nel paper $T = 500$, $D = T/2 = 250$, $w = 0.05$: la gran parte degli inserimenti e delle cancellazioni avviene \emph{a metà} del processo di diffusione. L'integrale $\zeta(t)$ è la cumulativa corrispondente e compare dentro le matrici di transizione modificate.
+
+\begin{intuizione}{perché gli edit stanno in mezzo e non agli estremi}
+Inserire un nodo quando il grafo è quasi pulito significa piazzare un atomo estraneo dentro una struttura già formata, che il denoising residuo non ha il tempo di riassorbire. Cancellarne uno in quel momento apre un buco che nessuno richiude.
+
+All'estremo opposto, agire quando il grafo è già rumore puro è inutile: si sta modificando la cardinalità di un oggetto che non ha ancora nessuna struttura, e l'informazione si perde nei passi successivi.
+
+Il punto utile è a metà, dove esiste già una struttura grossolana da rispettare ma restano abbastanza passi di denoising per integrare la modifica. È lo stesso ragionamento che governa le schedule del rumore nel Cap.~\ref{ch:diffusion}: i primi passi preservano la semantica, gli ultimi rifiniscono, e le decisioni strutturali vanno prese quando c'è ancora margine per correggerle.
+\end{intuizione}
+
+\section{Forward process: tre casi}
+
+\subsection{Caso base ($\Delta^T = 0$): il forward ereditato}
+
+Come in DiGress e FreeGress, le quantità sono categoriche e il rumore è una \emph{matrice di transizione} anziché un'aggiunta gaussiana:
+\[
+q(G^t \mid G^{t-1}) = \big(X^{t-1} Q_X^t,\; E^{t-1} Q_E^t\big),
+\qquad
+Q_X^t = \alpha^t A_X + (1-\alpha^t) B_X,
+\]
+con $A_X = \mat{I}$ e $B_X = \vect{1}\, \vect{m}_X^\top$, dove $\vect{m}_X$ è la distribuzione marginale dei tipi di atomo nel training set. Le multi-step si compongono come $Q_X^{t|s} = \prod_{i=s+1}^{t} Q_X^i = \alpha^{t|s} A_X + (1-\alpha^{t|s})B_X$, con schedule coseno alla MiDi ($\nu = 1$ per i nodi, $\nu = 1.5$ per gli archi).
+
+\begin{intuizione}{nel discreto, il ``rumore'' è la marginale del dataset}
+Vale la pena fermarsi su questo punto, perché è il primo posto in cui il diffusion discreto si stacca da quello gaussiano.
+
+Con $\alpha^t \approx 1$ si ha $Q_X^t \approx \mat{I}$: nulla cambia. Con $\alpha^t \approx 0$ si ha $Q_X^t \approx B_X$: ogni nodo viene rimpiazzato da un tipo campionato dalla marginale del training set. Quindi lo stato terminale non è ``rumore bianco'', è una molecola con \emph{composizione atomica plausibile} ma struttura completamente casuale — più carbonio e azoto che atomi rari, nelle proporzioni giuste.
+
+È la scelta corretta per lo stesso motivo per cui nel continuo si sceglie $\mathcal{N}(0,\mat{I})$: si vuole una distribuzione terminale semplice e nota da cui partire a campionare. Solo che nel discreto ``semplice e nota'' vuol dire la marginale empirica, non l'uniforme — usare l'uniforme renderebbe il primo passo di reverse molto più difficile.
+\end{intuizione}
+
+\subsection{Cancellazioni monotone ($\Delta^T < 0$): il trucco \texttt{DEL}/\texttt{DEL*}}
+
+La cancellazione è modellata come un \emph{tipo di atomo aggiuntivo} \texttt{DEL}, nello spirito dell'absorbing diffusion. Perché la monotonicità sia garantita, \texttt{DEL} deve essere uno stato \textbf{assorbente}:
+\[
+p(x^t \neq \texttt{DEL} \mid x^{t-1} = \texttt{DEL}) = 0.
+\]
+
+\begin{intuizione}{perché servono due stati e non uno}
+Qui c'è il passaggio più elegante del paper, ed è quasi certamente la domanda che arriva se si nomina il meccanismo.
+
+Il vincolo è chiaro: \texttt{DEL} deve essere assorbente, altrimenti un nodo cancellato potrebbe ``resuscitare'' nel forward e la monotonicità salterebbe.
+
+Ma un assorbente puro rompe il reverse. Il reverse percorre la catena al contrario, quindi deve poter \emph{re-inserire} un nodo che il forward aveva cancellato. Se da \texttt{DEL} non si esce mai, quel nodo resta morto per sempre e il modello non può generare nulla che il forward avesse tolto.
+
+La soluzione è spezzare la cancellazione in due stati. \texttt{DEL*} è \textbf{transiente}: un nodo ci passa attraverso e, nel forward, da lì scivola deterministicamente in \texttt{DEL}; nel reverse, invece, da \texttt{DEL*} può uscire verso un tipo di atomo proprio. \texttt{DEL} resta l'assorbente vero e proprio.
+
+Detto in altri termini: \texttt{DEL*} è la \emph{soglia} e \texttt{DEL} è la stanza chiusa. La monotonicità è garantita dalla stanza chiusa, la reversibilità dalla soglia. Un solo stato non può fare entrambe le cose, perché le due proprietà sono in contraddizione diretta.
+\end{intuizione}
+
+Per garantire che al tempo $T$ siano in stato \texttt{DEL} \emph{esattamente} $|\Delta^T|$ nodi, si usa uno schema ibrido: solo $|\Delta^T|$ nodi seguono la matrice di transizione speciale
+\[
+Q^{*t} = \zeta(t)\big(\alpha^t A^* + (1-\alpha^t) B^*\big) + (1-\zeta(t))\, C^*,
+\]
+mentre tutti gli altri seguono il forward standard. Le matrici $A^*, B^*, C^*, D^*$ codificano la logica delle transizioni verso \texttt{DEL}/\texttt{DEL*}; poiché $\zeta$ è una cumulativa, a $t = T$ si ha $Q^{*T} = C^*$.
+
+\subsection{Inserimenti monotoni ($\Delta^T > 0$)}
+
+Concettualmente più semplici: un nodo viene \emph{attivato} al timestep $s+1$ se il modello ha campionato $s$ come tempo di inserimento. La categoria iniziale del nodo si campiona dalla marginale $\vect{m}_X$, gli archi incidenti dalla marginale $\vect{m}_E$.
+
+\section{Il posterior generalizzato}
+
+\begin{esempiosvolto}{perché il posterior classico non è definito, e come lo si aggiusta}
+Nel Cap.~\ref{ch:diffusion} il training si regge su un fatto preciso: la reverse vera $q(z_{t-1} \mid z_t)$ è intrattabile, ma \emph{condizionandola su $x^0$} diventa trattabile, ed è su $q(z_{t-1} \mid z_t, x^0)$ che si costruisce l'ELBO.
+
+\textbf{Dove si rompe in GrIDDD.} Un nodo inserito durante il forward al tempo $\hat s$ \emph{non esiste} in $G^0$. Per quel nodo la quantità $x^0$ non è definita: non c'è nessun valore originale su cui condizionare, perché il nodo non aveva un originale. Il termine $p_\theta(x^{t-1} \mid x^t, x^0)$ è quindi mal posto per una parte dei nodi.
+
+\textbf{La riparazione.} Si sostituisce il condizionamento su $x^0$ con una marginalizzazione sul \emph{tempo di attivazione} $\hat s$ del nodo:
+\[
+p_\theta(x^{t-1} \mid x^t, y) = \sum_{x \in \mathcal{X}} \frac{q(x^t \mid x^{t-1})\; q(x^{t-1} \mid x^{\hat s} = x)}{q(x^t \mid x^{\hat s} = x)}\; p_\theta(x^{\hat s} = x \mid x^t, y).
+\]
+Per un nodo esistente fin dall'inizio si ha $\hat s = 0$ e la formula collassa nel posterior classico: la generalizzazione è conservativa, non sostituisce nulla di quanto già funzionava.
+
+\textbf{Il costo}: la rete non predice più solo il tipo originale dei nodi e degli archi, ma anche \emph{quando} ciascun nodo è stato attivato. È un'uscita in più della testa del denoiser, ed è per questo che la loss ha un termine dedicato.
+\end{esempiosvolto}
+
+\section{Rete ausiliaria, loss, guidance}
+
+Per le cancellazioni serve una seconda rete $g_\phi(G^t)$, che predice quanti \texttt{DEL*} aggiungere al passo $t$ prima di passare il grafo al denoiser principale. È addestrata in parallelo e \emph{solo nei timestep in cui $\zeta'(t) > 0$}, cioè dove gli edit sono effettivamente possibili.
+
+La loss è una somma di \textbf{quattro cross-entropy}, pesate da $\lambda_X, \lambda_E, \lambda_S, \lambda_{\texttt{DEL}}$:
+\begin{enumerate}[leftmargin=2em]
+  \item sui tipi dei nodi $X^{*0}$;
+  \item sui tipi degli archi $E^{*0}$;
+  \item sui tempi di attivazione $S^*$;
+  \item sul numero di \texttt{DEL*} predetti dalla rete ausiliaria.
+\end{enumerate}
+
+La generazione condizionata usa la \textbf{classifier-free guidance} di Ho e Salimans, identica a quella del Cap.~\ref{ch:diffusion}: durante il training, con probabilità $\rho$ il vettore di condizionamento $y$ viene sostituito da un placeholder parametrizzato $\bar y$ (conditional dropout), e a inferenza si combinano predizione condizionata e non condizionata pesando per $\lambda$. È lo stesso meccanismo di FreeGress: GrIDDD eredita la pipeline di condizionamento e ci innesta sopra gli edit di taglia.
+
+\section{Risultati}
+
+\subsection{Property targeting}
+
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{QM9} & MAE $\mu$ $\downarrow$ & validità & MAE HOMO $\downarrow$ & validità \\
+\midrule
+FreeGress & $0.74 \pm 0.08$ & $83.7\%$ & $\mathbf{0.32} \pm 0.04$ & $90.1\%$ \\
+GrIDDD    & $\mathbf{0.66} \pm 0.07$ & $79.0\%$ & $0.37 \pm 0.07$ & $\mathbf{94\%}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{center}
+\begin{tabular}{lcccccc}
+\toprule
+\textbf{ZINC-250k} & LogP $\downarrow$ & val. & QED $\downarrow$ & val. & MW $\downarrow$ & val. \\
+\midrule
+DiGress   & $0.74 \pm 0.08$ & $74.6\%$ & $0.15 \pm 0.01$ & $85.1\%$ & $20.92 \pm 2.90$ & $40.4\%$ \\
+FreeGress & $\mathbf{0.17} \pm 0.01$ & $84.9\%$ & $\mathbf{0.04} \pm 0.01$ & $84.9\%$ & $8.96 \pm 1.93$ & $79.7\%$ \\
+GrIDDD    & $0.19 \pm 0.02$ & $\mathbf{87.9\%}$ & $\mathbf{0.04} \pm 0.00$ & $\mathbf{87.2\%}$ & $\mathbf{4.89} \pm 0.57$ & $\mathbf{84.2\%}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{tcolorbox}[mybox, title={Il caso da raccontare: il peso molecolare}]
+Su LogP e QED GrIDDD è alla pari con FreeGress; su $\mu$ e HOMO il quadro è misto. \textbf{Su MW il divario è netto}: $4.89$ contro $8.96$, cioè quasi la metà dell'errore, con validità più alta.
+
+Non è un risultato casuale, è il risultato per cui il modello è stato progettato. MW correla in modo quasi definitorio con il numero di atomi, quindi è il caso in cui la flessibilità di taglia conta di più. E l'aspetto decisivo è \emph{come} ci arriva: FreeGress dimezza il proprio MAE su MW grazie a una rete ausiliaria che indovina la taglia ottimale dal target, mentre GrIDDD ottiene un errore inferiore \textbf{senza conoscere a priori la distribuzione delle taglie}.
+\end{tcolorbox}
+
+\subsection{Property optimization (ZINC-250k)}
+
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+ & LogP (sim $\geq 0.4$) & LogP (sim $\geq 0.6$) & QED & DRD2 \\
+\midrule
+CG-VAE & $0.61 \pm 1.09$ & $0.25 \pm 0.74$ & $4.8\%$ & --- \\
+GCPN   & $2.49 \pm 1.30$ & $0.79 \pm 0.63$ & $9.4\%$ & $4.4\%$ \\
+GrIDDD & $\mathbf{2.70} \pm 0.94$ & $\mathbf{1.33} \pm 0.61$ & $\mathbf{45.1\%}$ & $\mathbf{5.0\%}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Il $45.1\%$ contro il $9.4\%$ di GCPN su QED — quasi $5\times$ — è il numero più forte del paper, ed è esattamente il task in cui la taglia è vincolata alla struttura di partenza.
+
+\subsection{Out-of-distribution e ablation}
+
+Addestrando su QM9 (molecole fino a $9$ atomi pesanti) ma forzando GrIDDD a inserire fino a $14$ nodi, e chiedendo poi a entrambi i modelli di generare fino a $15$ atomi: fino a $12$ atomi GrIDDD e DiGress sono comparabili, oltre la validità di DiGress crolla mentre \textbf{GrIDDD mantiene il $35\%$ di validità a $15$ nodi} — cioè oltre la propria capacità di training. Il modello ha imparato la flessibilità di taglia, non semplicemente a restare nel range visto.
+
+L'ablation conferma l'attribuzione: disabilitando insert e delete, il success rate su QED scende da $45.1\%$ a $\mathbf{33.8\%}$. Un baseline naive che simula gli edit con una classe \texttt{PAD} genera un $3\%$ di molecole valide in più ma è nettamente peggiore su tutto il resto (numero di componenti connesse, cross-entropy).
+
+Costo: circa il $30\%$ più lento di FreeGress in training, per l'overhead delle due reti; in sampling spesso più veloce, perché può adattare il numero di passi al task.
+
+\section{Limiti dichiarati dagli autori}
+
+\begin{tcolorbox}[mywarn, title={Sono due e precisi: non improvvisarne altri}]
+\begin{enumerate}[leftmargin=2em]
+  \item \textbf{Le due reti possono entrare in conflitto.} Occasionalmente il modello principale predice un'attivazione e la rete ausiliaria una cancellazione nello stesso timestep, il che è formalmente illegale nel framework.
+  \item \textbf{Il modello tende a produrre molecole ``spezzate''}, cioè con più componenti connesse rispetto a FreeGress e DiGress. La causa è strutturale: i nodi inseriti tardi nel processo hanno pochi archi e faticano a connettersi prima della fine del denoising. Gli autori suggeriscono di dare in input il numero di componenti connesse come feature.
+\end{enumerate}
+
+\medskip
+\textbf{Il secondo limite è anche un ottimo ponte verso la Parte~V.} Un nodo appena inserito ha grado quasi nullo, quindi nell'aggregazione di message passing riceve pochissimi messaggi: è un caso estremo di \emph{under-reaching}, in cui l'informazione strutturale non ha né i vicini né i layer per raggiungerlo. Se la domanda va in questa direzione, è il collegamento da fare.
+\end{tcolorbox}
+
+\section{Dove si colloca nel programma}
+
+\begin{tcolorbox}[mybox, title={Connessioni}]
+\begin{itemize}
+  \item \textbf{Tassonomia generativa} (Cap.~\ref{ch:diffusion}): explicit $\to$ latent $\to$ variational, lo stesso ramo dei VAE, perché entrambi massimizzano un ELBO della log-verosimiglianza. La differenza dei diffusion è che lo spazio latente ha la \emph{stessa dimensionalità dei dati}; la torsione di GrIDDD è che ora quella cardinalità può \emph{cambiare durante il processo}.
+  \item \textbf{Diffusion come VAE gerarchico con encoder fisso}: in GrIDDD l'encoder non è più del tutto fisso, perché la parte di edit di taglia è appresa. È la risposta pronta se la domanda arriva da lì.
+  \item \textbf{Classifier-free guidance} (Cap.~\ref{ch:diffusion}): identica, ereditata da FreeGress.
+  \item \textbf{Stati assorbenti} (Parte~II, catene di Markov): \texttt{DEL} assorbente più \texttt{DEL*} transiente.
+  \item \textbf{Message passing e graph transformer} (Parte~V): il denoiser è un graph transformer sulla scia di DiGress/MiDi. La scelta è motivata: i DDPM su grafi raffinano iterativamente interazioni a lungo raggio come le chiusure di anelli, che un decoder one-shot dovrebbe imparare in una sola trasformazione.
+  \item \textbf{Attention spectrum}: il graph transformer è l'ultimo anello della linea Bahdanau $\to$ self-attention $\to$ GAT applicata ai grafi.
+\end{itemize}
+\end{tcolorbox}
+
+\section{Domande d'esame — GrIDDD}
+
+\begin{tcolorbox}[mywarn, title={Livello 1 — sai raccontarlo}]
+\begin{enumerate}
+  \item Racconta GrIDDD in tre minuti: problema, idea, risultato principale.
+  \item Qual è il problema concreto che risolve?
+  \item Perché la taglia fissa è un problema serio per le molecole e non, per esempio, per le immagini?
+  \item Come lo risolvevano prima DiGress, MiDi e FreeGress?
+  \item Perché quelle soluzioni bastano per il property targeting ma non per la property optimization?
+  \item Qual è il claim in una frase?
+  \item Su quali dataset è valutato, e qual è il numero più forte?
+\end{enumerate}
+\end{tcolorbox}
+
+\begin{tcolorbox}[mywarn, title={Livello 2 — sai come funziona}]
+\begin{enumerate}
+  \item Che cosa vuol dire che gli edit sono \emph{monotoni}?
+  \item Quanti edit servono e come si distribuiscono nel tempo? Che ruolo hanno $D$ e $w$?
+  \item Spiega il trucco \texttt{DEL}/\texttt{DEL*}: perché servono \textbf{due} stati e non uno?
+  \item Come si garantisce che esattamente $|\Delta^T|$ nodi siano in \texttt{DEL} al tempo $T$?
+  \item Scrivi il forward standard ereditato da DiGress/FreeGress. Che cos'è il ``rumore'' nel caso discreto?
+  \item Come funzionano gli inserimenti, e perché sono più semplici delle cancellazioni?
+  \item Qual è il problema del reverse process, e come lo risolve il posterior generalizzato?
+  \item A che cosa serve la rete ausiliaria $g_\phi(G^t)$, e quando viene addestrata?
+  \item Da che cosa è composta la loss?
+  \item Come si fa generazione condizionata? È un meccanismo nuovo o ereditato?
+\end{enumerate}
+\end{tcolorbox}
+
+\begin{tcolorbox}[mywarn, title={Livello 3 — sai criticarlo e collocarlo}]
+\begin{enumerate}
+  \item Colloca GrIDDD nella tassonomia generativa del corso.
+  \item Se un diffusion model è un VAE gerarchico con encoder fisso, che cosa cambia in GrIDDD?
+  \item Perché il caso MW è quello che racconta meglio il paper?
+  \item Discuti il trade-off MAE/validità su QM9: è un miglioramento uniforme?
+  \item Che cosa dimostra l'esperimento out-of-distribution?
+  \item Che cosa dice l'ablation, e perché è importante per l'attribuzione del risultato?
+  \item Perché il baseline naive con classe \texttt{PAD} non basta?
+  \item Quali sono i due limiti dichiarati dagli autori?
+  \item Quanto costa in training e in sampling?
+  \item Come cambieresti il paper? (Il conflitto fra le due reti si potrebbe evitare con un'unica testa che predice l'edit come variabile categorica a tre valori, invece di due reti indipendenti che possono contraddirsi.)
+  \item Se dovessi fare la stessa cosa con un flow matching su grafi invece che con un DDPM, che cosa cambierebbe? (Il path è deterministico e la cardinalità variabile diventa più scomoda: non c'è una catena di stati discreti su cui appoggiare uno stato assorbente.)
+  \item Ponte con la Parte~V: il denoiser fa message passing, quindi valgono oversmoothing e oversquashing anche qui? Che cosa succede a un nodo appena inserito, che ha pochi archi, rispetto all'aggregazione dai vicini?
+\end{enumerate}
+\end{tcolorbox}

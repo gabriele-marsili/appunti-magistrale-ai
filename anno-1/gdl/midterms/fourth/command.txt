@@ -1,0 +1,16 @@
+Due: Wednesday, 27 May 2026, 6:00 PM
+The fourth midterm covers the program until lecture 35. Differently from the previous ones, this midterm is based on reading and summarizing the main findings of a single paper (chosen from the list provided below) into a poster. The poster will be presented to the instructor and other participants from the CS department during the poster session day on May 28th h. 11-14 in Room C1. 
+
+A poster template is provided below, which contains the four sections that will need to be filled by the team based on the content of the paper.
+
+This assignment is a group assignement, to be executed by teams of 4/5 people. The teams will be randomly assembled by the instructor and their composition communicated with a post on Moodle on Tuesday 19/05. 
+
+Assignment of the team to the article will be based on a first come, first served basis, using a link that will be released on Moodle after team formation: only one member of the team is expected to claim preference for an article. If multiple members of the same team will opt for different articles, their preferences will be cancelled, and the whole team will get to choose the topic after the rest of the assignments are completed. So reach an agreement before the choice link is released! 
+
+In the meanwhile, feel free to roam through the paper list provided to take an informed decision on paper preference.
+
+Completion of the midterm requires discussing it during the poster session day, in person. Each member of the team is expected to have knowledge of the work and to be able to answer to questions. Grading is anyway individual (and it is pass/fail as for previous midterms).
+
+On the poster session day, please come with your poster printed, preferably in A0 format (in color).  Materials to pin the poster to the walls will be provided by the instructor.
+
+The poster should also be uploaded (in PDF version) here not later than Wednesday 27th h. 18.00.

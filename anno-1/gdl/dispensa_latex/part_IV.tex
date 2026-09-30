@@ -1,0 +1,1442 @@
+%===============================================================
+%  PART IV — Generative Deep Learning
+%===============================================================
+\part{Generative Deep Learning}
+\label{part:generative}
+
+Questa parte introduce i modelli generativi profondi: dall'autoencoder regolarizzato ai modelli moderni di trasporto di probabilità (flow matching). Il filo conduttore è duplice. Da un lato, una tassonomia comune (figura nella slide GDL23) divide i modelli in \emph{esplicitamente densi} (VAE, normalizing flows, autoregressivi, diffusion via ELBO) e \emph{implicitamente densi} (GAN, modelli che imparano un processo di campionamento). Dall'altro, la famiglia di modelli vista dal punto di vista della \emph{trasformazione di rumore in dati}: VAE $\to$ GAN $\to$ Flows $\to$ Diffusion $\to$ Flow Matching costituiscono uno spettro in cui ogni modello rilassa o specializza il precedente.
+
+%===============================================================
+\chapter{Autoencoders e Manifold Learning}
+\label{ch:ae}
+
+\begin{risorsevideo}{GDL23 — Autoencoder e manifold hypothesis}
+\videolezione{della lezione GDL23}
+
+\medskip
+\video{https://www.youtube.com/watch?v=hZ4a4NgM3u0}{Autoencoders — Deep Learning Animated}{Deepia, ~20m}\\
+Divulgativo e visivamente ottimo per l'intuizione geometrica (bottleneck, manifold), ma non copre il taglio ``regularized AE'' delle slide: match dichiarato parziale.
+
+\medskip
+\video{https://www.youtube.com/watch?v=2859tNY-G5E}{Regularized Autoencoders: Denoising, Contractive, Variational}{Charu Aggarwal, ~40m}\\
+Questo invece copre esattamente sparse, denoising e contractive con le rispettive regolarizzazioni: è il complemento del primo.
+\end{risorsevideo}
+
+\section{Motivazione e posizionamento}
+
+L'obiettivo della modellazione generativa è apprendere, da un dataset $\mathcal{D} = \{\vect{x}_1, \dots, \vect{x}_N\}$ campionato da una distribuzione sconosciuta $P(\vect{x})$, un modello $P_\theta(\vect{x}) \approx P(\vect{x})$ oppure un processo di campionamento che produca esemplari indistinguibili da quelli in $\mathcal{D}$. Esistono due famiglie:
+\begin{description}
+  \item[Modelli espliciti] apprendono $P_\theta(\vect{x})$ in forma chiusa o tramite un \emph{lower bound} (VAE, flows, diffusion, autoregressivi).
+  \item[Modelli impliciti] apprendono solo una procedura di campionamento $\vect{x} \sim P_\theta$ senza esprimere la densità (GAN, generative stochastic networks).
+\end{description}
+
+L'autoencoder (AE) è il punto di partenza: storicamente nato come modello \emph{non} generativo per riduzione di dimensionalità, viene rimodulato per generare attraverso interpretazioni probabilistiche (DAE come stimatore della score, VAE come modello a variabile latente differenziabile).
+
+\section{Autoencoder neurale}
+
+\begin{definition}[Autoencoder]
+Un autoencoder è una coppia di funzioni $(f_\phi, g_\theta)$ con $f_\phi: \mathcal{X} \to \mathcal{Z}$ (encoder) e $g_\theta: \mathcal{Z} \to \mathcal{X}$ (decoder), addestrata a minimizzare un errore di ricostruzione
+\[
+\mathcal{L}_{\text{AE}}(\theta,\phi) = \frac{1}{N}\sum_{i=1}^N L\big(\vect{x}_i, g_\theta(f_\phi(\vect{x}_i))\big),
+\]
+tipicamente con $L = \|\cdot\|_2^2$. La rappresentazione $\vect{z} = f_\phi(\vect{x})$ vive nel \emph{bottleneck}, con dim$(\mathcal{Z}) \ll$ dim$(\mathcal{X})$, oppure (in AE sovracompleti) con un vincolo di regolarizzazione che impedisce l'apprendimento dell'identità.
+\end{definition}
+
+\begin{remark}[Manifold hypothesis]
+Si assume che i dati osservati giacciano (approssimativamente) su una sottovarietà $\mathcal{M} \subset \mathcal{X}$ di dimensione molto inferiore a $\dim(\mathcal{X})$. L'AE impara una parametrizzazione di $\mathcal{M}$ via $f_\phi$ (immersione) e $g_\theta$ (ricostruzione). La regolarizzazione spinge $g_\theta \circ f_\phi$ a essere sensibile solo alle variazioni \emph{tangenti} alla varietà.
+\end{remark}
+
+\begin{intuizione}{il bottleneck non è l'unico modo di impedire la copia}
+Il rischio strutturale di un autoencoder è banale: se encoder e decoder sono abbastanza espressivi, la soluzione ottima è l'identità. Ricostruzione perfetta, rappresentazione inutile.
+
+Il bottleneck (latente più piccolo dell'input) è il rimedio ovvio: se lo spazio non basta, la rete deve buttare via qualcosa, e conviene che butti via il rumore invece del segnale. Ma è un rimedio grezzo, perché la capacità va scelta a mano e non c'è garanzia che ciò che sopravvive sia semanticamente interessante.
+
+Le varianti regolarizzate sostituiscono il vincolo di \emph{dimensione} con un vincolo sul \emph{comportamento}, e questo permette di usare anche latenti sovracompleti:
+\begin{itemize}[leftmargin=1.4em]
+  \item \textbf{Sparse}: penalizza $\|\vect{h}\|_1$. Il latente può essere grande, ma solo poche unità si accendono per input — capacità limitata per campione, non in assoluto.
+  \item \textbf{Denoising}: corrompe l'input e chiede di ricostruire l'originale. L'identità non è più una soluzione, perché copierebbe anche il rumore. La rete è costretta a imparare che cosa \emph{non} appartiene ai dati.
+  \item \textbf{Contractive}: penalizza $\|\partial \vect{h}/\partial \vect{x}\|_F^2$. Chiede esplicitamente che la rappresentazione sia insensibile a piccole perturbazioni, tranne che nelle direzioni tangenti alla varietà dei dati.
+\end{itemize}
+
+\textbf{Il filo che porta al resto della Parte IV}: DAE e CAE arrivano alla stessa conclusione da direzioni diverse, cioè che il modello deve imparare come i dati si comportano \emph{attorno} alla varietà, non solo sopra. Il DAE in particolare, si dimostrerà, stima implicitamente $\nabla_{\vect{x}} \log p(\vect{x})$ — la \emph{score}. È il motivo per cui il capitolo su diffusion e score matching non è un argomento nuovo, ma il seguito di questo.
+\end{intuizione}
+
+\section{Varianti regolarizzate}
+
+\subsection{Sparse autoencoder (SAE)}
+Aggiunge una penalità sull'attivazione latente
+\[
+\mathcal{L}_{\text{SAE}} = L(\vect{x}, \tilde{\vect{x}}) + \lambda \, \Omega(\vect{z}), \qquad \Omega(\vect{z}) = \|\vect{z}\|_1 = \sum_j |z_j|.
+\]
+\begin{remark}[Interpretazione MAP]
+$\Omega(\vect{z}) = \lambda \|\vect{z}\|_1$ corrisponde a un prior di Laplace $P(\vect{z}) \propto \exp(-\lambda \|\vect{z}\|_1/2)$. Allenare con regolarizzazione equivale (a meno di costanti) a $\max_\theta \log P(\vect{x}|\vect{z}) + \log P(\vect{z})$, ossia inferenza MAP.
+\end{remark}
+
+\subsection{Denoising autoencoder (DAE)}
+Si corrompe l'input con un processo di rumore $C(\hat{\vect{x}} | \vect{x})$, tipicamente $\hat{\vect{x}} = \vect{x} + \boldsymbol{\epsilon}$ con $\boldsymbol{\epsilon} \sim \mathcal{N}(0, \sigma^2 \mat{I})$, e si minimizza
+\[
+\mathcal{L}_{\text{DAE}} = \mathbb{E}_{\vect{x},\hat{\vect{x}}}\, \| \vect{x} - g_\theta(f_\phi(\hat{\vect{x}})) \|_2^2 .
+\]
+
+\begin{theorem}[DAE come stima della score, Vincent 2011]
+Sotto rumore gaussiano $\hat{\vect{x}} = \vect{x} + \boldsymbol{\epsilon}$ con $\boldsymbol{\epsilon} \sim \mathcal{N}(0, \sigma^2 \mat{I})$ e per $\sigma$ piccolo, il minimo della loss DAE è il \emph{conditional mean estimator} $g(f(\hat{\vect{x}})) = \mathbb{E}[\vect{x} \mid \hat{\vect{x}}]$. Applicando la formula di Tweedie
+\[
+\mathbb{E}[\vect{x} \mid \hat{\vect{x}}] = \hat{\vect{x}} + \sigma^2 \nabla_{\hat{\vect{x}}} \log p(\hat{\vect{x}}),
+\]
+si ottiene
+\[
+\boxed{\;\nabla_{\hat{\vect{x}}} \log p(\hat{\vect{x}}) = \frac{g_\theta(f_\phi(\hat{\vect{x}})) - \hat{\vect{x}}}{\sigma^2}.\;}
+\]
+Il campo vettoriale $g(f(\hat{\vect{x}})) - \hat{\vect{x}}$ approssima il gradiente della log-densità (la \emph{score function}).
+\end{theorem}
+
+\begin{remark}[Ponte con diffusion]
+Questa identità è il seme del legame fra DAE, score matching e modelli di diffusione (Cap.~\ref{ch:diffusion} e \ref{ch:flowmatching}): un DAE già impara la score; un diffusion model è un DAE gerarchico a livelli multipli di $\sigma$.
+\end{remark}
+
+\subsection{Contractive autoencoder (CAE)}
+Penalizza la sensibilità dell'encoder
+\[
+\mathcal{L}_{\text{CAE}} = L(\vect{x}, \tilde{\vect{x}}) + \lambda \left\| \frac{\partial f_\phi(\vect{x})}{\partial \vect{x}} \right\|_F^2 .
+\]
+La rappresentazione $\vect{z}$ varia poco rispetto a perturbazioni infinitesime di $\vect{x}$: si apprende un'immersione locale a varietà.
+
+\section{Deep autoencoders e pretraining}
+
+Un deep AE è una composizione gerarchica di encoder $f_1, \dots, f_L$ e decoder simmetrici $g_L, \dots, g_1$. Storicamente, prima di Adam e batch normalization, l'addestramento end-to-end soffriva del vanishing gradient (Cap.~\ref{ch:propagation}). La soluzione era il \emph{layerwise unsupervised pretraining}:
+\begin{enumerate}
+  \item Addestra $(W_1)$ come AE su $\vect{x}$;
+  \item Congela $W_1$, addestra $(W_2)$ come AE su $\vect{z}_1 = f_1(\vect{x})$;
+  \item Continua fino al livello $L$;
+  \item (Opzionale) fine-tuning end-to-end di tutta la pila.
+\end{enumerate}
+
+\paragraph{Connessione con RBM.}
+Riscrivendo lo stack di autoencoder come una struttura a strati di unità stocastiche bidirezionali si ottiene la \emph{Deep Belief Network} (DBN): una pila di RBM (Cap.~\ref{ch:mrf}) addestrate con contrastive divergence. La DBN è (in larga parte) un grafo diretto top-down con uno strato superiore non diretto (l'ultimo RBM). La \emph{Deep Boltzmann Machine} (DBM), invece, è un modello completamente non diretto, e richiede il \emph{double counting trick} (dimezzare i pesi degli strati intermedi durante il pretraining per evitare di contare due volte i contributi $\vect{x} \to \vect{z}_1$).
+
+\section{Applicazioni}
+
+\begin{description}
+  \item[Visualizzazione e indexing] proiezione su 2D/3D per esplorazione dati.
+  \item[Anomaly detection] punti con errore di ricostruzione $\|\vect{x} - g(f(\vect{x}))\|$ sopra una soglia sono potenziali anomalie.
+  \item[Pretraining supervisato] iniziare un classificatore profondo dai pesi di un deep AE.
+  \item[Compressione e denoising] usando CNN/U-Net come encoder/decoder.
+  \item[Multimodal learning] DBM multimodale (Srivastava \& Salakhutdinov 2014) fonde più modalità (immagini + testo) in uno spazio condiviso.
+\end{description}
+
+\begin{tcolorbox}[mybox, title={Quando usare un autoencoder}]
+\begin{description}[leftmargin=4em,style=nextline]
+  \item[Si vuole una rappresentazione compatta non supervisionata] DAE o CAE: la regolarizzazione fissa la varietà.
+  \item[Anomaly detection] usare la distribuzione degli errori di ricostruzione sui normali.
+  \item[Generazione di qualità] \textbf{Non} l'AE classico: l'output del bottleneck non è una distribuzione campionabile. Passare a VAE (Cap.~\ref{ch:vae}) o diffusion (Cap.~\ref{ch:diffusion}).
+  \item[Pretraining moderno] generalmente sostituito da self-supervised contrastivo (SimCLR, BYOL) per le immagini, ma DAE rimane competitivo per dati strutturati e biomedici.
+\end{description}
+\end{tcolorbox}
+
+\begin{tcolorbox}[mybox, title={Connessioni}]
+\begin{itemize}
+  \item DAE $\leftrightarrow$ score matching: il DAE apprende il campo $\nabla_{\vect{x}} \log p(\vect{x})$ (Tweedie).
+  \item AE regolarizzato $\leftrightarrow$ MAP: la regolarizzazione $\Omega(\vect{z})$ implementa un prior sulla latente.
+  \item Deep AE $\leftrightarrow$ DBN/DBM: la stessa architettura, ma con unità stocastiche e training contrastivo.
+  \item AE $\to$ VAE: aggiungere un encoder stocastico e una loss ELBO trasforma l'AE in un modello latente generativo.
+\end{itemize}
+\end{tcolorbox}
+
+\begin{tcolorbox}[mywarn, title={Domande d'esame — Autoencoders}]
+\begin{enumerate}
+  \item Cosa significa che il DAE impara un'approssimazione della score function? Deriva l'identità di Tweedie e mostra come si arriva a $\nabla_{\hat{\vect{x}}} \log p(\hat{\vect{x}}) = (g(f(\hat{\vect{x}})) - \hat{\vect{x}})/\sigma^2$.
+  \item Differenza concettuale e formale fra sparse AE, denoising AE e contractive AE. Quando ne preferiresti uno rispetto agli altri?
+  \item Spiega il \emph{layerwise pretraining} di un deep AE. Perché era necessario in passato e perché oggi è meno usato?
+  \item Differenza fra DBN e DBM: quale è diretto, quale no, come differisce l'inferenza.
+  \item Perché un AE classico non è un buon modello generativo, anche se ha un bottleneck? (suggerimento: lo spazio latente non è distribuito secondo una distribuzione campionabile).
+  \item Confronto fra Tweedie's formula e reparametrization trick: entrambi permettono di trattare distribuzioni gaussiane in modi che facilitano l'apprendimento — sono lo stesso strumento?
+\end{enumerate}
+\end{tcolorbox}
+
+%===============================================================
+\chapter{Variational Autoencoders}
+
+\begin{risorsevideo}{GDL24 — Variational Autoencoders}
+\videolezione{della lezione GDL24}
+
+\medskip
+\video{https://www.youtube.com/watch?v=NlIqjtbjjRE}{CS294-158 SP24 — L4: Latent Variable Models and Variational AutoEncoders}{Pieter Abbeel, UC Berkeley, ~2h}\\
+Deriva l'ELBO senza saltare passaggi e spiega il reparametrization trick come soluzione a un problema preciso di stima del gradiente. Lungo, ma è la trattazione più completa disponibile.
+
+\medskip
+\video{https://www.youtube.com/watch?v=DaqNNLidswA}{Variational Inference: Foundations and Innovations}{David Blei, ~1h30m}\\
+Da rivedere se l'ELBO della Parte~II non è ancora automatico: il VAE è quella stessa ELBO con $q$ parametrizzata da una rete.
+\end{risorsevideo}
+\label{ch:vae}
+
+\section{Dalla DAE al modello a variabile latente}
+
+L'osservazione cruciale (Cap.~\ref{ch:ae}, formula di Tweedie) è che il DAE stima $\nabla_{\vect{x}} \log p(\vect{x})$ solo nell'intorno dei training point. Vogliamo invece un modello esplicito di $p_\theta(\vect{x})$, ben definito su tutto $\mathcal{X}$.
+
+L'idea è un modello a variabile latente continua:
+\begin{equation}\label{eq:lvm}
+p_\theta(\vect{x}) = \int p_\theta(\vect{x}\mid \vect{z}) \, p(\vect{z})\, d\vect{z},
+\end{equation}
+con $p(\vect{z}) = \mathcal{N}(0, \mat{I})$ prior semplice e $p_\theta(\vect{x}|\vect{z})$ rete neurale (decoder). L'integrale è intrattabile in dimensione alta: serve un'approssimazione variazionale.
+
+\section{ELBO}
+
+\begin{theorem}[Evidence Lower BOund]
+Per qualunque distribuzione $q_\phi(\vect{z}|\vect{x})$ vale
+\[
+\log p_\theta(\vect{x}) = \underbrace{\mathbb{E}_{q_\phi(\vect{z}|\vect{x})}\!\left[\log \frac{p_\theta(\vect{x},\vect{z})}{q_\phi(\vect{z}|\vect{x})}\right]}_{\mathcal{L}(\vect{x};\theta,\phi)} + \KL{q_\phi(\vect{z}|\vect{x})}{p_\theta(\vect{z}|\vect{x})}.
+\]
+\end{theorem}
+\begin{proof}
+$\log p(\vect{x}) = \log \int p(\vect{x},\vect{z})\,d\vect{z} = \log \mathbb{E}_q\!\left[\frac{p(\vect{x},\vect{z})}{q(\vect{z}|\vect{x})}\right]$. La disuguaglianza di Jensen su $\log$ (concavo) dà $\log p(\vect{x}) \geq \mathbb{E}_q\!\left[\log \frac{p(\vect{x},\vect{z})}{q(\vect{z}|\vect{x})}\right]$. L'identità con il gap-KL si ottiene scrivendo $p(\vect{x},\vect{z}) = p(\vect{z}|\vect{x}) p(\vect{x})$ e separando i termini.
+\end{proof}
+
+Poiché $\KL \geq 0$:
+\begin{equation}
+\log p_\theta(\vect{x}) \geq \mathcal{L}(\vect{x};\theta,\phi).
+\end{equation}
+Massimizzare $\mathcal{L}$ rispetto a $(\theta, \phi)$ \emph{contemporaneamente} (i) aumenta la verosimiglianza del modello, (ii) avvicina $q_\phi(\vect{z}|\vect{x})$ alla vera posteriori intrattabile $p_\theta(\vect{z}|\vect{x})$.
+
+Una riscrittura utile:
+\begin{equation}\label{eq:elbo-vae}
+\boxed{\;\mathcal{L}(\vect{x};\theta,\phi) = \underbrace{\mathbb{E}_{q_\phi(\vect{z}|\vect{x})}\!\left[\log p_\theta(\vect{x}|\vect{z})\right]}_{\text{ricostruzione}} - \underbrace{\KL{q_\phi(\vect{z}|\vect{x})}{p(\vect{z})}}_{\text{regolarizzazione}}.\;}
+\end{equation}
+
+\section{Architettura VAE}
+
+\begin{description}
+  \item[Encoder] $q_\phi(\vect{z}|\vect{x}) = \mathcal{N}(\boldsymbol{\mu}_\phi(\vect{x}), \mathrm{diag}(\boldsymbol{\sigma}^2_\phi(\vect{x})))$: una rete neurale produce $\boldsymbol{\mu}, \boldsymbol{\sigma}$.
+  \item[Decoder] $p_\theta(\vect{x}|\vect{z})$ è tipicamente $\mathcal{N}(g_\theta(\vect{z}), \sigma_x^2 \mat{I})$ (output continuo) o Bernoulli (binari) o categoriale (multinomiali).
+  \item[Prior] $p(\vect{z}) = \mathcal{N}(0,\mat{I})$.
+\end{description}
+
+\subsection{Reparametrization trick}
+
+Il problema: $\mathbb{E}_{q_\phi}[\cdot]$ richiede campionare $\vect{z}$ da $q_\phi$ che dipende da $\phi$. Il sampling non è differenziabile. La soluzione:
+\begin{equation}
+\vect{z} = \boldsymbol{\mu}_\phi(\vect{x}) + \boldsymbol{\sigma}_\phi(\vect{x}) \odot \boldsymbol{\epsilon}, \qquad \boldsymbol{\epsilon} \sim \mathcal{N}(0,\mat{I}).
+\end{equation}
+Ora $\boldsymbol{\epsilon}$ non dipende dai parametri, e $\vect{z}$ è una funzione differenziabile di $(\boldsymbol{\mu}, \boldsymbol{\sigma}, \boldsymbol{\epsilon})$. Quindi
+\[
+\nabla_\phi \mathbb{E}_{q_\phi}[f(\vect{z})] = \mathbb{E}_{\boldsymbol{\epsilon}}\!\left[\nabla_\phi f\big(\boldsymbol{\mu}_\phi(\vect{x}) + \boldsymbol{\sigma}_\phi(\vect{x}) \odot \boldsymbol{\epsilon}\big)\right],
+\]
+che si stima con Monte Carlo (in pratica un solo $\boldsymbol{\epsilon}$ per esempio).
+
+\begin{intuizione}{il reparametrization trick risolve un problema di gradiente, non di campionamento}
+Campionare $\vect{z} \sim q_\phi(\vect{z} \mid \vect{x})$ non è difficile: è una gaussiana, si sa fare. Il problema è un altro: l'operazione di campionamento è \emph{stocastica e non differenziabile rispetto a $\phi$}. Il gradiente che dovrebbe tornare all'encoder trova un nodo casuale sulla strada e si ferma.
+
+Esisterebbe una via alternativa, lo stimatore REINFORCE (score function estimator), che è non distorto ma ha varianza altissima — in pratica inutilizzabile per addestrare un encoder.
+
+Il trucco della riparametrizzazione sposta la casualità fuori dal cammino del gradiente. Invece di campionare $\vect{z}$ da una distribuzione che dipende da $\phi$, si campiona $\boldsymbol{\epsilon} \sim \mathcal{N}(0, \mat{I})$ — che non dipende da niente — e si costruisce
+\[
+\vect{z} = \boldsymbol{\mu}_\phi(\vect{x}) + \boldsymbol{\sigma}_\phi(\vect{x}) \odot \boldsymbol{\epsilon}.
+\]
+Ora $\vect{z}$ è una funzione \emph{deterministica e differenziabile} di $\phi$ e di un rumore esterno. Il grafo computazionale è continuo da capo a fondo e la backpropagation passa normalmente.
+
+\textbf{Il modo di dirlo all'orale}: la casualità non è stata eliminata, è stata spostata da dentro il grafo a un ingresso del grafo. La differenza in varianza dello stimatore è di ordini di grandezza, ed è ciò che rende il VAE addestrabile.
+
+\textbf{Limite implicito}: il trucco funziona perché la gaussiana ammette una riparametrizzazione location-scale. Per latenti discreti non esiste, ed è la ragione per cui servono Gumbel-Softmax, straight-through estimator o VQ-VAE.
+\end{intuizione}
+
+\subsection{KL in forma chiusa}
+
+Per $q = \mathcal{N}(\boldsymbol{\mu}, \mathrm{diag}(\boldsymbol{\sigma}^2))$ e $p = \mathcal{N}(0, \mat{I})$:
+\begin{equation}\label{eq:kl-gauss}
+\boxed{\;\KL{q}{p} = \frac{1}{2}\sum_{j=1}^d\big(\mu_j^2 + \sigma_j^2 - 1 - \log \sigma_j^2\big).\;}
+\end{equation}
+\begin{proof}[Sketch]
+$\KL{\mathcal{N}(\mu_1,\sigma_1^2)}{\mathcal{N}(\mu_2,\sigma_2^2)} = \log\frac{\sigma_2}{\sigma_1} + \frac{\sigma_1^2 + (\mu_1-\mu_2)^2}{2\sigma_2^2} - \frac{1}{2}$. Per gaussiane indipendenti la KL è somma componente per componente. Specializzando con $\mu_2=0, \sigma_2=1$ si ottiene~\eqref{eq:kl-gauss}.
+\end{proof}
+
+\subsection{Loss finale}
+Combinando~\eqref{eq:elbo-vae},~\eqref{eq:kl-gauss} e la reparametrizzazione:
+\[
+-\mathcal{L} \approx \frac{1}{2\sigma_x^2}\| \vect{x} - g_\theta(\vect{z}) \|^2 + \frac{1}{2}\sum_j (\mu_j^2 + \sigma_j^2 - 1 - \log \sigma_j^2),
+\]
+con $\vect{z} = \boldsymbol{\mu}_\phi(\vect{x}) + \boldsymbol{\sigma}_\phi(\vect{x}) \odot \boldsymbol{\epsilon}$.
+
+\begin{esempiosvolto}{i due termini dell'ELBO, con numeri}
+La loss del VAE per un campione è
+\[
+-\mathcal{L} = \underbrace{-\mathbb{E}_{q}\big[\log p_\theta(\vect{x} \mid \vect{z})\big]}_{\text{ricostruzione}} + \underbrace{\KL{q_\phi(\vect{z}|\vect{x})}{p(\vect{z})}}_{\text{regolarizzazione}}.
+\]
+
+\medskip
+\textbf{Il termine KL, in forma chiusa.} Per $q = \mathcal{N}(\mu, \sigma^2)$ e prior $p = \mathcal{N}(0,1)$ in una dimensione:
+\[
+\KL{q}{p} = \tfrac{1}{2}\big(\mu^2 + \sigma^2 - 1 - \log \sigma^2\big).
+\]
+Con $\mu = 0.5$ e $\sigma = 0.8$:
+\[
+\tfrac{1}{2}\big(0.25 + 0.64 - 1 + 0.4463\big) = \tfrac{1}{2}(0.3363) = \mathbf{0.168}.
+\]
+Si verifichino i due casi limite: con $\mu = 0$, $\sigma = 1$ la KL è esattamente $0$ (il posterior coincide col prior); con $\sigma \to 0$ il termine $-\log \sigma^2$ diverge, quindi il modello è \emph{penalizzato all'infinito} se prova a rendere l'encoder deterministico.
+
+\medskip
+\textbf{Che cosa fa quel $-\log \sigma^2$.} È il termine che impedisce al VAE di collassare in un autoencoder normale. Senza rumore nel latente il modello ricostruirebbe meglio, ma lo spazio latente resterebbe pieno di buchi e il campionamento da $p(\vect{z})$ produrrebbe spazzatura. La KL forza le gaussiane posteriori a sovrapporsi, riempiendo lo spazio.
+
+\medskip
+\textbf{Il tiro alla fune, e le due patologie.} I due termini si oppongono:
+\begin{itemize}[leftmargin=1.4em]
+  \item se la KL vince, si ha \emph{posterior collapse}: $q_\phi(\vect{z}|\vect{x}) \to p(\vect{z})$ per ogni $\vect{x}$, la KL va a $0$, il latente non porta più informazione sull'input e il decoder impara a ignorarlo. Si riconosce guardando la KL: se tende a zero mentre la ricostruzione non migliora, è questo.
+  \item se vince la ricostruzione, il latente si sparpaglia e il campionamento a priori peggiora.
+\end{itemize}
+Il $\beta$-VAE non fa che mettere un peso esplicito su questo equilibrio: $\beta > 1$ spinge verso il disentanglement pagando in qualità di ricostruzione, $\beta < 1$ il contrario.
+
+\textbf{Nota sull'immagine sfocata.} Le ricostruzioni del VAE sono tipicamente sfocate perché il termine di ricostruzione, con decoder gaussiano a varianza fissa, è un errore quadratico: di fronte a un'ambiguità, l'MSE preferisce la \emph{media} di tutte le possibilità plausibili a una qualsiasi di esse. La media di più volti nitidi è un volto sfocato. Il GAN del capitolo seguente non ha questo problema proprio perché non ottimizza una verosimiglianza per pixel.
+\end{esempiosvolto}
+
+\section{Generazione e CVAE}
+
+\paragraph{Campionamento (test).} Si stacca l'encoder: $\vect{z} \sim \mathcal{N}(0,\mat{I})$, $\tilde{\vect{x}} = g_\theta(\vect{z})$.
+
+\paragraph{Conditional VAE.} Si aggiunge un input $\vect{y}$ (etichetta o condizione) a encoder e decoder:
+\[
+\mathcal{L}_{\text{CVAE}}(\vect{x},\vect{y}) = \mathbb{E}_{q_\phi(\vect{z}|\vect{x},\vect{y})}[\log p_\theta(\vect{x}|\vect{z},\vect{y})] - \KL{q_\phi(\vect{z}|\vect{x},\vect{y})}{p(\vect{z}|\vect{y})}.
+\]
+
+\section{Interpretazione info-teorica}
+
+Riscrivendo l'ELBO:
+\[
+\mathcal{L} = \mathbb{E}_{\vect{x}\sim\mathcal{D}}\!\left[\mathbb{E}_{q_\phi(\vect{z}|\vect{x})}[\log p_\theta(\vect{x}|\vect{z})] - \KL{q_\phi(\vect{z}|\vect{x})}{p(\vect{z})}\right].
+\]
+\begin{itemize}
+  \item Il primo termine è il numero di bit necessari per ricodificare $\vect{x}$ dato $\vect{z}$ con $p_\theta(\vect{x}|\vect{z})$.
+  \item Il secondo è l'\emph{information gain}: quanti bit servono per trasmettere $\vect{z}$ usando $q_\phi(\vect{z}|\vect{x})$ rispetto al prior. È anche un costo di codifica.
+\end{itemize}
+Il VAE è quindi un codec a tasso minimo (compressione lossy con prior gaussiano).
+
+\section{Patologie e varianti}
+
+\subsection{$\beta$-VAE}
+\[
+\mathcal{L}_\beta = \mathbb{E}_{q_\phi}[\log p_\theta(\vect{x}|\vect{z})] - \beta\, \KL{q_\phi(\vect{z}|\vect{x})}{p(\vect{z})}, \qquad \beta > 1.
+\]
+Spinge i fattori latenti a essere più indipendenti (\emph{disentanglement}). Vedi Cap.~\ref{ch:crl}.
+
+\subsection{Posterior collapse}
+Se il decoder $p_\theta(\vect{x}|\vect{z})$ è troppo espressivo (es.\ autoregressive PixelCNN), può ricostruire $\vect{x}$ \emph{senza usare} $\vect{z}$. Allora $q_\phi(\vect{z}|\vect{x}) \to p(\vect{z})$, il KL va a zero e la latente diventa inutile. Mitigazioni: KL annealing, free bits, $\beta < 1$ iniziale.
+
+\subsection{Confronto con AE classico e DAE}
+\begin{itemize}
+  \item L'AE classico non ha vincoli sul prior di $\vect{z}$: campionare random non ha senso.
+  \item Il DAE apprende la score \emph{solo} attorno ai training point. Il VAE definisce $p_\theta(\vect{x})$ globalmente.
+\end{itemize}
+
+\begin{tcolorbox}[mybox, title={Quando usare un VAE}]
+\begin{description}[leftmargin=4em,style=nextline]
+  \item[Representation learning con prior strutturato] sì, è il \emph{best in class} per spazi latenti regolari, interpolazioni, manipolazione semantica.
+  \item[Generazione fotorealistica] \textbf{no}: campioni tipicamente sfocati. Usare diffusion o GAN.
+  \item[Backbone modulare] sì, il VAE è il building block di latent diffusion (Stable Diffusion), CITRIS, e di buona parte dei modelli causali.
+  \item[Anomaly detection] sì, l'ELBO è una misura naturale di tipicità.
+  \item[Conditional generation] facile via CVAE.
+\end{description}
+\end{tcolorbox}
+
+\begin{tcolorbox}[mybox, title={Connessioni}]
+\begin{itemize}
+  \item ELBO $=$ stessa quantità di Variational Inference (Cap.~\ref{ch:variational}); il reparametrization trick rende l'EM differenziabile e parametrizza encoder/decoder con reti neurali.
+  \item Il VAE è il padre di diffusion (visto come VAE gerarchico con encoder fisso) e di Causal Representation Learning (iVAE, $\beta$-VAE, CITRIS).
+  \item DAE $\to$ VAE: passare da score locale a densità globale.
+  \item Reparametrization trick $\to$ flow matching: in entrambi si differenzia attraverso un campionamento.
+\end{itemize}
+\end{tcolorbox}
+
+\begin{tcolorbox}[mywarn, title={Domande d'esame — VAE}]
+\begin{enumerate}
+  \item Deriva l'ELBO partendo da $\log p_\theta(\vect{x}) = \log \int p(\vect{x},\vect{z})\,d\vect{z}$ usando la disuguaglianza di Jensen. Mostra esplicitamente come compaiono i termini di ricostruzione e KL.
+  \item Cos'è il reparametrization trick e perché è necessario? Cosa succederebbe se rimuovi questo trucco e provi a backpropagare attraverso il campionamento?
+  \item Deriva $\KL{\mathcal{N}(\boldsymbol{\mu}, \mathrm{diag}(\boldsymbol{\sigma}^2))}{\mathcal{N}(0,\mat{I})}$ in forma chiusa.
+  \item Cos'è il \emph{posterior collapse}? In quali condizioni si verifica e come si mitiga?
+  \item Confronta VAE con DAE: entrambi usano rumore gaussiano, dov'è la differenza?
+  \item Perché i campioni VAE sono tipicamente sfocati? È un problema dell'ELBO o della parametrizzazione gaussiana del decoder?
+  \item Come modificheresti l'ELBO per condizionare la generazione su un'etichetta $\vect{y}$? Scrivi la loss CVAE.
+\end{enumerate}
+\end{tcolorbox}
+
+%===============================================================
+\chapter{Generative Adversarial Networks}
+\label{ch:gan}
+
+\begin{risorsevideo}{GDL25 — Generative Adversarial Networks}
+\videolezione{della lezione GDL25}
+
+\medskip
+\video{https://www.youtube.com/watch?v=lFAHPJS2HHc}{CS294-158 SP24 — L5: GANs}{Pieter Abbeel, UC Berkeley, ~2h}\\
+Deriva $D^*$ e la connessione con la Jensen-Shannon esattamente come le slide, e prosegue con WGAN, mode collapse e le varianti condizionali. È il riferimento completo del capitolo.
+\end{risorsevideo}
+
+\section{Idea: imparare a campionare}
+
+A differenza del VAE che apprende esplicitamente $p_\theta(\vect{x})$ via ELBO, una GAN \emph{non} apprende mai la densità. Invece, apprende un \emph{generatore} $G_{\theta_G}: \mathcal{Z} \to \mathcal{X}$ (rete deterministica) tale che $G(\vect{z})$ con $\vect{z} \sim p(\vect{z}) = \mathcal{N}(0,\mat{I})$ produca campioni \emph{indistinguibili} dai dati reali agli occhi di un \emph{discriminatore} $D_{\theta_D}: \mathcal{X} \to [0,1]$.
+
+\section{Formulazione minimax}
+
+\begin{equation}\label{eq:gan-minmax}
+\boxed{\;\min_{\theta_G} \max_{\theta_D}\; V(D, G) = \mathbb{E}_{\vect{x}\sim p_{\text{data}}}[\log D(\vect{x})] + \mathbb{E}_{\vect{z}\sim p(\vect{z})}[\log(1 - D(G(\vect{z})))].\;}
+\end{equation}
+
+$D$ massimizza la probabilità di etichettare correttamente reali e falsi; $G$ minimizza la probabilità che $D$ smascheri i suoi campioni.
+
+\subsection{Discriminatore ottimale}
+
+\begin{theorem}[Goodfellow et al.\ 2014]
+Per $G$ fisso, il discriminatore ottimale di~\eqref{eq:gan-minmax} è
+\[
+\boxed{\;D^*(\vect{x}) = \frac{p_{\text{data}}(\vect{x})}{p_{\text{data}}(\vect{x}) + p_G(\vect{x})},\;}
+\]
+dove $p_G$ è la densità implicita indotta da $G$.
+\end{theorem}
+\begin{proof}
+Per ogni $\vect{x}$ fissato, il funzionale è $f(d) = p_{\text{data}}(\vect{x})\log d + p_G(\vect{x})\log(1-d)$. Derivando rispetto a $d$ e azzerando: $p_{\text{data}}/d - p_G/(1-d) = 0 \Rightarrow d = p_{\text{data}}/(p_{\text{data}} + p_G)$. La seconda derivata è negativa, dunque è un massimo.
+\end{proof}
+
+\subsection{Connessione con Jensen-Shannon}
+
+Sostituendo $D^*$ in $V$:
+\begin{align*}
+V(D^*, G) &= \mathbb{E}_{p_{\text{data}}}\!\left[\log\frac{p_{\text{data}}}{p_{\text{data}}+p_G}\right] + \mathbb{E}_{p_G}\!\left[\log\frac{p_G}{p_{\text{data}}+p_G}\right]\\
+&= -\log 4 + \KL{p_{\text{data}}}{\tfrac{p_{\text{data}}+p_G}{2}} + \KL{p_G}{\tfrac{p_{\text{data}}+p_G}{2}}\\
+&= -\log 4 + 2 \cdot \mathrm{JS}(p_{\text{data}} \| p_G).
+\end{align*}
+Quindi il problema GAN minimizza la divergenza di Jensen-Shannon fra $p_{\text{data}}$ e $p_G$. L'ottimo globale è $p_G = p_{\text{data}}$, raggiunto con $V = -\log 4$ e $D^* \equiv 1/2$ (indistinguibile).
+
+\begin{intuizione}{la GAN non minimizza una loss, cerca un equilibrio}
+La differenza radicale con tutto il resto della Parte IV: VAE, flow e diffusion minimizzano una funzione obiettivo. Una GAN no. Il problema
+\[
+\min_G \max_D V(D,G)
+\]
+è la ricerca di un \emph{punto di sella}, e questo cambia tutto ciò che si può dire sul training.
+
+Non esiste una quantità che scende monotonamente e che si possa guardare per capire se le cose vanno bene: la loss del generatore può salire mentre i campioni migliorano, e viceversa. Non c'è un criterio di stop naturale. La dinamica può oscillare o entrare in ciclo, perché due gradienti che si contrastano non convergono necessariamente — anche nel caso quadratico più semplice il gradient descent-ascent può orbitare intorno alla soluzione senza raggiungerla.
+
+\textbf{Perché comunque funziona (quando funziona)}: sostituendo $D^*$ nella $V$ si ottiene
+\[
+V(D^*, G) = -\log 4 + 2\, \mathrm{JSD}(p_{\text{data}} \| p_G),
+\]
+quindi \emph{all'ottimo del discriminatore} il generatore sta effettivamente minimizzando una divergenza, e il minimo $-\log 4 \approx -1.386$ si raggiunge sse $p_G = p_{\text{data}}$. Il punto sottile è quel ``all'ottimo'': nella pratica $D$ non è mai ottimo, quindi il generatore minimizza un'approssimazione della JSD, e le garanzie teoriche non si applicano.
+
+\textbf{E il vantaggio, che va detto insieme ai difetti}: proprio perché non ottimizza una verosimiglianza per pixel, la GAN non è spinta a mediare fra le alternative plausibili. È il motivo per cui i suoi campioni sono nitidi dove quelli del VAE sono sfocati — e anche il motivo per cui può ignorare interi modi della distribuzione senza pagare pegno, che è il mode collapse.
+\end{intuizione}
+
+\section{Problemi pratici}
+
+\subsection{Gradient saturation}
+Quando il generatore è scarso, $D(G(\vect{z})) \to 0$ e $\log(1-D(G(\vect{z}))) \to 0$ con gradiente quasi piatto. La fix (Goodfellow 2014) è il \emph{non-saturating loss}: il generatore massimizza $\mathbb{E}_{\vect{z}}[\log D(G(\vect{z}))]$ invece di minimizzare $\mathbb{E}_{\vect{z}}[\log(1 - D(G(\vect{z})))]$. Stesso punto fisso, gradiente meno piatto.
+
+\subsection{Mode collapse}
+Il generatore impara a produrre pochi modi della distribuzione che \emph{ingannano} $D$, ignorando il resto. Sintomo: campioni simili tra loro.
+
+\subsection{Instabilità del training}
+Il problema minimax è un punto sella, non un minimo. Senza heuristiche (batch normalization, label smoothing, spectral norm, two-timescale rules) il training oscilla.
+
+\begin{esempiosvolto}{gradient saturation: perché si cambia la loss del generatore}
+La formulazione originale chiede al generatore di minimizzare $\log(1 - D(G(\vect{z})))$. Vediamo che cosa succede all'inizio del training, quando $D$ smaschera facilmente i campioni falsi e quindi $D(G(\vect{z})) \approx 0.01$.
+
+\medskip
+\textbf{Loss saturante.} La derivata rispetto all'uscita del discriminatore è
+\[
+\left|\frac{d}{dD} \log(1 - D)\right| = \frac{1}{1 - D} = \frac{1}{0.99} \approx 1.01.
+\]
+
+\textbf{Loss non saturante.} Si massimizza invece $\log D(G(\vect{z}))$, cioè si minimizza $-\log D$:
+\[
+\left|\frac{d}{dD}\big(-\log D\big)\right| = \frac{1}{D} = \frac{1}{0.01} = 100.
+\]
+
+Un fattore $\approx 99$ nel segnale che arriva al generatore, \emph{nello stesso punto operativo}. E il rapporto peggiora ulteriormente man mano che $D$ migliora: a $D = 10^{-3}$ diventa circa $1000$.
+
+\medskip
+\textbf{Perché è esattamente il momento sbagliato per avere gradiente piccolo.} All'inizio del training il generatore produce spazzatura, quindi $D$ vince facilmente: è proprio la fase in cui $G$ avrebbe più bisogno di un segnale forte, ed è la fase in cui la loss originale gliene dà meno. Le due loss hanno lo stesso punto fisso ma dinamiche opposte dove conta.
+
+\medskip
+\textbf{Il collegamento con WGAN.} Il problema di fondo è che la JSD fra due distribuzioni con supporti disgiunti è costante a $\log 2$, quindi il suo gradiente è nullo: se $p_G$ e $p_{\text{data}}$ vivono su varietà che non si intersecano — situazione normale in alta dimensione — non esiste una direzione di discesa. La distanza di Wasserstein non ha questo difetto perché misura \emph{quanto} le distribuzioni sono lontane e non solo \emph{se} si sovrappongono, e fornisce gradienti utili anche a supporti disgiunti. Il critico $1$-Lipschitz (weight clipping, poi gradient penalty) serve a rendere calcolabile la forma duale di Kantorovich-Rubinstein.
+
+\textbf{Riscontro sperimentale}: l'esercizio \texttt{12\_gan\_optimal\_d} misura questa differenza su un caso concreto e ottiene norme del gradiente di $1.4 \times 10^{-5}$ contro $1.6 \times 10^{1}$ — sei ordini di grandezza, ancora più netto del conto analitico qui sopra, perché nel caso reale $D$ è molto più sicuro di $0.01$.
+\end{esempiosvolto}
+
+\section{WGAN}
+
+Wasserstein GAN (Arjovsky et al.\ 2017) sostituisce la JS divergence con la \emph{Earth Mover's Distance} (Wasserstein-1):
+\[
+W(p_{\text{data}}, p_G) = \inf_{\gamma \in \Pi(p_{\text{data}}, p_G)} \mathbb{E}_{(\vect{x},\vect{y})\sim \gamma}\|\vect{x}-\vect{y}\|.
+\]
+Per la dualità di Kantorovich-Rubinstein:
+\[
+W(p_{\text{data}}, p_G) = \sup_{\|f\|_L \leq 1} \mathbb{E}_{p_{\text{data}}}[f(\vect{x})] - \mathbb{E}_{p_G}[f(\vect{x})],
+\]
+con $f$ funzioni 1-Lipschitz. Il discriminatore (\emph{critic}) impara $f$:
+\[
+\min_G \max_{\|D\|_L \leq 1}\; \mathbb{E}_{p_{\text{data}}}[D(\vect{x})] - \mathbb{E}_{\vect{z}}[D(G(\vect{z}))].
+\]
+Il vincolo Lipschitz si impone via \emph{weight clipping} (originale, lento) o \emph{gradient penalty} (WGAN-GP). Vantaggio: gradiente non saturante anche quando le distribuzioni sono disgiunte.
+
+\begin{trappola}{un GAN non si può valutare con la verosimiglianza}
+Domanda tipica: ``come confronti due GAN?''. La risposta sbagliata è ``guardo la likelihood sul test set''. Un GAN è un modello \textbf{implicito}: definisce una procedura di campionamento, non una densità. Non esiste una $p_G(\vect{x})$ da valutare, né in forma chiusa né come bound — a differenza del VAE, che ha l'ELBO, e dei flow, che hanno la likelihood esatta.
+
+Da qui nascono le metriche basate su campioni: \emph{Inception Score} e soprattutto \emph{Fréchet Inception Distance}, che confronta media e covarianza delle feature di una rete pre-addestrata sui campioni reali e generati.
+
+\textbf{Ed è bene conoscerne i difetti, perché è lì che la domanda scava}: dipendono da una rete pre-addestrata su ImageNet, quindi non hanno senso fuori dal dominio delle immagini naturali; sono sensibili al numero di campioni; il FID assume gaussianità delle feature; e soprattutto \textbf{nessuna delle due rileva il mode collapse in modo affidabile}, perché un generatore che produce pochi modi ma di ottima qualità può ottenere un FID eccellente.
+
+Quindi la valutazione dei GAN è un problema aperto, non una questione di scegliere la metrica giusta. È anche uno dei motivi per cui i diffusion model hanno preso il sopravvento: avendo un bound sulla verosimiglianza, offrono almeno un criterio principiato accanto alle metriche percettive.
+\end{trappola}
+
+\section{Varianti notevoli}
+
+\begin{description}
+  \item[DCGAN] convoluzioni transposte + batch norm; primo a generare immagini realistiche.
+  \item[Progressive GAN] genera prima a bassa risoluzione, poi aumenta progressivamente.
+  \item[CycleGAN] style transfer non appaiato: due generatori e due discriminatori con cycle consistency loss $\|F(G(\vect{x})) - \vect{x}\| + \|G(F(\vect{y})) - \vect{y}\|$.
+  \item[Conditional GAN] $G(\vect{z}, \vect{y})$, $D(\vect{x}, \vect{y})$: condizionamento su label/immagine/testo.
+  \item[StyleGAN] mapping network + AdaIN: controllo fine dello stile.
+\end{description}
+
+\section{Adversarial Autoencoder (AAE)}
+
+L'AAE è il ponte VAE-GAN: l'encoder $f_\phi$ produce $\vect{z}$, e invece di forzare $\KL{q_\phi(\vect{z}|\vect{x})}{p(\vect{z})}$ \emph{in forma chiusa} (richiede $p$ tractable), si addestra un discriminatore $D$ a distinguere $\vect{z}$ campionati dal prior $p(\vect{z})$ (arbitrario!) da $\vect{z}$ prodotti da $f_\phi$:
+\[
+\mathcal{L}_{\text{AAE}} = \underbrace{\mathbb{E}_{q_\phi}[\log p_\theta(\vect{x}|\vect{z})]}_{\text{ricostruzione}} - \underbrace{\text{loss adversarial su } \vect{z}}_{\text{sostituisce la KL}}.
+\]
+Vantaggio: $p(\vect{z})$ può essere arbitrario (mistura di gaussiane, distribuzione empirica, etc.) e fornire una copertura più liscia dello spazio latente.
+
+\begin{tcolorbox}[mybox, title={Quando usare una GAN}]
+\begin{description}[leftmargin=4em,style=nextline]
+  \item[Generazione di alta qualità ma rapida] sì, le GAN moderne (StyleGAN3, BigGAN) sono ancora competitive in qualità con generazione one-shot vs many-steps dei diffusion.
+  \item[Inferenza, density estimation, anomaly detection via likelihood] \textbf{no}: la GAN non fornisce $p_\theta(\vect{x})$.
+  \item[Conditional generation] sì (cGAN, CycleGAN, pix2pix).
+  \item[Training stabile e veloce su dataset piccoli] \textbf{no}: training notoriamente instabile, richiede tuning.
+  \item[Style transfer non appaiato] CycleGAN.
+\end{description}
+\end{tcolorbox}
+
+\begin{tcolorbox}[mybox, title={Connessioni}]
+\begin{itemize}
+  \item Stesso problema del VAE (imparare $p_{\text{data}}$) con strategia opposta: implicita (sample-based) anziché esplicita (density-based).
+  \item AAE $=$ VAE con KL sostituita da loss adversarial.
+  \item Diffusion ha sostituito le GAN come SOTA per qualità immagine (2020+), ma le GAN restano competitive per velocità di inferenza.
+  \item La distanza di Wasserstein è anche la base di flow matching e optimal transport (Cap.~\ref{ch:flowmatching}).
+\end{itemize}
+\end{tcolorbox}
+
+\begin{tcolorbox}[mywarn, title={Domande d'esame — GAN}]
+\begin{enumerate}
+  \item Scrivi l'obiettivo minimax di Goodfellow e ricava il discriminatore ottimale $D^*$ per $G$ fisso.
+  \item Mostra che, sostituendo $D^*$ nella loss, il problema è equivalente a minimizzare la divergenza di Jensen-Shannon fra $p_{\text{data}}$ e $p_G$. Qual è il punto di ottimo globale?
+  \item Cos'è il \emph{mode collapse}? Cosa lo causa intuitivamente?
+  \item Perché la WGAN funziona meglio della GAN classica quando le distribuzioni hanno supporti disgiunti?
+  \item Qual è l'enunciato del teorema di dualità Kantorovich-Rubinstein, e come si usa per derivare la loss WGAN?
+  \item In una GAN il generatore vede mai i dati reali? Spiega.
+  \item Differenza concettuale fra AAE e VAE: cosa cambia nel termine di regolarizzazione e quali vantaggi/svantaggi porta.
+  \item Confronta VAE e GAN su likelihood, qualità campioni, stabilità training, possibilità di inferenza.
+\end{enumerate}
+\end{tcolorbox}
+
+%===============================================================
+\chapter{Normalizing Flows}
+\label{ch:flows}
+
+\begin{risorsevideo}{GDL27--28 — Normalizing Flows}
+\videolezione{delle lezioni GDL27 e GDL28}
+
+\medskip
+\video{https://www.youtube.com/watch?v=JBb5sSC0JoY}{CS294-158 SP20 — L3: Flow Models}{Pieter Abbeel, UC Berkeley, ~2h}\\
+Cambio di variabile, coupling layer, NICE/RealNVP/Glow e flussi autoregressivi, con l'accento sul vincolo che governa tutto: rendere calcolabile il determinante dello Jacobiano.
+\end{risorsevideo}
+
+\section{Idea: cambiare variabile in modo invertibile}
+
+Sia $\vect{z} \sim p_Z(\vect{z})$ una distribuzione base semplice (gaussiana). Cerchiamo una funzione \emph{invertibile e differenziabile} $\vect{x} = f_\theta(\vect{z})$ tale che $\vect{x} \sim p_{\text{data}}$. A differenza del VAE (che usa un decoder \emph{stocastico} e un encoder approssimato) e della GAN (che fa solo sampling), un flow \emph{computa la likelihood esatta} via cambio di variabile.
+
+\section{Formula del cambio di variabile}
+
+\begin{theorem}[Cambio di variabile multidimensionale]
+Se $f: \mathbb{R}^d \to \mathbb{R}^d$ è $C^1$, invertibile, con Jacobiano $J_f(\vect{z}) = \partial f/\partial \vect{z}$ non singolare, allora la densità di $\vect{x} = f(\vect{z})$ è
+\[
+\boxed{\;p_X(\vect{x}) = p_Z(f^{-1}(\vect{x}))\, \big|\det J_{f^{-1}}(\vect{x})\big| = p_Z(\vect{z})\, \big|\det J_f(\vect{z})\big|^{-1}.\;}
+\]
+In log-form:
+\[
+\log p_X(\vect{x}) = \log p_Z(\vect{z}) - \log |\det J_f(\vect{z})|.
+\]
+\end{theorem}
+
+\section{Composizione di flussi}
+
+Sia $f = f_K \circ f_{K-1} \circ \cdots \circ f_1$, $\vect{z}_0 \sim p_Z$, $\vect{z}_k = f_k(\vect{z}_{k-1})$, $\vect{x} = \vect{z}_K$. Allora:
+\[
+\log p_X(\vect{x}) = \log p_Z(\vect{z}_0) - \sum_{k=1}^K \log |\det J_{f_k}(\vect{z}_{k-1})|.
+\]
+\textbf{Requisiti per un layer $f_k$ pratico:}
+\begin{enumerate}
+  \item invertibilità (per sampling: $\vect{x} \to \vect{z}$ via $f^{-1}$; per likelihood: $\vect{x} \to \vect{z}$);
+  \item Jacobiano con determinante \emph{efficientemente calcolabile} (idealmente $\mathcal{O}(d)$);
+  \item espressività sufficiente a comporre distribuzioni complesse.
+\end{enumerate}
+
+\begin{intuizione}{il termine di volume è un vincolo contabile}
+La formula del cambio di variabile ha due pezzi e il secondo è quello che si dimentica:
+\[
+\log p_X(\vect{x}) = \log p_Z(\vect{z}) - \log|\det J_f(\vect{z})|.
+\]
+
+Il primo pezzo dice ``quanto era probabile il punto di partenza''. Il secondo corregge per il fatto che la trasformazione ha \emph{stirato o compresso} lo spazio in quel punto. Se $f$ espande il volume, la stessa massa di probabilità si spalma su una regione più grande e la densità cala: da qui il segno meno.
+
+Senza quel termine la ``densità'' non integrerebbe a $1$, e il modello potrebbe barare aumentando la likelihood semplicemente comprimendo tutto verso un punto. È un vincolo di conservazione, non un dettaglio tecnico.
+
+\textbf{Da qui discende l'intero design dei flow}: calcolare $\det J$ per una rete arbitraria costa $\mathcal{O}(d^3)$, proibitivo. Quindi tutte le architetture di flow sono risposte alla stessa domanda — \emph{come costruire trasformazioni espressive il cui Jacobiano abbia determinante calcolabile in $\mathcal{O}(d)$?} I coupling layer rispondono rendendolo triangolare; i flussi autoregressivi pure; i residual flow usano una stima stocastica; i continuous flow sostituiscono il determinante con una traccia lungo un'ODE.
+
+\textbf{Il prezzo, che va detto all'orale}: l'invertibilità impone $\dim \vect{z} = \dim \vect{x}$. Un flow non può comprimere, quindi non ha uno spazio latente più piccolo dei dati — a differenza di VAE e latent diffusion. Ottiene in cambio la likelihood \emph{esatta}, che né il VAE (che ha un bound) né la GAN (che non ha densità) possono dare.
+\end{intuizione}
+
+\section{Layer notevoli}
+
+\subsection{Affine flow}
+$f(\vect{z}) = \mat{W}\vect{z} + \vect{b}$ con $\mat{W}$ invertibile. Determinante $|\det \mat{W}|$. Espressivo solo per casi speciali (triangolare, permutazione).
+
+\subsection{Coupling layer (NICE, RealNVP)}
+Si partiziona $\vect{z} = (\vect{z}_A, \vect{z}_B)$:
+\[
+\begin{aligned}
+\vect{z}'_A &= \vect{z}_A,\\
+\vect{z}'_B &= \vect{z}_B \odot \exp(\vect{s}_\theta(\vect{z}_A)) + \vect{t}_\theta(\vect{z}_A),
+\end{aligned}
+\]
+con $\vect{s}, \vect{t}$ reti neurali arbitrarie (non devono essere invertibili!). Il Jacobiano è triangolare per blocchi:
+\[
+J = \begin{pmatrix} \mat{I} & 0 \\ * & \mathrm{diag}(\exp(\vect{s}_\theta(\vect{z}_A))) \end{pmatrix},
+\quad \log|\det J| = \sum_j s_\theta(\vect{z}_A)_j.
+\]
+Inversione: $\vect{z}_A = \vect{z}'_A$, $\vect{z}_B = (\vect{z}'_B - \vect{t}_\theta(\vect{z}'_A)) \odot \exp(-\vect{s}_\theta(\vect{z}'_A))$. Costo $\mathcal{O}(d)$ in entrambe le direzioni.
+
+\paragraph{NICE} ($\vect{s} \equiv 0$, solo shift): volume-preserving (det $= 1$), poco espressivo da solo ma stackabile.
+
+\paragraph{RealNVP} affine: scale + shift. Si alterna la suddivisione (masking/squeezing) per coprire tutte le dimensioni.
+
+\paragraph{GLOW} introduce convoluzioni $1\times 1$ invertibili $\mat{W}$ con decomposizione LU per efficienza del determinante.
+
+\begin{esempiosvolto}{cambio di variabile in 1D e un coupling layer a due dimensioni}
+\textbf{Parte 1 — verifica numerica in una dimensione.} Sia $z \sim \mathcal{N}(0,1)$ e $x = f(z) = 2z + 1$. La formula dà
+\[
+\log p_X(3) = \log p_Z(1) - \log|2| = \big(-\tfrac{1}{2}(1)^2 - \tfrac{1}{2}\log 2\pi\big) - \log 2 = -0.5 - 0.9189 - 0.6931 = \mathbf{-2.1121}.
+\]
+Verifichiamo per via diretta: $x \sim \mathcal{N}(1, 4)$, quindi
+\[
+p_X(3) = \frac{1}{\sqrt{8\pi}} e^{-4/8} = 0.12099, \qquad \log p_X(3) = \mathbf{-2.1121}. \quad\checkmark
+\]
+Il termine $-\log 2$ è esattamente la penalità per aver raddoppiato la scala: la densità si dimezza.
+
+\medskip
+\textbf{Parte 2 — perché il coupling layer è furbo.} Un coupling layer divide il vettore in due blocchi e trasforma solo il secondo, condizionando sul primo:
+\[
+\vect{x}_1 = \vect{z}_1, \qquad \vect{x}_2 = \vect{z}_2 \odot \exp\big(s(\vect{z}_1)\big) + t(\vect{z}_1).
+\]
+
+Con $\vect{z} = (0.5,\ -1)$, $s(0.5) = 0.4$ e $t(0.5) = 0.2$:
+\[
+x_1 = 0.5, \qquad x_2 = -1 \cdot e^{0.4} + 0.2 = -1.4918 + 0.2 = -1.2918.
+\]
+
+Lo Jacobiano è
+\[
+J = \begin{pmatrix} 1 & 0 \\ * & e^{s(\vect{z}_1)} \end{pmatrix}
+\;\Rightarrow\;
+\log|\det J| = s(\vect{z}_1) = 0.4.
+\]
+
+\medskip
+\textbf{I tre fatti che rendono questo layer il mattone standard.} Primo: il determinante è la \emph{somma} degli $s$, calcolabile in $\mathcal{O}(d)$, perché la matrice è triangolare — e questo vale qualunque cosa siano $s$ e $t$, che possono essere reti profonde arbitrarie. Secondo: l'inversione è esplicita e altrettanto economica, $\vect{z}_2 = (\vect{x}_2 - t(\vect{x}_1)) \odot \exp(-s(\vect{x}_1))$, perché $\vect{x}_1 = \vect{z}_1$ è disponibile subito. Terzo: metà delle componenti resta ferma, quindi si alternano le partizioni fra un layer e il successivo — altrimenti quelle dimensioni non verrebbero mai trasformate.
+
+\textbf{Nota}: $s$ e $t$ non devono essere invertibili. È il \emph{layer} a esserlo, per costruzione. È questo che permette di usare reti arbitrariamente espressive dentro un flow.
+\end{esempiosvolto}
+
+\subsection{Autoregressive flow (MAF/IAF)}
+Si fattorizza $f$ in modo autoregressivo:
+\[
+x_i = \mu_i(\vect{x}_{1:i-1}) + z_i \exp(s_i(\vect{x}_{1:i-1})),
+\]
+con Jacobiano triangolare $\log|\det J| = \sum_i s_i$. \textbf{MAF} (Masked Autoregressive Flow): efficiente in \emph{density evaluation} (parallelizzabile), lento in sampling (sequenziale). \textbf{IAF} (Inverse AF): opposto. Si usano in combinazione (Parallel Wavenet) per avere entrambi efficienti.
+
+\subsection{Residual flow}
+$f(\vect{z}) = \vect{z} + g_\theta(\vect{z})$ con $g_\theta$ contraente ($\|g\|_L < 1$). Per il teorema di Banach $f$ è invertibile e l'inversa si calcola con iterazione di punto fisso $\vect{z}^{(i+1)} = \vect{z}' - g_\theta(\vect{z}^{(i)})$. Il log-determinante si stima con la serie di Neumann
+\[
+\log |\det J_f| = \log|\det(\mat{I} + J_g)| = \sum_{k=1}^\infty \frac{(-1)^{k+1}}{k} \mathrm{tr}(J_g^k),
+\]
+e $\mathrm{tr}$ si stima con \emph{Hutchinson trace estimator}: $\mathrm{tr}(\mat{A}) = \mathbb{E}_{\boldsymbol{\epsilon}\sim\mathcal{N}(0,\mat{I})}[\boldsymbol{\epsilon}^\top \mat{A} \boldsymbol{\epsilon}]$.
+
+\subsection{Continuous Normalizing Flow (Neural ODE)}
+Limite continuo di un residual flow: definendo $\vect{z}(t)$ come la soluzione di
+\[
+\frac{d\vect{z}(t)}{dt} = \theta_t(\vect{z}(t)),\qquad \vect{z}(0) \sim p_Z,\quad \vect{z}(T) = \vect{x},
+\]
+la formula di \emph{instantaneous change of variables} (Chen et al.\ NeurIPS 2018) dà
+\[
+\boxed{\;\log p_X(\vect{x}) = \log p_Z(\vect{z}(0)) - \int_0^T \mathrm{tr}\!\left(\frac{\partial \theta_t}{\partial \vect{z}}\right) dt.\;}
+\]
+\textbf{Senza determinante!} Solo la traccia del Jacobiano, e l'ODE si integra numericamente. Costo dipende dal solver (Euler, RK4, Dopri).
+
+\begin{trappola}{likelihood esatta, e allora perché i flow non hanno vinto?}
+È la domanda cattiva su questo capitolo, e ha una risposta precisa: la likelihood esatta si paga in capacità espressiva per parametro.
+
+\emph{Vincolo di invertibilità}: ogni layer deve essere biiettivo. Questo esclude a priori tutto ciò che scarta informazione — niente ReLU non invertibili, niente pooling, niente riduzione di dimensione. Le architetture disponibili sono un sottoinsieme stretto di ciò che si userebbe altrimenti.
+
+\emph{Vincolo di dimensione preservata}: $\dim \vect{z} = \dim \vect{x}$ ovunque. Non esiste un collo di bottiglia, quindi non esiste una rappresentazione compressa, e ogni layer lavora sempre alla piena dimensione dei dati. Su immagini ad alta risoluzione questo costa memoria e calcolo in modo diretto.
+
+\emph{Vincolo sul determinante}: lo Jacobiano deve avere determinante calcolabile in tempo lineare, il che forza strutture triangolari (coupling, autoregressive) e quindi trasformazioni che a ogni layer toccano solo metà delle componenti. Servono molti layer per ottenere l'espressività che un VAE o un diffusion ottengono con pochi.
+
+Il risultato pratico: a parità di budget computazionale, la qualità dei campioni resta indietro. La diffusion ha fatto la scelta opposta — rinunciare alla likelihood esatta accontentandosi di un bound — e ha guadagnato la libertà architetturale che i flow non hanno.
+
+\textbf{La coda della storia va però raccontata}: il probability flow ODE e il flow matching recuperano l'idea del trasporto continuo \emph{senza} il vincolo di invertibilità layer per layer, perché l'invertibilità viene dall'ODE e non dall'architettura. In quel senso i flow non hanno perso, si sono trasformati.
+\end{trappola}
+
+\section{Dequantizzazione}
+
+I dati discreti (pixel in $\{0,\dots,255\}$) violano l'assunzione di densità continua. Si aggiunge rumore uniforme $\vect{u} \in [0,1)^d$: $\vect{x}' = \vect{x} + \vect{u}$. La likelihood sul continuo è un \emph{lower bound} di quella sul discreto. Varianti più sofisticate: \emph{variational dequantization} (Flow++).
+
+\section{Universalità}
+
+Sotto ipotesi blande (Lipschitz, densità con supporto pieno), un flow sufficientemente profondo è un \emph{universal density approximator}: può approssimare qualunque distribuzione target con accuratezza arbitraria.
+
+\begin{tcolorbox}[mybox, title={Quando usare un Normalizing Flow}]
+\begin{description}[leftmargin=4em,style=nextline]
+  \item[Density estimation esatta] sì, è l'unico modello generativo profondo che fornisce $p_\theta(\vect{x})$ esatta (no ELBO, no JS implicita).
+  \item[Anomaly detection con likelihood] sì, score = $\log p_\theta(\vect{x})$ ben definito.
+  \item[Generazione di alta qualità su immagini complesse] meno competitivo di diffusion/GAN moderne, ma utilizzato come testa di latent diffusion / preprocessing.
+  \item[Modellare dati strutturati (audio, fisica, scienza)] sì, ad es.\ Glow per audio (Parallel Wavenet).
+  \item[Conditional generation] facile (condizionare $f_\theta$).
+  \item[Limite: il flow deve preservare dimensioni] non riduce, non comprime.
+\end{description}
+\end{tcolorbox}
+
+\begin{tcolorbox}[mybox, title={Connessioni}]
+\begin{itemize}
+  \item Cambio di variabile $\leftrightarrow$ VAE: il VAE è un cambio di variabile \emph{stocastico} con dimensioni diverse; il flow è deterministico e dim-preserving.
+  \item Residual flow $\to$ ODE neurale $\to$ flow matching: il limite continuo apre la strada al Cap.~\ref{ch:flowmatching}.
+  \item Autoregressive flow $\leftrightarrow$ PixelRNN/PixelCNN: stessa fattorizzazione $p(\vect{x}) = \prod_i p(x_i|\vect{x}_{<i})$.
+  \item Flow $\leftrightarrow$ diffusion: entrambi possono essere visti come trasporti, ma il flow è deterministico, la diffusion stocastica.
+\end{itemize}
+\end{tcolorbox}
+
+\begin{tcolorbox}[mywarn, title={Domande d'esame — Normalizing Flows}]
+\begin{enumerate}
+  \item Scrivi e dimostra la formula del cambio di variabile multidimensionale. Spiega perché compare $|\det J|^{-1}$.
+  \item Scrivi la log-likelihood di un flow composto da $K$ layer. Quali sono i requisiti pratici sui layer?
+  \item Spiega come funziona un coupling layer (RealNVP). Perché il Jacobiano è triangolare? Quanto costa l'inversione?
+  \item Differenza fra MAF e IAF: in quali condizioni preferiresti uno o l'altro?
+  \item Cos'è un Continuous Normalizing Flow? Mostra la formula per il log-determinante (instantaneous change of variables). Vantaggi e costi.
+  \item Perché serve la dequantizzazione su immagini? Cosa succede se non la fai?
+  \item Confronta normalizing flow, VAE e diffusion sulla capacità di calcolare $p_\theta(\vect{x})$ esatta.
+  \item Cos'è la stima Hutchinson della traccia, e perché è utile per i residual flows?
+\end{enumerate}
+\end{tcolorbox}
+
+%===============================================================
+\chapter{Diffusion Models}
+\label{ch:diffusion}
+
+\begin{risorsevideo}{GDL29 — Diffusion Models}
+\videolezione{della lezione GDL29}
+
+\medskip
+\video{https://www.youtube.com/watch?v=DsEDMjdxOv4}{CS294-158 SP24 — L6: Diffusion Models}{Pieter Abbeel, UC Berkeley, ~2h}\\
+Forward e reverse process, derivazione dell'ELBO, parametrizzazione $\epsilon$, DDIM e guidance: copre l'intero capitolo nello stesso ordine.
+
+\medskip
+\video{https://www.youtube.com/watch?v=hZ4a4NgM3u0}{Autoencoders — Deep Learning Animated}{Deepia, ~20m}\\
+Da rivedere per il collegamento concettuale: il forward process è un denoising autoencoder gerarchico, e l'intuizione visiva del DAE aiuta a leggere la diffusion in quella chiave.
+\end{risorsevideo}
+
+\section{Idea: corrompere e ricostruire}
+
+Un modello di diffusione (DDPM, Ho et al.\ 2020) definisce un processo stocastico \emph{forward} fisso che gradualmente corrompe i dati in rumore gaussiano, e impara un processo \emph{reverse} parametrico che denoisi step-by-step. Il sampling consiste nel partire da rumore puro e iterare il reverse.
+
+\section{Forward process}
+
+Dato $\vect{x}_0 \sim p_{\text{data}}$ e una schedule $\{\beta_t\}_{t=1}^T \subset (0,1)$:
+\begin{equation}\label{eq:forward}
+q(\vect{z}_t \mid \vect{z}_{t-1}) = \mathcal{N}\!\big(\sqrt{1-\beta_t}\, \vect{z}_{t-1},\, \beta_t \mat{I}\big), \qquad \vect{z}_0 = \vect{x}_0.
+\end{equation}
+La catena è markoviana. Definendo $\alpha_t = 1 - \beta_t$ e $\bar\alpha_t = \prod_{s=1}^t \alpha_s$, si ottiene la \emph{forma chiusa per $t$ qualsiasi}:
+\begin{equation}\label{eq:diffusion-kernel}
+\boxed{\;q(\vect{z}_t \mid \vect{x}_0) = \mathcal{N}\!\big(\sqrt{\bar\alpha_t}\, \vect{x}_0,\, (1-\bar\alpha_t)\mat{I}\big).\;}
+\end{equation}
+
+\begin{proof}[Derivazione]
+Per induzione su $t$. Caso base $t=1$: ovvio da~\eqref{eq:forward}. Passo: se $\vect{z}_{t-1} = \sqrt{\bar\alpha_{t-1}}\vect{x}_0 + \sqrt{1-\bar\alpha_{t-1}}\boldsymbol{\epsilon}'$, allora $\vect{z}_t = \sqrt{\alpha_t}\vect{z}_{t-1} + \sqrt{\beta_t}\boldsymbol{\epsilon}'' = \sqrt{\alpha_t\bar\alpha_{t-1}}\vect{x}_0 + \sqrt{\alpha_t(1-\bar\alpha_{t-1})}\boldsymbol{\epsilon}' + \sqrt{1-\alpha_t}\boldsymbol{\epsilon}''$. Le ultime due gaussiane si combinano: $\sqrt{\alpha_t(1-\bar\alpha_{t-1}) + 1-\alpha_t}\boldsymbol{\epsilon} = \sqrt{1-\bar\alpha_t}\boldsymbol{\epsilon}$.
+\end{proof}
+
+In particolare per $T$ grande con schedule appropriata, $\bar\alpha_T \approx 0$ e $\vect{z}_T \sim \mathcal{N}(0, \mat{I})$.
+
+\begin{intuizione}{molti problemi facili invece di uno difficile}
+Il salto concettuale della diffusion sta tutto qui: generare un'immagine da zero è difficile, ma \emph{togliere un po' di rumore} da un'immagine quasi pulita è facile. Se si decompone la generazione in mille passi di denoising locale, ogni singolo passo diventa un problema di regressione banale, e la difficoltà si distribuisce lungo la catena invece di concentrarsi in un salto solo.
+
+Da qui il resto segue in modo quasi obbligato:
+\begin{itemize}[leftmargin=1.4em]
+  \item il processo forward deve essere \emph{semplice e fisso}, perché non deve essere imparato: aggiungere gaussiano un po' alla volta è la scelta minima;
+  \item con incrementi piccoli, la vera reverse $q(\vect{z}_{t-1}|\vect{z}_t)$ è approssimativamente gaussiana (Feller), quindi è lecito parametrizzarla come gaussiana;
+  \item la distribuzione finale $q(\vect{z}_T)$ deve essere semplice e nota, altrimenti non si saprebbe da dove partire a campionare.
+\end{itemize}
+
+\textbf{Il punto sottile che l'esame cerca}: la reverse vera $q(\vect{z}_{t-1}|\vect{z}_t)$ è intrattabile, perché denoising è \emph{ambiguo} — molti dati puliti possono aver prodotto lo stesso $\vect{z}_t$, e sapere quale richiederebbe conoscere $p_{\text{data}}$. Ma se si \emph{condiziona anche su $\vect{x}_0$}, allora $q(\vect{z}_{t-1}|\vect{z}_t, \vect{x}_0)$ è gaussiana in forma chiusa. È esattamente su questo che si costruisce l'ELBO: in training $\vect{x}_0$ ce l'abbiamo, quindi possiamo confrontare due gaussiane; a inferenza non ce l'abbiamo, e per questo serve la rete.
+
+\textbf{Il prezzo, da dire sempre}: la stessa decomposizione che rende facile ogni passo rende costosa la generazione, perché i passi vanno fatti tutti. È il trade-off strutturale della diffusion, e DDIM, distillazione e flow matching sono tre modi diversi di attaccarlo.
+\end{intuizione}
+
+\section{Reverse process}
+
+Si parametrizza la reverse con una gaussiana:
+\[
+p_\theta(\vect{z}_{t-1} \mid \vect{z}_t) = \mathcal{N}\!\big(\boldsymbol{\mu}_\theta(\vect{z}_t, t),\, \sigma_t^2 \mat{I}\big).
+\]
+La giustificazione (Feller 1949): per $\beta_t$ piccolo, la \emph{vera} reverse $q(\vect{z}_{t-1}|\vect{z}_t)$ è approssimativamente gaussiana.
+
+\section{Training: ELBO e parametrizzazione del rumore}
+
+\subsection{ELBO per la catena di diffusione}
+\[
+\log p_\theta(\vect{x}_0) \geq \mathbb{E}_q\!\left[\log \frac{p_\theta(\vect{x}_0, \vect{z}_{1:T})}{q(\vect{z}_{1:T}|\vect{x}_0)}\right].
+\]
+Espandendo e usando l'identità $q(\vect{z}_t|\vect{z}_{t-1}) = q(\vect{z}_t|\vect{z}_{t-1},\vect{x}_0)$:
+\[
+-\text{ELBO} = \mathbb{E}_q\!\Bigg[\underbrace{\KL{q(\vect{z}_T|\vect{x}_0)}{p(\vect{z}_T)}}_{L_T \text{ (costante)}} + \sum_{t=2}^T \underbrace{\KL{q(\vect{z}_{t-1}|\vect{z}_t,\vect{x}_0)}{p_\theta(\vect{z}_{t-1}|\vect{z}_t)}}_{L_{t-1}} \underbrace{- \log p_\theta(\vect{x}_0|\vect{z}_1)}_{L_0}\Bigg].
+\]
+La \emph{posterior reverse condizionata su $\vect{x}_0$} è gaussiana in forma chiusa:
+\[
+q(\vect{z}_{t-1}|\vect{z}_t, \vect{x}_0) = \mathcal{N}(\tilde{\boldsymbol{\mu}}_t(\vect{z}_t, \vect{x}_0), \tilde\beta_t \mat{I}),
+\]
+con
+\[
+\tilde{\boldsymbol{\mu}}_t = \frac{\sqrt{\bar\alpha_{t-1}}\beta_t}{1-\bar\alpha_t} \vect{x}_0 + \frac{\sqrt{\alpha_t}(1-\bar\alpha_{t-1})}{1-\bar\alpha_t}\vect{z}_t, \qquad \tilde\beta_t = \frac{1-\bar\alpha_{t-1}}{1-\bar\alpha_t}\beta_t.
+\]
+
+\subsection{Parametrizzazione $\epsilon$}
+Dalla diffusion kernel~\eqref{eq:diffusion-kernel}, $\vect{x}_0 = (\vect{z}_t - \sqrt{1-\bar\alpha_t}\boldsymbol{\epsilon})/\sqrt{\bar\alpha_t}$. Si riscrive $\tilde{\boldsymbol{\mu}}_t$ in funzione di $\boldsymbol{\epsilon}$ e si parametrizza
+\[
+\boldsymbol{\mu}_\theta(\vect{z}_t, t) = \frac{1}{\sqrt{\alpha_t}}\!\left(\vect{z}_t - \frac{\beta_t}{\sqrt{1-\bar\alpha_t}}\, \boldsymbol{\epsilon}_\theta(\vect{z}_t, t)\right).
+\]
+Il termine $L_{t-1}$ diventa allora $\propto \|\boldsymbol{\epsilon} - \boldsymbol{\epsilon}_\theta(\vect{z}_t, t)\|^2$. Ignorando i coefficienti (DDPM \emph{simplified loss}):
+\begin{equation}\label{eq:ddpm-loss}
+\boxed{\;\mathcal{L}_{\text{simple}}(\theta) = \mathbb{E}_{t,\vect{x}_0,\boldsymbol{\epsilon}}\!\left[\,\big\| \boldsymbol{\epsilon} - \boldsymbol{\epsilon}_\theta(\sqrt{\bar\alpha_t}\vect{x}_0 + \sqrt{1-\bar\alpha_t}\boldsymbol{\epsilon},\, t) \big\|^2 \right].\;}
+\end{equation}
+È una loss di \emph{denoising score matching} a $T$ livelli di rumore.
+
+\begin{esempiosvolto}{che cosa fa davvero la schedule: $\bar\alpha_t$ e il rapporto segnale-rumore}
+Prendiamo una schedule giocattolo con $T = 4$ e $\beta = (0.1,\ 0.2,\ 0.3,\ 0.4)$. Allora $\alpha_t = 1 - \beta_t$ e $\bar\alpha_t = \prod_{s \leq t}\alpha_s$:
+
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+$t$ & $1$ & $2$ & $3$ & $4$ \\
+\midrule
+$\alpha_t$ & $0.9$ & $0.8$ & $0.7$ & $0.6$ \\
+$\bar\alpha_t$ & $0.900$ & $0.720$ & $0.504$ & $0.302$ \\
+$\sqrt{\bar\alpha_t}$ (segnale) & $0.949$ & $0.849$ & $0.710$ & $0.550$ \\
+$\sqrt{1-\bar\alpha_t}$ (rumore) & $0.316$ & $0.529$ & $0.704$ & $0.835$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+A $t = 4$ si ha $\vect{z}_4 = 0.550\,\vect{x}_0 + 0.835\,\boldsymbol{\epsilon}$ e $\mathrm{SNR}_4 = \bar\alpha_4/(1-\bar\alpha_4) = 0.434$: il rumore ha già superato il segnale.
+
+\medskip
+\textbf{Con la schedule vera.} DDPM usa $T = 1000$ e $\beta$ lineare da $10^{-4}$ a $0.02$:
+
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+$t$ & $1$ & $100$ & $500$ & $1000$ \\
+\midrule
+$\bar\alpha_t$ & $0.9999$ & $0.897$ & $0.0786$ & $4.0 \times 10^{-5}$ \\
+$\mathrm{SNR}_t$ & $10^{4}$ & $8.71$ & $0.085$ & $4.0 \times 10^{-5}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+A $t = 1000$ resta lo $0.6\%$ del segnale originale: $\vect{z}_T$ è indistinguibile da $\mathcal{N}(0,\mat{I})$, che è la condizione perché il sampling possa partire dal rumore puro.
+
+\medskip
+\textbf{Perché la schedule è un iperparametro serio.} Se il rumore cresce troppo in fretta, i primi passi di reverse devono ricostruire troppo e il problema torna difficile. Se cresce troppo lentamente, $\bar\alpha_T$ non arriva abbastanza vicino a zero e la distribuzione terminale non è davvero gaussiana, quindi il sampling parte dal punto sbagliato. L'idea guida è che i primi passi debbano \emph{corrompere i dettagli fini preservando la struttura semantica}, e gli ultimi portare tutto verso il rumore isotropo. La schedule coseno di Nichol \& Dhariwal nasce proprio dall'osservazione che quella lineare distrugge il segnale troppo presto.
+
+\textbf{Una nota sulle varianze della reverse}: nella pratica si pone spesso $\sigma_t^2 = \beta_t$, oppure $\sigma_t^2 = \tilde\beta_t = \frac{1-\bar\alpha_{t-1}}{1-\bar\alpha_t}\beta_t$. Sono i due estremi teorici (entropia massima e minima per la reverse); alcune varianti la fanno apprendere alla rete.
+\end{esempiosvolto}
+
+\section{Sampling: DDPM e DDIM}
+
+\subsection{DDPM (stocastico)}
+\begin{align*}
+\vect{z}_T &\sim \mathcal{N}(0, \mat{I}),\\
+\vect{z}_{t-1} &= \frac{1}{\sqrt{\alpha_t}}\!\left(\vect{z}_t - \frac{\beta_t}{\sqrt{1-\bar\alpha_t}}\,\boldsymbol{\epsilon}_\theta(\vect{z}_t, t)\right) + \sigma_t \vect{w},\quad \vect{w} \sim \mathcal{N}(0,\mat{I}).
+\end{align*}
+$T$ tipicamente 1000. Lento.
+
+\subsection{DDIM (deterministico)}
+Song et al.\ 2021. Si reinterpreta la dinamica come ODE e si campiona deterministicamente con meno step (anche 50). DDIM è un caso particolare con $\sigma_t = 0$: stesso modello $\epsilon_\theta$, sampling diverso.
+
+\section{Architettura: U-Net}
+
+Per immagini, $\boldsymbol{\epsilon}_\theta$ è una U-Net con:
+\begin{itemize}
+  \item ResNet blocks down/up sampling;
+  \item Self-attention nei layer di media risoluzione;
+  \item \emph{Time embedding}: posizionale sinusoidale di $t$ iniettato in tutti i ResBlock;
+  \item (Opzionale) condizionamento testuale via cross-attention.
+\end{itemize}
+
+\section{Conditional generation}
+
+\subsection{Classifier guidance}
+Si addestra un classificatore $p_\phi(\vect{y}|\vect{z}_t)$ \emph{su immagini rumorose}. Durante il sampling si modifica la mean:
+\[
+\boldsymbol{\mu}_\theta'(\vect{z}_t, t, \vect{y}) = \boldsymbol{\mu}_\theta(\vect{z}_t, t) + \gamma\, \sigma_t^2\, \nabla_{\vect{z}_t} \log p_\phi(\vect{y}|\vect{z}_t).
+\]
+$\gamma$ è il \emph{guidance scale}. Mappa Bayesiana: $\nabla\log p(\vect{z}_t|\vect{y}) = \nabla\log p(\vect{z}_t) + \nabla\log p(\vect{y}|\vect{z}_t)$.
+
+\subsection{Classifier-free guidance}
+Si addestra un singolo modello $\boldsymbol{\epsilon}_\theta(\vect{z}_t, t, \vect{y})$ con dropout della condizione (a volte $\vect{y} = \emptyset$). A inference:
+\[
+\hat{\boldsymbol{\epsilon}}(\vect{z}_t, t, \vect{y}) = (1+\gamma)\,\boldsymbol{\epsilon}_\theta(\vect{z}_t,t,\vect{y}) - \gamma\, \boldsymbol{\epsilon}_\theta(\vect{z}_t, t, \emptyset).
+\]
+Nessun classificatore separato. È la base di Stable Diffusion, Imagen, DALL-E 2.
+
+\begin{remark}[Due scritture equivalenti della classifier-free guidance]
+La formula usata sopra,
+\[
+\hat{\boldsymbol{\epsilon}} = (1+\gamma)\,\boldsymbol{\epsilon}_\theta(\vect{z}_t, t, \vect{y}) - \gamma\, \boldsymbol{\epsilon}_\theta(\vect{z}_t, t, \emptyset),
+\]
+si trova spesso anche nella forma a combinazione affine
+\[
+\hat{\boldsymbol{\epsilon}} = (1 - w)\,\boldsymbol{\epsilon}_\theta(\vect{z}_t, t, \emptyset) + w\, \boldsymbol{\epsilon}_\theta(\vect{z}_t, t, \vect{y}),
+\]
+che è la scrittura adottata negli handout del corso. Sono la stessa espressione con $w = 1 + \gamma$: in particolare $w = 1$ (cioè $\gamma = 0$) è il caso puramente condizionale senza guidance, e $w > 1$ amplifica la direzione condizionale. Vale la pena riconoscere entrambe le forme, perché all'orale può comparire l'una o l'altra.
+
+\textbf{Il trade-off da nominare}: aumentando $w$ i campioni aderiscono di più al prompt ma diventano meno diversi, perché il sampling viene spinto verso i pochi modi più compatibili con la condizione. Guidance alta migliora la fedeltà e riduce la varietà — è il motivo per cui i sistemi text-to-image espongono quel parametro all'utente.
+\end{remark}
+
+\begin{remark}[Come si inietta la condizione]
+Il condizionamento entra nella U-Net in modi diversi a seconda della natura del segnale: condizioni scalari o vettoriali (classe, timestep) tramite \emph{embedding sommati} dentro i blocchi residui; condizioni-immagine (inpainting, ControlNet, super-risoluzione) tramite \emph{concatenazione sui canali}; condizioni testuali tramite \emph{cross-attention} sugli embedding del testo, che è il meccanismo di Stable Diffusion e Imagen. È la stessa cross-attention della Parte~III (capitolo su encoder-decoder e cross-attention): query dalla mappa di feature dell'immagine, key e value dagli embedding testuali.
+\end{remark}
+
+\section{Latent diffusion}
+
+Eseguire diffusion direttamente in pixel space è costoso. \emph{Latent diffusion} (Rombach et al.\ 2022, Stable Diffusion): pre-addestra un VAE che comprime $\vect{x}$ (es.\ $512\times 512$) in latente $\vect{z}$ (es.\ $64\times 64$), poi addestra diffusion in latente. Sampling: $\vect{z}_T \to \vect{z}_0 \to \vect{x} = \text{decoder}(\vect{z}_0)$.
+
+\begin{tcolorbox}[mybox, title={Quando usare un Diffusion Model}]
+\begin{description}[leftmargin=4em,style=nextline]
+  \item[Generazione di immagini/audio di altissima qualità] SOTA dal 2021. Stable Diffusion, DALL-E 2, Imagen.
+  \item[Conditional generation text-to-image] sì, con classifier-free guidance.
+  \item[Density estimation esatta] no (ma bound ELBO).
+  \item[Sampling velocissimo] \textbf{no}: 50-1000 step. Flow matching e DDIM mitigano.
+  \item[Editing controllato] sì, via inpainting / SDEdit / ControlNet.
+  \item[Spazio latente strutturato] meno del VAE, ma latent diffusion offre un compromesso.
+\end{description}
+\end{tcolorbox}
+
+\begin{tcolorbox}[mybox, title={Connessioni}]
+\begin{itemize}
+  \item Forward process $=$ DAE gerarchico con $T$ livelli di rumore.
+  \item Training objective $=$ denoising score matching (Cap.~\ref{ch:flowmatching}).
+  \item Diffusion $=$ VAE gerarchico con encoder \emph{fisso} (non parametrizzato) e $T$ latenti della stessa dimensione di $\vect{x}$.
+  \item Reverse SDE $\to$ probability flow ODE $\to$ flow matching: connessione completa in Cap.~\ref{ch:flowmatching}.
+  \item Latent diffusion $=$ VAE encoder + diffusion in latente.
+\end{itemize}
+\end{tcolorbox}
+
+\begin{tcolorbox}[mywarn, title={Domande d'esame — Diffusion}]
+\begin{enumerate}
+  \item Scrivi il forward process $q(\vect{z}_t|\vect{z}_{t-1})$ di DDPM. Deriva la forma chiusa $q(\vect{z}_t|\vect{x}_0)$ (diffusion kernel).
+  \item Perché possiamo assumere che la reverse $p_\theta(\vect{z}_{t-1}|\vect{z}_t)$ sia gaussiana?
+  \item Deriva l'ELBO per la catena di diffusione. Quali sono i tre tipi di termini?
+  \item Mostra come si arriva alla loss simplified $\mathbb{E}\|\boldsymbol{\epsilon} - \boldsymbol{\epsilon}_\theta(\vect{z}_t, t)\|^2$ a partire dall'ELBO. Cosa si trascura?
+  \item Differenza fra classifier guidance e classifier-free guidance. Vantaggi e svantaggi.
+  \item Perché DDIM è più veloce di DDPM senza riaddestrare il modello?
+  \item Cos'è il latent diffusion e perché è importante computazionalmente?
+  \item Confronta VAE, GAN, Flow e Diffusion su: likelihood, qualità campioni, stabilità, velocità.
+  \item In che senso un diffusion model è un denoising autoencoder gerarchico?
+\end{enumerate}
+\end{tcolorbox}
+
+%===============================================================
+\chapter{Score Matching e Flow Matching}
+\label{ch:flowmatching}
+
+\begin{risorsevideo}{GDL31 — Score matching e Flow matching}
+\videolezione{della lezione GDL31}
+
+\medskip
+\video{https://www.youtube.com/watch?v=HhfLo1_yza4}{MIT 6.S184 — Lecture 03: Training Flow and Diffusion Models}{Peter Holderrieth, ~1h20m}\\
+Il corso MIT 2025 costruisce flow matching e diffusion nella stessa cornice, che è esattamente il taglio di questa lezione. La lezione 3 è quella sul training, cioè su CFM e denoising score matching.
+
+\medskip
+\video{https://www.youtube.com/watch?v=DsEDMjdxOv4}{CS294-158 SP24 — L6: Diffusion Models}{Pieter Abbeel, ~2h}\\
+Da rivedere per la parte SDE: la connessione fra reverse SDE e probability flow ODE è trattata con più calma che nelle slide.
+\end{risorsevideo}
+
+\section{Score function e diffusione}
+
+Per ogni distribuzione $p(\vect{x})$ definiamo la \emph{score function}
+\[
+\vect{s}(\vect{x}) = \nabla_{\vect{x}} \log p(\vect{x}).
+\]
+È un campo vettoriale che, in ogni punto, indica la direzione di massimo incremento della log-densità. Conoscere $\vect{s}$ permette il sampling via \emph{Langevin dynamics}:
+\begin{equation}
+\vect{x}_{k+1} = \vect{x}_k + \frac{\eta}{2}\vect{s}(\vect{x}_k) + \sqrt{\eta}\,\boldsymbol{\epsilon}_k, \qquad \boldsymbol{\epsilon}_k \sim \mathcal{N}(0,\mat{I}),
+\end{equation}
+che ha $p(\vect{x})$ come distribuzione stazionaria per $\eta \to 0$.
+
+\subsection{Vantaggio della score}
+
+Per una densità in forma esponenziale $p(\vect{x}) = \exp(-f_\theta(\vect{x}))/Z_\theta$, la \emph{partition function} $Z_\theta$ è intrattabile in alta dimensione. Ma:
+\[
+\nabla_{\vect{x}} \log p(\vect{x}) = -\nabla_{\vect{x}} f_\theta(\vect{x}) - \nabla_{\vect{x}} \log Z_\theta = -\nabla_{\vect{x}} f_\theta(\vect{x}),
+\]
+poiché $Z_\theta$ non dipende da $\vect{x}$. La score è \emph{indipendente dalla normalizzazione}: training molto più facile per modelli energy-based.
+
+\section{Formula di Tweedie: il ponte fra denoising e score}
+
+Il legame fra ``predire il rumore'' e ``imparare la score'' non è una coincidenza notazionale: si ricava in tre righe dalla formula di Tweedie, ed è il primo dei due risultati di unificazione di questo capitolo.
+
+\begin{theorem}[Tweedie]
+Sia $\vect{Z}_t \mid \vect{Z}_0 = \vect{z}_0 \sim \mathcal{N}\big(\sqrt{\bar\alpha_t}\,\vect{z}_0,\ (1-\bar\alpha_t)\mat{I}\big)$ e sia $p_t$ la marginale di $\vect{Z}_t$. Allora
+\[
+\mathbb{E}\big[\sqrt{\bar\alpha_t}\, \vect{Z}_0 \,\big|\, \vect{Z}_t = \vect{z}_t\big] = \vect{z}_t + (1-\bar\alpha_t)\, \nabla_{\vect{z}_t} \log p_t(\vect{z}_t).
+\]
+\end{theorem}
+
+Risolvendo per la stima del dato pulito:
+\[
+\hat{\vect{z}}_0 = \frac{\vect{z}_t + (1-\bar\alpha_t)\nabla_{\vect{z}_t}\log p_t(\vect{z}_t)}{\sqrt{\bar\alpha_t}}.
+\]
+Il denoising ottimo, cioè la media a posteriori del dato pulito, è governato interamente dalla score.
+
+\begin{esempiosvolto}{da ``predici il rumore'' a ``impara la score'', in tre righe}
+Dal kernel di diffusione sappiamo che $\vect{z}_t = \sqrt{\bar\alpha_t}\,\vect{z}_0 + \sqrt{1-\bar\alpha_t}\,\boldsymbol{\epsilon}_t$, da cui
+\[
+\vect{z}_0 = \frac{\vect{z}_t - \sqrt{1-\bar\alpha_t}\,\boldsymbol{\epsilon}_t}{\sqrt{\bar\alpha_t}}.
+\]
+La formula di Tweedie dà invece
+\[
+\vect{z}_0 = \frac{\vect{z}_t + (1-\bar\alpha_t)\nabla_{\vect{z}_t}\log p_t(\vect{z}_t)}{\sqrt{\bar\alpha_t}}.
+\]
+Uguagliando le due espressioni e moltiplicando per $\sqrt{\bar\alpha_t}$:
+\[
+\vect{z}_t - \sqrt{1-\bar\alpha_t}\,\boldsymbol{\epsilon}_t = \vect{z}_t + (1-\bar\alpha_t)\nabla_{\vect{z}_t}\log p_t(\vect{z}_t),
+\]
+e semplificando $\vect{z}_t$ da entrambi i lati si ottiene
+\[
+\boxed{\;\nabla_{\vect{z}_t} \log p_t(\vect{z}_t) = -\frac{\boldsymbol{\epsilon}_t}{\sqrt{1-\bar\alpha_t}}.\;}
+\]
+
+\medskip
+\textbf{Come leggerla.} Il rumore aggiunto è proporzionale alla score cambiata di segno. Una rete addestrata a predire $\boldsymbol{\epsilon}$ sta quindi imparando, a meno di un fattore che dipende solo da $t$, il campo $\nabla \log p_t$. Le due formulazioni non sono equivalenti ``moralmente'': sono la stessa rete con una riscalatura dell'uscita.
+\[
+\boldsymbol{\epsilon}_\theta(\vect{z}_t, t) = -\sqrt{1-\bar\alpha_t}\; \vect{s}_\theta(\vect{z}_t, t).
+\]
+
+\textbf{Verifica del segno con un numero.} Con $\bar\alpha_t = 0.5$ si ha $\vect{s} = -\boldsymbol{\epsilon}/\sqrt{0.5} = -1.414\,\boldsymbol{\epsilon}$. Se il rumore aggiunto puntava ``verso l'alto'', la score punta verso il basso: cioè verso la regione di densità più alta, che è da dove il campione era stato allontanato. Il segno è quello giusto — la score punta sempre \emph{verso i dati}.
+
+\textbf{Perché conta all'orale}: questa è la risposta alla domanda ``in che senso i diffusion model sono modelli score-based?''. La risposta non è ``sono simili'', è ``sono la stessa cosa, e la formula di Tweedie lo dimostra''.
+\end{esempiosvolto}
+
+\section{Score matching}
+
+\subsection{Score matching esplicito}
+\[
+\mathcal{L}_{\text{SM}}(\theta) = \mathbb{E}_{\vect{x}\sim p_{\text{data}}}\!\left[\| \vect{s}_\theta(\vect{x}) - \nabla_{\vect{x}}\log p_{\text{data}}(\vect{x}) \|^2\right].
+\]
+Inattuabile: non conosciamo $p_{\text{data}}$.
+
+\subsection{Implicit Score Matching (Hyvärinen 2005)}
+Per integrazione per parti:
+\[
+\mathcal{L}_{\text{ISM}} = \mathbb{E}_{p_{\text{data}}}\!\left[ \tfrac{1}{2}\| \vect{s}_\theta(\vect{x})\|^2 + \mathrm{tr}\!\left(\nabla_{\vect{x}} \vect{s}_\theta(\vect{x})\right)\right].
+\]
+Costo: $\mathrm{tr}(\nabla \vect{s}_\theta)$ richiede $\mathcal{O}(d^2)$ in dimensione alta.
+
+\subsection{Denoising Score Matching (Vincent 2011)}
+Si perturba $\vect{x}$ con rumore gaussiano $\tilde{\vect{x}} = \vect{x} + \sigma \boldsymbol{\epsilon}$:
+\[
+\mathcal{L}_{\text{DSM}}(\theta) = \mathbb{E}_{p(\vect{x})\,p(\tilde{\vect{x}}|\vect{x})}\!\left[\| \vect{s}_\theta(\tilde{\vect{x}}) - \nabla_{\tilde{\vect{x}}}\log p(\tilde{\vect{x}}|\vect{x})\|^2\right].
+\]
+Per $p(\tilde{\vect{x}}|\vect{x}) = \mathcal{N}(\vect{x}, \sigma^2 \mat{I})$ si ha $\nabla_{\tilde{\vect{x}}} \log p(\tilde{\vect{x}}|\vect{x}) = -(\tilde{\vect{x}}-\vect{x})/\sigma^2 = -\boldsymbol{\epsilon}/\sigma$. Quindi
+\[
+\mathcal{L}_{\text{DSM}} = \mathbb{E}\!\left[\left\| \vect{s}_\theta(\tilde{\vect{x}}) + \frac{\boldsymbol{\epsilon}}{\sigma}\right\|^2\right].
+\]
+\textbf{È esattamente la loss DDPM riparametrizzata}: $\boldsymbol{\epsilon}_\theta(\vect{z}_t, t) = -\sqrt{1-\bar\alpha_t}\,\vect{s}_\theta(\vect{z}_t, t)$.
+
+\section{Score-based SDE}
+
+Song \& Ermon (NeurIPS 2019, 2021): unificano diffusion e score matching tramite SDE.
+\subsection{Forward SDE}
+\[
+d\vect{x} = \vect{f}(\vect{x}, t)\, dt + g(t)\, d\vect{w},
+\]
+con $\vect{w}$ Brownian motion. Casi notevoli:
+\begin{itemize}
+  \item \emph{Variance Exploding} (NCSN): $\vect{f} = 0$, $g(t)$ crescente.
+  \item \emph{Variance Preserving} (DDPM): $\vect{f}(\vect{x},t) = -\tfrac{1}{2}\beta(t)\vect{x}$, $g(t) = \sqrt{\beta(t)}$.
+\end{itemize}
+
+\subsection{Reverse SDE (Anderson 1982)}
+Per ogni forward SDE esiste una reverse:
+\begin{equation}\label{eq:reverse-sde}
+d\vect{x} = \big[\vect{f}(\vect{x},t) - g^2(t) \nabla_{\vect{x}} \log p_t(\vect{x})\big] dt + g(t)\, d\bar{\vect{w}}.
+\end{equation}
+Il termine $\nabla \log p_t$ è la \emph{time-dependent score}, che la rete neurale apprende.
+
+\subsection{Probability flow ODE}
+Rimuovendo il termine Brownian:
+\begin{equation}\label{eq:pfode}
+\boxed{\;\frac{d\vect{x}}{dt} = \vect{f}(\vect{x},t) - \tfrac{1}{2}g^2(t)\nabla_{\vect{x}}\log p_t(\vect{x}).\;}
+\end{equation}
+Stesse \emph{marginal distributions} della SDE, ma traiettorie deterministiche $\Rightarrow$ è un Continuous Normalizing Flow! Si può:
+\begin{itemize}
+  \item calcolare likelihood esatta via instantaneous change of variables,
+  \item invertire il flusso per encoding $\vect{x} \to \vect{z}$.
+\end{itemize}
+
+\section{Flow Matching}
+
+L'idea (Lipman et al.\ ICLR 2023): saltare la SDE e regredire direttamente un \emph{campo di velocità} $\vect{v}_\theta(\vect{z}_\tau, \tau)$ che trasporti il prior $p_0$ nella distribuzione dei dati $p_1$ in tempo $\tau \in [0,1]$.
+
+\begin{remark}[Convenzione di tempo]
+In diffusion: $t=0$ è dato, $t=T$ è rumore. In flow matching si usa $\tau$ con $\tau=0$ rumore (sorgente), $\tau=1$ dato (target).
+\end{remark}
+
+\subsection{Probabilità path e velocità}
+Si sceglie una famiglia $\{p_\tau\}_{\tau\in[0,1]}$ con $p_0$ semplice e $p_1 = p_{\text{data}}$. La \emph{marginal velocity} $\vect{u}_\tau(\vect{z})$ è il campo vettoriale che genera $p_\tau$ via l'ODE
+\[
+\frac{d\vect{z}_\tau}{d\tau} = \vect{u}_\tau(\vect{z}_\tau).
+\]
+L'obiettivo ideale è
+\[
+\mathcal{L}_{\text{FM}} = \mathbb{E}_{\tau, \vect{z}_\tau \sim p_\tau}\!\left[ \|\vect{v}_\theta(\vect{z}_\tau, \tau) - \vect{u}_\tau(\vect{z}_\tau)\|^2\right],
+\]
+ma $\vect{u}_\tau$ non è osservabile.
+
+\subsection{Conditional Flow Matching (CFM)}
+Si sceglie un \emph{conditional path} $q_\tau(\vect{z}|\vect{x})$ con velocità $\vect{u}_\tau(\vect{z}|\vect{x})$ noti. Loss:
+\begin{equation}\label{eq:cfm}
+\boxed{\;\mathcal{L}_{\text{CFM}}(\theta) = \mathbb{E}_{\tau,\vect{x},\vect{z}\sim q_\tau(\cdot|\vect{x})}\!\left[\|\vect{v}_\theta(\vect{z},\tau) - \vect{u}_\tau(\vect{z}|\vect{x})\|^2\right].\;}
+\end{equation}
+
+\begin{theorem}[Lipman et al.\ 2023]
+Sotto ipotesi tecniche, $\nabla_\theta \mathcal{L}_{\text{CFM}} = \nabla_\theta \mathcal{L}_{\text{FM}}$. Le velocità condizionate \emph{si mediano} sulla velocità marginale corretta.
+\end{theorem}
+\begin{proof}[Sketch]
+Si mostra che $\vect{u}_\tau(\vect{z}) = \mathbb{E}[\vect{u}_\tau(\vect{z}|\vect{x}) \mid \vect{z}_\tau = \vect{z}]$. La differenza fra le due loss è una costante indipendente da $\theta$.
+\end{proof}
+
+\subsection{Path notevoli}
+
+\paragraph{Rectified flow.}
+\[
+\vect{z}_\tau = (1-\tau)\vect{z}_0 + \tau\, \vect{x}, \quad \vect{z}_0 \sim p_0, \quad \vect{x} \sim p_{\text{data}}.
+\]
+Velocità conditional costante:
+\[
+\vect{u}_\tau(\vect{z}_\tau | \vect{x}, \vect{z}_0) = \frac{d\vect{z}_\tau}{d\tau} = \vect{x} - \vect{z}_0.
+\]
+Traiettorie rettilinee. Sampling: pochi step di Euler bastano.
+
+\paragraph{Gaussian probability path.}
+\[
+\vect{z}_\tau = \alpha_\tau\vect{x} + \sigma_\tau\boldsymbol{\epsilon}, \qquad \alpha_0=0,\,\sigma_0=1,\, \alpha_1=1,\,\sigma_1=0.
+\]
+\[
+\vect{u}_\tau(\vect{z}_\tau|\vect{x},\boldsymbol{\epsilon}) = \dot\alpha_\tau \vect{x} + \dot\sigma_\tau \boldsymbol{\epsilon}.
+\]
+Per appropriate scelte di $\alpha_\tau, \sigma_\tau$ si recuperano le path della diffusion. \emph{Flow matching gaussiano e diffusion sono lo stesso modello sotto parametrizzazioni e pesi diversi.}
+
+\section{Sampling}
+
+Integrazione dell'ODE:
+\[
+\frac{d\vect{z}_\tau}{d\tau} = \vect{v}_\theta(\vect{z}_\tau, \tau), \qquad \vect{z}_0 \sim p_0.
+\]
+Solver Euler:
+\[
+\vect{z}_{\tau+\Delta\tau} = \vect{z}_\tau + \Delta\tau\, \vect{v}_\theta(\vect{z}_\tau, \tau).
+\]
+Numero di step tipicamente molto inferiore a DDPM (anche 4-8 step con rectified flow + distillation).
+
+\begin{esempiosvolto}{rectified flow: la velocità è costante, e si vede}
+Caso unidimensionale. Sorgente $z_0 = 0.5$, dato $x = 2.0$, cammino lineare
+\[
+z_\tau = (1-\tau)z_0 + \tau x.
+\]
+
+\textbf{Il bersaglio della regressione.}
+\[
+u_\tau = \frac{dz_\tau}{d\tau} = x - z_0 = 2.0 - 0.5 = 1.5,
+\]
+costante rispetto a $\tau$. Non serve né una score, né un kernel reverse, né un'ELBO: la coppia (sorgente, dato) determina direttamente il bersaglio.
+
+\medskip
+\textbf{Sampling con Euler, $K = 4$ passi, $\Delta\tau = 0.25$.} Supponendo che la rete abbia imparato $v_\theta \equiv 1.5$:
+\[
+0.5 \;\to\; 0.875 \;\to\; 1.25 \;\to\; 1.625 \;\to\; 2.0.
+\]
+Quattro passi, arrivo \emph{esatto}. Non è una coincidenza: il metodo di Euler è esatto quando la traiettoria è una retta, perché l'errore di troncamento dipende dalla derivata seconda, che qui è nulla.
+
+\medskip
+\textbf{Ecco perché flow matching campiona in pochi passi.} Un DDPM ha bisogno di centinaia o migliaia di passi perché le sue traiettorie sono curve e stocastiche, e ogni passo di Euler introduce un errore. Rectified flow costruisce deliberatamente traiettorie il più possibile rettilinee, e su traiettorie rettilinee l'integratore non sbaglia. Le procedure di \emph{reflow} iterano la costruzione per raddrizzare ulteriormente i cammini, arrivando a generare in $1$--$4$ passi.
+
+\textbf{L'onestà del caso reale}: con un solo punto le traiettorie sono banalmente rette. Su una distribuzione vera il campo marginale $\vect{u}_\tau(\vect{z})$ è la \emph{media} delle velocità condizionali che passano per $\vect{z}$, e quella media in generale curva. Il teorema del CFM garantisce che regredire i bersagli condizionali dia il gradiente giusto per il campo marginale — non che il campo marginale sia rettilineo.
+\end{esempiosvolto}
+
+\begin{tcolorbox}[mybox, title={Le due ricette di training, affiancate}]
+La distanza concettuale fra diffusion e flow matching è grande; quella fra le due implementazioni è minima. Vale la pena saperlo dire, perché è una domanda che si presta bene a distinguere chi ha capito da chi ha memorizzato.
+
+\medskip
+\begin{tabularx}{\linewidth}{@{}p{0.46\linewidth}p{0.46\linewidth}@{}}
+\textbf{Diffusion} & \textbf{Flow matching} \\[2pt]
+\hline\\[-6pt]
+1. campiona $\vect{x} \sim p_{\text{data}}$ & 1. campiona $\vect{x} \sim p_{\text{data}}$ \\
+2. campiona il tempo $t$ & 2. campiona la sorgente $\vect{z}_0 \sim p_0$ (o $\boldsymbol{\epsilon}$) \\
+3. campiona $\boldsymbol{\epsilon} \sim \mathcal{N}(0,\mat{I})$ & 3. campiona il tempo $\tau$ \\
+4. costruisci $\vect{z}_t = \sqrt{\bar\alpha_t}\vect{x} + \sqrt{1-\bar\alpha_t}\boldsymbol{\epsilon}$ & 4. costruisci $\vect{z}_\tau = (1-\tau)\vect{z}_0 + \tau\vect{x}$ \\
+5. predici $\boldsymbol{\epsilon}$ (o la score) & 5. predici la velocità $\vect{v}$ \\
+\end{tabularx}
+
+\medskip
+Stessa struttura, stessa backbone (U-Net o Transformer con time embedding), stessa loss quadratica. Cambia \emph{il bersaglio della regressione}: $\boldsymbol{\epsilon}$, $\vect{s}$ oppure $\vect{v}$. E cambia chi decide il cammino: nella diffusion lo detta il processo di rumore, nel flow matching lo si sceglie.
+\end{tcolorbox}
+
+\section{Riepilogo unificante}
+
+\begin{tcolorbox}[mybox, title={Quattro lenti sullo stesso oggetto}]
+Lo stesso modello generativo si può vedere come:
+\begin{itemize}
+  \item \textbf{Diffusion} (DDPM): denoising step-by-step di una catena di Markov.
+  \item \textbf{Score matching}: regressione del campo $\nabla\log p_t$.
+  \item \textbf{Probability flow ODE}: continuous normalizing flow deterministico.
+  \item \textbf{Flow matching}: regressione del campo di velocità lungo un cammino di probabilità.
+\end{itemize}
+La differenza pratica è nella \emph{parametrizzazione della testa} (predice $\boldsymbol{\epsilon}$, $\vect{s}$ o $\vect{v}$) e nelle scelte di path/scheduling, non nell'architettura.
+\end{tcolorbox}
+
+\begin{tcolorbox}[mybox, title={Quando usare Flow Matching}]
+\begin{description}[leftmargin=4em,style=nextline]
+  \item[Generazione veloce ad alta qualità] sì, $\mathcal{O}(10)$ step vs $\mathcal{O}(1000)$ di DDPM.
+  \item[Path flessibili per dati con struttura nota] sì, si può scegliere il path che fitta il problema (rectified, OT, schroedinger bridge).
+  \item[Optimal transport] connessione naturale, rectified flow approssima OT.
+  \item[Density estimation esatta] sì, tramite probability flow ODE.
+  \item[Quando preferire diffusion classico?] solo per maggiore maturità del software / pretrained models. Concettualmente flow matching è preferibile.
+\end{description}
+\end{tcolorbox}
+
+\begin{tcolorbox}[mywarn, title={Domande d'esame — Score \& Flow Matching}]
+\begin{enumerate}
+  \item Cos'è la score function di una distribuzione e perché è utile per modelli energy-based?
+  \item Deriva la loss del Denoising Score Matching per rumore gaussiano. Mostra che è equivalente alla loss simplified di DDPM.
+  \item Scrivi forward e reverse SDE. Cosa rappresenta il termine $g^2(t)\nabla\log p_t$ nella reverse?
+  \item Cos'è la probability flow ODE e perché collega diffusion e normalizing flows?
+  \item Spiega l'idea di Flow Matching: cosa si regredisce e perché si usa un \emph{conditional} flow matching?
+  \item Mostra il path rectified flow e calcola la velocità conditional. Perché le traiettorie sono rettilinee?
+  \item In che senso flow matching e diffusion sono lo stesso modello sotto diverse parametrizzazioni?
+  \item Vantaggi di flow matching in termini di numero di passi di sampling.
+\end{enumerate}
+\end{tcolorbox}
+
+%===============================================================
+\chapter{Causal Representation Learning}
+\label{ch:crl}
+
+\begin{risorsevideo}{GDL30 — Disentanglement e Causal Representation Learning}
+\videolezione{della lezione GDL30}
+
+\medskip
+\video{https://www.youtube.com/watch?v=f8JrbaTR1vg}{UAI 2023 Tutorial: Causal Representation Learning}{~2h}\\
+Copre il risultato di impossibilità di Locatello, l'identificabilità tramite interventi e i modelli temporali tipo CITRIS: è la mappa completa del capitolo, tenuta da chi lavora sul tema.
+
+\medskip
+\video{https://www.youtube.com/watch?v=AuZu0L0PEgk}{Causal Models}{Brady Neal, ~1h}\\
+Da rivedere per riallacciare la Parte~I: il CRL è la causalità del Cap.~\ref{ch:causality} applicata a variabili latenti anziché osservate.
+\end{risorsevideo}
+
+\section{Disentanglement: definizione e motivazione}
+
+Si assume che le osservazioni $\vect{x}$ siano generate da \emph{fattori di variazione} $\vect{s} = (s_1, \dots, s_k)$ \emph{indipendenti}:
+\[
+\vect{x} = f^*(\vect{s}), \qquad p(\vect{s}) = \prod_j p(s_j).
+\]
+Una rappresentazione $\vect{z} = h(\vect{x})$ è \emph{disentangled} se ciascuna componente $z_j$ corrisponde a un unico fattore $s_{\pi(j)}$ (permutazione $\pi$) e ad un'eventuale trasformazione monotona componente-per-componente. Intervenire su $z_j$ cambia solo $s_{\pi(j)}$.
+
+Disentanglement è auspicabile per: interpretabilità, equità, generalizzazione compositiva, transfer learning.
+
+\section{Approcci unsupervised}
+
+\subsection{$\beta$-VAE (Higgins et al.\ 2017)}
+\[
+\mathcal{L}_\beta = \mathbb{E}_{q_\phi}[\log p_\theta(\vect{x}|\vect{z})] - \beta\,\KL{q_\phi(\vect{z}|\vect{x})}{p(\vect{z})},\qquad \beta > 1.
+\]
+La regolarizzazione forte spinge $q_\phi(\vect{z}|\vect{x})$ verso il prior fattorizzato $p(\vect{z}) = \mathcal{N}(0,\mat{I})$, sperando in componenti indipendenti.
+
+\subsection{FactorVAE (Kim \& Mnih 2018)}
+Decompone la KL e penalizza specificamente la \emph{total correlation} (TC) del marginale $q_\phi(\vect{z}) = \mathbb{E}_{\vect{x}}[q_\phi(\vect{z}|\vect{x})]$:
+\[
+\text{TC}(\vect{z}) = \KL{q_\phi(\vect{z})}{\prod_j q_\phi(z_j)}.
+\]
+La TC si stima con un discriminatore.
+
+\subsection{$\beta$-TCVAE (Chen et al.\ 2018)}
+Decompone $\KL{q_\phi(\vect{z}|\vect{x})}{p(\vect{z})}$ in tre termini (mutual info $\vect{x}\leftrightarrow\vect{z}$, TC, KL dimensionwise) e pesa solo quello che penalizza la TC.
+
+\begin{intuizione}{perché il disentanglement non supervisionato è impossibile}
+L'argomento di Locatello è più semplice di quanto la sua fama suggerisca, e conviene saperlo raccontare in tre passaggi.
+
+Supponiamo di avere un modello generativo con latente $\vect{z} \sim \mathcal{N}(0, \mat{I})$ e decoder $g$, che riproduce perfettamente la distribuzione dei dati. Prendiamo ora una rotazione $\mat{R}$ dello spazio latente e definiamo $\tilde{\vect{z}} = \mat{R}\vect{z}$, $\tilde g = g \circ \mat{R}^{-1}$.
+
+Poiché la gaussiana standard isotropa è invariante per rotazioni, $\tilde{\vect{z}}$ ha \emph{esattamente} la stessa distribuzione di $\vect{z}$, e il nuovo modello genera \emph{esattamente} la stessa distribuzione sui dati. I due modelli sono indistinguibili da qualunque quantità calcolata sui dati: stessa likelihood, stesso ELBO, stessa qualsiasi cosa.
+
+Ma se $\vect{z}$ era disentangled — una coordinata per il colore, una per la posizione — allora $\tilde{\vect{z}}$ mescola colore e posizione in ogni coordinata. Le due rappresentazioni hanno lo stesso valore per ogni criterio osservativo e opposto valore di disentanglement. Quindi \emph{nessun} obiettivo non supervisionato può preferire l'una all'altra: le rotazioni sono un'intera famiglia infinita di soluzioni equivalenti.
+
+\textbf{Da cui la morale, che è costruttiva e non nichilista}: serve rompere quella simmetria dall'esterno. Le tre vie sono supervisione debole (coppie, gruppi, etichette parziali), struttura temporale (TCL: se le sorgenti evolvono in modo indipendente nel tempo, la storia le identifica), oppure \emph{interventi} — ed è esattamente qui che la causalità entra nel discorso. Un intervento su un fattore cambia una sola coordinata vera e lascia ferme le altre; sotto rotazione ne cambierebbe molte. L'intervento distingue ciò che l'osservazione non distingue, esattamente come nella Parte~I.
+
+\textbf{Nota su $\beta$-VAE}: alza $\beta$ e ottiene rappresentazioni più fattorizzate, ma questo non contraddice il teorema. Sta introducendo un bias induttivo implicito (verso assi allineati alle coordinate), non identificando i fattori veri — e infatti il risultato dipende fortemente dal seed, che è proprio la verifica sperimentale di Locatello.
+\end{intuizione}
+
+\section{Impossibilità (Locatello et al.\ 2019)}
+
+\begin{theorem}[Indeterminatezza non-supervisionata]
+Per qualunque $\vect{z}$ con componenti marginalmente indipendenti, esiste un'infinità di trasformazioni $\vect{z}' = f(\vect{z})$ che preservano la indipendenza marginale ma producono rappresentazioni \emph{entangled} rispetto ai fattori ground-truth, con \emph{stessa loss ELBO}.
+\end{theorem}
+
+In altre parole, marginale indipendenza è necessaria ma non sufficiente. Il successo empirico di $\beta$-VAE e FactorVAE dipende da \emph{inductive bias} (architettura, prior, regolarizzazione), non da garanzie formali.
+
+\section{Disentanglement supervisionato debolmente}
+
+Per ottenere \emph{identifiability} servono informazioni ausiliarie $\vect{u}$ (tempo, ambiente, classe) tali che $p(\vect{s}|\vect{u})$ vari con $\vect{u}$.
+
+\subsection{Time-Contrastive Learning (TCL, Hyvärinen \& Morioka 2016)}
+Si divide una serie temporale in segmenti e si allena un classificatore a riconoscere il segmento da $\vect{x}$. Sotto ipotesi (sorgenti exp-family, mixing iniettivo, segmenti "abbastanza diversi"), si recuperano le sorgenti a meno di permutazione e trasformazione monotona componente-per-componente.
+
+\subsection{iVAE (Khemakhem et al.\ 2020)}
+Variante condizionale del VAE in cui il prior dipende dalla variabile ausiliaria:
+\[
+p_\theta(\vect{z}|\vect{u}) = \prod_j p_j(z_j | \boldsymbol{\lambda}(\vect{u})).
+\]
+ELBO con $p(\vect{z}|\vect{u})$ al posto di $p(\vect{z})$:
+\[
+\mathcal{L}_{\text{iVAE}} = \mathbb{E}_{q_\phi}[\log p_\theta(\vect{x}|\vect{z})] - \KL{q_\phi(\vect{z}|\vect{x},\vect{u})}{p_\theta(\vect{z}|\vect{u})}.
+\]
+Identifiability: sotto condizioni su $\boldsymbol{\lambda}$ e sull'iniettività del decoder, si recuperano le sorgenti a meno di trasformazioni componente-wise.
+
+\section{Causal Representation Learning}
+
+\subsection{Setup}
+I fattori $\vect{s}$ non sono indipendenti ma seguono uno \emph{Structural Causal Model} (SCM) (Pearl, Cap.~\ref{ch:causality}):
+\[
+s_i := f_i(\mathrm{Pa}(s_i), \epsilon_i), \quad \epsilon_i \perp \epsilon_j.
+\]
+Si osserva $\vect{x} = h^*(\vect{s})$ con $h^*$ mixing iniettivo. L'obiettivo è recuperare sia le variabili causali $\vect{s}$ sia il loro \emph{causal graph} $G$ a partire dalle osservazioni.
+
+\subsection{Identifiability via interventi}
+Senza informazione extra il problema è impossibile (analogamente alla causalità classica): le \emph{Markov equivalence classes} rendono indistinguibili più grafi. Servono \emph{interventi}.
+
+\subsection{CITRIS (Lippe et al.\ 2022)}
+Setting: \emph{Temporal Causal Triplets} $(\vect{x}_t, \vect{x}_{t+1}, \vect{I}_{t+1})$ dove $\vect{I}_{t+1}$ è una maschera binaria che indica quali variabili causali sono state intervenute al tempo $t+1$ (non si conoscono i valori dell'intervento).
+
+Architettura:
+\begin{itemize}
+  \item Encoder $\vect{z}_t = g_\phi(\vect{x}_t)$;
+  \item Assignment function $\boldsymbol{\psi}: \mathcal{Z} \to \{1,\dots,k\}^m$ che mappa ogni dimensione latente a una variabile causale;
+  \item Transition prior $p(\vect{z}_{t+1} | \vect{z}_t, \vect{I}_{t+1})$ parametrizzato in modo che ogni gruppo $\vect{z}^{(i)}$ dipenda da $\vect{z}_t$ tramite il proprio modulo, modulato da $I_i$;
+  \item Decoder $p(\vect{x}_t | \vect{z}_t)$.
+\end{itemize}
+Training: ELBO temporale + (opzionale) target classifier che predice $\vect{I}_{t+1}$ dai latenti.
+
+\begin{theorem}[Identifiability CITRIS]
+Nel limite di dati infiniti, CITRIS recupera le variabili causali ground-truth se per ogni $C_i$:
+\begin{enumerate}
+  \item esiste un regime in cui $C_i$ è intervenuto e non sempre congiunto a un altro $C_j$;
+  \item $C_i$ dipende sempre dalla sua variabile di intervento $I_i$.
+\end{enumerate}
+\end{theorem}
+
+\subsection{Varianti}
+\begin{description}
+  \item[CITRIS-NF] disentangle una rappresentazione pre-addestrata via normalizing flows.
+  \item[BISCUIT] generalizza a interventi binari sconosciuti.
+\end{description}
+
+\section{Triplet evaluation}
+
+Test: dato un modello CITRIS addestrato, si genera un \emph{interchange intervention} sostituendo il valore di una variabile causale da un'immagine con quello dell'altra. Se la generazione cambia in modo coerente solo sulla variabile sostituita, il modello è disentangled.
+
+\begin{tcolorbox}[mybox, title={Quando usare CRL}]
+\begin{description}[leftmargin=4em,style=nextline]
+  \item[Sistemi con interventi disponibili] (RL, scienze sperimentali) sì.
+  \item[Dati osservazionali puri] CRL puro è impossibile (Locatello). Si può ancora usare $\beta$-VAE per interpretabilità empirica, senza garanzie.
+  \item[Time-series con regimi non stazionari] iVAE/TCL.
+  \item[Generative model che generalizzi a interventi distribuzionali] sì, CRL è il giusto framework.
+\end{description}
+\end{tcolorbox}
+
+\begin{tcolorbox}[mybox, title={Connessioni}]
+\begin{itemize}
+  \item $\beta$-VAE $\to$ FactorVAE $\to$ $\beta$-TCVAE: progressione di obiettivi per disentanglement.
+  \item Locatello 2019 $\to$ TCL/iVAE $\to$ CITRIS: dalla impossibilità unsupervised al requirements di interventi.
+  \item CITRIS $=$ VAE temporale con prior strutturato per intervento (parente del CVAE, Cap.~\ref{ch:vae}).
+  \item Connette Causalità (Cap.~\ref{ch:causality}) e Deep Generative Learning.
+\end{itemize}
+\end{tcolorbox}
+
+\begin{tcolorbox}[mywarn, title={Domande d'esame — Causal Representation Learning}]
+\begin{enumerate}
+  \item Definisci formalmente cosa significa che una rappresentazione è \emph{disentangled}.
+  \item Cos'è il $\beta$-VAE e perché aumentare $\beta$ dovrebbe promuovere il disentanglement?
+  \item Enuncia il risultato di impossibilità di Locatello et al.\ 2019. Quale assunto viene violato dall'esistenza di trasformazioni che preservano la indipendenza marginale?
+  \item Cos'è una variabile ausiliaria $\vect{u}$ in iVAE/TCL? Perché permette di superare l'impossibilità?
+  \item Cos'è il problema di Causal Representation Learning? In cosa differisce da disentanglement classico?
+  \item Descrivi il setup di CITRIS (input, output, ipotesi su interventi).
+  \item Cosa garantisce il teorema di identifiability di CITRIS?
+  \item Differenza pratica fra CITRIS-VAE e CITRIS-NF.
+  \item Confronta causalità classica (Cap.~\ref{ch:causality}) e CRL: quale è il contributo del deep learning?
+\end{enumerate}
+\end{tcolorbox}
+
+%===============================================================
+\chapter*{Confronto finale Parte IV}
+\addcontentsline{toc}{chapter}{Confronto finale Parte IV}
+
+\begin{tcolorbox}[mybox, title={Confronto modelli generativi profondi}, breakable]
+\small
+\begin{tabular}{p{2.6cm} p{1.5cm} p{1.5cm} p{1.6cm} p{1.7cm} p{1.7cm}}
+\toprule
+\textbf{Proprietà} & \textbf{VAE} & \textbf{GAN} & \textbf{Flows} & \textbf{Diffusion} & \textbf{Flow Match.}\\
+\midrule
+Likelihood esatta & ELBO & no & sì & ELBO/no & no\\
+Score implicita & no & no & sì (PF-ODE) & sì & sì\\
+Qualità campioni & media & alta & media & molto alta & alta\\
+Velocità sampling & veloce & veloce & veloce & lenta ($T\!\sim\!10^3$) & media ($T\!\sim\!10$)\\
+Stabilità training & stabile & instabile & stabile & stabile & stabile\\
+Latente strutturato & sì & no & sì & parziale & sì\\
+Cond.\ generation & facile & possibile & facile & facile (CFG) & facile\\
+Encoder esplicito & sì & no & sì (inverso) & no/fisso & no\\
+Dim.\ latente & $\neq$ dato & $\neq$ dato & $=$ dato & $=$ dato & $=$ dato\\
+Anno (paper seminale) & 2013 & 2014 & 2014--15 & 2020 & 2023\\
+\bottomrule
+\end{tabular}
+\end{tcolorbox}
+
+\bigskip
+
+\begin{tcolorbox}[mybox, title={Famiglia generativa — la storia in 5 passi}]
+\begin{enumerate}
+  \item \textbf{Autoencoder} (1980s, deep AE 2006): latente, ma non probabilistico.
+  \item \textbf{VAE} (Kingma 2013): aggiunge un encoder stocastico, ELBO, reparametrization $\Rightarrow$ il primo modello latente differenziabile end-to-end.
+  \item \textbf{GAN} (Goodfellow 2014): cambia paradigma — impara a campionare, non a stimare la densità.
+  \item \textbf{Normalizing Flow} (Dinh 2014, 2017): cambio di variabile esplicito, likelihood esatta, ma vincoli di invertibilità.
+  \item \textbf{Diffusion} (Ho 2020): VAE gerarchico con encoder fisso a $T$ livelli, training stabile, qualità SOTA, ma sampling lento.
+  \item \textbf{Flow Matching} (Lipman 2023): regressione diretta del campo di velocità $\Rightarrow$ diffusion senza SDE, sampling efficiente.
+\end{enumerate}
+Le 5 lenti unificanti del corso si manifestano qui:
+\begin{itemize}
+  \item \emph{Message passing}: nessuno (questi modelli operano su tensor euclidei).
+  \item \emph{Generative family} (questo capitolo).
+  \item \emph{Attention}: usato come building block (U-Net dei diffusion, Transformer per latent diffusion).
+  \item \emph{EM/Latent variable}: il VAE è il discendente diretto di EM (Cap.~\ref{ch:em}).
+  \item \emph{Causality}: CRL applica il framework generativo al recupero di SCM.
+\end{itemize}
+\end{tcolorbox}

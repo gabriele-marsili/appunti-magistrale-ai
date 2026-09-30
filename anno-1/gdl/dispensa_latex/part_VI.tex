@@ -1,0 +1,408 @@
+%===============================================================
+%  PART VI — Reinforcement Learning
+%===============================================================
+\part{Reinforcement Learning}
+\label{part:rl}
+
+%===============================================================
+\chapter{Fondamenti di Reinforcement Learning}
+
+\begin{risorsevideo}{GDL34 — Reinforcement Learning}
+\videolezione{della lezione GDL34}
+
+\medskip
+\video{https://www.youtube.com/watch?v=0MNVhXEX9to}{Reinforcement Learning: Machine Learning Meets Control Theory}{Steve Brunton, ~30m}\\
+Mezz'ora che inquadra MDP, value function e la tassonomia model-based / model-free dalla prospettiva del controllo. Ottimo come primo passaggio, prima di entrare nelle equazioni di Bellman.
+\end{risorsevideo}
+\label{ch:rl-fund}
+
+\section{Posizionamento}
+
+Il Reinforcement Learning (RL) differisce dagli altri paradigmi ML:
+\begin{itemize}
+  \item \textbf{Nessun supervisore}: solo un segnale di reward scalare $R_t$.
+  \item \textbf{Feedback ritardato e asincrono}: una scelta al tempo $t$ può portare reward dopo $k$ step.
+  \item \textbf{Sequenzialità}: i dati non sono iid; le azioni dell'agente influenzano la distribuzione dei dati futuri.
+  \item \textbf{Non-stazionarietà}: la policy in via di apprendimento cambia la distribuzione.
+\end{itemize}
+
+\paragraph{Reward hypothesis.} Tutti gli obiettivi possono essere descritti come massimizzazione del reward cumulativo atteso.
+
+\section{Markov Decision Process}
+
+\begin{definition}[MDP]
+Un \emph{Markov Decision Process} è una tupla $(\mathcal{S}, \mathcal{A}, P, \mathcal{R}, \gamma)$ dove
+\begin{itemize}
+  \item $\mathcal{S}$ insieme finito degli stati,
+  \item $\mathcal{A}$ insieme finito delle azioni,
+  \item $P^a_{ss'} = P(S_{t+1}=s' \mid S_t = s, A_t = a)$ matrice di transizione,
+  \item $\mathcal{R}^a_s = \mathbb{E}[R_{t+1} \mid S_t = s, A_t = a]$ funzione reward,
+  \item $\gamma \in [0,1]$ fattore di sconto.
+\end{itemize}
+\end{definition}
+
+\subsection{Ritorno e value functions}
+
+\begin{definition}[Ritorno]
+\[
+G_t = R_{t+1} + \gamma R_{t+2} + \gamma^2 R_{t+3} + \cdots = \sum_{k=0}^\infty \gamma^k R_{t+k+1}.
+\]
+\end{definition}
+
+\begin{definition}[Policy]
+Una policy $\pi$ è una distribuzione condizionata $\pi(a|s) = P(A_t = a \mid S_t = s)$. Per policy deterministiche scriviamo $a = \pi(s)$.
+\end{definition}
+
+\begin{definition}[State-value e action-value]
+\begin{align}
+v_\pi(s) &= \mathbb{E}_\pi[G_t \mid S_t = s]\\
+q_\pi(s,a) &= \mathbb{E}_\pi[G_t \mid S_t = s, A_t = a]
+\end{align}
+\end{definition}
+
+Relazione:
+\[
+v_\pi(s) = \sum_{a\in\mathcal{A}} \pi(a|s) q_\pi(s, a).
+\]
+
+\begin{intuizione}{l'equazione di Bellman è la chain rule del futuro}
+Tutto il RL poggia su un'osservazione quasi banale: il valore di uno stato è la ricompensa immediata più il valore scontato di dove ci si ritrova dopo.
+\[
+V^\pi(s) = \mathbb{E}\big[r + \gamma V^\pi(s')\big].
+\]
+
+L'osservazione è banale, la conseguenza non lo è: una quantità definita su traiettorie \emph{infinite} viene espressa in termini di sé stessa a un passo di distanza. È esattamente la stessa mossa della programmazione dinamica di Viterbi nella Parte~II — una ricorsione che sostituisce un'enumerazione esponenziale.
+
+\textbf{Il ruolo di $\gamma$}, che spesso si liquida come ``preferiamo il presente'': serve anche a garantire che la somma converga su orizzonte infinito, e rende l'operatore di Bellman una contrazione di fattore $\gamma$ in norma infinito. È da lì che discende la convergenza di value iteration: si sta iterando una contrazione, quindi per il teorema del punto fisso di Banach converge, e converge in modo geometrico.
+
+\textbf{La differenza fra $V$ e $Q$, e perché quasi tutti gli algoritmi usano $Q$}: da $V$ non si può estrarre una politica senza conoscere le probabilità di transizione, perché bisognerebbe calcolare $\mathbb{E}_{s'}[V(s')]$ per ogni azione. Da $Q$ sì: $\pi(s) = \arg\max_a Q(s,a)$, senza sapere nulla della dinamica. È questo che rende $Q$-learning \emph{model-free}.
+\end{intuizione}
+
+\subsection{Equazioni di Bellman}
+
+\begin{theorem}[Bellman Expectation Equation]
+\begin{align}
+v_\pi(s) &= \sum_{a} \pi(a|s)\!\left[\mathcal{R}^a_s + \gamma \sum_{s'} P^a_{ss'} v_\pi(s')\right] \label{eq:bellman-v}\\
+q_\pi(s,a) &= \mathcal{R}^a_s + \gamma \sum_{s'} P^a_{ss'} \sum_{a'} \pi(a'|s') q_\pi(s', a') \label{eq:bellman-q}
+\end{align}
+\end{theorem}
+\begin{proof}
+$v_\pi(s) = \mathbb{E}_\pi[R_{t+1} + \gamma G_{t+1} \mid S_t = s]$. Espandendo l'aspettativa su $a, s'$: $\mathbb{E}_\pi[R_{t+1}\mid S_t=s] = \sum_a \pi(a|s) \mathcal{R}^a_s$ e $\mathbb{E}_\pi[G_{t+1}\mid S_t=s] = \sum_a \pi(a|s)\sum_{s'} P^a_{ss'} v_\pi(s')$.
+\end{proof}
+
+\begin{definition}[Optimal value function]
+\[
+v_*(s) = \max_\pi v_\pi(s), \qquad q_*(s,a) = \max_\pi q_\pi(s,a).
+\]
+\end{definition}
+
+\begin{theorem}[Bellman Optimality]
+\begin{align}
+v_*(s) &= \max_{a\in\mathcal{A}}\!\left[\mathcal{R}^a_s + \gamma \sum_{s'} P^a_{ss'} v_*(s')\right]\\
+q_*(s,a) &= \mathcal{R}^a_s + \gamma \sum_{s'} P^a_{ss'} \max_{a'} q_*(s', a').
+\end{align}
+\end{theorem}
+
+\begin{remark}[Politica ottimale deterministica]
+Per ogni MDP finito esiste una policy ottimale deterministica:
+\[
+\pi_*(s) = \argmax_{a\in\mathcal{A}} q_*(s, a).
+\]
+\end{remark}
+
+%===============================================================
+\begin{tcolorbox}[mywarn, title={Domande d'esame — Fondamenti di RL}]
+\begin{enumerate}
+  \item Definisci un MDP $(\mathcal{S}, \mathcal{A}, P, R, \gamma)$. Che cosa significa esattamente ``Markov'' qui, e su che cosa è un'assunzione forte?
+  \item Che cosa fa $\gamma$? Dai le due giustificazioni, quella economica e quella matematica.
+  \item Definisci il ritorno $G_t$, la state-value $v_\pi(s)$ e la action-value $q_\pi(s,a)$. Che relazione lega le due value function?
+  \item Deriva la Bellman expectation equation per $v_\pi(s)$ partendo dalla definizione di ritorno.
+  \item Differenza fra Bellman expectation e Bellman optimality. Perché la seconda non è lineare?
+  \item Perché l'operatore di Bellman è una contrazione, e che cosa se ne deduce sulla convergenza di value iteration?
+  \item Perché quasi tutti gli algoritmi model-free lavorano su $Q$ e non su $V$? Che cosa servirebbe per estrarre una politica da $V$?
+  \item Che cos'è una politica ottima, e perché ne esiste sempre almeno una deterministica in un MDP finito?
+\end{enumerate}
+\end{tcolorbox}
+
+%===============================================================
+\chapter{Algoritmi RL}
+
+\begin{risorsevideo}{GDL34 — Algoritmi di RL}
+\videolezione{della lezione GDL34, seconda parte}
+
+\medskip
+\video{https://www.youtube.com/watch?v=0MNVhXEX9to}{Reinforcement Learning: Machine Learning Meets Control Theory}{Steve Brunton, ~30m}\\
+La tassonomia model-based / model-free e il posizionamento di Q-learning, policy gradient e actor-critic, senza entrare nei dettagli implementativi. Buona mappa da tenere accanto mentre si studiano le formule.
+\end{risorsevideo}
+\label{ch:rl-algos}
+
+\section{Tassonomia}
+
+\begin{description}
+  \item[Model-based] $P, \mathcal{R}$ noti $\Rightarrow$ planning (policy iteration, value iteration).
+  \item[Model-free] $P, \mathcal{R}$ ignoti $\Rightarrow$ apprendimento da esperienza (Monte Carlo, TD-learning, Q-learning).
+  \item[Value-based] si apprende $v$ o $q$, la policy è derivata greedy.
+  \item[Policy-based] si parametrizza direttamente $\pi$.
+  \item[Actor-critic] entrambi.
+\end{description}
+
+\section{Model-based: Policy Iteration}
+
+Dato $\pi$:
+\begin{enumerate}
+  \item \emph{Policy evaluation}: iterazione fino a convergenza di~\eqref{eq:bellman-v}:
+  \[
+  v_{k+1}(s) \leftarrow \sum_a \pi(a|s) \Big[\mathcal{R}^a_s + \gamma \sum_{s'} P^a_{ss'} v_k(s')\Big].
+  \]
+  \item \emph{Policy improvement}: $\pi'(s) = \argmax_a q_\pi(s, a)$.
+  \item Ripeti fino a $\pi' = \pi$.
+\end{enumerate}
+
+\begin{theorem}[Policy improvement]
+Se $\pi'$ è greedy rispetto a $v_\pi$, allora $v_{\pi'}(s) \geq v_\pi(s)$ per ogni $s$. Iterando si converge alla policy ottimale $\pi_*$.
+\end{theorem}
+
+\section{Model-based: Value Iteration}
+
+Si applica direttamente Bellman optimality come aggiornamento:
+\[
+v_{k+1}(s) \leftarrow \max_a \Big[\mathcal{R}^a_s + \gamma \sum_{s'} P^a_{ss'} v_k(s')\Big].
+\]
+A convergenza, $v_k \to v_*$ e $\pi_*(s) = \argmax_a [\cdots]$.
+
+\paragraph{Confronto.} Policy iteration: due loop annidati ma converge in pochi step esterni. Value iteration: un solo loop ma molti step prima di policy stabile.
+
+\section{Model-free: Temporal Difference e Q-learning}
+
+In assenza di $P, \mathcal{R}$ si usano \emph{sample updates}: l'agente esplora, osserva transizioni $(S, A, R, S')$ e aggiorna stime.
+
+\subsection{TD(0) per value}
+\[
+v(S_t) \leftarrow v(S_t) + \alpha \big[R_{t+1} + \gamma v(S_{t+1}) - v(S_t)\big].
+\]
+Il termine in parentesi è il \emph{TD error}: differenza fra target $R + \gamma v(S')$ e stima corrente.
+
+\subsection{Q-learning (off-policy)}
+\begin{equation}\label{eq:qlearning}
+\boxed{\;Q(S, A) \leftarrow Q(S, A) + \alpha\!\left[R + \gamma \max_{a'} Q(S', a') - Q(S, A)\right].\;}
+\end{equation}
+\emph{Target policy} (quella che impariamo) $\pi(s) = \argmax_a Q(s, a)$, \emph{behavior policy} (quella che esegue azioni durante esplorazione) $\epsilon$-greedy:
+\[
+\pi'(a|s) = \begin{cases} \epsilon/|\mathcal{A}| + (1-\epsilon) & a = \argmax_{a'} Q(s,a')\\ \epsilon/|\mathcal{A}| & \text{altrimenti}.\end{cases}
+\]
+\textbf{Off-policy} perché si apprende $Q$ della greedy policy mentre si esegue l'$\epsilon$-greedy.
+
+\begin{theorem}[Convergenza Q-learning, Watkins \& Dayan 1992]
+Sotto condizioni standard (visite infinite di ogni $(s,a)$, learning rate decrescente $\sum \alpha = \infty$, $\sum \alpha^2 < \infty$), $Q$ converge a $q_*$ con probabilità 1.
+\end{theorem}
+
+\begin{esempiosvolto}{lo stesso passo, Q-learning e SARSA a confronto}
+Uno stesso istante di esperienza: dallo stato $s$ si prende l'azione $a$, si riceve $r = 1$ e si finisce in $s'$. Sia $\alpha = 0.1$, $\gamma = 0.9$, $Q(s,a) = 2.0$. Nello stato $s'$:
+\[
+\max_{a'} Q(s', a') = 3.0 \quad (\text{azione golosa}), \qquad Q(s', a_{\text{presa}}) = 1.0 \quad (\text{azione effettivamente scelta, esplorativa}).
+\]
+
+\medskip
+\textbf{Q-learning (off-policy).} Usa il massimo, cioè quello che farebbe la politica \emph{golosa}, non quella che sta guidando:
+\[
+Q(s,a) \leftarrow 2.0 + 0.1\big(1 + 0.9(3.0) - 2.0\big) = 2.0 + 0.1(1.7) = \mathbf{2.17}.
+\]
+
+\textbf{SARSA (on-policy).} Usa il valore dell'azione che è stata \emph{davvero} presa:
+\[
+Q(s,a) \leftarrow 2.0 + 0.1\big(1 + 0.9(1.0) - 2.0\big) = 2.0 + 0.1(-0.1) = \mathbf{1.99}.
+\]
+
+Stessa transizione, aggiornamenti di segno opposto.
+
+\medskip
+\textbf{Che cosa significa la differenza.} Q-learning stima il valore della politica ottima \emph{indipendentemente} da come si sta esplorando: impara la politica migliore anche seguendone una peggiore. SARSA stima il valore della politica che si sta effettivamente eseguendo, esplorazione inclusa.
+
+L'esempio classico è il \emph{cliff walking}: lungo un burrone, Q-learning impara il cammino ottimo rasente il bordo, perché nel calcolo assume che poi si comporterà in modo goloso. Ma se durante l'esecuzione si continua a esplorare con $\epsilon$-greedy, ogni tanto si cade. SARSA impara un cammino più lungo e più lontano dal bordo, perché il valore che stima tiene conto del rischio dell'esplorazione — e nella pratica, con esplorazione attiva, ottiene un ritorno migliore.
+
+\textbf{La formula generale}: il TD error $\delta = r + \gamma\, \hat V(s') - \hat V(s)$ è lo stesso in entrambi; cambia solo che cosa si mette al posto di $\hat V(s')$. Bootstrapping (usare una stima per aggiornare un'altra stima) è ciò che distingue il TD dai metodi Monte Carlo, che aspettano la fine dell'episodio: il TD ha bias ma varianza molto più bassa, e aggiorna online.
+\end{esempiosvolto}
+
+\subsection{SARSA (on-policy)}
+\[
+Q(S,A) \leftarrow Q(S,A) + \alpha[R + \gamma Q(S', A') - Q(S, A)],
+\]
+con $A'$ campionato dalla policy corrente. Più conservativo di Q-learning ma robusto in ambienti rischiosi.
+
+\section{Function approximation}
+
+Per spazi di stato grandi (es.\ pixel) non si può tabulare $Q$. Si parametrizza $\hat Q(s, a; \vect{w})$ con una rete neurale.
+
+\subsection{Deep Q-Network (DQN, Mnih et al.\ 2015)}
+
+\begin{equation}
+\mathcal{L}_i(\vect{w}_i) = \mathbb{E}_{(s,a,r,s')\sim \mathcal{D}_i}\!\left[\big(r + \gamma \max_{a'} Q(s', a'; \vect{w}_i^-) - Q(s, a; \vect{w}_i)\big)^2\right].
+\end{equation}
+
+Tre trucchi cruciali:
+\begin{description}
+  \item[Experience replay] buffer $\mathcal{D}$ di transizioni passate; campionamento iid per rompere correlazione temporale.
+  \item[Target network] copia $\vect{w}^-$ aggiornata ogni $C$ step; stabilizza il target.
+  \item[Reward clipping] $r \in [-1, 1]$ per stabilità.
+\end{description}
+
+DQN ha imparato a giocare 49 giochi Atari da soli pixel + reward, una stessa architettura su tutti.
+
+\section{Policy gradient}
+
+Alternativa: parametrizzare direttamente la policy $\pi_\theta(a|s)$.
+
+\paragraph{Obiettivo.}
+\[
+J(\theta) = \mathbb{E}_{\pi_\theta}\!\left[\sum_{t=0}^\infty \gamma^t R_{t+1}\right].
+\]
+
+\begin{theorem}[Policy Gradient Theorem, Sutton et al.\ 2000]
+\begin{equation}\label{eq:policy-grad}
+\boxed{\;\nabla_\theta J(\theta) = \mathbb{E}_{\pi_\theta}\!\left[\nabla_\theta \log \pi_\theta(a|s)\, Q^{\pi_\theta}(s,a)\right].\;}
+\end{equation}
+\end{theorem}
+\begin{proof}[Sketch]
+Per la log-derivative trick: $\nabla_\theta \pi_\theta = \pi_\theta \nabla_\theta \log \pi_\theta$. Espandendo $J(\theta)$ come somma di reward attesa lungo traiettorie e differenziando si arriva a~\eqref{eq:policy-grad}.
+\end{proof}
+
+\subsection{REINFORCE}
+\begin{enumerate}
+  \item Generare una traiettoria $(s_0, a_0, r_1, \dots, s_T)$ da $\pi_\theta$;
+  \item Calcolare $G_t = \sum_{k=t}^T \gamma^{k-t} r_{k+1}$;
+  \item Update: $\theta \leftarrow \theta + \alpha \sum_t \nabla_\theta \log \pi_\theta(a_t|s_t)\, G_t$.
+\end{enumerate}
+Stima Monte Carlo, alta varianza.
+
+\begin{intuizione}{value-based e policy-based rispondono a due domande diverse}
+I metodi value-based ($Q$-learning, DQN) imparano ``quanto vale ogni azione'' e poi ricavano la politica prendendo l'$\arg\max$. I metodi policy-based (REINFORCE, PPO) imparano direttamente ``che cosa fare'', parametrizzando $\pi_\theta(a \mid s)$ e salendo il gradiente del ritorno atteso.
+
+La differenza pratica si vede in tre punti.
+
+\emph{Azioni continue}: l'$\arg\max$ su uno spazio continuo è a sua volta un problema di ottimizzazione, da risolvere a ogni passo. Una politica parametrica invece emette direttamente l'azione (o i parametri di una distribuzione su di essa). È la ragione per cui il controllo continuo è dominio dei metodi policy-based.
+
+\emph{Politiche stocastiche}: l'$\arg\max$ è deterministico per costruzione. Ma in ambienti parzialmente osservabili, o in giochi dove essere prevedibili è fatale, l'ottimo \emph{è} stocastico. Solo i metodi policy-based possono rappresentarlo.
+
+\emph{Stabilità}: un cambiamento infinitesimo nei valori $Q$ può ribaltare l'$\arg\max$ e quindi cambiare la politica di colpo. Il gradiente di policy la muove con continuità, il che rende la convergenza più regolare — al prezzo di convergere tipicamente a un ottimo locale, e con varianza del gradiente molto più alta.
+
+\textbf{Actor-critic è la sintesi}: l'attore è una politica parametrica (quindi gestisce azioni continue e stocasticità), il critico è una value function che fornisce una stima a bassa varianza del ritorno al posto del ritorno campionato. Si tiene la flessibilità dei policy gradient e si recupera parte della stabilità dei metodi value-based.
+\end{intuizione}
+
+\begin{esempiosvolto}{la baseline: perché toglie varianza senza introdurre bias}
+Tre traiettorie con ritorni $R = (10,\ 12,\ 11)$. Tutte e tre positive.
+
+\medskip
+\textbf{Senza baseline.} Il gradiente REINFORCE è $\nabla_\theta \log \pi_\theta(a|s)\, R$. Poiché tutti gli $R$ sono positivi, \emph{tutte} le azioni vengono rese più probabili — anche la peggiore delle tre. La distinzione fra buono e cattivo si gioca solo sulle differenze relative dei moduli, sepolte in un segnale grande.
+
+La grandezza che governa la varianza dello stimatore è $\mathbb{E}[R^2]$:
+\[
+\mathbb{E}[R^2] = \frac{100 + 144 + 121}{3} = 121.7.
+\]
+
+\medskip
+\textbf{Con baseline $b = \bar R = 11$.} Gli advantage diventano
+\[
+A = R - b = (-1,\ +1,\ 0).
+\]
+Ora il segno è informativo: la prima azione viene resa \emph{meno} probabile, la seconda più probabile, la terza lasciata stare. E
+\[
+\mathbb{E}[A^2] = \frac{1 + 1 + 0}{3} = 0.667,
+\]
+cioè un fattore $\mathbf{182}$ in meno sulla scala che governa la varianza.
+
+\medskip
+\textbf{Perché non introduce bias.} Il termine sottratto ha valore atteso nullo:
+\[
+\mathbb{E}_{a \sim \pi_\theta}\big[\nabla_\theta \log \pi_\theta(a|s)\, b(s)\big]
+= b(s) \sum_a \pi_\theta(a|s) \frac{\nabla_\theta \pi_\theta(a|s)}{\pi_\theta(a|s)}
+= b(s)\, \nabla_\theta \underbrace{\sum_a \pi_\theta(a|s)}_{=\,1} = 0.
+\]
+Il passaggio chiave è che $b$ non dipende dall'azione, quindi esce dalla somma; e la somma delle probabilità è costante, quindi il suo gradiente è nullo. Qualunque funzione del solo stato può fare da baseline.
+
+\textbf{La scelta naturale} è $b(s) = V^\pi(s)$, da cui l'advantage $A^\pi(s,a) = Q^\pi(s,a) - V^\pi(s)$: ``quanto questa azione è migliore della media in questo stato''. Stimare $V$ con una rete è precisamente il ruolo del critico in actor-critic.
+\end{esempiosvolto}
+
+\subsection{Riduzione di varianza: baseline e advantage}
+Si sottrae una baseline $b(s)$ che non dipende da $a$:
+\[
+\nabla_\theta J(\theta) = \mathbb{E}\!\left[\nabla_\theta \log \pi_\theta(a|s)\, (Q^\pi(s,a) - b(s))\right].
+\]
+Tipica scelta: $b(s) = v^\pi(s)$, che dà l'\emph{advantage} $A^\pi(s,a) = Q^\pi(s,a) - v^\pi(s)$.
+
+\subsection{Vantaggi/svantaggi policy-based}
+\begin{itemize}
+  \item[\textbf{Pro:}] convergenza migliore, gestione spazi azione continui, policy stocastiche.
+  \item[\textbf{Contro:}] minimo locale, alta varianza, policy evaluation costosa.
+\end{itemize}
+
+\subsection{Policy gradient deterministico (DPG)}
+Per azione continua $a = \pi_\theta(s)$:
+\[
+\nabla_\theta J(\theta) = \mathbb{E}\!\left[\nabla_a Q^\pi(s, a)\big|_{a=\pi_\theta(s)} \nabla_\theta \pi_\theta(s)\right].
+\]
+
+\section{Actor-Critic}
+
+Combina:
+\begin{description}
+  \item[Critic] $Q_{\vect{w}}(s,a)$ o $V_{\vect{w}}(s)$, addestrato via TD;
+  \item[Actor] $\pi_\theta(a|s)$, addestrato via policy gradient con il critic come stima di $Q$.
+\end{description}
+Update simultaneo:
+\begin{align*}
+\delta &= r + \gamma V_{\vect{w}}(s') - V_{\vect{w}}(s) \quad \text{(TD error/advantage)}\\
+\vect{w} &\leftarrow \vect{w} + \alpha_w\, \delta\, \nabla_{\vect{w}} V_{\vect{w}}(s)\\
+\theta &\leftarrow \theta + \alpha_\theta\, \delta\, \nabla_\theta \log \pi_\theta(a|s).
+\end{align*}
+Riduce la varianza di REINFORCE mantenendo bias basso.
+
+\subsection{Algoritmi notevoli}
+\begin{description}
+  \item[A3C / A2C] asynchronous / synchronous actor-critic, parallel workers.
+  \item[DDPG / TD3] DPG con replay buffer e target network (action continuous).
+  \item[PPO] proximal policy optimization, clip del ratio $\pi_\theta/\pi_{\theta_{\text{old}}}$ per stabilità.
+  \item[SAC] soft actor-critic, entropy regularization.
+\end{description}
+
+\paragraph{PPO objective.}
+\[
+\mathcal{L}^{\text{CLIP}}(\theta) = \mathbb{E}_t\!\left[\min(r_t(\theta)\hat A_t,\, \mathrm{clip}(r_t(\theta), 1-\epsilon, 1+\epsilon)\hat A_t)\right],
+\]
+con $r_t(\theta) = \pi_\theta(a_t|s_t)/\pi_{\theta_{\text{old}}}(a_t|s_t)$. È diventato lo standard de facto in policy-based deep RL.
+
+\begin{tcolorbox}[mybox, title={Quando usare quale algoritmo RL}]
+\begin{description}[leftmargin=4em,style=nextline]
+  \item[Spazio di stato e azione piccolo, MDP noto] policy iteration / value iteration.
+  \item[Spazio finito, model-free, azioni discrete] Q-learning, SARSA.
+  \item[Spazio grande, action discreta (Atari, gioco)] DQN.
+  \item[Spazio continuo (robotica)] DDPG / TD3 / SAC.
+  \item[Stabilità e semplicità] PPO.
+  \item[Esplorazione complicata, sparse reward] tecniche avanzate (intrinsic motivation, model-based con AlphaZero-style planning).
+\end{description}
+\end{tcolorbox}
+
+\begin{tcolorbox}[mybox, title={Connessioni}]
+\begin{itemize}
+  \item Bellman equations $\leftrightarrow$ programmazione dinamica.
+  \item Q-learning $\leftrightarrow$ TD-learning $\leftrightarrow$ stocastic approximation.
+  \item Policy gradient $\leftrightarrow$ score function estimator (log-derivative trick): stessa identità usata nei VAE per gradienti attraverso campionamento.
+  \item Actor-critic $\leftrightarrow$ GAN: due reti, una stima valori, l'altra agisce, addestrate alternativamente (anche se la struttura adversarial non è esattamente la stessa).
+  \item RL su grafi $\leftrightarrow$ Parte V: graph RL per molecular design, combinatorial optimization.
+\end{itemize}
+\end{tcolorbox}
+
+\begin{tcolorbox}[mywarn, title={Domande d'esame — RL}]
+\begin{enumerate}
+  \item Confronta policy iteration e value iteration: che cosa itera ciascuno, quale converge in meno iterazioni e quale ha passi più costosi.
+  \item Che differenza c'è fra metodi Monte Carlo e metodi Temporal Difference? Che cos'è il bootstrapping e che compromesso bias-varianza introduce.
+  \item Scrivi l'aggiornamento di Q-learning. Perché è \emph{off-policy}?
+  \item Differenza fra Q-learning e SARSA. Quando preferiresti uno o l'altro?
+  \item Cos'è il \emph{deadly triad}? (function approximation + bootstrapping + off-policy $\to$ instabilità) Come DQN mitiga?
+  \item Enuncia il policy gradient theorem e ricavalo via log-derivative trick.
+  \item Cos'è REINFORCE? Perché ha alta varianza e come si riduce?
+  \item Architettura actor-critic: ruolo di actor e critic. Vantaggio rispetto a REINFORCE puro.
+  \item PPO: cos'è il clipped objective e perché stabilizza il training?
+  \item Confronta value-based, policy-based e actor-critic: quando serve l'uno e quando l'altro (azioni continue, politiche stocastiche, stabilità).
+  \item Il policy gradient stima un gradiente attraverso un campionamento, esattamente come il VAE (Cap.~\ref{ch:vae}). Perché nel VAE si può usare il reparametrization trick e nel policy gradient no? (score function estimator contro pathwise estimator.)
+\end{enumerate}
+\end{tcolorbox}

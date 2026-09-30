@@ -1,0 +1,1178 @@
+\part{Learning nei Modelli Probabilistici}
+
+\chapter{Apprendimento con Variabili Osservate}
+
+\begin{risorsevideo}{GDL7 — ML, MAP, Bayesiano, Naive Bayes}
+\videolezione{della lezione GDL7}
+
+\medskip
+\video{https://www.youtube.com/watch?v=RIawrYLVdIw}{Cornell CS4780 — Lecture 7: Estimating Probabilities from Data (MLE, MAP, Bayesian)}{Kilian Weinberger, ~50m}\\
+Copre esattamente i tre ``flavori'' di questa lezione e, alla fine, anche la posterior predictive. Weinberger insiste sul punto che qui conta: che cosa cambia davvero fra massimizzare e integrare.
+
+\medskip
+\video{https://www.youtube.com/watch?v=pDHEX2usCS0}{Cornell CS4780 — Lecture 8: Naive Bayes}{Kilian Weinberger, ~50m}\\
+Il seguito naturale, tutto su Naive Bayes e Laplace smoothing.
+\end{risorsevideo}
+
+\section{Learning come Inferenza}
+
+L'apprendimento nel contesto dei modelli probabilistici consiste nel trovare i parametri $\theta$ che spiegano meglio i dati osservati $D$. Data una collezione di osservazioni $D = \{x_1, x_2, \ldots, x_N\}$, vogliamo stimare i parametri $\theta$ della distribuzione di probabilità sottostante.
+
+\begin{definition}
+  L'\textit{apprendimento probabilistico} è il processo di stima dei parametri $\theta$ di un modello probabilistico $P(x|\theta)$ dato un dataset osservato $D$.
+\end{definition}
+
+\subsection{Tre Flavori dell'Apprendimento}
+
+Esistono tre approcci principali:
+
+\begin{description}
+  \item[Maximum Likelihood (ML):] Massimizziamo la verosimiglianza:
+  \[\theta_{\text{ML}} = \argmax_\theta P(D|\theta) = \argmax_\theta \prod_{n=1}^N P(x_n|\theta)\]
+
+  \item[Maximum A Posteriori (MAP):] Massimizziamo il posteriore:
+  \[\theta_{\text{MAP}} = \argmax_\theta P(\theta|D) = \argmax_\theta P(D|\theta)P(\theta)\]
+  dove $P(\theta)$ è una distribuzione a priori.
+
+  \item[Bayesiano:] Calcoliamo la distribuzione posteriore:
+  \[P(\theta|D) = \frac{P(D|\theta)P(\theta)}{P(D)}\]
+  che rappresenta l'incertezza sui parametri.
+\end{description}
+
+\begin{intuizione}{tre risposte alla stessa domanda, non tre algoritmi diversi}
+ML, MAP e Bayesiano non sono tre tecniche in competizione: sono tre livelli di risposta alla domanda ``che cosa so di $\theta$ dopo aver visto i dati?''.
+
+L'approccio \emph{bayesiano} risponde per intero: restituisce la distribuzione $P(\theta \mid D)$, cioè tutta l'incertezza residua. È la risposta completa, e anche la più costosa.
+
+\emph{MAP} risponde con un solo numero: il picco di quella distribuzione. Butta via la larghezza e tiene la posizione. \emph{ML} fa la stessa cosa ma ignorando anche il prior, cioè assumendo implicitamente che tutti i valori di $\theta$ fossero ugualmente plausibili prima di vedere i dati.
+
+Da qui due conseguenze che vale la pena avere pronte all'orale. Primo: con molti dati la likelihood domina il prior e le tre risposte convergono — la differenza si vede solo quando i dati sono pochi. Secondo, e più sottile: ML e MAP collassano una distribuzione in un punto, e un punto non può rappresentare ``non lo so''. È esattamente questa perdita che la posterior predittiva evita, integrando su $\theta$ invece che scegliere.
+\end{intuizione}
+
+\section{MLE per Reti Bayesiane Completamente Osservate}
+
+Per una rete Bayesiana con tutti i nodi osservati, la log-verosimiglianza è:
+\[\ell(\theta) = \log P(D|\theta) = \sum_{n=1}^N \log P(x_n|\theta) = \sum_{n=1}^N \sum_i \log P(x^{(n)}_i | \text{pa}(x_i), \theta_i)\]
+
+Poiché i termini riguardanti nodi diversi si separano, possiamo massimizzare i parametri per ciascuna famiglia condizionale indipendentemente.
+
+\begin{theorem}
+  Per distribuzioni categoriche, lo stimatore di massima verosimiglianza è:
+  \[\theta_{\text{ML},ik} = \frac{\#(x_i = k, \text{pa}(x_i) = j)}{\#(\text{pa}(x_i) = j)}\]
+  cioè il rapporto tra la frequenza congiunta osservata e la frequenza marginale dei genitori.
+\end{theorem}
+
+\subsection{Stability Numerica}
+
+La log-verosimiglianza è più stabile numericamente della verosimiglianza:
+\[\ell(\theta) = \sum_{n=1}^N \log P(x_n|\theta) \quad \text{vs} \quad L(\theta) = \prod_{n=1}^N P(x_n|\theta)\]
+
+Lavorare direttamente con le probabilità produce underflow in problemi realistici.
+
+\begin{trappola}{MAP non è invariante per riparametrizzazione, ML sì}
+Punto sottile e perfettamente chiedibile, perché smonta l'idea che MAP sia ``ML con un prior e basta''.
+
+La stima ML è invariante: se $g$ è una trasformazione biiettiva dei parametri, allora $\hat\theta_{\text{ML}}$ trasformato è la stima ML nel nuovo sistema di coordinate, $g(\hat\theta_{\text{ML}}) = \widehat{g(\theta)}_{\text{ML}}$. Il motivo è che la likelihood è una \emph{funzione} di $\theta$, non una densità su $\theta$: riparametrizzare rietichetta l'asse, e il punto di massimo si sposta insieme all'etichetta.
+
+La stima MAP non lo è. Il posterior \emph{è} una densità su $\theta$, quindi sotto un cambio di variabile acquista un fattore Jacobiano:
+\[
+p(\eta \mid D) = p(\theta \mid D)\left|\frac{d\theta}{d\eta}\right|.
+\]
+Se la trasformazione è non lineare quel fattore non è costante, quindi \emph{sposta la moda}. Massimizzare in $\theta$ e massimizzare in $\eta = g(\theta)$ danno risposte diverse, che non sono l'una la trasformata dell'altra.
+
+\textbf{La conseguenza concettuale}: la moda di una distribuzione non è una quantità geometricamente robusta, dipende dalla parametrizzazione scelta. La \emph{media} a posteriori e l'intera predittiva bayesiana non hanno questo problema, perché integrano invece di massimizzare — e l'integrale si trasforma correttamente con il Jacobiano. È un altro argomento, e più profondo del solito ``il bayesiano tiene conto dell'incertezza'', a favore dell'integrare.
+\end{trappola}
+
+\section{Classificatori Naive Bayes}
+
+Il classificatore Naive Bayes assume indipendenza condizionale dei features dato la classe:
+
+\begin{definition}
+  Un modello Naive Bayes per la classificazione è definito da:
+  \[P(y, x_1, \ldots, x_D) = P(y) \prod_{d=1}^D P(x_d|y)\]
+\end{definition}
+
+Questa assume che $P(x_d | y, x_1, \ldots, x_{d-1}) = P(x_d|y)$ per ogni feature $d$.
+
+\subsection{Inferenza nel Naive Bayes}
+
+Per classificare un nuovo esempio, calcoliamo:
+\[\hat{c} = \argmax_{c} P(c|x) = \argmax_{c} \frac{P(c) \prod_{d=1}^D P(x_d|c)}{P(x)}\]
+
+Poiché $P(x)$ è costante rispetto a $c$, possiamo omettere il denominatore:
+\[\hat{c} = \argmax_{c} P(c) \prod_{d=1}^D P(x_d|c)\]
+
+\subsection{MAP Estimate e Laplace Smoothing}
+
+Lo stimatore MAP per un Naive Bayes con prior Dirichlet evita il problema delle probabilità zero:
+
+\[\theta_{\text{MAP},ik} = \frac{\#(x_i = k, y=c) + \alpha}{\#(y=c) + K\alpha}\]
+
+dove $K$ è il numero di categorie e $\alpha > 0$ è il parametro di smoothing. Con $\alpha = 1$ si parla di \textit{add-one smoothing} o \textit{Laplace smoothing}.
+
+\begin{tcolorbox}[title=Nota]
+  Il Laplace smoothing previene le probabilità zero dovute a dati limitati, cruciale quando i dati di training non coprono tutte le possibili combinazioni.
+\end{tcolorbox}
+
+\section{Generativo vs Discriminativo}
+
+I modelli generativi (come Naive Bayes) modellano $P(x,y)$, mentre i discriminativi modellano direttamente $P(y|x)$. I modelli discriminativi spesso richiedono meno dati per le stesse prestazioni su compiti di classificazione, ma i generativi possono gestire dati mancanti e trasferimento di conoscenza più facilmente.
+
+\subsection{Inferenza Bayesiana}
+
+L'approccio bayesiano mantiene la distribuzione posteriore completa su $\theta$:
+\[P(\theta|D) = \frac{P(D|\theta)P(\theta)}{P(D)}\]
+
+Per la predizione, marginalizzziamo:
+\[P(x_{\text{new}}|D) = \int P(x_{\text{new}}|\theta)P(\theta|D) d\theta\]
+
+Questo è più robusto di ML/MAP poiché incorpora l'incertezza su $\theta$.
+
+\begin{esempiosvolto}{tre monete lanciate, tre teste: ML, MAP e predittiva a confronto}
+Lanciamo una moneta $3$ volte e otteniamo $3$ teste. Sia $\lambda = P(\text{testa})$.
+
+\medskip
+\textbf{ML.} La likelihood è $\lambda^3$, massimizzata in
+\[
+\hat\lambda_{\text{ML}} = 1.
+\]
+Il modello dichiara che la moneta \emph{non può} dare croce. Con tre soli lanci è una conclusione assurda, ed è il classico problema della probabilità zero.
+
+\medskip
+\textbf{MAP con prior $\text{Beta}(2,2)$.} Il prior $\text{Beta}(\alpha,\beta)$ è coniugato: il posterior è $\text{Beta}(\alpha + h, \beta + n - h) = \text{Beta}(5, 2)$. La moda di una Beta è $\frac{\alpha' - 1}{\alpha' + \beta' - 2}$, quindi
+\[
+\hat\lambda_{\text{MAP}} = \frac{5-1}{5+2-2} = \frac{4}{5} = 0.8.
+\]
+Il prior $\text{Beta}(2,2)$ vale ``come'' aver visto una testa e una croce fittizie: basta a impedire lo $0$ e l'$1$.
+
+\medskip
+\textbf{Predittiva bayesiana.} Non scegliamo nessun $\lambda$: integriamo.
+\[
+P(x' = \text{testa} \mid D) = \int_0^1 \underbrace{P(x' = \text{testa} \mid \lambda)}_{=\,\lambda} \, P(\lambda \mid D)\, d\lambda
+= \mathbb{E}[\lambda \mid D] = \frac{\alpha + h}{\alpha + \beta + n} = \frac{5}{7} \approx 0.714.
+\]
+
+\medskip
+\textbf{Che cosa distingue i tre numeri.} $1$, $0.8$, $0.714$: la stessa evidenza, tre risposte. La predittiva è la più prudente perché è l'unica che tiene conto del fatto che $\lambda$ resta incerto — è una \emph{media pesata} delle predizioni di tutti i valori di $\lambda$, pesati dalla loro plausibilità, non la predizione del $\lambda$ più plausibile.
+
+\textbf{Nota sulla notazione, che è fonte di confusione ricorrente.} Nella formula della predittiva $x'$ è un \emph{nuovo dato osservabile} (qui: l'esito del quarto lancio), non un parametro. Le due distribuzioni non vanno confuse: $P(\theta \mid D)$ è il posterior e vive nello spazio dei parametri; $P(x' \mid D) = \int P(x' \mid \theta) P(\theta \mid D)\, d\theta$ è la \emph{posterior predittiva} e vive nello spazio dei dati. L'integrale è il ponte fra i due spazi: elimina $\theta$ mediando su di esso.
+\end{esempiosvolto}
+
+\section{Approfondimenti}
+
+\begin{tcolorbox}[title=Domande d'Esame]
+  \begin{enumerate}
+    \item Distinguere tra Maximum Likelihood, MAP e approccio Bayesiano. Quali sono i vantaggi e svantaggi di ciascuno?
+    \item Derivare lo stimatore ML per i parametri di una distribuzione categorica.
+    \item Spiegare come il Laplace smoothing affronta il problema delle probabilità zero nei classificatori Naive Bayes.
+    \item Perché nei classificatori Naive Bayes il denominatore $P(x)$ può essere omesso nella fase di predizione?
+    \item Come si generalizza il learning MLE a reti Bayesiane arbitrarie?
+  \end{enumerate}
+\end{tcolorbox}
+
+\chapter{Apprendimento con Variabili Nascoste: l'Algoritmo EM}\label{ch:em}
+
+\begin{risorsevideo}{GDL8 — EM e mixture of Gaussians}
+\videolezione{della lezione GDL8}
+
+\medskip
+\video{https://www.youtube.com/watch?v=f2HIW37Ohho}{Probability 2: Maximum Likelihood, Gaussian Mixture Models and Expectation Maximization}{MLVU 2019, ~1h}\\
+Stessa impostazione del Midterm 1: parte dal problema del ``log della somma'' e ci costruisce sopra EM. Se ti serve solo il meccanismo E-step/M-step, i primi $30$ minuti bastano.
+\end{risorsevideo}
+
+\section{Il Problema delle Variabili Latenti}
+
+Molti modelli probabilistici contengono variabili nascoste (latenti) $z$ che non sono osservate nei dati. Questo complica significativamente il learning.
+
+\begin{definition}
+  Date osservazioni $D = \{x_1, \ldots, x_N\}$ e variabili nascoste $z = \{z_1, \ldots, z_N\}$:
+  \begin{itemize}
+    \item \textit{Dati completi}: $(x, z)$ --- entrambi osservati
+    \item \textit{Dati incompleti}: $x$ soltanto --- $z$ è nascosto
+  \end{itemize}
+\end{definition}
+
+La log-verosimiglianza dei dati completi è:
+\[\ell_c(\theta) = \log P(x,z|\theta)\]
+
+Ma dato che $z$ non è osservato, non possiamo massimizzare direttamente. La log-verosimiglianza marginale è:
+\[\ell(\theta) = \log P(x|\theta) = \log \sum_z P(x,z|\theta)\]
+
+Il problema è che il logaritmo della somma non fattorizza, rendendo l'ottimizzazione difficile.
+
+\begin{intuizione}{l'uovo e la gallina, risolto barando in modo onesto}
+Il problema con le variabili latenti è circolare. Se sapessi da quale componente viene ogni punto, stimare i parametri sarebbe banale: basterebbero medie e varianze per gruppo, come nel caso completamente osservato. E se conoscessi i parametri, capire da dove viene ogni punto sarebbe altrettanto banale: basterebbe Bayes. Il guaio è che non ho né gli uni né gli altri.
+
+EM rompe il circolo alternando, ma con un'accortezza decisiva: invece di \emph{indovinare} l'assegnazione di ogni punto e poi trattarla come vera, si tiene la distribuzione completa sull'assegnazione. Nell'E-step ogni punto viene diviso fra le componenti in proporzione a quanto ciascuna lo spiega; nell'M-step ogni componente viene ristimata usando quelle frazioni come pesi.
+
+È questa la differenza con k-means, che invece assegna ogni punto a un solo cluster. L'assegnazione soft è ciò che rende la log-verosimiglianza monotona: si sta massimizzando un lower bound che, alla fine dell'E-step, tocca esattamente la curva vera. Ogni salita sul bound è quindi anche una salita, o almeno un pareggio, sulla funzione obiettivo.
+
+\textbf{Il prezzo}: monotono non vuol dire globale. EM sale sempre, ma sale verso il massimo locale più vicino all'inizializzazione. Ripartenze multiple non sono un dettaglio implementativo, sono parte dell'algoritmo.
+\end{intuizione}
+
+\section{L'Algoritmo Expectation-Maximization}
+
+L'EM è un algoritmo iterativo che alternativamente massimizza un'evidenza lower bound (ELBO).
+
+\begin{theorem}[Algoritmo EM]
+  Inizializzare $\theta^{(0)}$. Ripetere fino a convergenza:
+  \begin{itemize}
+    \item \textbf{E-step:} Calcolare le responsabilità
+    \[Q(\theta, \theta^{\text{old}}) = \mathbb{E}_{z|x,\theta^{\text{old}}}[\log P(x,z|\theta)] = \sum_z P(z|x,\theta^{\text{old}}) \log P(x,z|\theta)\]
+
+    \item \textbf{M-step:} Aggiornare i parametri
+    \[\theta^{\text{new}} = \argmax_\theta Q(\theta, \theta^{\text{old}})\]
+  \end{itemize}
+\end{theorem}
+
+\subsection{Proprietà di Convergenza}
+
+L'EM garantisce l'aumento monotono della log-verosimiglianza osservata:
+
+\begin{theorem}
+  Per ogni iterazione dell'EM:
+  \[\log P(x|\theta^{\text{new}}) \geq \log P(x|\theta^{\text{old}})\]
+\end{theorem}
+
+Questo è perché l'ELBO $L(q,\theta)$ fornisce un lower bound sulla log-verosimiglianza, e EM massimizza questo lower bound ad ogni passo.
+
+\section{Mixture of Gaussians}
+
+Un'applicazione importante di EM è l'apprendimento di mixture of Gaussians (GMM).
+
+\begin{definition}
+  Un GMM con $K$ componenti è:
+  \[P(x_n|\theta) = \sum_{k=1}^K \pi_k \mathcal{N}(x_n | \mu_k, \Sigma_k)\]
+  dove $\pi_k$ sono i pesi, $\mu_k$ le medie, e $\Sigma_k$ le covarianze.
+\end{definition}
+
+Nel modello latente, $z_n \in \{1, \ldots, K\}$ indica da quale componente viene generato $x_n$.
+
+\subsection{E-step di EM per GMM}
+
+Nel E-step, calcoliamo le \textit{responsabilità} (probabilità posteriore che il punto $n$ appartenga a cluster $k$):
+
+\[r_{nk} = P(z_n = k | x_n, \theta) = \frac{\pi_k \mathcal{N}(x_n|\mu_k,\Sigma_k)}{\sum_{j=1}^K \pi_j \mathcal{N}(x_n|\mu_j,\Sigma_j)}\]
+
+\subsection{M-step di EM per GMM}
+
+Nel M-step, aggiornamo i parametri:
+
+\begin{align}
+  \mu_k^{\text{new}} &= \frac{\sum_{n=1}^N r_{nk} x_n}{\sum_{n=1}^N r_{nk}} \\
+  \Sigma_k^{\text{new}} &= \frac{\sum_{n=1}^N r_{nk}(x_n - \mu_k)(x_n - \mu_k)^T}{\sum_{n=1}^N r_{nk}} \\
+  \pi_k^{\text{new}} &= \frac{\sum_{n=1}^N r_{nk}}{N}
+\end{align}
+
+\begin{esempiosvolto}{un giro completo di EM su quattro punti}
+Dati $x = \{1, 2, 3, 6\}$ in una dimensione, $K = 2$ componenti. Inizializziamo
+\[
+\mu_1 = 1.5, \quad \mu_2 = 5.0, \quad \sigma_1^2 = \sigma_2^2 = 2, \quad \pi_1 = \pi_2 = 0.5.
+\]
+
+\medskip
+\textbf{E-step.} Per ogni punto si calcola $\pi_k \mathcal{N}(x \mid \mu_k, \sigma_k^2)$ e si normalizza. Poiché $\pi$ e $\sigma^2$ sono uguali per le due componenti, il rapporto si riduce a $\exp\!\big(-\tfrac{(x-\mu_1)^2 - (x-\mu_2)^2}{2\sigma^2}\big)$. Per $x = 3$:
+\[
+\frac{r_1}{r_2} = \exp\!\left(-\frac{(3-1.5)^2 - (3-5)^2}{4}\right) = \exp\!\left(\frac{4 - 2.25}{4}\right) = e^{0.4375} \approx 1.549
+\;\Rightarrow\; r_1 = \frac{1.549}{2.549} \approx 0.608.
+\]
+Ripetendo per tutti:
+\begin{center}
+\begin{tabular}{cccc}
+\toprule
+$x$ & $1$ & $2$ & $3$ \quad $6$ \\
+\midrule
+$r_{\cdot 1}$ & $0.981$ & $0.899$ & $0.608$ \quad $0.008$ \\
+$r_{\cdot 2}$ & $0.019$ & $0.101$ & $0.392$ \quad $0.992$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Si noti $x = 3$: la sua appartenenza è genuinamente divisa, $61\%$ contro $39\%$. È il punto che k-means avrebbe assegnato d'ufficio alla prima componente, perdendo l'informazione che è un caso incerto.
+
+\medskip
+\textbf{M-step.} Le masse effettive sono $N_1 = 2.496$ e $N_2 = 1.504$ (somme di colonna, e si noti che $N_1 + N_2 = 4$ come deve essere). Poi
+\[
+\mu_1' = \frac{0.981(1) + 0.899(2) + 0.608(3) + 0.008(6)}{2.496} \approx 1.863, \qquad
+\mu_2' \approx 4.886,
+\]
+\[
+\sigma_1^{2\prime} \approx 0.670, \qquad \sigma_2^{2\prime} \approx 2.497, \qquad
+\pi_1' = \frac{2.496}{4} = 0.624, \quad \pi_2' = 0.376.
+\]
+
+\medskip
+\textbf{Verifica della monotonia.} La log-verosimiglianza passa da $-8.140$ a $-7.287$: è salita, come garantito dal teorema. E si vede \emph{perché} è salita: la prima componente si è stretta ($\sigma^2$ da $2$ a $0.67$) attorno ai tre punti che la rivendicano, e si è presa un peso maggiore ($\pi$ da $0.5$ a $0.62$) perché di punti ne ha attirati di più.
+
+\textbf{Da dire all'orale}: il singolo numero che riassume l'E-step è $r_{nk}$, e la sua interpretazione è ``il punto $n$ conta per la frazione $r_{nk}$ nella stima della componente $k$''. L'M-step non è altro che la stima ML del caso completamente osservato, con i conteggi interi sostituiti da questi conteggi frazionari.
+\end{esempiosvolto}
+
+\subsection{Hard vs Soft Assignment}
+
+EM fornisce un'assegnazione \textit{soft} (probabilistica) ai cluster. Alternativamente, si può usare il \textit{hard assignment}:
+\[z_n = \argmax_k r_{nk}\]
+
+che corrisponde al clustering k-means.
+
+\section{EM per Reti Bayesiane con Variabili Nascoste}
+
+EM si generalizza a qualsiasi rete Bayesiana. L'E-step comporta l'inferenza della distribuzione posteriore sui nodi nascosti dato i dati osservati (usando algoritmi come belief propagation). L'M-step usa il posteriore per aggiornare i parametri come nel caso completamente osservato.
+
+\section{Approfondimenti}
+
+\begin{tcolorbox}[title=Domande d'Esame]
+  \begin{enumerate}
+    \item Derivare l'algoritmo EM da principi variazionali. Come si relaziona al lower bound ELBO?
+    \item Spiegare come EM garantisce l'aumento monotono della log-verosimiglianza.
+    \item Derivare le equazioni di aggiornamento E-step e M-step per un GMM.
+    \item Quale è la differenza tra EM e k-means? Come si relazionano?
+    \item Come si estende EM a reti Bayesiane arbitrarie? Quali sono i costi computazionali?
+  \end{enumerate}
+\end{tcolorbox}
+
+\chapter{Modelli Markov Nascosti}
+
+\begin{risorsevideo}{GDL9--10 — HMM: forward-backward, Viterbi, Baum-Welch}
+\videolezione{delle lezioni GDL9 e GDL10}
+
+\medskip
+\video{https://www.youtube.com/watch?v=sc0iIFj7nWc}{MIT CompBio — Lecture 05: Hidden Markov Models II}{Manolis Kellis, ~1h20m}\\
+Forward, backward, Viterbi e Baum-Welch svolti su un esempio concreto (rilevamento di isole CpG). Kellis fa girare gli algoritmi a mano sulle slide: è il modo più veloce per capire che cosa contengono davvero $\alpha$ e $\delta$.
+\end{risorsevideo}
+
+\section{Modellazione di Sequenze}
+
+I Modelli Markov Nascosti (Hidden Markov Models, HMM) modellano sequenze di osservazioni dove la dinamica sottostante è governata da una catena Markov nascosta.
+
+\begin{definition}
+  Un HMM è definito da:
+  \begin{itemize}
+    \item Sequenza di stati nascosti: $z = (z_1, z_2, \ldots, z_T)$, $z_t \in \{1,\ldots,K\}$
+    \item Sequenza di osservazioni: $x = (x_1, x_2, \ldots, x_T)$
+    \item Distribuzione iniziale: $\pi_i = P(z_1 = i)$
+    \item Matrice di transizione: $A_{ij} = P(z_t = j | z_{t-1} = i)$
+    \item Matrice di emissione: $B_{ik} = P(x_t = k | z_t = i)$
+  \end{itemize}
+\end{definition}
+
+La distribuzione congiunta è:
+\[P(x_{1:T}, z_{1:T}) = P(z_1) P(x_1|z_1) \prod_{t=2}^T P(z_t|z_{t-1}) P(x_t|z_t)\]
+
+\section{Tre Problemi Fondamentali}
+
+\subsection{Problema 1: Valutazione (Forward Algorithm)}
+
+Calcolare la probabilità delle osservazioni: $P(x_{1:T}|\lambda)$.
+
+L'algoritmo \textit{forward} usa la programmazione dinamica:
+
+\begin{definition}
+  Definiamo la variabile forward:
+  \[\alpha_t(i) = P(x_{1:t}, z_t = i | \lambda)\]
+\end{definition}
+
+\begin{theorem}[Forward Algorithm]
+  \begin{itemize}
+    \item \textbf{Inizializzazione:} $\alpha_1(i) = \pi_i B_{ix_1}$
+    \item \textbf{Ricorsione:} $\alpha_t(i) = \left[\sum_{j=1}^K \alpha_{t-1}(j) A_{ji}\right] B_{ix_t}$
+    \item \textbf{Terminazione:} $P(x_{1:T}|\lambda) = \sum_{i=1}^K \alpha_T(i)$
+  \end{itemize}
+\end{theorem}
+
+\begin{intuizione}{$\alpha$ è una somma, $\delta$ è un massimo — tutta la differenza è lì}
+Forward e Viterbi hanno la stessa struttura, la stessa complessità $\mathcal{O}(K^2T)$ e ricorsioni che differiscono per un solo simbolo. Ma rispondono a domande diverse, e confonderle è l'errore più comune su questo argomento.
+
+$\alpha_t(i) = P(x_{1:t}, z_t = i)$ raccoglie \emph{tutti} i modi di arrivare nello stato $i$ al tempo $t$ avendo osservato quel prefisso, e li somma. Serve a valutare quanto la sequenza osservata sia probabile sotto il modello: è una marginalizzazione.
+
+$\delta_t(i)$ tiene invece solo il \emph{migliore} di quei modi, e memorizza da dove veniva. Serve a ricostruire una singola sequenza di stati: è un'ottimizzazione.
+
+Il corollario che vale la pena saper dire: la sequenza di Viterbi non coincide in generale con la sequenza degli stati singolarmente più probabili $\arg\max_i \gamma_t(i)$. La prima massimizza $P(z_{1:T} \mid x)$ globalmente e per costruzione è un cammino percorribile; la seconda massimizza $T$ marginali separate e può produrre una sequenza con probabilità congiunta \emph{nulla}, se contiene una transizione vietata.
+\end{intuizione}
+
+\subsection{Problema 2: Decodifica (Viterbi Algorithm)}
+
+Trovare la sequenza più probabile di stati: $\argmax_{z_{1:T}} P(z_{1:T}|x_{1:T})$.
+
+L'algoritmo di Viterbi usa max-product invece di sum-product:
+
+\begin{definition}
+  Definiamo:
+  \[\delta_t(i) = \max_{z_{1:t-1}} P(x_{1:t}, z_t = i, z_{1:t-1} | \lambda)\]
+\end{definition}
+
+\begin{theorem}[Viterbi Algorithm]
+  \begin{itemize}
+    \item \textbf{Inizializzazione:} $\delta_1(i) = \pi_i B_{ix_1}$
+    \item \textbf{Ricorsione:} $\delta_t(i) = \left[\max_j \delta_{t-1}(j) A_{ji}\right] B_{ix_t}$
+    \item \textbf{Traceback:} registrare $\psi_t(i) = \argmax_j \delta_{t-1}(j) A_{ji}$ e ricostruire il path
+  \end{itemize}
+\end{theorem}
+
+\subsection{Problema 3: Learning (Baum-Welch Algorithm)}
+
+Stimare i parametri $\lambda = (\pi, A, B)$ dai dati.
+
+\begin{esempiosvolto}{forward e Viterbi su tre osservazioni}
+Due stati $\{S_1, S_2\}$, due simboli $\{a, b\}$, con
+\[
+\pi = (0.6,\ 0.4), \qquad
+A = \begin{pmatrix} 0.7 & 0.3 \\ 0.4 & 0.6 \end{pmatrix}, \qquad
+B = \begin{pmatrix} 0.5 & 0.5 \\ 0.1 & 0.9 \end{pmatrix},
+\]
+dove $A_{ij} = P(z_t{=}j \mid z_{t-1}{=}i)$ e $B_{ik} = P(x_t{=}k \mid z_t{=}i)$. Osserviamo $x = (a, b, b)$.
+
+\medskip
+\textbf{Forward.}
+\[
+\alpha_1 = \big(0.6 \cdot 0.5,\ 0.4 \cdot 0.1\big) = (0.300,\ 0.040).
+\]
+\[
+\alpha_2(1) = \big(0.300 \cdot 0.7 + 0.040 \cdot 0.4\big) \cdot 0.5 = 0.226 \cdot 0.5 = 0.1130,
+\]
+\[
+\alpha_2(2) = \big(0.300 \cdot 0.3 + 0.040 \cdot 0.6\big) \cdot 0.9 = 0.114 \cdot 0.9 = 0.1026.
+\]
+\[
+\alpha_3(1) = \big(0.1130 \cdot 0.7 + 0.1026 \cdot 0.4\big) \cdot 0.5 = 0.06007, \qquad
+\alpha_3(2) = \big(0.1130 \cdot 0.3 + 0.1026 \cdot 0.6\big) \cdot 0.9 = 0.08591.
+\]
+\[
+P(x) = 0.06007 + 0.08591 = \mathbf{0.14598}.
+\]
+
+\medskip
+\textbf{Viterbi.} Identico, con $\max$ al posto di $\sum$ e tenendo il backpointer:
+\[
+\delta_1 = (0.300,\ 0.040).
+\]
+\[
+\delta_2(1) = \max(0.300 \cdot 0.7,\ 0.040 \cdot 0.4) \cdot 0.5 = 0.210 \cdot 0.5 = 0.1050 \quad (\text{da } S_1),
+\]
+\[
+\delta_2(2) = \max(0.300 \cdot 0.3,\ 0.040 \cdot 0.6) \cdot 0.9 = 0.090 \cdot 0.9 = 0.0810 \quad (\text{da } S_1),
+\]
+\[
+\delta_3(1) = \max(0.1050 \cdot 0.7,\ 0.0810 \cdot 0.4) \cdot 0.5 = 0.03675 \quad (\text{da } S_1),
+\]
+\[
+\delta_3(2) = \max(0.1050 \cdot 0.3,\ 0.0810 \cdot 0.6) \cdot 0.9 = 0.04374 \quad (\text{da } S_2).
+\]
+Il massimo finale è $\delta_3(2) = 0.04374$; risalendo i backpointer si ottiene il cammino
+\[
+z^* = (S_1,\ S_2,\ S_2).
+\]
+
+\medskip
+\textbf{Che cosa confrontare.} $P(x) = 0.146$ è la somma su tutti gli $2^3 = 8$ cammini; $0.04374$ è il contributo del solo cammino migliore. Il rapporto $0.04374/0.14598 \approx 0.30$ dice che il cammino di Viterbi, per quanto ottimo, si porta dietro appena il $30\%$ della probabilità totale: gli altri sette cammini insieme pesano più di lui. È l'argomento per cui in molte applicazioni si preferisce la marginale $\gamma_t$ alla decodifica di Viterbi.
+
+\textbf{Nota pratica}: per $T$ grande questi numeri vanno a underflow. Nella pratica si lavora in log (Viterbi diventa somma di log e $\max$) oppure si normalizza $\alpha_t$ a ogni passo tenendo da parte i fattori di scala.
+\end{esempiosvolto}
+
+\section{Algoritmo Backward}
+
+Per il learning, abbiamo bisogno anche dell'algoritmo backward:
+
+\begin{definition}
+  \[\beta_t(i) = P(x_{t+1:T} | z_t = i, \lambda)\]
+\end{definition}
+
+\begin{theorem}[Backward Algorithm]
+  \begin{itemize}
+    \item \textbf{Inizializzazione:} $\beta_T(i) = 1$ per tutti gli $i$
+    \item \textbf{Ricorsione:} $\beta_t(i) = \sum_{j=1}^K A_{ij} B_{jx_{t+1}} \beta_{t+1}(j)$
+  \end{itemize}
+\end{theorem}
+
+\section{Baum-Welch: EM per HMM}
+
+Baum-Welch è l'applicazione di EM ai HMM.
+
+\subsection{E-step}
+
+Calcoliamo le probabilità posteriori sui stati:
+
+\[P(x_{1:T}|\lambda) = \sum_i \alpha_T(i)\]
+
+\[\gamma_t(i) = P(z_t = i | x_{1:T}, \lambda) = \frac{\alpha_t(i) \beta_t(i)}{P(x_{1:T}|\lambda)}\]
+
+\[\xi_t(i,j) = P(z_t = i, z_{t+1} = j | x_{1:T}, \lambda) = \frac{\alpha_t(i) A_{ij} B_{jx_{t+1}} \beta_{t+1}(j)}{P(x_{1:T}|\lambda)}\]
+
+\subsection{M-step}
+
+Aggiornamenti dei parametri:
+
+\begin{align}
+  \pi_i^{\text{new}} &= \gamma_1(i) \\
+  A_{ij}^{\text{new}} &= \frac{\sum_{t=1}^{T-1} \xi_t(i,j)}{\sum_{t=1}^{T-1} \gamma_t(i)} \\
+  B_{ik}^{\text{new}} &= \frac{\sum_{t=1}^T \gamma_t(i) \mathbb{1}[x_t = k]}{\sum_{t=1}^T \gamma_t(i)}
+\end{align}
+
+\section{Reti Bayesiane Dinamiche}
+
+Gli HMM sono un caso speciale delle reti Bayesiane dinamiche, dove una slice temporale dipende dalla precedente. La struttura può essere più generale di una semplice catena di Markov.
+
+\section{Approfondimenti}
+
+\begin{tcolorbox}[title=Domande d'Esame]
+  \begin{enumerate}
+    \item Derivare l'algoritmo forward per gli HMM e spiegare la complessità computazionale.
+    \item Spiegare la differenza tra forward e Viterbi algorithm. Quale problema risolve ciascuno?
+    \item Derivare le equazioni di Baum-Welch da EM applicato ai HMM.
+    \item Come si combina l'algoritmo forward e backward per il learning?
+    \item Discutere l'estensione degli HMM a reti Bayesiane dinamiche più generali.
+  \end{enumerate}
+\end{tcolorbox}
+
+\chapter{Inferenza Variazionale}\label{ch:variational}
+
+\begin{risorsevideo}{GDL11 — Inferenza variazionale ed ELBO}
+\videolezione{della lezione GDL11}
+
+\medskip
+\video{https://www.youtube.com/watch?v=DaqNNLidswA}{Variational Inference: Foundations and Innovations (Part 1)}{David Blei, MLSS 2019, ~1h30m}\\
+Blei è l'autore di riferimento sia per la VI moderna sia per LDA (capitolo seguente). Costruisce l'ELBO dalla KL e mostra il mean field come scelta di famiglia variazionale, non come approssimazione arbitraria.
+\end{risorsevideo}
+
+\section{Il Problema dell'Inferenza Intractable}
+
+In molti modelli, il posteriore $P(z|x,\theta)$ non è trattabile analiticamente. L'inferenza variazionale approssima il posteriore con una distribuzione dall'interno di una famiglia trattabile.
+
+\begin{definition}
+  L'inferenza variazionale approssima un posteriore intractable $P(z|x)$ con una distribuzione $q(z)$ da una famiglia $\mathcal{Q}$ più semplice, minimizzando una divergenza (tipicamente KL).
+\end{definition}
+
+\section{Evidence Lower Bound (ELBO)}
+
+La chiave è il seguente lower bound sulla log-verosimiglianza osservata:
+
+\begin{theorem}
+  Per qualsiasi distribuzione $q(z)$:
+  \[\log P(x|\theta) = \mathbb{E}_q[\log P(x,z|\theta)] - \mathbb{E}_q[\log q(z)] + \text{KL}(q(z) \| P(z|x,\theta))\]
+
+  Poiché il termine KL è non-negativo:
+  \[\log P(x|\theta) \geq \underbrace{\mathbb{E}_q[\log P(x,z|\theta)] - \mathbb{E}_q[\log q(z)]}_{\mathcal{L}(q,\theta) := \text{ELBO}}\]
+\end{theorem}
+
+Equivalentemente:
+\[\mathcal{L}(q,\theta) = \mathbb{E}_q[\log P(x|z,\theta)] - \text{KL}(q(z) \| P(z|\theta))\]
+
+L'ELBO è il lower bound sulla verosimiglianza che vogliamo massimizzare.
+
+\begin{intuizione}{l'ELBO è la log-evidenza meno quanto sbagli}
+L'identità da avere sempre in testa è
+\[
+\log p(x) = \underbrace{\mathcal{L}(q)}_{\text{ELBO}} + \underbrace{\KL{q(z)}{p(z \mid x)}}_{\geq 0}.
+\]
+Letta così, dice tre cose in una riga.
+
+Primo: poiché la KL è non negativa, l'ELBO sta sempre \emph{sotto} $\log p(x)$. Da qui il nome, lower bound.
+
+Secondo: $\log p(x)$ non dipende da $q$. Quindi alzare l'ELBO e abbassare la KL sono \emph{esattamente} la stessa operazione: la somma è vincolata a restare costante. È il motivo per cui possiamo massimizzare una quantità calcolabile (l'ELBO) e ottenere gratis ciò che ci interessa davvero (avvicinare $q$ al posterior, che invece non sappiamo calcolare).
+
+Terzo: il gap fra ELBO e log-evidenza \emph{è} l'errore di approssimazione. Se la famiglia variazionale contenesse il vero posterior, il massimo dell'ELBO sarebbe $\log p(x)$ esattamente, con KL nulla.
+
+\textbf{Perché mean field paga un prezzo}: imporre $q(z) = \prod_i q_i(z_i)$ significa scegliere una famiglia che non può rappresentare correlazioni fra le componenti latenti. Se il vero posterior le ha, la KL non potrà mai annullarsi. E poiché si minimizza $\KL{q}{p}$ e non $\KL{p}{q}$, l'approssimazione risultante è \emph{mode-seeking}: si stringe su una moda e sottostima la varianza, invece di allargarsi a coprire tutto il supporto.
+\end{intuizione}
+
+\begin{esempiosvolto}{l'identità dell'ELBO verificata su due stati}
+Modello minimo: $z \in \{1,2\}$ con $p(z) = (0.5,\ 0.5)$ e, per la $x$ osservata, $p(x \mid z{=}1) = 0.8$, $p(x \mid z{=}2) = 0.2$.
+
+Evidenza e posterior esatti:
+\[
+p(x) = 0.5(0.8) + 0.5(0.2) = 0.5, \qquad \log p(x) = -0.6931,
+\]
+\[
+p(z \mid x) = \left(\frac{0.4}{0.5},\ \frac{0.1}{0.5}\right) = (0.8,\ 0.2).
+\]
+
+Proviamo tre $q$ diverse. Con $\mathcal{L}(q) = \sum_z q(z) \log \frac{p(x,z)}{q(z)}$ e $p(x,z) = (0.4,\ 0.1)$:
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+$q$ & $\mathcal{L}(q)$ & $\KL{q}{p(z|x)}$ & somma \\
+\midrule
+$(0.6,\ 0.4)$ & $-0.7978$ & $0.1046$ & $-0.6931$ \\
+$(0.9,\ 0.1)$ & $-0.7298$ & $0.0367$ & $-0.6931$ \\
+$(0.8,\ 0.2) = p(z|x)$ & $\mathbf{-0.6931}$ & $\mathbf{0}$ & $-0.6931$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Il conto per la prima riga, esplicitato:
+\[
+\mathcal{L} = 0.6 \log\frac{0.4}{0.6} + 0.4 \log\frac{0.1}{0.4} = 0.6(-0.4055) + 0.4(-1.3863) = -0.7978.
+\]
+
+\textbf{Che cosa mostra la tabella.} La terza colonna è costante: qualunque $q$ si scelga, ELBO e KL si scambiano massa ma la somma resta $\log p(x)$. E l'ottimo si raggiunge quando $q$ coincide col posterior, dove il bound diventa un'uguaglianza. Qui la famiglia variazionale è tutto il simplesso, quindi il posterior ci sta dentro; nei casi reali (mean field) non ci sta, e resta un gap incomprimibile.
+
+\textbf{Collegamento da tenere pronto}: questo è lo stesso bound dell'E-step di EM. In EM si sceglie $q = p(z \mid x, \theta^{\text{old}})$, cioè si azzera la KL esattamente, e per questo l'E-step rende il bound \emph{tight}. Nella VI il posterior non è calcolabile e ci si accontenta della migliore $q$ nella famiglia: EM è il caso fortunato della VI.
+\end{esempiosvolto}
+
+\section{Approssimazione Mean-Field}
+
+Un'approssimazione comune è la \textit{mean-field}, dove assumiamo che $q(z)$ fattorizza:
+
+\begin{definition}
+  L'approssimazione mean-field assume:
+  \[q(z) = \prod_{i=1}^M q_i(z_i)\]
+  cioè le variabili latenti sono indipendenti sotto $q$.
+\end{definition}
+
+Ottimizzando coordinate-wise, la forma ottimale per ciascun fattore è:
+
+\begin{theorem}
+  \[q_j^*(z_j) \propto \exp\left(\mathbb{E}_{-j}[\log P(x,z)]\right)\]
+  dove $\mathbb{E}_{-j}$ è l'attesa su tutte le altre variabili latenti.
+\end{theorem}
+
+Si usa \textit{coordinate ascent variational inference} (CAVI): si aggiorna iterativamente ciascun $q_j$ mantenendo gli altri fissi.
+
+\section{Divergenza KL}
+
+\begin{definition}
+  La divergenza di Kullback-Leibler è:
+  \[\text{KL}(q \| p) = \sum_x q(x) \log \frac{q(x)}{p(x)} = \mathbb{E}_q[\log q - \log p]\]
+
+  Proprietà: $\text{KL}(q \| p) \geq 0$, con uguaglianza iff $q = p$.
+\end{definition}
+
+\section{EM Generalizzato}
+
+Variational inference è legato a EM:
+
+\begin{itemize}
+  \item \textbf{Standard EM:} E-step: $q(z) = P(z|x,\theta^{\text{old}})$ (posteriore esatto)
+  \item \textbf{Variational EM:} E-step: ottimizza $q(z)$ usando VI (posteriore approssimato)
+\end{itemize}
+
+In entrambi i casi, l'M-step massimizza $\mathbb{E}_q[\log P(x,z|\theta)]$ rispetto a $\theta$.
+
+\section{Disuguaglianza di Jensen}
+
+Il lower bound ELBO si fonda sulla disuguaglianza di Jensen:
+
+\begin{theorem}
+  Per una funzione concava $f$ e variabile aleatoria $X$:
+  \[f(\mathbb{E}[X]) \geq \mathbb{E}[f(X)]\]
+
+  Con log (concava): $\log \mathbb{E}_q\left[\frac{p(x,z)}{q(z)}\right] \geq \mathbb{E}_q[\log p(x,z)] - \mathbb{E}_q[\log q(z)]$
+\end{theorem}
+
+\section{Approfondimenti}
+
+\begin{tcolorbox}[title=Domande d'Esame]
+  \begin{enumerate}
+    \item Derivare l'ELBO da principi primi. Spiegare il ruolo della divergenza KL.
+    \item Come si relaziona l'inferenza variazionale a EM?
+    \item Derivare la distribuzione ottimale $q_j^*$ nel mean-field.
+    \item Spiegare l'algoritmo CAVI. Qual è la complessità?
+    \item Come scegliamo la famiglia variazionale $\mathcal{Q}$? Che tradeoff c'è tra flessibilità e trattabilità?
+  \end{enumerate}
+\end{tcolorbox}
+
+\chapter{Latent Dirichlet Allocation}
+
+\begin{risorsevideo}{GDL12 — Latent Dirichlet Allocation}
+\videolezione{della lezione GDL12}
+
+\medskip
+\video{https://www.youtube.com/watch?v=T05t-SqKArY}{Latent Dirichlet Allocation (Part 1 of 2)}{Luis Serrano, ~20m}\\
+Il processo generativo spiegato visivamente, con il simplesso e l'effetto di $\alpha$ resi in modo geometrico. Breve e molto efficace per fissare l'intuizione; l'inferenza è nella Part~2 dello stesso canale.
+
+\medskip
+\video{https://www.youtube.com/watch?v=DaqNNLidswA}{Variational Inference: Foundations and Innovations}{David Blei, ~1h30m}\\
+Blei è il primo autore di LDA: nella seconda metà usa proprio il topic model come esempio guida della VI.
+\end{risorsevideo}
+
+\section{Topic Modeling}
+
+La Latent Dirichlet Allocation (LDA) è un modello Bayesiano generativo per collezioni di documenti testuali. L'obiettivo è scoprire topic nascosti (temi) che spiegano il corpus.
+
+\begin{definition}
+  Un topic è una distribuzione di probabilità su parole del vocabolario. Un documento è una miscela di topic.
+\end{definition}
+
+\section{Processo Generativo di LDA}
+
+\begin{theorem}[Generative Process]
+  Per ogni documento $d \in \{1, \ldots, D\}$:
+  \begin{enumerate}
+    \item Estrarre la distribuzione su topic: $\theta_d \sim \text{Dirichlet}(\alpha)$
+    \item Per ogni position $n \in \{1, \ldots, N_d\}$ nel documento:
+    \begin{enumerate}
+      \item Estrarre l'assegnazione a topic: $z_{dn} \sim \text{Categorical}(\theta_d)$
+      \item Estrarre la parola: $w_{dn} \sim \text{Categorical}(\beta_{z_{dn}})$
+    \end{enumerate}
+  \end{enumerate}
+  dove $\beta_k$ è la distribuzione su vocabolario per topic $k$.
+\end{theorem}
+
+Il modello ha parametri:
+\begin{itemize}
+  \item $\alpha$: prior Dirichlet su distribuzioni documento-topic (hyperparameter)
+  \item $\beta_{k} \in \mathbb{R}^V_+$, $\sum_v \beta_{kv} = 1$: distribuzione parola-topic per ogni topic $k$
+\end{itemize}
+
+\begin{intuizione}{$\alpha$ decide quanto un documento può ``parlare di tutto''}
+Il pezzo di LDA che si dimentica per primo è a che cosa serva il prior Dirichlet. La risposta breve: a controllare la \emph{sparsità} delle miscele.
+
+Se $\alpha < 1$ (per esempio $\alpha = 0.1$), la Dirichlet mette massa vicino ai vertici del simplesso. I $\theta_d$ estratti sono quindi sbilanciati: ogni documento parla di uno o due topic e ignora gli altri. Se $\alpha > 1$, la massa si concentra al centro e ogni documento diventa una miscela quasi uniforme di tutti i topic — di solito non è ciò che si vuole, perché i topic diventano indistinguibili.
+
+Lo stesso ragionamento vale per il prior $\beta$ sulle distribuzioni parola-topic: $\beta$ piccolo produce topic con poche parole caratteristiche, $\beta$ grande produce topic vaghi.
+
+\textbf{La differenza da pLSA sta esattamente qui}: pLSA tratta $\theta_d$ come un parametro libero per documento, quindi il numero di parametri cresce col corpus e non c'è modo di assegnare $\theta$ a un documento mai visto. LDA lo tratta come una variabile latente estratta da un prior condiviso: i parametri restano $\alpha$ e $\beta$, il modello è generativo a livello di corpus, e un documento nuovo può essere inferito. È la stessa mossa che distingue la stima puntuale dall'approccio bayesiano nel primo capitolo di questa parte: invece di fissare un parametro, gli si mette sopra una distribuzione e la si integra.
+\end{intuizione}
+
+\begin{esempiosvolto}{un passo di collapsed Gibbs su un token}
+Due topic, vocabolario $\{\text{sport}, \text{gol}, \text{borsa}, \text{titolo}\}$ ($V = 4$), iperparametri simmetrici $\alpha = 0.5$ e $\beta = 0.1$.
+
+Il documento $d$ contiene le parole (sport, gol, borsa) con assegnazioni correnti $z = (1, 1, 2)$. Vogliamo ricampionare il topic del token ``gol''.
+
+\medskip
+\textbf{Passo 1 — togliere il token dai conteggi.} Escludendo ``gol'', il documento ha $n_{d,1}^{-} = 1$ (sport) e $n_{d,2}^{-} = 1$ (borsa). A livello di corpus, supponiamo i conteggi parola-topic
+\[
+\text{topic }1: \ (\text{sport}{=}5,\ \text{gol}{=}3,\ \text{borsa}{=}0,\ \text{titolo}{=}0), \quad n_{1,\cdot}^{-} = 8,
+\]
+\[
+\text{topic }2: \ (\text{sport}{=}0,\ \text{gol}{=}1,\ \text{borsa}{=}4,\ \text{titolo}{=}6), \quad n_{2,\cdot}^{-} = 11.
+\]
+
+\medskip
+\textbf{Passo 2 — applicare la formula.}
+\[
+P(z_{dn} = k \mid \text{resto}) \;\propto\; \underbrace{\big(n_{d,k}^{-} + \alpha\big)}_{\text{quanto } d \text{ ama } k} \cdot \underbrace{\frac{n_{k,w}^{-} + \beta}{n_{k,\cdot}^{-} + V\beta}}_{\text{quanto } k \text{ ama la parola } w}
+\]
+\[
+k = 1:\quad (1 + 0.5) \cdot \frac{3 + 0.1}{8 + 0.4} = 1.5 \cdot 0.36905 = 0.5536,
+\]
+\[
+k = 2:\quad (1 + 0.5) \cdot \frac{1 + 0.1}{11 + 0.4} = 1.5 \cdot 0.09649 = 0.1447.
+\]
+Normalizzando: $P(z = 1) = 0.793$, $P(z = 2) = 0.207$. Si estrae da questa Categorica e si rimettono i conteggi aggiornati.
+
+\medskip
+\textbf{Che cosa dice la formula.} È un prodotto di due pressioni. Il primo fattore è locale al documento: ``in questo documento sto già parlando molto del topic $k$?''. Il secondo è globale al corpus: ``questa parola è tipica del topic $k$?''. Un token viene attirato da un topic solo se \emph{entrambe} le condizioni sono favorevoli. Qui ``gol'' va al topic 1 perché il topic 1 ha già visto ``gol'' tre volte e il documento ha già un token lì.
+
+\textbf{Perché si dice \emph{collapsed}}: $\theta$ e $\beta$ sono stati integrati analiticamente sfruttando la coniugazione Dirichlet-Categorica, quindi non compaiono più. Si campionano solo le $z$, cioè le assegnazioni discrete. È questo che rende lo spazio di campionamento molto più piccolo e la catena molto meno correlata.
+\end{esempiosvolto}
+
+\section{Inferenza in LDA}
+
+Il posteriore $P(\theta, z | w, \alpha, \beta)$ è intractable. Usiamo variational inference con approssimazione mean-field:
+
+\[q(\theta, z) = q(\theta | \gamma) \prod_{n=1}^N q(z_n | \phi_n)\]
+
+dove:
+\begin{itemize}
+  \item $\gamma$: parametri Dirichlet variazionali per $\theta_d$
+  \item $\phi_{dn}$: parametri categorici variazionali per $z_{dn}$
+\end{itemize}
+
+L'ELBO per LDA comporta il calcolo di attese sotto queste distribuzioni variazionali.
+
+\section{Learning di LDA}
+
+L'apprendimento di $\beta$ (topic-word distributions) avviene con variational EM:
+
+\begin{itemize}
+  \item \textbf{E-step:} Per ogni documento, ottimizzare $(\gamma_d, \phi_d)$ via CAVI
+  \item \textbf{M-step:} Aggiornare $\beta_k$:
+  \[\beta_{kv} \propto \sum_{d,n: w_{dn}=v} \phi_{dnk}\]
+  dove $\phi_{dnk}$ è la probabilità variazionale che la parola $n$ nel documento $d$ sia assegnata a topic $k$.
+\end{itemize}
+
+\section{Plate Notation}
+
+La struttura di LDA è rappresentata compattamente in plate notation:
+\begin{itemize}
+  \item Box su D: una copia per documento
+  \item Box su N annidato: una copia per parola
+  \item Variabili: $\theta_d$, $z_{dn}$, $w_{dn}$, $\beta_k$
+\end{itemize}
+
+\begin{trappola}{LDA è bag of words, e questo si paga}
+Il processo generativo di LDA campiona ogni parola indipendentemente da $\theta_d$: l'ordine delle parole non entra da nessuna parte. Il documento è un \emph{multiset}, non una sequenza.
+
+Che cosa si perde: sintassi, negazione (``non è buono'' e ``è buono'' hanno gli stessi conteggi), collocazioni e ogni polisemia risolvibile dal contesto locale. LDA trova temi, non significati.
+
+\textbf{Il ponte da fare se la domanda scava}: i topic model neurali (ProdLDA e affini) sostituiscono l'inferenza variazionale per-documento con un \emph{encoder ammortizzato}, cioè una rete che mappa direttamente il documento nei parametri variazionali. È esattamente lo stesso salto che porta dalla VI generica al VAE: invece di ottimizzare $\gamma_d, \phi_d$ per ogni documento, si impara una funzione che li produce. Il costo di inferenza passa da ``un'ottimizzazione per esempio'' a ``un forward pass'', ed è ciò che rende il modello utilizzabile su documenti nuovi.
+
+Il bag of words però resta, finché la likelihood è quella: per superarlo servono modelli sequenziali, non un'inferenza migliore.
+\end{trappola}
+
+\section{Applicazioni e Differenze da pLSA}
+
+LDA è usato per:
+\begin{itemize}
+  \item Document clustering e topic discovery
+  \item Semantic search
+  \item Dimensionality reduction testuale
+\end{itemize}
+
+La principale differenza da probabilistic Latent Semantic Analysis (pLSA):
+\begin{itemize}
+  \item \textbf{pLSA:} $P(\theta_d)$ è empirico (punto estimate per documento)
+  \item \textbf{LDA:} $P(\theta_d) = \text{Dirichlet}(\alpha)$ è bayesiano (prior condiviso)
+\end{itemize}
+
+Questo rende LDA più robusto al overfitting e capace di generalizzare a nuovi documenti.
+
+\section{Approfondimenti}
+
+\begin{tcolorbox}[title=Domande d'Esame]
+  \begin{enumerate}
+    \item Descrivere il processo generativo di LDA. Come si relaziona ai dati osservati?
+    \item Derivare l'ELBO per LDA sotto mean-field approximation.
+    \item Spiegare come funziona il CAVI per document-topic inference in LDA.
+    \item Qual è il ruolo del prior Dirichlet su $\theta_d$? Come influenza learning?
+    \item Confrontare LDA e pLSA. Quali sono i vantaggi bayesiani?
+  \end{enumerate}
+\end{tcolorbox}
+
+\chapter{Metodi di Campionamento}
+
+\begin{risorsevideo}{GDL13 — Campionamento, MCMC, Gibbs}
+\videolezione{della lezione GDL13}
+
+\medskip
+\video{https://www.youtube.com/watch?v=sN_0iGWcyLI}{Approximating Probability Distributions: Monte Carlo Methods}{Jakob Foerster, ~1h}\\
+Basato sul capitolo di MacKay: rejection, importance, Metropolis-Hastings e Gibbs nella stessa cornice, con l'accento sul perché ciascuno degrada in alta dimensione.
+\end{risorsevideo}
+
+\section{Motivazione del Campionamento}
+
+Molte integrali nelle probabilità sono intractable:
+\[\mathbb{E}_p[f(x)] = \int f(x) p(x) dx\]
+
+Il campionamento approssima:
+\[\mathbb{E}_p[f(x)] \approx \frac{1}{S} \sum_{s=1}^S f(x_s), \quad x_s \sim p(x)\]
+
+Per il Teorema del Limite Centrale, l'errore scala come $1/\sqrt{S}$ indipendentemente dalla dimensionalità (evitando la maledizione della dimensionalità dei metodi numerici).
+
+\section{Campionamento Univariato}
+
+\subsection{Inverse Transform Sampling}
+
+Se $U \sim \text{Uniform}(0,1)$ e $F$ è invertibile:
+\[X = F^{-1}(U) \sim p(x)\]
+dove $F(x) = P(X \leq x)$.
+
+\subsection{Box-Muller}
+
+Per la Gaussiana: dati $U_1, U_2 \sim \text{Uniform}(0,1)$,
+\[Z = \sqrt{-2\log U_1} \cos(2\pi U_2) \sim \mathcal{N}(0,1)\]
+
+\section{Rejection Sampling}
+
+Quando il CDF è intractable, usiamo rejection sampling da una proposal $q(x)$:
+
+\begin{theorem}[Rejection Sampling]
+  \begin{enumerate}
+    \item Campionare $x^* \sim q(x)$
+    \item Campionare $u \sim \text{Uniform}(0, Mq(x^*))$
+    \item Accettare $x^*$ se $u < p^*(x^*)$, altrimenti rigettare e riprovare
+  \end{enumerate}
+  dove $M$ è una costante tale che $p^*(x) \leq Mq(x)$ per tutti gli $x$.
+\end{theorem}
+
+Lo svantaggio: in alte dimensioni, la probabilità di accettazione diventa esponenzialmente piccola.
+
+\section{Importance Sampling}
+
+Possiamo riscrivere attese sotto una proposal $q(x)$:
+
+\[\mathbb{E}_p[f(x)] = \mathbb{E}_q\left[f(x) \frac{p(x)}{q(x)}\right] \approx \frac{\sum_s f(x_s) w(x_s)}{\sum_s w(x_s)}\]
+
+dove $w(x_s) = p(x_s)/q(x_s)$ sono i pesi di importanza (self-normalized).
+
+\begin{intuizione}{tre modi di aggirare lo stesso ostacolo}
+Il problema comune è sempre questo: si vuole $\mathbb{E}_p[f]$, ma da $p$ non si sa campionare — tipicamente perché se ne conosce solo la forma non normalizzata $\tilde p$, e la costante $Z$ è un integrale intrattabile.
+
+\emph{Rejection sampling} propone da $q$ e butta via: campiona $x \sim q$, accetta con probabilità $\tilde p(x)/(M q(x))$. Onesto e semplice, ma il tasso di accettazione è $1/M$, e in dimensione $d$ la costante $M$ tipicamente cresce esponenzialmente. Diventa inutilizzabile molto presto.
+
+\emph{Importance sampling} non butta via niente: tiene tutti i campioni e li \emph{pesa} con $w = p/q$. Non spreca, ma sposta il problema sulla varianza: se $q$ non copre bene $p$, pochi campioni si prendono quasi tutto il peso e la stima diventa rumorosa nonostante il numero di campioni sia alto.
+
+\emph{MCMC} rinuncia all'indipendenza. Invece di campioni i.i.d.\ costruisce una catena di Markov la cui distribuzione stazionaria è $p$: ogni campione dipende dal precedente, ma la catena esplora le regioni di alta densità invece di sperare di colpirle a caso. È il solo dei tre che scala in alta dimensione, e paga con burn-in, autocorrelazione e nessuna garanzia semplice su quando fermarsi.
+
+\textbf{Il filo comune}: tutti e tre funzionano conoscendo $p$ solo a meno di normalizzazione. È questo che li rende compatibili con le distribuzioni di Gibbs e le RBM del capitolo successivo, dove $Z$ è precisamente ciò che non si sa calcolare.
+\end{intuizione}
+
+\begin{esempiosvolto}{importance sampling: perché i pesi vanno guardati}
+Target discreto $p = (0.1,\ 0.2,\ 0.7)$ su $\{1,2,3\}$, proposta uniforme $q = (1/3,\ 1/3,\ 1/3)$, funzione $f(x) = x$. Il valore esatto è
+\[
+\mathbb{E}_p[f] = 0.1(1) + 0.2(2) + 0.7(3) = 2.6.
+\]
+
+I pesi di importance sono $w(x) = p(x)/q(x)$:
+\[
+w(1) = \frac{0.1}{1/3} = 0.3, \qquad w(2) = 0.6, \qquad w(3) = 2.1.
+\]
+Prendendo un campione per ciascun valore, lo stimatore dà
+\[
+\frac{1}{3}\big(0.3 \cdot 1 + 0.6 \cdot 2 + 2.1 \cdot 3\big) = \frac{7.8}{3} = 2.6. \quad\checkmark
+\]
+Corretto, come garantito dal fatto che lo stimatore è non distorto.
+
+\medskip
+\textbf{Ora il lato scomodo.} Guardiamo la \emph{effective sample size}:
+\[
+\mathrm{ESS} = \frac{\left(\sum_i w_i\right)^2}{\sum_i w_i^2} = \frac{3^2}{0.3^2 + 0.6^2 + 2.1^2} = \frac{9}{4.86} \approx 1.85.
+\]
+Con tre campioni in mano, ne stiamo usando l'equivalente statistico di $1.85$: il campione con peso $2.1$ domina, gli altri due contribuiscono poco. E questa è una situazione \emph{facile}, con tre soli stati e una proposta ragionevole.
+
+\textbf{La lezione}: la correttezza dello stimatore non dice nulla sulla sua varianza. In dimensione alta, o quando $q$ ha code più leggere di $p$, l'ESS collassa verso $1$ e la stima diventa effettivamente il valore di un solo campione — con un'incertezza che il numero nominale di campioni non lascia sospettare. Controllare l'ESS, o la distribuzione dei pesi, è la diagnostica minima da fare sempre.
+\end{esempiosvolto}
+
+\section{Gibbs Sampling}
+
+Gibbs sampling è un metodo MCMC che campiona dalla distribuzione congiunta iterativamente:
+
+\begin{theorem}[Gibbs Sampling]
+  \begin{enumerate}
+    \item Inizializzare $x^{(0)}$
+    \item Per $t = 1, 2, \ldots$:
+    \begin{enumerate}
+      \item Per $i = 1, \ldots, D$: campionare $x_i^{(t)} \sim P(x_i | x_{-i}^{(t)})$
+    \end{enumerate}
+  \end{enumerate}
+  dove $x_{-i}$ denota tutte le variabili eccetto $x_i$.
+\end{theorem}
+
+La catena Markov converge alla distribuzione stazionaria (il target $p(x)$) sotto condizioni miti. Un \textit{burn-in} period iniziale è raccomandato prima di raccogliere campioni.
+
+\section{MCMC Generali}
+
+Gli algoritmi MCMC mantengono una catena Markov la cui distribuzione stazionaria è il target $p(x)$.
+
+\begin{definition}
+  Una catena Markov è \textit{reversibile} (detailed balance) se:
+  \[p(x) P(x'|x) = p(x') P(x|x')\]
+\end{definition}
+
+Questa proprietà assicura che il target sia stazionario.
+
+\section{Metropolis-Hastings}
+
+Un algoritmo MCMC generale:
+
+\begin{theorem}[Metropolis-Hastings]
+  \begin{enumerate}
+    \item Inizializzare $x^{(t)}$
+    \item Proporre $x' \sim q(x'|x^{(t)})$
+    \item Accettare con probabilità $\alpha = \min\left(1, \frac{p(x')q(x^{(t)}|x')}{p(x^{(t)})q(x'|x^{(t)})}\right)$
+  \end{enumerate}
+\end{theorem}
+
+Gibbs è un caso speciale dove la proposta è il posteriore condizionale ($\alpha = 1$).
+
+\section{Sampling per LDA}
+
+Per LDA, si usa collapsed Gibbs sampling, che marginalizza su $\theta$ e $\beta$:
+
+\[P(z_{dn} = k | z_{-dn}, w, \alpha, \beta) \propto \frac{n_{d,k}^{-dn} + \alpha}{n_{d}^{-dn} + K\alpha} \cdot \frac{n_{k,v}^{-dn} + \beta}{n_{k}^{-dn} + V\beta}\]
+
+dove i conteggi $n$ escludono la posizione corrente (superscript $-dn$).
+
+\section{Approfondimenti}
+
+\begin{tcolorbox}[title=Domande d'Esame]
+  \begin{enumerate}
+    \item Spiegare il principio di importance sampling e quando è utile.
+    \item Derivare il Gibbs sampler da Metropolis-Hastings.
+    \item Quale è la complessità computazionale di rejection sampling in alta dimensione?
+    \item Come si determina il burn-in period? Quali diagnostici di convergenza si possono usare?
+    \item Derivare il collapsed Gibbs sampler per LDA.
+  \end{enumerate}
+\end{tcolorbox}
+
+\chapter{Campi Casuali Markoviani}\label{ch:mrf}
+
+\begin{risorsevideo}{GDL14 — MRF, CRF, RBM, contrastive divergence}
+\videolezione{della lezione GDL14}
+
+\medskip
+\video{https://www.youtube.com/watch?v=iBQkZdPHlCs}{Undirected Graphical Models}{Bert Huang, ~40m}\\
+Copertura più debole del resto della lista: va bene per fattorizzazione di Gibbs e Hammersley-Clifford, meno per le macchine di Boltzmann. È l'argomento con il buco più grande su YouTube, quindi qui le slide contano più del solito.
+
+\medskip
+\video{https://www.youtube.com/watch?v=MD8qXWucJBY}{Neural networks 5.4: Restricted Boltzmann machine — contrastive divergence}{Hugo Larochelle, ~15m}\\
+Quindici minuti secchi su CD, spiegata da chi lavorava nel gruppo che l'ha resa popolare. Se hai poco tempo, questo è il video da vedere del capitolo.
+\end{risorsevideo}
+
+\section{Modelli Grafici Indiretti}
+
+I Markov Random Fields (MRF) sono modelli grafici dove gli archi sono \textit{indiretti} (no orientamento). Rappresentano indipendenze condizionali simmetriche.
+
+\begin{definition}
+  Un MRF è definito da un grafo indiretto $G = (V, E)$ e potenziali su clique $\psi_c(x_c) \geq 0$.
+\end{definition}
+
+\section{Fattorizzazione di Gibbs}
+
+\begin{theorem}[Hammersley-Clifford]
+  Una distribuzione $P(x)$ è Markov w.r.t. grafo $G$ se e solo se fattorizza come:
+  \[P(x) = \frac{1}{Z} \prod_{c \in \mathcal{C}} \psi_c(x_c)\]
+  dove $\mathcal{C}$ è l'insieme delle clique massimali e $Z = \sum_x \prod_c \psi_c(x_c)$ è la partition function.
+\end{theorem}
+
+La partition function è generalmente intractable.
+
+\begin{intuizione}{$Z$ è il motivo per cui gli undirected sono difficili}
+La differenza operativa fra una rete Bayesiana e un MRF sta tutta in una costante.
+
+In una BN i fattori sono già distribuzioni condizionali normalizzate: ogni CPT somma a uno da sola, e la congiunta è normalizzata per costruzione. Si può campionare in avanti, calcolare probabilità e stimare parametri senza mai calcolare un integrale globale.
+
+In un MRF i fattori sono \emph{potenziali}: numeri non negativi senza vincolo di normalizzazione. La congiunta è normalizzata a posteriori dividendo per $Z = \sum_x \prod_c \psi_c(x_c)$, una somma su tutte le configurazioni — $2^N$ per $N$ variabili binarie. Nessun ordinamento topologico aiuta, perché non c'è direzione.
+
+Da qui tutto il resto. Il gradiente della log-verosimiglianza di una Boltzmann Machine è
+\[
+\langle x_i x_j \rangle_{\text{data}} - \langle x_i x_j \rangle_{\text{model}},
+\]
+dove il primo termine si calcola sui dati (facile) e il secondo richiede attese sotto il modello, cioè richiede $Z$ (impossibile). Contrastive divergence non è un'idea elegante in cerca di un problema: è la risposta pragmatica a questo specifico ostacolo, e va presentata così.
+
+\textbf{Il vantaggio in cambio}: gli undirected non hanno bisogno di scegliere una direzione causale, quindi modellano naturalmente vincoli simmetrici — pixel vicini che si somigliano, etichette adiacenti in una sequenza. È il motivo per cui i CRF hanno dominato il sequence labeling prima delle reti neurali.
+\end{intuizione}
+
+\section{Proprietà di Markov}
+
+Per un MRF, la proprietà di Markov locale è:
+
+\[P(x_i | x_{-i}) = P(x_i | x_{N(i)})\]
+
+dove $N(i)$ sono i vicini di $i$ nel grafo. Solo i vicini influenzano la distribuzione condizionale.
+
+\section{CRF e Modelli Discriminativi}
+
+Una Conditional Random Field (CRF) modella il posteriore discriminativo:
+
+\[P(y|x) = \frac{1}{Z(x)} \prod_{c \in \mathcal{C}} \psi_c(y_c, x)\]
+
+Una CRF lineare è:
+
+\[\log P(y|x) = \sum_c w^T \phi_c(x_c, y_c) - \log Z(x)\]
+
+dove $\phi_c$ sono feature functions.
+
+\section{Macchina di Boltzmann}
+
+Una Boltzmann Machine è un MRF con variabili binarie completamente connesse:
+
+\begin{definition}
+  L'energia è:
+  \[E(x) = -\sum_{i<j} w_{ij} x_i x_j - \sum_i b_i x_i\]
+
+  La distribuzione è:
+  \[P(x) = \frac{1}{Z} \exp(-E(x))\]
+\end{definition}
+
+L'apprendimento richiede di massimizzare la log-verosimiglianza, il cui gradiente è:
+
+\[\frac{\partial \log P(x)}{\partial w_{ij}} = \langle x_i x_j \rangle_{\text{data}} - \langle x_i x_j \rangle_{\text{model}}\]
+
+Il termine model richiede campionamento dalla distribuzione, rendendolo computazionalmente costoso.
+
+\section{Restricted Boltzmann Machine}
+
+Un RBM ha una struttura bipartita: variabili visibili $v$ e nascoste $h$.
+
+\begin{definition}
+  \[P(v,h) = \frac{1}{Z} \exp(v^T W h + b^T v + c^T h)\]
+\end{definition}
+
+Crucialmente, i condizionali fattorizzano:
+
+\[P(h|v) = \prod_j P(h_j|v) = \prod_j \sigma(c_j + W_j^T v)\]
+
+\[P(v|h) = \prod_i P(v_i|h) = \prod_i \sigma(b_i + W_i h)\]
+
+dove $\sigma$ è la funzione logistica.
+
+\begin{esempiosvolto}{un passo di CD-1 su una RBM con tre unità}
+RBM minima: due unità visibili, una nascosta, con
+\[
+W = \begin{pmatrix} 0.5 \\ -0.5 \end{pmatrix}, \qquad b = (0.1,\ -0.1), \qquad c = 0.2.
+\]
+Dato osservato: $v^{(0)} = (1, 0)$.
+
+\medskip
+\textbf{Passo 1 — fase positiva.}
+\[
+P(h{=}1 \mid v^{(0)}) = \sigma\big(0.5(1) + (-0.5)(0) + 0.2\big) = \sigma(0.7) = 0.6682.
+\]
+
+\medskip
+\textbf{Passo 2 — ricostruzione.} Campionato $h^{(0)} = 1$:
+\[
+P(v_1{=}1 \mid h) = \sigma(0.5 + 0.1) = \sigma(0.6) = 0.6457, \qquad
+P(v_2{=}1 \mid h) = \sigma(-0.5 - 0.1) = \sigma(-0.6) = 0.3543.
+\]
+Usiamo le probabilità come ricostruzione: $v^{(1)} = (0.6457,\ 0.3543)$.
+
+\medskip
+\textbf{Passo 3 — fase negativa.}
+\[
+P(h{=}1 \mid v^{(1)}) = \sigma\big(0.5(0.6457) - 0.5(0.3543) + 0.2\big) = \sigma(0.3457) = 0.5856.
+\]
+
+\medskip
+\textbf{Passo 4 — gradiente.}
+\[
+\Delta W \;\propto\; v^{(0)} P(h{=}1 \mid v^{(0)}) - v^{(1)} P(h{=}1 \mid v^{(1)})
+= \begin{pmatrix} 1(0.6682) - 0.6457(0.5856) \\ 0(0.6682) - 0.3543(0.5856) \end{pmatrix}
+= \begin{pmatrix} +0.2901 \\ -0.2075 \end{pmatrix}.
+\]
+Analogamente $\Delta b \propto v^{(0)} - v^{(1)} = (0.3543,\ -0.3543)$ e $\Delta c \propto 0.6682 - 0.5856 = 0.0826$.
+
+\medskip
+\textbf{Come leggere il segno.} Il peso verso $v_1$ cresce e quello verso $v_2$ cala: il modello viene spinto a rendere più probabile la configurazione osservata $(1,0)$ e meno probabile la sua ricostruzione, che aveva ancora troppa massa su $v_2$. La regola è sempre ``alza il dato, abbassa il sogno''.
+
+\medskip
+\textbf{Il punto critico, ed è quello che chiede l'esame.} La fase negativa dovrebbe usare campioni dalla distribuzione del \emph{modello}, cioè da una catena di Gibbs portata a convergenza. CD-1 la tronca dopo un solo passo, partendo dal dato. La conseguenza è che CD-1 non è il gradiente di nessuna funzione obiettivo: è un'approssimazione distorta. In pratica funziona perché la direzione è quasi sempre corretta anche se il modulo non lo è, ma il bias esiste, è misurabile, e cresce quando la distribuzione del modello si allontana dai dati. Le varianti CD-$k$ e soprattutto Persistent CD (che mantiene la catena fra un mini-batch e l'altro invece di ripartire dal dato) servono esattamente a ridurlo.
+\end{esempiosvolto}
+
+\section{Contrastive Divergence}
+
+L'apprendimento diretto è intrattable. Contrastive Divergence (CD-$k$) approssima il gradiente:
+
+\begin{enumerate}
+  \item Fissare $v$ ai dati di training
+  \item Campionare $h \sim P(h|v)$ (E-step)
+  \item Campionare $v' \sim P(v|h)$ (ricampione visibili)
+  \item Ripetere per $k$ passi Gibbs su $(v', h)$
+  \item Aggiornare i pesi usando la differenza tra statistiche dei dati e ricampionate
+\end{enumerate}
+
+CD approssima il gradiente, rendendolo computazionalmente efficiente.
+
+\begin{trappola}{la fase negativa è lo stesso problema che i GAN aggirano}
+Il gradiente della log-verosimiglianza di una Boltzmann Machine ha due termini:
+\[
+\underbrace{\langle x_i x_j\rangle_{\text{data}}}_{\text{facile}} - \underbrace{\langle x_i x_j\rangle_{\text{model}}}_{\text{difficile}}.
+\]
+Il primo è una media empirica sui dati. Il secondo è un'attesa \emph{sotto il modello}, quindi richiede campioni dal modello stesso, quindi richiede $Z$. È tutta lì la difficoltà, ed è la ragione dell'esistenza di CD, PCD e affini.
+
+\textbf{Il ponte forte, che vale la pena avere pronto}: i GAN non risolvono questo problema, lo \emph{eliminano}. Rinunciando a una densità esplicita, un GAN non ha nessuna partition function da normalizzare e nessuna fase negativa da stimare: il discriminatore fornisce direttamente un segnale di ``quanto i campioni del generatore sembrano veri''. Il prezzo è simmetrico e va detto — senza densità non c'è likelihood, quindi non c'è nemmeno un modo principiato di valutare il modello.
+
+Detto in una riga: modelli espliciti pagano $Z$, modelli impliciti pagano la valutazione. È lo stesso compromesso, visto da due lati.
+\end{trappola}
+
+
+
+\section{Approfondimenti}
+
+\begin{tcolorbox}[title=Domande d'Esame]
+  \begin{enumerate}
+    \item Enunciare il Teorema di Hammersley-Clifford. Perché è importante?
+    \item Come si relazionano MRF e modelli grafici diretti? Quali indipendenze preservano?
+    \item Derivare l'algoritmo di aggiornamento per Gibbs sampling in un RBM.
+    \item Spiegare l'algoritmo Contrastive Divergence. Perché è un'approssimazione del gradiente?
+    \item Come si generalizzano RBM a variabili continue? Quali sono i cambiamenti?
+  \end{enumerate}
+\end{tcolorbox}
+
+\chapter*{Conclusioni}
+
+La Parte II ha coperto i fondamenti dell'apprendimento nei modelli probabilistici. Abbiamo visto come il Maximum Likelihood e l'EM forniscono framework principiati per l'ottimizzazione dei parametri, da modelli semplici (Naive Bayes) a complessi (LDA, HMM). L'inferenza variazionale e i metodi di campionamento offrono soluzioni quando l'inferenza esatta è intractable. I Campi Casuali Markoviani concludono con modelli indiretti e applicazioni in deep learning.
+
+La padronanza di questi concetti è essenziale per comprendere i modelli generativi moderni e le loro applicazioni in machine learning.

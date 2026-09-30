@@ -1,0 +1,63 @@
+Setup:
+- T = 500 diffusion timestamps 
+- w = 0.05 for fn C'(t)
+- D = T/2 
+- v = 1 for node matricies' noise schedulers and v=1.5 for the edge matrices 
+- lambda_X = 1, lambda_E = 2
+- p_min = 0.2, p_max = 1
+- guidance scale lambda = 3 (QM9); = 2 for ZINK-250k
+
+Datasets:
+- QM9 : (133k molecules) 9 non hydrogen atoms 
+    - TR: first 100000 samples
+    - TS: 10% overall data 
+    - VL: rest of the data 
+- ZINK-250k : (250k) drug-like molecules, removed stereochermistry info and non frequent non-neutrally-charged atoms
+    - TR: first 80% of data
+    - VL: 10% data 
+    - TS: 10% data
+
+Tasks
+• Proper targeting 
+-> 100 property vectors from test set, 10 molecules for each of them
+-> MAE between target properties y and generated molecules y_tilde 
+-> comparison against DiGress (GDM for conditional graph, classifier-based guidance) and FreeGress (GDM, classifier-free guidance)
+
+• Optimization
+-> objective: generate molecules that improve on a certain property while meeting a
+similarity constraint
+-> molecule corrupted for 100 steps; vec. y = target value 
+    - LogP: 800 molecules, sampled 20 candidates for each of them -> kept only the ones with Tanimoto similarity with the starting molecule >= threshold delta (in {0.4 , 0.6})
+    - QED: 800 molecules, sampled 20 candidates for each of them -> 1 candiate with QED between 0.9 and 1.0 and a fingerprint Tanimoto similarity >= 0.4
+    - DRD2 : 800 molecules (acrivity score <= 0.05), sampled 20 candidates -> 1 candiate with DRD2 score >= 0.5 and a fingerprint Tanimoto similarity >= 0.4
+-> comparison against Junction-Tree Variational Autoencoder, Graph Convolutional Policy
+Network and Constrained Graph Variational Autoencoders
+
+• Out-of-distribution sampling:
+-> generate valid molecules outside the training distribution 
+    -> insert up to 14 nodes ; 15 in generation 
+
+Reults:
+- State of art performances, improves in MAE by 14% 
+- improved capacity in generating valid molecules without sacrificing the MAE
+- smoother tradeoff between validity and accuracy
+- Out-of-distribution sampling: 35% of valid molecules with 15 nodes => usable in out-of-distribution sampling, as it is able to learn graph sizes (that do not appear in the training dataset)
+
+Property Optimization
+- GRIDDD outperforms all competitors (in both settings in terms of improvement)
+- GRIDDD scores remarkably better in the other 2 tasks
+- (better than methods that use 3D information to optimize molecules)
+
+Computational considerations:
+- overhead due to insertions and deletions during training (30% slower than FreeGress)
+- flexibility in adapting the number of denoising steps => faster to sample from 
+• Ablation:
+    - same experiments with GRIDDD but disabling insertions and deletions
+        - success rate remains relatively unchanged in the LogP and DRD2 experiments, it significantly drops to 33.8% when optimizing QED (dependent by molecular weight)
+
+
+
+The margin becomes larger on graph-property optimization, where QED success climbs to 45.1% against 9.4% for GCPN, with a LogP
+improvement of 2.70. It grows further out of distribution: trained only on molecules up to 14 atoms, GrIDDD still produces 35% valid samples at
+size 15, while DiGress collapses to near zero at that scale. An ablation isolates the source of the gain. Switching insertion and deletion off drops
+QED success from 45.1% to 33.8%, so the result is carried by size control rather than by the diffusion backbone alone.

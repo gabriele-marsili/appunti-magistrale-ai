@@ -1,0 +1,323 @@
+%===============================================================
+% DISPENSA DI GENERATIVE AND DEEP LEARNING
+% Corso di Laurea Magistrale in Informatica – Università di Pisa
+% Prof. Davide Bacciu | Dr. Riccardo Massidda
+% A.A. 2025/2026
+%===============================================================
+\documentclass[11pt,a4paper,openany]{book}
+
+% --- Encoding & Font ---
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{lmodern}
+\usepackage{microtype}
+
+% --- Page geometry ---
+\usepackage[top=2.5cm,bottom=2.5cm,left=3cm,right=2.5cm,headheight=15pt]{geometry}
+
+% --- Math ---
+\usepackage{amsmath,amssymb,amsfonts,amsthm}
+\usepackage{mathtools}
+\usepackage{bm}
+
+% --- Graphics ---
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{subcaption}
+\graphicspath{{figures/}}
+
+% --- Colors & boxes ---
+\usepackage[dvipsnames]{xcolor}
+\usepackage[most]{tcolorbox}
+\tcbuselibrary{theorems,skins,breakable}
+
+% Define custom box styles
+\definecolor{noteblue}{RGB}{230,240,255}
+\definecolor{defgreen}{RGB}{230,250,230}
+\definecolor{warnred}{RGB}{255,235,230}
+
+\tcbset{
+  mydef/.style={
+    colback=defgreen,colframe=ForestGreen!70!black,
+    title style={fill=ForestGreen!80!black},
+    fonttitle=\bfseries, breakable
+  },
+  mybox/.style={
+    colback=noteblue,colframe=NavyBlue!70!black,
+    title style={fill=NavyBlue!80!black},
+    fonttitle=\bfseries, breakable
+  },
+  mywarn/.style={
+    colback=warnred,colframe=Red!70!black,
+    title style={fill=Red!80!black},
+    fonttitle=\bfseries, breakable
+  }
+}
+
+% --- Box didattici aggiuntivi (v2, agosto 2026) ---
+\definecolor{intuiviola}{RGB}{244,238,255}
+\definecolor{esarancio}{RGB}{255,248,235}
+\definecolor{videoacqua}{RGB}{232,247,247}
+
+\tcbset{
+  intuistyle/.style={
+    colback=intuiviola,colframe=Violet!65!black,
+    title style={fill=Violet!75!black},
+    fonttitle=\bfseries, breakable
+  },
+  esstyle/.style={
+    colback=esarancio,colframe=BurntOrange!85!black,
+    title style={fill=BurntOrange!90!black},
+    fonttitle=\bfseries, breakable
+  },
+  videostyle/.style={
+    colback=videoacqua,colframe=TealBlue!65!black,
+    title style={fill=TealBlue!75!black},
+    fonttitle=\bfseries, breakable
+  }
+}
+
+% Intuizione: spiegazione in linguaggio piano, prima della formalizzazione.
+\newtcolorbox{intuizione}[1]{intuistyle, title={Intuizione — #1}}
+% Esempio svolto: numeri piccoli, verificabili a mano.
+\newtcolorbox{esempiosvolto}[1]{esstyle, title={Esempio svolto — #1}}
+% Risorse video: videolezione del corso + video esterni.
+\newtcolorbox{risorsevideo}[1]{videostyle, title={Risorse video — #1}}
+% Trappola: punto in cui la risposta intuitiva è sbagliata.
+\newtcolorbox{trappola}[1]{mywarn, title={Trappola — #1}}
+
+% Link a un video esterno (hyperref è caricato con hidelinks: coloriamo a mano)
+\newcommand{\video}[3]{\href{#1}{\textcolor{NavyBlue!80!black}{\textbf{#2}}}\ \textit{(#3)}}
+% Videolezione del corso: la cartella Recordings è indicata una volta sola in prefazione.
+\newcommand{\videolezione}[1]{\textbf{Videolezione del corso:} registrazione #1 nella cartella
+\emph{Recordings} del team del corso (v.\ Prefazione).}
+
+% --- Theorem environments ---
+\theoremstyle{definition}
+\newtheorem{definition}{Definizione}[chapter]
+\newtheorem{theorem}{Teorema}[chapter]
+\newtheorem{lemma}{Lemma}[chapter]
+\newtheorem{proposition}{Proposizione}[chapter]
+\newtheorem{corollary}{Corollario}[chapter]
+\newtheorem{example}{Esempio}[chapter]
+\newtheorem{remark}{Osservazione}[chapter]
+
+% --- Algorithms ---
+%\usepackage{algorithm}
+%\usepackage{algpseudocode}
+
+% --- Tables ---
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multirow}
+
+% --- Lists ---
+\usepackage{enumitem}
+
+% --- Hyperlinks ---
+\usepackage[hidelinks]{hyperref}
+\usepackage{cleveref}
+
+% --- Headers/footers ---
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[LE,RO]{\thepage}
+\fancyhead[LO]{\nouppercase{\rightmark}}
+\fancyhead[RE]{\nouppercase{\leftmark}}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% --- Custom commands ---
+\newcommand{\vect}[1]{\bm{#1}}
+\newcommand{\mat}[1]{\bm{#1}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\Var}{\mathrm{Var}}
+\newcommand{\Cov}{\mathrm{Cov}}
+\newcommand{\KL}[2]{D_{\mathrm{KL}}\!\left(#1 \| #2\right)}
+\newcommand{\N}{\mathcal{N}}
+\newcommand{\indep}{\perp\!\!\!\perp}
+\newcommand{\defeq}{\triangleq}
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+
+% --- Part style ---
+\usepackage{titlesec}
+\titleformat{\part}[display]
+  {\normalfont\Huge\bfseries\centering}
+  {\partname\ \thepart}{20pt}{\Huge}
+\titleformat{\chapter}[display]
+  {\normalfont\huge\bfseries}
+  {\chaptertitlename\ \thechapter}{20pt}{\Huge}
+
+%===============================================================
+\begin{document}
+%===============================================================
+
+%--- Title Page ---
+\begin{titlepage}
+\centering
+\vspace*{2cm}
+{\LARGE \textbf{Università di Pisa}\\[0.5em]
+Dipartimento di Informatica\\[2em]}
+{\Huge\textbf{Generative and Deep Learning}\\[1em]}
+{\Large Dispensa del Corso\\[0.5em]}
+{\large Laurea Magistrale in Informatica — A.A.\ 2025/2026\\[3em]}
+{\large
+Prof.\ Davide Bacciu\quad\texttt{davide.bacciu@unipi.it}\\[0.5em]
+Dr.\ Riccardo Massidda\quad\texttt{riccardo.massidda@di.unipi.it}\\[4em]}
+{\normalsize
+\textit{Questa dispensa è basata sulle slides del corso e sugli appunti delle lezioni.\\
+Non sostituisce lo studio diretto dei materiali originali.}\\[2em]}
+{\large \today}
+\vfill
+\end{titlepage}
+
+%--- ToC ---
+\tableofcontents
+\cleardoublepage
+
+%===============================================================
+%  PREFAZIONE
+%===============================================================
+\chapter*{Prefazione}
+\addcontentsline{toc}{chapter}{Prefazione}
+
+Questa dispensa raccoglie i contenuti del corso \textit{Generative and Deep Learning} (GDL) tenuto dal Prof.\ Davide Bacciu e dal Dr.\ Riccardo Massidda presso l'Università di Pisa. Il materiale è organizzato in sei parti più due appendici:
+
+\begin{description}
+  \item[Parte I — Fondamenti Probabilistici e Causalità] (Lezioni 1–6): probabilità, modelli grafici, reti Bayesiane, causalità, structure learning.
+  \item[Parte II — Learning nei Modelli Probabilistici] (Lezioni 7–14): apprendimento MLE/MAP/EM, HMM, inferenza variazionale, LDA, metodi di sampling, Markov Random Fields.
+  \item[Parte III — Deep Learning Fondamentale] (Lezioni 15–20): CNN, propagazione dell'informazione, LSTM/GRU, meccanismo di attenzione, Transformers.
+  \item[Parte IV — Generative Deep Learning] (Lezioni 23–31): autoencoders, VAE, GAN, normalizing flows, diffusion, flow matching, causal representation learning.
+  \item[Parte V — Graph Neural Networks] (Lezione 32): message passing, GCN, GraphSAGE, GIN, GAT, graph transformer.
+  \item[Parte VI — Reinforcement Learning] (Lezione 34): MDP, Bellman, Q-learning, policy gradient, DQN, actor-critic, PPO.
+  \item[Parte VII — Il paper del quarto assignment] GrIDDD (Ninniri, Podda, Bacciu, NeurIPS 2025): diffusion su grafi con inserimento e cancellazione di nodi. Non è una lezione del corso, ma è il punto da cui l'orale tipicamente parte.
+  \item[Appendice B] raccolta domande d'esame organizzate per parte e domande trasversali.
+  \item[Appendice C] cheat sheet di tutte le formule chiave.
+  \item[Appendice D] resoconto di un appello reale (fine luglio 2026): che cosa è stato chiesto, dove i candidati si sono fermati, e che cosa se ne ricava sulla strategia di preparazione.
+\end{description}
+
+\textbf{Nota sul materiale d'esame}: come indicato dal prof nella lezione finale (GDL35), la lezione \emph{Deep Learning for Graphs II — Advanced Models} (GDL33) \textbf{non} è parte del programma d'esame.
+
+\textbf{Come usare questa dispensa}: ogni capitolo contiene definizioni formali, derivazioni complete, tabelle di confronto, sezioni ``Quando usare questo modello'', ``Connessioni'' e ``Domande d'esame''. Si consiglia di studiare insieme alle slides originali e ai capitoli del libro di testo ([BRML] Barber per Parti I–II, [SD] Prince per Parti III–VI).
+
+\medskip
+\textbf{I box colorati}. Dalla revisione di agosto 2026 ogni capitolo apre con un box \emph{Risorse video} e alterna, accanto alla trattazione formale, due tipi di box pensati per la preparazione orale:
+
+\begin{description}[leftmargin=2.2em]
+  \item[\textcolor{Violet!65!black}{Intuizione}] la spiegazione in linguaggio piano, prima delle formule: che cosa sta succedendo davvero e perché il modello è fatto così. È la risposta che serve quando all'orale la domanda è ``me lo spieghi a parole?''.
+  \item[\textcolor{BurntOrange!85!black}{Esempio svolto}] un caso minimo con numeri piccoli, verificabile a mano in pochi minuti. Serve a trasformare una formula in un gesto: è quello che si riesce a rifare alla lavagna sotto esame.
+  \item[\textcolor{TealBlue!65!black}{Risorse video}] la videolezione del corso più una selezione di lezioni universitarie e video divulgativi esterni sull'argomento, di durate diverse.
+  \item[\textcolor{Red!70!black}{Trappola}] un punto in cui la risposta intuitiva è sbagliata. Sono pochi e scelti: se una domanda tocca uno di questi, la differenza fra la risposta giusta e quella plausibile è tutta la differenza di voto.
+\end{description}
+
+Gli esempi svolti seguono la stessa impostazione dei \emph{worked examples} presenti negli handout del corso: nessun conto lungo, ma il passaggio che di solito viene saltato.
+
+\medskip
+\textbf{Registrazioni delle lezioni}. Le videolezioni del corso stanno nella cartella \emph{Recordings} del team dell'insegnamento:
+
+\begin{center}\small
+\url{<link privato rimosso>}
+\end{center}
+
+\noindent Richiede l'autenticazione di ateneo. I file sono nominati per data della riunione e non per numero di lezione: il riferimento puntuale per capitolo va quindi verificato sul calendario del corso.
+
+\medskip
+\textbf{Riferimenti principali}:
+\begin{itemize}
+  \item D.\ Barber, \textit{Bayesian Reasoning and Machine Learning}, Cambridge UP, 2012
+  \item S.J.D.\ Prince, \textit{Understanding Deep Learning}, MIT Press, 2023
+\end{itemize}
+
+%===============================================================
+%  PART I
+%===============================================================
+\input{part_I}
+
+%===============================================================
+%  PART II
+%===============================================================
+\input{part_II}
+
+%===============================================================
+%  PART III
+%===============================================================
+\input{part_III}
+
+%===============================================================
+%  PART IV — Generative Deep Learning
+%===============================================================
+\input{part_IV}
+
+%===============================================================
+%  PART V — Graph Neural Networks
+%===============================================================
+\input{part_V}
+
+%===============================================================
+%  PART VI — Reinforcement Learning
+%===============================================================
+\input{part_VI}
+
+%===============================================================
+%  PART VII — GrIDDD (paper del quarto assignment)
+%===============================================================
+\input{part_VII}
+
+%===============================================================
+%  APPENDICES
+%===============================================================
+\appendix
+\input{appendix_exam}
+\input{appendix_formulas}
+\input{appendix_appelli}
+
+%===============================================================
+%  BIBLIOGRAPHY
+%===============================================================
+\cleardoublepage
+\addcontentsline{toc}{chapter}{Riferimenti Bibliografici}
+\begin{thebibliography}{99}
+\bibitem{barber} D.\ Barber. \textit{Bayesian Reasoning and Machine Learning}. Cambridge University Press, 2012.
+\bibitem{prince} S.J.D.\ Prince. \textit{Understanding Deep Learning}. MIT Press, 2023.
+\bibitem{bishop} C.M.\ Bishop. \textit{Pattern Recognition and Machine Learning}. Springer, 2006.
+\bibitem{murphy} K.P.\ Murphy. \textit{Probabilistic Machine Learning: An Introduction}. MIT Press, 2022.
+\bibitem{goodfellow} I.\ Goodfellow, Y.\ Bengio, A.\ Courville. \textit{Deep Learning}. MIT Press, 2016.
+\bibitem{pearl} J.\ Pearl. \textit{Causality}. 2nd ed., Cambridge University Press, 2009.
+\bibitem{vaswani} A.\ Vaswani et al. Attention Is All You Need. \textit{NeurIPS}, 2017.
+\bibitem{hochreiter} S.\ Hochreiter, J.\ Schmidhuber. Long Short-Term Memory. \textit{Neural Computation}, 1997.
+\bibitem{lecun} Y.\ LeCun et al. Gradient-Based Learning Applied to Document Recognition. \textit{Proc.\ IEEE}, 1998.
+\bibitem{blei_lda} D.M.\ Blei, A.Y.\ Ng, M.I.\ Jordan. Latent Dirichlet Allocation. \textit{JMLR}, 2003.
+\bibitem{dempster_em} A.P.\ Dempster, N.M.\ Laird, D.B.\ Rubin. Maximum Likelihood from Incomplete Data via the EM Algorithm. \textit{JRSS-B}, 1977.
+\bibitem{kingma_vae} D.P.\ Kingma, M.\ Welling. Auto-Encoding Variational Bayes. \textit{ICLR}, 2014.
+\bibitem{goodfellow_gan} I.\ Goodfellow et al. Generative Adversarial Nets. \textit{NeurIPS}, 2014.
+\bibitem{arjovsky_wgan} M.\ Arjovsky, S.\ Chintala, L.\ Bottou. Wasserstein GAN. \textit{ICML}, 2017.
+\bibitem{dinh_nice} L.\ Dinh, D.\ Krueger, Y.\ Bengio. NICE: Non-linear Independent Components Estimation. \textit{ICLR-WS}, 2014.
+\bibitem{dinh_realnvp} L.\ Dinh, J.\ Sohl-Dickstein, S.\ Bengio. Density Estimation using Real-Valued Non-Volume Preserving Transformations. \textit{ICLR}, 2017.
+\bibitem{kingma_glow} D.P.\ Kingma, P.\ Dhariwal. Glow: Generative Flow with Invertible $1\times 1$ Convolutions. \textit{NeurIPS}, 2018.
+\bibitem{chen_neuralode} R.T.Q.\ Chen, Y.\ Rubanova, J.\ Bettencourt, D.\ Duvenaud. Neural Ordinary Differential Equations. \textit{NeurIPS}, 2018.
+\bibitem{ho_ddpm} J.\ Ho, A.\ Jain, P.\ Abbeel. Denoising Diffusion Probabilistic Models. \textit{NeurIPS}, 2020.
+\bibitem{song_ddim} J.\ Song, C.\ Meng, S.\ Ermon. Denoising Diffusion Implicit Models. \textit{ICLR}, 2021.
+\bibitem{song_score} Y.\ Song, S.\ Ermon. Generative Modeling by Estimating Gradients of the Data Distribution. \textit{NeurIPS}, 2019.
+\bibitem{song_sde} Y.\ Song, J.\ Sohl-Dickstein, D.P.\ Kingma, A.\ Kumar, S.\ Ermon, B.\ Poole. Score-Based Generative Modeling through Stochastic Differential Equations. \textit{ICLR}, 2021.
+\bibitem{lipman_fm} Y.\ Lipman, R.T.Q.\ Chen, H.\ Ben-Hamu, M.\ Nickel, M.\ Le. Flow Matching for Generative Modeling. \textit{ICLR}, 2023.
+\bibitem{rombach_ldm} R.\ Rombach et al. High-Resolution Image Synthesis with Latent Diffusion Models. \textit{CVPR}, 2022.
+\bibitem{higgins_betavae} I.\ Higgins et al. $\beta$-VAE: Learning Basic Visual Concepts with a Constrained Variational Framework. \textit{ICLR}, 2017.
+\bibitem{locatello_imposs} F.\ Locatello et al. Challenging Common Assumptions in the Unsupervised Learning of Disentangled Representations. \textit{ICML}, 2019.
+\bibitem{khemakhem_ivae} I.\ Khemakhem, D.P.\ Kingma, R.P.\ Monti, A.\ Hyvärinen. Variational Autoencoders and Nonlinear ICA: A Unifying Framework. \textit{AISTATS}, 2020.
+\bibitem{scholkopf_crl} B.\ Schölkopf et al. Toward Causal Representation Learning. \textit{Proc.\ IEEE}, 2021.
+\bibitem{lippe_citris} P.\ Lippe et al. CITRIS: Causal Identifiability from Temporal Intervened Sequences. \textit{ICML}, 2022.
+\bibitem{kipf_gcn} T.N.\ Kipf, M.\ Welling. Semi-Supervised Classification with Graph Convolutional Networks. \textit{ICLR}, 2017.
+\bibitem{hamilton_sage} W.L.\ Hamilton, R.\ Ying, J.\ Leskovec. Inductive Representation Learning on Large Graphs. \textit{NeurIPS}, 2017.
+\bibitem{velickovic_gat} P.\ Veličković et al. Graph Attention Networks. \textit{ICLR}, 2018.
+\bibitem{xu_gin} K.\ Xu, W.\ Hu, J.\ Leskovec, S.\ Jegelka. How Powerful are Graph Neural Networks? \textit{ICLR}, 2019.
+\bibitem{ying_diffpool} R.\ Ying et al. Hierarchical Graph Representation Learning with Differentiable Pooling. \textit{NeurIPS}, 2018.
+\bibitem{rampasek_gps} L.\ Rampášek et al. Recipe for a General, Powerful, Scalable Graph Transformer. \textit{NeurIPS}, 2022.
+\bibitem{mnih_dqn} V.\ Mnih et al. Human-Level Control Through Deep Reinforcement Learning. \textit{Nature}, 2015.
+\bibitem{williams_reinforce} R.J.\ Williams. Simple Statistical Gradient-Following Algorithms for Connectionist Reinforcement Learning. \textit{Machine Learning}, 1992.
+\bibitem{schulman_ppo} J.\ Schulman, F.\ Wolski, P.\ Dhariwal, A.\ Radford, O.\ Klimov. Proximal Policy Optimization Algorithms. \textit{arXiv:1707.06347}, 2017.
+\bibitem{sutton_book} R.S.\ Sutton, A.G.\ Barto. \textit{Reinforcement Learning: An Introduction}. 2nd ed., MIT Press, 2018.
+\end{thebibliography}
+
+\end{document}
