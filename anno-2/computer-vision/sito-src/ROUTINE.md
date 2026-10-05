@@ -35,10 +35,10 @@ Cartella del corso sul Mac: ~/Desktop/Everything/pisa/corsi/magistrale/secondo_a
 - Italiano con accenti, niente emoji.
 - Se qualcosa manca (PDF illeggibile, computer non raggiungibile), non inventare contenuti: fermati e riportalo.
 
-## Repo GitHub (gabriele-marsili/cv)
-La cartella CV è un repo git (remote https://github.com/gabriele-marsili/cv.git); il sito statico per GitHub Pages sta in CV/docs.
-Dopo aver pubblicato l'artifact (passo 7), aggiorna anche docs:
-1. Nel cloud: `python3 common/make_gh.py /tmp/cv/gh_docs <cartella con i pacchetti HD nuovi, rinominati <L>.json>`. I pacchetti HD già esistenti sono solo sul Mac in CV/docs/hd: se manca hd/<L>.json per una lezione vecchia, è normale; lo script avvisa solo per quelli nuovi che non hai passato.
-2. Porta sul Mac index.html, .nojekyll, lessons/*.json cambiati e hd/<L>.json nuovi dentro CV/docs. Usa archivi da massimo 20 MB ed estrai con Python in 'wb'.
-3. Sul Mac (device_bash, in CV): `git add -A && git commit -m "L<n>: <titolo> (schede, dispensa, videolezione)"`. Il repo è configurato con core.createObject=rename e gc.auto=0, quindi git funziona anche senza permesso di cancellare.
-4. Il push NON si può fare da qui, perché le credenziali GitHub sono solo nel portachiavi del Mac. Nel messaggio finale scrivi "Da fare: git push nella cartella CV".
+## Repo GitHub (gabriele-marsili/appunti-magistrale-ai)
+Il materiale di CV sta nel repo degli appunti della magistrale: ~/Desktop/appunti-magistrale-ai, cartella anno-2/computer-vision. Sito statico in `sito/` (GitHub Pages), sorgenti in `sito-src/`, dispensa Markdown in `dispensa/`.
+Dopo aver pubblicato l'artifact (passo 7):
+1. Nel cloud: `python3 common/make_gh.py /tmp/cv/gh_docs <cartella con i pacchetti HD nuovi, rinominati <L>.json>`, poi porta sul Mac (in CV/_sito/_gh/, con archivi da massimo 20 MB estratti con Python) index.html, i lessons/*.json cambiati e gli hd/<L>.json nuovi.
+2. Se la cartella appunti-magistrale-ai è collegata a questa esecuzione (`ls $HOME/mnt/`): copia _sito/_gh/ dentro anno-2/computer-vision/sito/ e i sorgenti cambiati dentro sito-src/ (con rsync, escludendo *.tgz, _da_pubblicare, site, backup_v1, user_hl_v1, stato.json e __pycache__), rigenera dispensa/ con common/make_md.py, poi committa: `git -c core.createObject=rename -c user.name=WhoIsMars -c user.email=marsiligabriele7@gmail.com commit`. Se git lascia .git/index.lock e non hai il permesso di cancellare, NON lasciarlo lì: scrivilo nel messaggio finale.
+3. Se la cartella non è collegata, lascia tutto in _sito/_gh/ e nel messaggio finale scrivi: "Da sincronizzare su GitHub: chiedi a Claude di copiare CV in appunti-magistrale-ai".
+4. Il push lo fa Octech, perché le credenziali sono solo nel portachiavi del Mac. Nel messaggio finale scrivi "Da fare: git push in appunti-magistrale-ai".
