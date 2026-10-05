@@ -1,0 +1,162 @@
+{
+ "pixels (identity, none, pool 1)": [
+  0.8129,
+  784
+ ],
+ "baseline (id, box, sobel x/y)": [
+  0.8381,
+  196
+ ],
+ "baseline senza identity": [
+  0.8343,
+  147
+ ],
+ "solo identity, abs, pool 4": [
+  0.7498,
+  49
+ ],
+ "baseline + diagonals": [
+  0.86,
+  294
+ ],
+ "baseline + laplacian (4-vicini)": [
+  0.8484,
+  245
+ ],
+ "baseline + laplacian (8-vicini)": [
+  0.846,
+  245
+ ],
+ "baseline + diagonals + laplacian4": [
+  0.8641,
+  343
+ ],
+ "baseline + diagonals + laplacian8": [
+  0.863,
+  343
+ ],
+ "gauss-deriv s={1,2}": [
+  0.8809,
+  637
+ ],
+ "gauss-deriv s=1": [
+  0.8634,
+  343
+ ],
+ "gauss-deriv s=2": [
+  0.8605,
+  343
+ ],
+ "gauss-deriv s={0.7,1,2,3}": [
+  0.8905,
+  1225
+ ],
+ "gabor 2 orient": [
+  0.8675,
+  441
+ ],
+ "gabor 4 orient": [
+  0.8867,
+  833
+ ],
+ "gabor 8 orient": [
+  0.8945,
+  1617
+ ],
+ "ex1 bank, none, pool 4": [
+  0.8092,
+  343
+ ],
+ "ex1 bank, abs, pool 4": [
+  0.8641,
+  343
+ ],
+ "ex1 bank, square, pool 4": [
+  0.8461,
+  343
+ ],
+ "ex1 bank, rectify, pool 4": [
+  0.8646,
+  343
+ ],
+ "ex1 bank, none, pool 1": [
+  0.8127,
+  5488
+ ],
+ "ex1 bank, abs, pool 1": [
+  0.8644,
+  5488
+ ],
+ "ex1 bank, abs, avg pool 1": [
+  0.8644,
+  5488
+ ],
+ "ex1 bank, abs, avg pool 2": [
+  0.8809,
+  1372
+ ],
+ "ex1 bank, abs, avg pool 4": [
+  0.8641,
+  343
+ ],
+ "ex1 bank, abs, avg pool 7": [
+  0.8192,
+  112
+ ],
+ "ex1 bank, abs, avg pool 14": [
+  0.7026,
+  28
+ ],
+ "ex1 bank, abs, avg pool 28": [
+  0.5238,
+  7
+ ],
+ "ex1 bank, abs, max pool 2": [
+  0.8777,
+  1372
+ ],
+ "ex1 bank, abs, max pool 4": [
+  0.8531,
+  343
+ ],
+ "ex1 bank, abs, max pool 7": [
+  0.7746,
+  112
+ ],
+ "ex1 bank, abs, pool 4, power 0.5": [
+  0.8715,
+  343
+ ],
+ "random 4 filters 5x5 (seed 0)": [
+  0.8361,
+  196
+ ],
+ "random 13 filters 5x5 (seed 0)": [
+  0.8774,
+  637
+ ],
+ "random 34 filters 5x5 (seed 0)": [
+  0.8925,
+  1666
+ ],
+ "gabor 8 | power 0.5": [
+  0.9055,
+  1617
+ ],
+ "TEST pixels": [
+  0.8101,
+  null
+ ],
+ "TEST baseline": [
+  0.8383,
+  null
+ ],
+ "TEST baseline power .5": [
+  0.8557,
+  null
+ ],
+ "TEST gabor 8 power .5": [
+  0.8983,
+  null
+ ]
+}
