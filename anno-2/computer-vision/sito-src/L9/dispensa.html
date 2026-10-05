@@ -1,0 +1,338 @@
+<div class="sec" id="l9-dispensa"><h2>Dispensa</h2><span>parti da qui · circa 50 minuti</span></div>
+<div class="disp">
+  <p><b>In una frase:</b> per cucire due foto in un panorama si accoppiano i descrittori delle due immagini (nearest neighbor + ratio test), si stima con la DLT dentro RANSAC l'<b>omografia</b> H, una matrice 3×3 che porta le coordinate di una foto in quelle dell'altra, e infine si deforma un'immagine nel riferimento dell'altra e si fondono le due con un blending.</p>
+
+  <h3>Prima di iniziare</h3>
+  <p>Questa lezione usa tre cose viste prima:</p>
+  <ul>
+    <li><b>Keypoint e descrittori</b> (<a href="#L8">L8</a>): Harris e SIFT. Ogni keypoint ha posizione, scala, orientazione e un descrittore di 128 numeri. Qui li assumiamo già calcolati.</li>
+    <li><b>Interpolazione e blending</b> (<a href="#L6">L6</a>): leggere un'immagine in punti non interi (interpolazione bilineare) e fondere due immagini con la piramide laplaciana (la "orapple").</li>
+    <li><b>Proiezione prospettica</b> (<a href="#L2">L2</a>): un punto 3D (X, Y, Z) finisce nell'immagine in (fX/Z, fY/Z). La divisione per Z è il motivo per cui servono le coordinate omogenee.</li>
+  </ul>
+  <p>Di algebra lineare ti servono: sistemi omogenei A h = 0, rango, nucleo e la SVD (A = UΣV<sup>⊤</sup>).</p>
+
+  <h3>Guarda prima questi video</h3>
+  <div class="watch">
+    <a href="https://www.youtube.com/watch?v=PvEl63t-opM"><span class="k">Video</span><b>Homogeneous Coordinates - 5 Minutes with Cyrill</b><span class="d">Cyrill Stachniss. Tutto: perché si aggiunge una coordinata, l'equivalenza a meno di scala, come tornare alle coordinate normali. È la base di tutto il resto.</span></a>
+    <a href="https://www.youtube.com/watch?v=B8kMB6Hv2eI"><span class="k">Video</span><b>3x3 Image Transformations</b><span class="d">Shree Nayar. Facoltativo, prima del prossimo: traslazione, affine e proiettiva in coordinate omogenee (sezione 5 qui sotto).</span></a>
+    <a href="https://www.youtube.com/watch?v=l_qjO4cM74o"><span class="k">Video</span><b>Computing Homography</b><span class="d">Shree Nayar, First Principles of Computer Vision. Tutto: la matrice 3×3, perché 8 gradi di libertà, come si scrive il sistema lineare a partire da 4 coppie e come lo si risolve. Corrisponde alle sezioni 5 e 7 qui sotto.</span></a>
+    <a href="https://www.youtube.com/watch?v=EkYXjmiolBg"><span class="k">Video</span><b>Dealing with Outliers: RANSAC</b><span class="d">Shree Nayar. Tutto: perché i minimi quadrati falliscono con gli outlier e come RANSAC li ignora, con l'esempio della retta.</span></a>
+    <a href="https://www.youtube.com/watch?v=9D5rrtCC_E0"><span class="k">Video</span><b>RANSAC - 5 Minutes with Cyrill</b><span class="d">Cyrill Stachniss. Ripasso compatto, utile soprattutto per la formula del numero di iterazioni.</span></a>
+    <a href="https://www.youtube.com/watch?v=D9rAOAL12SY"><span class="k">Video</span><b>Warping and Blending Images</b><span class="d">Shree Nayar. Da guardare alla fine: warping all'indietro e fusione delle immagini del panorama (sezione 11 qui sotto).</span></a>
+  </div>
+
+  <h3>1. Il problema: da tre foto a un panorama</h3>
+  <p>Sei in cima a una torre e vuoi fotografare tutto il paesaggio. Il telefono non lo inquadra in una foto sola. Allora attivi la modalità "Panorama" e giri lentamente il braccio: il telefono scatta tante foto e le cuce in una sola immagine larga. Questa lezione spiega come.</p>
+  <p>Il punto difficile è che <mark class="sh sh-p">ogni foto ha le sue coordinate</mark>. Il pixel (500, 200) della prima foto e il pixel (500, 200) della seconda mostrano punti diversi della scena. Serve una funzione che dica, per ogni punto della foto A, <mark class="sh sh-y">dove si trova lo stesso punto della scena nella foto B</mark>.</p>
+  <figure><img src="{{IMG:disp_panorama.png}}" alt="In alto tre foto di un fiume con un veliero e un campanile a guglia, scattate ruotando la camera; in basso il panorama largo ottenuto cucendole, con bordi ondulati e fasce nere"><figcaption>Dalla slide 3. Le tre foto in alto si sovrappongono in parte (il campanile compare in tutte e tre, in posizioni diverse); in basso il panorama. I bordi ondulati e le fasce nere ci sono perché le foto, deformate nel riferimento comune, non sono più rettangoli.</figcaption></figure>
+  <p>La lezione costruisce questa funzione in cinque passi (slide 6 e 48). Tienili a mente: sono la scaletta di tutta la dispensa.</p>
+  <figure><img src="{{IMG:disp2_pipeline.png}}" alt="Schema a blocchi con cinque riquadri collegati da frecce: detect più describe, match, modello omografia, stima robusta con DLT dentro RANSAC, warp più blend"><figcaption>La pipeline del panorama. I primi due passi lavorano solo sull'aspetto dei punti (descrittori), il terzo e il quarto sulla geometria, l'ultimo sui pixel.</figcaption></figure>
+  <ol>
+    <li><b>detect + describe</b>: keypoint e descrittori SIFT in A e in B (<a href="#L8">L8</a>);</li>
+    <li><b>match</b>: per ogni keypoint di A si cerca il keypoint di B con il descrittore più simile, e si scartano i match dubbi;</li>
+    <li><b>modello</b>: si sceglie la forma matematica della funzione A → B, che per i panorami è un'<b>omografia</b>;</li>
+    <li><b>stima robusta</b>: si calcolano i parametri dell'omografia dai match con la <b>DLT</b>, dentro <b>RANSAC</b> che elimina i match sbagliati;</li>
+    <li><b>warp + blend</b>: si deforma B nel riferimento di A e si fondono le zone sovrapposte.</li>
+  </ol>
+  <p>Lo stesso schema si usa ovunque servano corrispondenze fra immagini: scansionare un documento col telefono, la realtà aumentata che appoggia un oggetto virtuale su un tavolo, le mappe fatte da droni, il calcolo del moto di un'auto a guida autonoma.</p>
+  <div class="box k"><b>Il punto</b><p>Un panorama è una catena: <mark class="sh sh-y">trova punti simili, scegli un modello geometrico, stimalo ignorando gli errori, deforma e fondi</mark>. Ogni anello ha un suo problema e una sua soluzione.</p></div>
+
+  <h3>2. Accoppiare i descrittori: nearest neighbor</h3>
+  <p><b>Il problema.</b> Da A hai un elenco di coppie (p<sub>i</sub>, d<sub>i</sub>): p<sub>i</sub> è la posizione in pixel del keypoint i, d<sub>i</sub> il suo descrittore. Da B hai le coppie (q<sub>j</sub>, e<sub>j</sub>). Vuoi sapere quale keypoint di B è "lo stesso" di ogni keypoint di A.</p>
+  <p>Un <mark class="sh sh-b">match è una coppia (i, j) che secondo noi rappresenta lo stesso punto della scena</mark>. I match giusti si chiamano <mark class="sh sh-b">inlier</mark>, quelli sbagliati <mark class="sh sh-b">outlier</mark>. In questa fase si guardano <mark class="sh sh-y">solo i descrittori</mark>: la geometria entra dopo.</p>
+  <figure><img src="{{IMG:disp2_match_reali.png}}" alt="Due foto affiancate dello stesso fiume con il campanile; linee colorate quasi orizzontali collegano punti corrispondenti delle due foto"><figcaption>Dalla slide 17. Ogni linea collega un keypoint di A al keypoint di B che il matching ha scelto. Le linee giuste sono quasi parallele fra loro, perché la seconda foto è solo spostata; una linea che taglia in diagonale sarebbe un errore.</figcaption></figure>
+
+  <p><b>L'idea.</b> Ogni descrittore è un punto in uno spazio a 128 dimensioni. Descrittori di zone che si somigliano sono punti vicini. Quindi, per ogni d<sub>i</sub>, prendi il descrittore di B più vicino: è il <mark class="sh sh-b">nearest neighbor</mark> (NN, vicino più prossimo).</p>
+  <p><b>La matematica.</b></p>
+  <span class="f"><mark class="sh sh-b">j* = argmin<sub>j</sub> ‖d<sub>i</sub> − e<sub>j</sub>‖<sub>2</sub></mark></span>
+  <p>Qui ‖·‖<sub>2</sub> è la distanza euclidea fra due vettori di 128 numeri, e argmin<sub>j</sub> vuol dire "l'indice j che rende minima la distanza". A parole: "il partner di i è il descrittore di B più simile al suo".</p>
+  <p>La distanza deve adattarsi al descrittore (slide 12). SIFT è fatto di numeri reali: si usa l'euclidea. ORB e BRIEF sono stringhe di bit: si usa la <mark class="sh sh-b">distanza di Hamming, il numero di bit diversi</mark>. Si calcola con uno XOR e un conteggio dei bit a 1, <mark class="sh sh-g">velocissimo</mark>.</p>
+  <p><b>Esempio.</b> Due descrittori binari di 8 bit: 10110010 e 10011010. Lo XOR è 00101000: due bit a 1, quindi distanza di Hamming 2. Un descrittore vero ha 256 bit, ma il conto è lo stesso.</p>
+
+  <p><b>Cosa va storto.</b> Il nearest neighbor <mark class="sh sh-p">dà sempre una risposta</mark>, anche quando la risposta giusta non esiste. Due casi tipici (slide 7–8):</p>
+  <ul>
+    <li><b>occlusione</b>: un furgone copre nella foto B l'auto visibile in A. I keypoint dell'auto non hanno corrispondente, ma il NN <mark class="sh sh-p">ne sceglie comunque uno, a caso</mark>;</li>
+    <li><b>strutture ripetute</b>: una staccionata di assi identiche. La punta di ogni asse è un ottimo keypoint, ma i descrittori sono quasi uguali, e <mark class="sh sh-p">il più vicino può essere l'asse accanto</mark>.</li>
+  </ul>
+  <figure><img src="{{IMG:disp_casi_match.png}}" alt="In alto due foto della stessa strada: nella prima un'auto parcheggiata, nella seconda un furgone bianco la copre quasi tutta; in basso una staccionata bianca di assi tutte uguali"><figcaption>Dalle slide 7 e 8. In alto l'occlusione: i keypoint dell'auto nella prima foto non hanno corrispondente nella seconda. In basso la struttura ripetuta: le punte delle assi sono keypoint quasi identici fra loro.</figcaption></figure>
+  <div class="box k"><b>Il punto</b><p>Il nearest neighbor accoppia ogni descrittore di A al più simile di B (euclidea per SIFT, Hamming per i binari). Il suo difetto: <mark class="sh sh-p">non sa dire "non c'è"</mark>, e con occlusioni o pattern ripetuti produce match sbagliati.</p></div>
+
+  <h3>3. Scartare i match dubbi: ratio test e mutual NN</h3>
+  <p><b>Il problema.</b> Come capire se il nearest neighbor è affidabile? Una soglia sulla distanza non basta: in una zona poco distintiva (cielo, prato, muro di mattoni) anche il match giusto può essere lontano, e in una zona ricca anche un match sbagliato può essere vicino.</p>
+  <p><b>L'idea di Lowe.</b> Non chiederti "quanto è vicino il migliore?", ma <mark class="sh sh-y">"quanto è più vicino del secondo?"</mark>. Se il vero corrispondente esiste, spicca su tutti gli altri. Se primo e secondo sono quasi alla pari, la scelta è una moneta lanciata.</p>
+  <figure><img src="{{IMG:disp2_spazio_descrittori.png}}" alt="Tre pannelli con punti grigi (descrittori di B) e una stella blu (descrittore di A). Nel primo il primo vicino è molto più vicino del secondo; nel secondo i due vicini sono lontani e simili; nel terzo sono entrambi vicini e quasi alla stessa distanza"><figcaption>Lo spazio dei descrittori disegnato in 2D (in realtà ha 128 dimensioni). Verde il primo vicino, arancione il secondo. Solo nel caso buono il primo spicca; con l'occlusione sono entrambi lontani, con la struttura ripetuta entrambi vicini: in tutti e due il rapporto è vicino a 1.</figcaption></figure>
+  <p><b>La matematica.</b> Per ogni d<sub>i</sub> trova i <b>due</b> descrittori di B più vicini, e<sub>j1</sub> (il migliore) ed e<sub>j2</sub> (il secondo). Il <mark class="sh sh-b">ratio test</mark> accetta il match solo se:</p>
+  <span class="f"><mark class="sh sh-b">‖d<sub>i</sub> − e<sub>j1</sub>‖ / ‖d<sub>i</sub> − e<sub>j2</sub>‖ &lt; τ,   τ ≈ 0.7–0.8</mark></span>
+  <p>A parole: la distanza dal primo deve essere al massimo il 70–80% di quella dal secondo.</p>
+  <p><b>Esempio svolto.</b> Distanze 0.30 e 0.80: rapporto 0.375, il primo vicino spicca, match accettato. Distanze 0.30 e 0.33: rapporto 0.91, due candidati quasi equivalenti, match scartato. La distanza dal primo è la stessa (0.30): <mark class="sh sh-p">una soglia assoluta non li distinguerebbe</mark> (slide 13).</p>
+  <figure><img src="{{IMG:disp_ratio.png}}" alt="Due grafici a barre con le distanze di un descrittore dai cinque candidati più vicini in B: a sinistra 0.30 e poi 0.80, a destra 0.30 e 0.33"><figcaption>I due casi dell'esempio. Il primo vicino è a 0.30 in entrambi: conta quanto spicca rispetto al secondo (barra arancione). A sinistra il rapporto 0.375 è sotto τ = 0.75 e il match passa; a destra 0.91 è sopra e il match viene scartato.</figcaption></figure>
+  <p>Funziona davvero: Lowe riporta che <mark class="sh sh-g">con soglia 0.8 si elimina circa il 90% dei match falsi perdendo meno del 5% di quelli giusti</mark> (riquadro alla slide 14).</p>
+
+  <h4>Come scegliere τ: precision e recall</h4>
+  <p>Due misure dicono quanto è buono un insieme di match (slide 15):</p>
+  <ul>
+    <li><mark class="sh sh-b">precision</mark>: fra i match accettati, quanti sono giusti;</li>
+    <li><mark class="sh sh-b">recall</mark>: fra i match giusti che esistono, quanti ne hai trovati.</li>
+  </ul>
+  <p>Con τ piccola (0.6) accetti solo match netti: <mark class="sh sh-g">alta precision</mark> ma <mark class="sh sh-p">basso recall</mark>. Con τ grande (0.9) il contrario. È un compromesso: per un panorama con tanti keypoint conviene la precision, se i keypoint sono pochi conviene il recall. Nel notebook del corso τ = 0.75.</p>
+  <figure><img src="{{IMG:disp2_precision_recall.png}}" alt="A sinistra due istogrammi del rapporto fra primo e secondo vicino: i match giusti concentrati fra 0.1 e 0.6, quelli sbagliati fra 0.7 e 1; a destra le curve di precision (decrescente) e recall (crescente) in funzione della soglia"><figcaption>Dati simulati, solo per vedere la forma del compromesso. A sinistra i match giusti hanno rapporti bassi, quelli sbagliati vicini a 1. A destra, alzando τ il recall sale e la precision scende; a τ = 0.75 qui si tiene il 98% dei match giusti con l'85% di precision.</figcaption></figure>
+
+  <h4>Mutual nearest neighbor</h4>
+  <p>Un secondo filtro, combinabile col primo. Il <mark class="sh sh-b">mutual NN</mark> accetta (i, j) solo se <mark class="sh sh-b">j è il più vicino a i e i è il più vicino a j</mark> (slide 16). Esempio: a<sub>1</sub> e a<sub>2</sub> di A scelgono entrambi b<sub>1</sub> di B; ma b<sub>1</sub>, guardando in A, sceglie a<sub>1</sub>. Resta solo (a<sub>1</sub>, b<sub>1</sub>). Così <mark class="sh sh-g">si eliminano i casi "molti a uno"</mark>, al prezzo di perdere qualche match giusto.</p>
+  <p>Anche dopo questi filtri <mark class="sh sh-p">restano sempre outlier</mark> (slide 32). Se ne occuperà RANSAC.</p>
+  <div class="box k"><b>Il punto</b><p>Il ratio test tiene un match solo se <mark class="sh sh-y">il primo vicino è nettamente più vicino del secondo</mark>; τ regola il compromesso fra precision e recall. Il mutual NN controlla i due versi. Riducono gli outlier, non li azzerano.</p></div>
+
+  <h3>4. Coordinate omogenee</h3>
+  <p><b>Il problema.</b> Ora vogliamo scrivere la funzione che porta A in B. Le trasformazioni che ci interessano contengono traslazioni e divisioni (come la proiezione fX/Z di <a href="#L2">L2</a>). Con le coordinate normali <mark class="sh sh-p">una traslazione non è un prodotto matrice-vettore</mark> (p′ = p + t), e una divisione nemmeno. Vorremmo invece che tutto fosse "moltiplica per una matrice", per poter comporre le trasformazioni moltiplicando matrici.</p>
+  <p><b>L'idea.</b> Si aggiunge una coordinata in più, e si accetta che lo stesso punto abbia tante scritture diverse, tutte multiple fra loro. La divisione viene rimandata all'ultimo momento.</p>
+  <p><b>La matematica</b> (visionbook § 38.2):</p>
+  <span class="f"><mark class="sh sh-b">(x, y) → [x, y, 1]<sup>⊤</sup>,   [x, y, w]<sup>⊤</sup> → (x/w, y/w)</mark></span>
+  <p>e <mark class="sh sh-b">tutti i multipli non nulli [λx, λy, λw]<sup>⊤</sup> rappresentano lo stesso punto</mark>. Per tornare alle coordinate normali si divide per l'ultima componente.</p>
+  <figure><img src="{{IMG:disp2_omogenee.png}}" alt="Piano con asse orizzontale x e asse verticale w; una retta tratteggiata passa per l'origine e per i punti [1, 0.5], [2, 1], [4, 2], [5, 2.5]; la retta orizzontale w = 1 la incontra in [2, 1]"><figcaption>La versione a una dimensione. Tutti i vettori sulla retta tratteggiata che passa per l'origine sono lo stesso punto x = 2; il rappresentante "normale" è quello con w = 1. In 2D è identico, con una retta nello spazio 3D.</figcaption></figure>
+  <p><b>Esempio svolto.</b> [2, 4, 1], [4, 8, 2] e [−1, −2, −0.5] sono tutti il punto (2, 4). Per traslare (3, 4) di (2, 1):</p>
+  <span class="f">[[1, 0, 2], [0, 1, 1], [0, 0, 1]] · [3, 4, 1]<sup>⊤</sup> = [5, 5, 1]<sup>⊤</sup> → (5, 5)</span>
+  <p>Due vantaggi:</p>
+  <ul>
+    <li><mark class="sh sh-g">la traslazione diventa una matrice</mark>, quindi <mark class="sh sh-g">tutte le trasformazioni si compongono moltiplicando matrici</mark>;</li>
+    <li><mark class="sh sh-g">la divisione si rimanda alla fine</mark>: un prodotto matrice-vettore, poi una divisione per la terza componente. Se il prodotto dà [6, 4, 2], il punto è (3, 2). È esattamente quello che fa una camera.</li>
+  </ul>
+  <p><b>Le rette</b> (§ 38.4). La retta ax + by + c = 0 diventa il vettore l = [a, b, c]<sup>⊤</sup>, e <mark class="sh sh-b">un punto p sta sulla retta se l<sup>⊤</sup>p = 0</mark>. Esempio: l = [1, −1, 0] è la retta y = x, e p = [2, 2, 1] dà 2 − 2 + 0 = 0, quindi ci sta sopra. La retta per due punti è il prodotto vettoriale l = p<sub>1</sub> × p<sub>2</sub>; per p<sub>1</sub> = [0, 0, 1] e p<sub>2</sub> = [1, 1, 1] viene [−1, 1, 0], di nuovo y = x. Tre punti sono allineati se e solo se det[p<sub>1</sub> p<sub>2</sub> p<sub>3</sub>] = 0. Ci servirà per capire perché l'omografia conserva le rette.</p>
+  <div class="box k"><b>Il punto</b><p>In coordinate omogenee si aggiunge un 1, si moltiplica per una matrice 3×3 e alla fine si divide per la terza componente. <mark class="sh sh-y">Punti multipli fra loro sono lo stesso punto</mark>: è questo che rende "lineari" traslazioni e prospettiva.</p></div>
+
+  <h3>5. L'omografia</h3>
+  <p><b>Il problema.</b> Che forma deve avere la funzione A → B? Se fosse solo uno spostamento, basterebbe una traslazione. Ma quando giri la fotocamera le cose lontane dal centro si deformano: i rettangoli diventano trapezi. Serve una famiglia di trasformazioni abbastanza ricca.</p>
+  <p><b>L'idea.</b> In coordinate omogenee ogni trasformazione del piano che ci interessa è una matrice 3×3. Le famiglie si distinguono per quanti parametri liberi hanno (<b>gradi di libertà</b>, gdl) e per cosa conservano (visionbook § 38.3). Più gdl, più libertà, meno cose conservate:</p>
+  <ul>
+    <li><b>traslazione</b>, 2 gdl: sposta e basta;</li>
+    <li><b>euclidea o rigida</b> (rotazione + traslazione), 3 gdl: conserva lunghezze e angoli;</li>
+    <li><b>similitudine</b> (+ scala uniforme), 4 gdl: conserva angoli e rapporti fra lunghezze;</li>
+    <li><b>affine</b>, matrice con ultima riga [0, 0, 1], 6 gdl: conserva il parallelismo e i punti medi;</li>
+    <li><mark class="sh sh-b"><b>proiettiva o omografia</b>, matrice 3×3 qualunque invertibile, 8 gdl: conserva solo le rette</mark> (e il birapporto, un rapporto fra quattro punti allineati).</li>
+  </ul>
+  <figure><img src="{{IMG:disp2_gerarchia.png}}" alt="Sei pannelli con una griglia quadrata: originale, traslata, ruotata, ruotata e rimpicciolita, trasformata in parallelogramma, trasformata in trapezio irregolare; il centro è segnato in arancione"><figcaption>La gerarchia applicata alla stessa griglia. Fino all'affine le righe parallele restano parallele; solo l'omografia (in basso a destra) le fa convergere, come in una foto vista di sbieco. Le rette restano sempre rette.</figcaption></figure>
+  <p>L'omografia è quindi il gradino più generale, <mark class="sh sh-p">non una trasformazione rigida</mark>: le slide 5 e 32 la chiamano "rigid", ed è sbagliato (vedi il riquadro Attenzione alla slide 32).</p>
+  <p><b>La matematica.</b> Applicare H a un punto si fa in tre passi (slide 24): omogeneizza, moltiplica, dividi per la terza componente.</p>
+  <span class="f"><mark class="sh sh-b">p′ ∝ H p,   H ∈ ℝ<sup>3×3</sup></mark></span>
+  <p>Il simbolo ∝ vuol dire "uguale a meno di un fattore di scala". Scritta per intero, con H = [[h<sub>11</sub>, h<sub>12</sub>, h<sub>13</sub>], [h<sub>21</sub>, h<sub>22</sub>, h<sub>23</sub>], [h<sub>31</sub>, h<sub>32</sub>, h<sub>33</sub>]], la mappa (x, y) → (x′, y′) è (slide 25):</p>
+  <span class="f">x′ = (h<sub>11</sub>x + h<sub>12</sub>y + h<sub>13</sub>) / (h<sub>31</sub>x + h<sub>32</sub>y + h<sub>33</sub>),   y′ = (h<sub>21</sub>x + h<sub>22</sub>y + h<sub>23</sub>) / (h<sub>31</sub>x + h<sub>32</sub>y + h<sub>33</sub>)</span>
+  <p>Il denominatore comune è la terza componente di H[x, y, 1]<sup>⊤</sup>. Se h<sub>31</sub> = h<sub>32</sub> = 0 il denominatore è costante e torni all'affine: <mark class="sh sh-y">tutta la "prospettiva" sta nell'ultima riga</mark>.</p>
+  <p><b>Perché 8 gradi di libertà e non 9.</b> H e 2H danno lo stesso risultato: il fattore 2 compare sopra e sotto la frazione e si semplifica. Quindi <mark class="sh sh-b">H è definita a meno di un fattore di scala: delle 9 entrate solo 8 contano</mark>. Si può per esempio fissare h<sub>33</sub> = 1 o ‖H‖ = 1.</p>
+  <p><b>Perché conserva le rette.</b> Se p′ = Hp e il punto p sta sulla retta l (l<sup>⊤</sup>p = 0), allora l<sup>⊤</sup>H<sup>−1</sup>p′ = 0, cioè p′ sta sulla retta l′ = H<sup>−⊤</sup>l. Tutti i punti di una retta finiscono su una retta. La proprietà va enunciata su <mark class="sh sh-p">tre punti allineati: la slide 22 la dice su due, che sono sempre allineati</mark> (riquadro Attenzione alla slide 22).</p>
+
+  <h4>Esempio svolto</h4>
+  <p>Prendi H = [[1, 0, 0], [0, 1, 0], [0.5, 0, 1]] e applicala al quadrato unitario:</p>
+  <ul>
+    <li>(0, 0) → [0, 0, 1] → (0, 0).</li>
+    <li>(1, 0) → [1, 0, 1.5] → (0.667, 0).</li>
+    <li>(1, 1) → [1, 1, 1.5] → (0.667, 0.667).</li>
+    <li>(0, 1) → [0, 1, 1] → (0, 1).</li>
+    <li>il centro (0.5, 0.5) → [0.5, 0.5, 1.25] → (0.4, 0.4).</li>
+  </ul>
+  <p>Il quadrato diventa un trapezio: il lato destro si accorcia perché lì il denominatore 1 + 0.5x è più grande. I lati sopra e sotto, che erano paralleli, <mark class="sh sh-p">non lo sono più</mark>. Il punto medio del lato inferiore, (0.5, 0), va in (0.4, 0), non nel punto medio (0.333, 0) del lato trasformato: <mark class="sh sh-p">le distanze non si conservano</mark>. <mark class="sh sh-g">Le rette sì</mark>: tutte le righe della griglia restano rette.</p>
+  <figure><img src="{{IMG:disp_omografia.png}}" alt="Tre pannelli: un quadrato con griglia, lo stesso quadrato trasformato in un parallelogramma da una mappa affine, e in un trapezio da un'omografia; il punto centrale è segnato in arancione"><figcaption>Lo stesso quadrato sotto un'affine (resta un parallelogramma: parallele conservate, il centro va nel centro) e sotto l'omografia dell'esempio (trapezio: le righe orizzontali convergono, il centro va in (0.40, 0.40)).</figcaption></figure>
+  <div class="box k"><b>Il punto</b><p>Un'<mark class="sh sh-b">omografia è una matrice 3×3 invertibile definita a meno di scala: 8 gdl, conserva solo le rette</mark>. Si applica moltiplicando in coordinate omogenee e dividendo per la terza componente.</p></div>
+
+  <h3>6. Quando due foto sono legate da un'omografia</h3>
+  <p><b>Il problema.</b> L'omografia è una trasformazione del piano. Ma il mondo è in 3D: perché due foto vere dovrebbero essere legate da una matrice 3×3? Il visionbook (§ 41.2) mostra che succede in <mark class="sh sh-y">due casi precisi</mark> (slide 27), e solo in quelli.</p>
+
+  <h4>Caso 1: la camera ruota attorno al centro ottico</h4>
+  <p><b>L'idea.</b> Se giri la testa senza spostarla, ogni raggio che esce dal tuo occhio resta lo stesso raggio: cambia solo dove cade sul "piano immagine". Tutti i punti 3D su uno stesso raggio, vicini o lontani, finiscono nello stesso pixel in entrambe le foto. Quindi <mark class="sh sh-g">la profondità non conta</mark>.</p>
+  <p><b>La matematica.</b> Usiamo il modello di camera di <a href="#L2">L2</a> in forma matriciale: λ[x, y, 1]<sup>⊤</sup> = K[X, Y, Z]<sup>⊤</sup>. Qui [X, Y, Z] è il punto 3D nel riferimento della camera, K è la matrice 3×3 degli <b>intrinseci</b> (focale f e centro dell'immagine c<sub>x</sub>, c<sub>y</sub>: K = [[f, 0, c<sub>x</sub>], [0, f, c<sub>y</sub>], [0, 0, 1]]) e λ è la profondità, il fattore per cui si divide.</p>
+  <p>Mettiamo il riferimento del mondo sulla camera 1. La camera 2 sta nello stesso punto ma è ruotata di R (matrice di rotazione 3×3):</p>
+  <span class="f">λ<sub>1</sub>[x, y, 1]<sup>⊤</sup> = K[X, Y, Z]<sup>⊤</sup>,   λ<sub>2</sub>[x′, y′, 1]<sup>⊤</sup> = K R [X, Y, Z]<sup>⊤</sup></span>
+  <p>Dalla prima ricavi [X, Y, Z]<sup>⊤</sup> = λ<sub>1</sub>K<sup>−1</sup>[x, y, 1]<sup>⊤</sup> e lo sostituisci nella seconda:</p>
+  <span class="f"><mark class="sh sh-b">[x′, y′, 1]<sup>⊤</sup> ∝ K R K<sup>−1</sup> [x, y, 1]<sup>⊤</sup>,   H = K R K<sup>−1</sup></mark></span>
+  <p>La profondità Z è sparita: <mark class="sh sh-g">qualunque sia la scena, vicina o lontana, piatta o no, i due piani immagine sono legati da H</mark>.</p>
+  <p><b>Esempio numerico.</b> Camera 640×480 con f = 500, c<sub>x</sub> = 320, c<sub>y</sub> = 240, e una rotazione di 10° attorno all'asse verticale. Calcolando K R K<sup>−1</sup> con numpy e applicandola al centro dell'immagine (320, 240) si ottiene (408.2, 240): il centro si sposta di 500 · tan 10° ≈ 88 pixel in orizzontale, come ti aspetti girando la testa. Gli altri punti si spostano in modo un po' diverso, e per questo le foto laterali diventano trapezi.</p>
+  <figure><img src="{{IMG:disp2_krk.png}}" alt="Tre quadrilateri sovrapposti: al centro un rettangolo blu, ai lati due trapezi, rosso a sinistra e verde a destra, che si allargano verso l'esterno a forma di farfallino"><figcaption>La stessa camera dell'esempio girata di 30° a sinistra e a destra: i bordi delle foto laterali portati con H = KRK<sup>−1</sup> nel riferimento della foto centrale. Si allargano verso l'esterno, ed è da qui che vengono i bordi curvi e le fasce nere del panorama della slide 3.</figcaption></figure>
+
+  <h4>Caso 2: la scena è un piano</h4>
+  <p><b>L'idea.</b> Ora la camera può anche spostarsi, ma guarda una superficie piana: un muro, una pagina, la fila di dorsi di libri della slide 23. Un piano visto da due punti diversi si deforma come una cartolina inclinata: è un'omografia. È il principio delle app che "raddrizzano" un documento fotografato di sbieco.</p>
+  <figure><img src="{{IMG:disp2_libri.png}}" alt="Due foto della stessa fila di libri su uno scaffale, la prima frontale, la seconda presa di sbieco: i dorsi sono gli stessi ma convergono verso destra"><figcaption>Dalla slide 23. I dorsi dei libri formano quasi un piano: fra la foto frontale e quella di sbieco c'è un'omografia. I bordi dei dorsi restano dritti, ma le distanze fra loro si accorciano verso destra.</figcaption></figure>
+  <p><b>La matematica.</b> Mettiamo il riferimento del mondo sul piano, così che i suoi punti abbiano Z = 0. Il modello completo della camera è λp = K[R | t][X, Y, Z, 1]<sup>⊤</sup>, con t la traslazione. Con Z = 0 la terza colonna di R viene moltiplicata per zero e sparisce:</p>
+  <span class="f">λ[x, y, 1]<sup>⊤</sup> = K [c<sub>1</sub> c<sub>2</sub> t] [X, Y, 1]<sup>⊤</sup></span>
+  <p>dove c<sub>1</sub>, c<sub>2</sub> sono le prime due colonne di R. K[c<sub>1</sub> c<sub>2</sub> t] è una matrice 3×3: <mark class="sh sh-g">il piano del mondo e l'immagine sono legati da un'omografia</mark> H<sub>1</sub>. Con una seconda camera c'è un'altra omografia H<sub>2</sub>, e fra le due immagini la mappa è H<sub>2</sub>H<sub>1</sub><sup>−1</sup>, ancora un'omografia.</p>
+
+  <h4>Quando non vale: la parallasse</h4>
+  <p>Se la camera <b>trasla</b> e la scena <b>non è piana</b>, <mark class="sh sh-p">il modello si rompe</mark>. Spostando la camera di t, un punto a profondità Z si sposta nell'immagine di circa f·t/Z: gli oggetti vicini scorrono molto, quelli lontani poco. È la <mark class="sh sh-b">parallasse</mark>, quella che vedi dal finestrino del treno. <mark class="sh sh-p">Nessuna singola H produce spostamenti che dipendono da Z</mark>.</p>
+  <p><b>Esempio.</b> f = 500 pixel, ti sposti di t = 10 cm. Un albero a 2 m scorre di 500 · 0.1 / 2 = 25 pixel; una montagna a 2 km di 0.025 pixel. La montagna si allinea con un'omografia, l'albero no. Ruotando il telefono a mano il centro ottico si sposta di qualche centimetro: trascurabile per un paesaggio, visibile come <mark class="sh sh-p">doppie immagini ("ghosting")</mark> per oggetti vicini.</p>
+  <figure><img src="{{IMG:disp_parallasse.png}}" alt="Due schemi visti dall'alto. A sinistra una camera che ruota attorno al suo centro: un punto vicino e uno lontano sullo stesso raggio cadono nello stesso pixel in entrambe le foto. A destra la camera si sposta: gli stessi due punti cadono nello stesso pixel della foto 1 ma in due pixel diversi della foto 2"><figcaption>Visti dall'alto. A sinistra la camera ruota: i punti vicino e lontano stanno sullo stesso raggio e finiscono nello stesso pixel in tutte e due le foto. A destra la camera trasla: nella foto 2 i due punti si separano, e lo scarto dipende dalla profondità: nessuna H lo può riprodurre.</figcaption></figure>
+  <div class="box k"><b>Il punto</b><p>Due foto sono legate da un'omografia <mark class="sh sh-y">se la camera ruota senza spostarsi (H = KRK<sup>−1</sup>) oppure se la scena è un piano</mark>. Se la camera trasla davanti a una scena 3D c'è parallasse e <mark class="sh sh-p">nessuna omografia basta</mark>.</p></div>
+
+  <h3>7. Stimare H dalle corrispondenze: la DLT</h3>
+  <p><b>Il problema.</b> Abbiamo i match e sappiamo che A e B sono legate da un'omografia. Ma quanto valgono le 9 entrate di H? Le slide (28–29) trattano la DLT come una scatola nera e rimandano a una lezione futura; il libro (§ 41.3.1) la spiega già, ed è breve.</p>
+  <p><b>Quante coppie servono.</b> H ha 8 incognite. Ogni coppia (x, y) ↔ (x′, y′) dà due equazioni, una per x′ e una per y′. Quindi <mark class="sh sh-b">servono almeno 4 coppie, con nessuna terna allineata</mark> (slide 26). Con lo stesso conto: un'affine (6 gdl) richiede 3 coppie, una similitudine 2, una traslazione 1.</p>
+  <p><b>L'idea.</b> L'equazione di x′ è una frazione, quindi non è lineare nelle incognite. Il trucco della <mark class="sh sh-b">DLT (Direct Linear Transform)</mark> è moltiplicare per il denominatore: l'equazione diventa lineare, e un sistema lineare si risolve con l'algebra di base.</p>
+  <p><b>La matematica.</b> Moltiplica entrambi i lati per il denominatore e porta tutto a sinistra:</p>
+  <span class="f">x′(h<sub>31</sub>x + h<sub>32</sub>y + h<sub>33</sub>) − (h<sub>11</sub>x + h<sub>12</sub>y + h<sub>13</sub>) = 0</span>
+  <p>Questa è lineare nelle h. Mettendo le 9 entrate in un vettore h = [h<sub>11</sub>, h<sub>12</sub>, h<sub>13</sub>, h<sub>21</sub>, …, h<sub>33</sub>]<sup>⊤</sup>, ogni coppia dà due righe:</p>
+  <span class="f">[ x  y  1  0  0  0  −x′x  −x′y  −x′ ] · h = 0<br>[ 0  0  0  x  y  1  −y′x  −y′y  −y′ ] · h = 0</span>
+  <p>Impilando N coppie ottieni il sistema <mark class="sh sh-b">A h = 0, con A di dimensione 2N × 9</mark>.</p>
+  <p><b>Verifica sull'esempio.</b> Nella sezione 5 la coppia (1, 0) → (0.667, 0). Le due righe sono [1, 0, 1, 0, 0, 0, −0.667, 0, −0.667] e [0, 0, 0, 1, 0, 1, 0, 0, 0]. Con h = [1, 0, 0, 0, 1, 0, 0.5, 0, 1] la prima dà 1 − 0.667·0.5 − 0.667 = 0 e la seconda 0 + 0 = 0.</p>
+  <p><b>Risolvere.</b> h = 0 risolve sempre il sistema ma non serve. Poiché la scala è arbitraria, si cerca il vettore di <b>norma 1</b> che rende ‖Ah‖ il più piccolo possibile. La soluzione è <mark class="sh sh-b">l'ultimo vettore singolare destro della SVD di A</mark> (ultima riga di V<sup>⊤</sup>), cioè l'autovettore di A<sup>⊤</sup>A con l'autovalore minimo. Con 4 coppie esatte A ha rango 8, il nucleo è una retta e la soluzione è esatta; con più coppie rumorose il minimo non è zero e ottieni la soluzione ai minimi quadrati.</p>
+<pre>import numpy as np
+
+def apply(H, p):                       # p: (N, 2) -> (N, 2)
+    ph = np.c_[p, np.ones(len(p))] @ H.T
+    return ph[:, :2] / ph[:, 2:]       # de-omogeneizza
+
+def dlt(p, q):                         # p in A, q in B, (N, 2), N >= 4
+    A = []
+    for (x, y), (u, v) in zip(p, q):
+        A.append([x, y, 1, 0, 0, 0, -u*x, -u*y, -u])
+        A.append([0, 0, 0, x, y, 1, -v*x, -v*y, -v])
+    _, _, Vt = np.linalg.svd(np.array(A))
+    H = Vt[-1].reshape(3, 3)           # ultimo vettore singolare destro
+    return H / H[2, 2]</pre>
+  <p>Tre dettagli che il libro e le schede aggiungono:</p>
+  <ul>
+    <li>‖Ah‖ è un <mark class="sh sh-p">errore algebrico, non in pixel</mark>: la DLT è un punto di partenza da rifinire minimizzando l'errore in pixel.</li>
+    <li>In pixel la matrice A mescola 1 e x′x ≈ 10<sup>5</sup>, e la SVD diventa imprecisa: <mark class="sh sh-y">si normalizzano prima i punti</mark> (centro nell'origine, distanza media √2; Hartley, riquadro alla slide 29).</li>
+    <li>Se tre dei quattro punti sono <b>allineati</b> A ha rango 7 e <mark class="sh sh-p">le soluzioni sono infinite</mark>: configurazione degenere (slide 51).</li>
+  </ul>
+  <div class="box k"><b>Il punto</b><p>La DLT rende lineari le equazioni moltiplicando per il denominatore: due righe per coppia, A h = 0, e <mark class="sh sh-y">h è l'ultimo vettore singolare destro di A</mark>. Servono 4 coppie in posizione generale.</p></div>
+
+  <h3>8. Il guaio degli outlier</h3>
+  <p><b>Il problema.</b> Con più di 4 coppie la DLT è un problema ai <mark class="sh sh-b">minimi quadrati</mark>: minimizza la somma dei residui al quadrato, ∑<sub>i</sub> r<sub>i</sub><sup>2</sup>, dove il residuo r<sub>i</sub> misura quanto la coppia i viola il modello. Il quadrato è il guaio (slide 33): <mark class="sh sh-p">un residuo 100 pesa come diecimila residui 1</mark>. Un solo match sbagliato e lontano può trascinare la soluzione dove vuole.</p>
+  <p><b>Esempio.</b> La slide 34 lo mostra con una retta, il caso più semplice: venti punti su y ≈ 2x + 1 e un solo outlier in (14, −10). La figura qui sotto rifà l'esperimento.</p>
+  <figure><img src="{{IMG:disp2_minimi_quadrati.png}}" alt="Venti punti blu allineati su una retta in salita e una croce rossa isolata in basso a destra; la retta verde passa per i punti blu, la retta rossa tratteggiata è molto più piatta"><figcaption>Venti punti buoni e un solo outlier in (14, −10). Senza l'outlier la pendenza stimata è 1.93 (vera: 2); con l'outlier crolla a 0.67 e la retta non passa più per nessuno dei punti buoni. Nella slide 34 lo stesso esperimento dà 2.00 e 0.72.</figcaption></figure>
+  <p>E di outlier ne abbiamo sempre, anche dopo il ratio test (slide 31): strutture ripetute, occlusioni, cambi di luce o di punto di vista, sfondi disordinati. C'è anche una <mark class="sh sh-p">circolarità</mark>: per sapere quali match sono outlier servirebbe H, e per stimare bene H servirebbe sapere quali sono gli outlier.</p>
+  <div class="box k"><b>Il punto</b><p><mark class="sh sh-p">I minimi quadrati non sono robusti</mark>: anche un solo outlier lontano sposta la soluzione a piacere. Servono stimatori robusti, che limitano l'influenza dei singoli punti.</p></div>
+
+  <h3>9. RANSAC</h3>
+  <p><b>Il problema.</b> Vogliamo H da 200 match, di cui magari 80 sbagliati, senza sapere quali.</p>
+  <p><b>L'idea.</b> I minimi quadrati usano tutti i dati e sperano che gli errori si compensino. <mark class="sh sh-b">RANSAC (RANdom SAmple Consensus, Fischler e Bolles 1981)</mark> fa il contrario: costruisce tante ipotesi usando il <mark class="sh sh-y">minimo numero di dati possibile</mark>, così che almeno qualche ipotesi sia fatta di soli inlier, e poi chiede a tutti i dati di "votare". Un'ipotesi giusta raccoglie i voti di tutti gli inlier; un'ipotesi costruita con un outlier raccoglie pochi voti, <mark class="sh sh-g">perché gli outlier non sono d'accordo fra loro</mark>. È come un'elezione: vince il modello con il <mark class="sh sh-b">consenso più grande</mark>.</p>
+  <p><b>L'algoritmo</b> (slide 38). Ripeti k volte:</p>
+  <ol>
+    <li><b>campiona</b> a caso il numero minimo n di coppie che determina il modello: n = 4 per un'omografia, n = 2 per una retta;</li>
+    <li><b>stima</b> il modello dal campione (per H, la DLT con 4 coppie: soluzione esatta);</li>
+    <li><b>conta</b> gli inlier: le coppie il cui errore è sotto una soglia t;</li>
+    <li><b>tieni</b> il modello se ha più inlier del migliore trovato finora.</li>
+  </ol>
+  <p>Alla fine <mark class="sh sh-y">ristima H con la DLT su tutti gli inlier del modello migliore</mark>: il campione minimo serve a trovare chi sono gli inlier, la precisione si recupera usandoli tutti.</p>
+  <figure><img src="{{IMG:disp2_ransac_passi.png}}" alt="Quattro pannelli con gli stessi punti. Nei primi tre una retta passa per due punti rossi scelti a caso, con una fascia azzurra intorno e i punti dentro la fascia colorati: 7, 3 e 12 inlier. Nel quarto la retta verde ristimata sui 12 inlier"><figcaption>RANSAC passo passo su una retta (n = 2). Rossi i due punti campionati, azzurri gli inlier dentro la fascia di soglia. Le prime due ipotesi contengono un outlier e raccolgono pochi voti; la terza, fatta di due inlier, ne raccoglie 12. L'ultimo pannello è la ristima sui 12 inlier.</figcaption></figure>
+  <p><b>Quando un match è inlier</b> (slide 39). Si proietta p con H e si misura la distanza in pixel dal punto q che il matching aveva proposto: errore in un verso d(q, Hp), oppure simmetrico d(q, Hp)<sup>2</sup> + d(p, H<sup>−1</sup>q)<sup>2</sup>. La soglia t dipende dal rumore atteso, tipicamente 3–5 pixel (4.0 nel notebook). <mark class="sh sh-p">t troppo piccola butta via inlier veri, troppo grande accetta outlier</mark> (slide 42).</p>
+  <figure><img src="{{IMG:disp_ransac.png}}" alt="Nuvola di punti: 40 punti lungo una retta in salita e 19 punti sparsi; la retta dei minimi quadrati, tratteggiata rossa, è troppo piatta; la retta di RANSAC, blu, passa per i punti allineati dentro una fascia azzurra"><figcaption>RANSAC su una retta con molti più outlier (n = 2, soglia t = 1.5, 200 iterazioni). I minimi quadrati su tutti i punti danno pendenza 0.96 invece di 2; RANSAC con la ristima finale dà 1.98. Sei dei 19 punti sparsi cadono per caso nella fascia: sono innocui, perché sono comunque vicini alla retta giusta.</figcaption></figure>
+
+  <h4>Quante iterazioni</h4>
+  <p><b>Il problema.</b> RANSAC tira a sorte: quante volte bisogna estrarre per essere quasi sicuri di pescare almeno un campione tutto di inlier?</p>
+  <p><b>La matematica.</b> Sia <b>w</b> la frazione di inlier fra i match (per esempio 0.5) e <b>n</b> la dimensione del campione. La derivazione (slide 41, visionbook eq. 41.8) è un conto di probabilità in tre passi:</p>
+  <ul>
+    <li>un campione è tutto di inlier con probabilità w<sup>n</sup> (n estrazioni, ciascuna inlier con probabilità w; trascuriamo che si estrae senza rimpiazzo);</li>
+    <li>contiene almeno un outlier con probabilità 1 − w<sup>n</sup>;</li>
+    <li>k campioni indipendenti contengono <b>tutti</b> almeno un outlier con probabilità (1 − w<sup>n</sup>)<sup>k</sup>: è la probabilità di fallire.</li>
+  </ul>
+  <p>Vuoi che la probabilità di successo sia almeno <b>p</b> (tipicamente 0.99), cioè che il fallimento sia 1 − p. Imponi (1 − w<sup>n</sup>)<sup>k</sup> = 1 − p e prendi il logaritmo:</p>
+  <span class="f"><mark class="sh sh-b">k = log(1 − p) / log(1 − w<sup>n</sup>),   arrotondato per eccesso</mark></span>
+  <p><b>Esempio svolto.</b> Omografia (n = 4), metà dei match giusti (w = 0.5), p = 0.99. w<sup>4</sup> = 0.0625, quindi 1 − w<sup>4</sup> = 0.9375. log(0.01) = −4.605, log(0.9375) = −0.0645. k = 4.605 / 0.0645 ≈ 71.4, quindi <b>72 iterazioni</b>. Con w = 0.6 bastano 34, con w = 0.8 ne bastano 9.</p>
+  <figure><img src="{{IMG:disp_iterazioni.png}}" alt="Grafico in scala logaritmica del numero di iterazioni in funzione della frazione di inlier, per campioni di 2, 4 e 8 punti: le curve crescono rapidamente quando la frazione di inlier diminuisce, molto di più per 8 punti"><figcaption>Iterazioni necessarie per p = 0.99. Con n = 4 servono 72 iterazioni a w = 0.5 e circa 570 a w = 0.3; con n = 8 si sale a migliaia già a w = 0.5. Per questo si usa sempre il campione minimo.</figcaption></figure>
+  <p>Due osservazioni importanti:</p>
+  <ul>
+    <li><mark class="sh sh-g">k non dipende dal numero di match</mark>, solo da w, n e p.</li>
+    <li><mark class="sh sh-p">k esplode quando n cresce e w cala</mark>: il campione minimo massimizza w<sup>n</sup>.</li>
+  </ul>
+  <p>Tre errori da non copiare:</p>
+  <ul>
+    <li>La slide 41 definisce p come "la probabilità che tutti i punti siano inlier": <mark class="sh sh-p">è sbagliato</mark>, <mark class="sh sh-b">p è la confidenza di trovare almeno un campione pulito</mark> (riquadro Attenzione alla slide 41).</li>
+    <li>L'esempio numerico del libro (una retta, n = 2) usa w = 0.18 per 2 outlier su 11 punti, che è la frazione di outlier: con la definizione corretta w = 9/11 ≈ 0.82 e con p = 0.95 servono 3 iterazioni, non 91 (riquadro alla slide 41).</li>
+    <li>Il "50% di outlier" della slide 42 non è un limite di RANSAC: con n = 4 e il 70% di outlier bastano circa 570 iterazioni. Il problema è il costo, che cresce in fretta.</li>
+  </ul>
+  <p>RANSAC in numpy, usando le funzioni della sezione 7:</p>
+<pre>rng = np.random.default_rng(0)
+
+def ransac_h(p, q, t=3.0, k=1000):
+    best = np.zeros(len(p), bool)
+    for _ in range(k):
+        idx = rng.choice(len(p), 4, replace=False)       # campione minimo
+        H = dlt(p[idx], q[idx])
+        err = np.linalg.norm(apply(H, p) - q, axis=1)     # errore in un verso, pixel
+        inl = err &lt; t
+        if inl.sum() &gt; best.sum():
+            best = inl
+    return dlt(p[best], q[best]), best                    # ristima su tutti gli inlier</pre>
+  <p>Provato su 200 match sintetici con il 40% di outlier: H ritrovata a meno di qualche per cento. In pratica si scartano anche i campioni degeneri e si aggiorna k ricalcolando w quando si trova un modello migliore.</p>
+  <div class="box k"><b>Il punto</b><p>RANSAC: <mark class="sh sh-y">campione minimo, modello, conta gli inlier entro t, ripeti, tieni il migliore e ristima su tutti i suoi inlier</mark>. Il numero di iterazioni k = log(1 − p)/log(1 − w<sup>n</sup>) dipende solo da w, n e p: 72 per n = 4, w = 0.5, p = 0.99.</p></div>
+
+  <h3>10. Matching appreso, in breve</h3>
+  <p><b>Il problema.</b> Nel matching classico <mark class="sh sh-p">ogni descrittore è confrontato da solo</mark>, senza guardare i vicini (slide 44). Fallisce con cambi di vista estremi (oltre circa 60°), zone con poca texture, pattern ripetitivi, immagini buie e rumorose.</p>
+  <p><b>L'idea.</b> Un umano non accoppia un punto alla volta: guarda anche il contesto ("questo spigolo sta sotto quella finestra"). Le reti neurali di matching fanno lo stesso con l'<b>attenzione</b>, il meccanismo dei transformer.</p>
+  <ul>
+    <li><mark class="sh sh-b">SuperGlue</mark> (2020, slide 45) tratta il matching come un <b>problema di assegnamento su un grafo</b>: i keypoint delle due immagini sono i nodi. La <mark class="sh sh-b">self-attention</mark> raffina ogni descrittore guardando gli altri keypoint della stessa immagine; la <mark class="sh sh-b">cross-attention</mark> guarda quelli dell'altra. <mark class="sh sh-g">Un punto può restare senza partner</mark>, quindi le occlusioni sono gestite.</li>
+    <li><mark class="sh sh-b">LightGlue</mark> (2023, slide 46) riprogetta SuperGlue per la <mark class="sh sh-g">velocità</mark>: si ferma prima sulle coppie facili e scarta durante il calcolo i keypoint poco promettenti. Secondo la slide è 2–10 volte più veloce con accuratezza simile.</li>
+  </ul>
+  <figure><img src="{{IMG:disp2_superglue.png}}" alt="Schema di SuperGlue: una CNN estrae punti rossi e blu dalle due immagini, una rete a grafo li collega, a destra le linee verdi dei match finali"><figcaption>Dalla slide 45 (figura dell'articolo di SuperGlue). A sinistra un detector e descrittore qualsiasi; al centro la rete a grafo con attenzione che fa "parlare" i keypoint delle due immagini; a destra i match, con alcuni punti lasciati senza partner (crocette).</figcaption></figure>
+  <p>Vantaggi: sono addestrati su moltissime coppie di immagini e usano il contesto. Ma <mark class="sh sh-y">non sostituiscono RANSAC</mark>: i loro match passano comunque dalla stima robusta.</p>
+  <div class="box k"><b>Il punto</b><p>SuperGlue e LightGlue accoppiano i keypoint <mark class="sh sh-g">usando il contesto</mark> tramite self- e cross-attention, e reggono casi in cui il ratio test fallisce. Il resto della pipeline (RANSAC, warp) non cambia.</p></div>
+
+  <h3>11. Dalla H al panorama: warping e blending</h3>
+  <p><b>Il problema.</b> Ora hai H. Resta da costruire l'immagine (slide 49): deformare B nel riferimento di A e incollarle senza che si veda la giunta.</p>
+
+  <h4>Warping all'indietro</h4>
+  <p><b>L'idea sbagliata.</b> Prendere ogni pixel di B e mandarlo nel riferimento di A (<mark class="sh sh-b">forward mapping</mark>). <mark class="sh sh-p">Lascia buchi</mark>: le posizioni d'arrivo non sono intere e, dove l'immagine si allarga, alcuni pixel non li raggiunge nessuno.</p>
+  <p><b>L'idea giusta</b> (visionbook § 38.5): il <mark class="sh sh-b">backward mapping</mark>. Per ogni pixel dell'immagine di uscita ti chiedi "da quale punto di B arriva?", applichi la mappa dall'uscita a B, e leggi B in quel punto con l'<b>interpolazione bilineare</b> di <a href="#L6">L6</a>. <mark class="sh sh-g">Ogni pixel di uscita riceve un valore, niente buchi</mark>.</p>
+  <p><b>Esempio.</b> Ingrandisci una riga di 100 pixel a 200. Col forward mapping il pixel 3 va in 6, il 4 in 8: il pixel di uscita 7 non lo riempie nessuno, e così metà dell'uscita. Col backward mapping il pixel di uscita 7 si chiede da dove viene: da 3.5, e prende la media dei pixel 3 e 4.</p>
+  <figure><img src="{{IMG:disp_warping.png}}" alt="Una scacchiera blu e bianca ingrandita con un'omografia in due modi: a sinistra con il forward mapping, piena di righe rosse di pixel mai raggiunti; a destra con il backward mapping, completa e con bordi leggermente sfumati"><figcaption>Una scacchiera 40×40 ingrandita di circa 1.35 volte da un'omografia. A sinistra il forward mapping: in rosso i pixel d'uscita che nessun pixel di B raggiunge (circa il 38%). A destra il backward mapping con interpolazione bilineare: nessun buco, e i bordi delle caselle sfumano dove si interpola.</figcaption></figure>
+  <p><b>Attenzione al verso.</b> Il warping all'indietro usa la mappa <mark class="sh sh-y">dall'uscita all'ingresso</mark>. Se H va da A a B (come nella lezione: errore d(q, Hp) con p in A) e l'uscita è nel riferimento di A, si campiona B in H(x′, y′), <mark class="sh sh-p">non in H<sup>−1</sup>(x′, y′) come scrive la slide 49</mark> (riquadro Attenzione alla slide 49). Si usa H<sup>−1</sup> solo se H è stata stimata da B ad A.</p>
+
+  <h4>Più di due immagini</h4>
+  <p>(visionbook § 41.3.3) Si stima H fra ogni coppia di foto vicine, si sceglie come riferimento la foto <mark class="sh sh-y">centrale</mark> e si portano le altre nel suo riferimento componendo le omografie: H<sub>1→3</sub> = H<sub>2→3</sub>H<sub>1→2</sub>. La figura della sezione 6 mostra perché la centrale: le foto laterali si allargano tanto più quanto sono lontane dal riferimento. Per panorami molto larghi <mark class="sh sh-p">il piano non basta (l'omografia esplode verso i 90°)</mark> e si proietta su un cilindro o una sfera (Szeliski cap. 8).</p>
+
+  <h4>Blending</h4>
+  <p><b>Il problema.</b> Anche con un allineamento perfetto <mark class="sh sh-p">la giunzione si vede</mark>: esposizioni diverse, vignettatura (bordi più scuri), oggetti che si muovono fra uno scatto e l'altro.</p>
+  <p><b>Le soluzioni:</b></p>
+  <ul>
+    <li><mark class="sh sh-b">feathering</mark>: una media pesata in cui il peso di ogni immagine cala verso i suoi bordi;</li>
+    <li>scelta di una <b>cucitura</b> (seam) che passi dove le immagini si somigliano, evitando per esempio una persona in movimento;</li>
+    <li><mark class="sh sh-b">blending multi-banda</mark> con la piramide laplaciana di <a href="#L6">L6</a>: <mark class="sh sh-g">fonde le basse frequenze su una fascia larga (niente salti di colore) e le alte su una fascia stretta (niente doppi contorni)</mark>.</li>
+  </ul>
+  <p><b>Esempio.</b> A copre x da 0 a 60 con luminosità 0.45, B copre x da 40 a 100 con 0.70. Al centro della sovrapposizione, x = 50, i pesi sono 0.5 e 0.5: il panorama vale 0.5 · 0.45 + 0.5 · 0.70 = 0.575. A x = 45 il peso di A è 0.75: 0.75 · 0.45 + 0.25 · 0.70 = 0.51. Il gradino diventa una rampa.</p>
+  <figure><img src="{{IMG:disp_blending.png}}" alt="A sinistra due pesi lineari che si incrociano nella zona di sovrapposizione fra x = 40 e x = 60; a destra la luminosità del panorama: un gradino a x = 50 con il taglio netto, una rampa fra 40 e 60 con il feathering"><figcaption>Feathering in una dimensione, con i numeri dell'esempio. Nella sovrapposizione il peso di A scende da 1 a 0 e quello di B sale (a sinistra): il gradino del taglio netto diventa una rampa (a destra). Il multi-banda fa lo stesso con una rampa diversa per ogni livello della piramide.</figcaption></figure>
+  <p>Tutta la pipeline in OpenCV sta in poche righe (A e B immagini in scala di grigi, panorama nel riferimento di A):</p>
+<pre>import cv2, numpy as np
+sift = cv2.SIFT_create()
+kA, dA = sift.detectAndCompute(A, None)
+kB, dB = sift.detectAndCompute(B, None)
+knn = cv2.BFMatcher(cv2.NORM_L2).knnMatch(dA, dB, k=2)
+good = [m for m, n in knn if m.distance &lt; 0.75 * n.distance]     # ratio test
+pA = np.float32([kA[m.queryIdx].pt for m in good])
+pB = np.float32([kB[m.trainIdx].pt for m in good])
+H_BA, inl = cv2.findHomography(pB, pA, cv2.RANSAC, 4.0)           # da B ad A
+W = cv2.warpPerspective(B, H_BA, (2 * A.shape[1], A.shape[0]))    # warping all'indietro
+W[:, :A.shape[1]] = A                                             # composizione grezza, senza blending</pre>
+  <p>H è stimata da B ad A e <code>warpPerspective</code> la inverte internamente. L'ultima riga va sostituita con il blending di L6. Se le ipotesi non valgono si cambia modello (slide 51): affine per i documenti scansionati, geometria epipolare per camere che traslano in scene 3D.</p>
+  <div class="box k"><b>Il punto</b><p>Si deforma con il <mark class="sh sh-y">warping all'indietro: per ogni pixel di uscita si va a leggere l'ingresso con la mappa uscita → ingresso e si interpola</mark>. Poi si fondono le immagini con feathering o multi-banda per nascondere la giunta.</p></div>
+
+  <h3>Il riassunto in 10 righe</h3>
+  <ol>
+    <li>Un panorama si costruisce con detect → describe → match → RANSAC + DLT → warp → blend.</li>
+    <li>Il matching accoppia i descrittori con il nearest neighbor (euclidea per SIFT, Hamming per descrittori binari), che però risponde sempre, anche quando il partner non c'è.</li>
+    <li>Il ratio test tiene un match solo se il primo vicino è nettamente più vicino del secondo (rapporto &lt; 0.7–0.8; τ regola precision e recall); il mutual NN controlla i due versi.</li>
+    <li>In coordinate omogenee (x, y) → [x, y, 1] e i multipli sono lo stesso punto: traslazioni e prospettiva diventano matrici 3×3.</li>
+    <li>L'omografia è una 3×3 a meno di scala, 8 gdl, conserva solo le rette; si applica moltiplicando e dividendo per la terza componente.</li>
+    <li>Due foto sono legate da un'omografia se la camera ruota attorno al centro ottico (H = KRK<sup>−1</sup>) o se la scena è un piano; con traslazione e scena 3D c'è parallasse.</li>
+    <li>La DLT rende lineari le equazioni: due righe per coppia, A h = 0, h = ultimo vettore singolare destro; servono 4 coppie, nessuna terna allineata.</li>
+    <li>I minimi quadrati non reggono gli outlier: un solo punto lontano sposta la soluzione a piacere.</li>
+    <li>RANSAC: campione minimo, modello, conta gli inlier entro t, ripeti, tieni il migliore e ristima; k = log(1 − p)/log(1 − w<sup>n</sup>), 72 per n = 4, w = 0.5, p = 0.99.</li>
+    <li>Il panorama si compone con il warping all'indietro (mappa dall'uscita all'ingresso, interpolazione bilineare) e un blending, per esempio multi-banda (L6).</li>
+  </ol>
+
+  <h3>Verifica di aver capito</h3>
+  <div class="qa">
+    <details><summary>Un descrittore ha primo vicino a distanza 0.42 e secondo a 0.47. Lo accetti con τ = 0.75? Cosa può essere successo?</summary><p>Rapporto 0.42/0.47 ≈ 0.89 &gt; 0.75: scartato. Due candidati quasi equivalenti: occlusione o struttura ripetuta.</p></details>
+    <details><summary>Applica H = [[2, 0, 1], [0, 2, 0], [0, 0.1, 1]] al punto (3, 4).</summary><p>[3, 4, 1] → H·[3, 4, 1]<sup>⊤</sup> = [2·3 + 1, 2·4, 0.1·4 + 1] = [7, 8, 1.4]. Dividendo per 1.4: (5, 5.71). Senza la divisione avresti ottenuto (7, 8), sbagliato.</p></details>
+    <details><summary>Perché H ha 8 gradi di libertà e perché servono 4 corrispondenze?</summary><p>Ha 9 entrate, ma H e λH danno la stessa mappa perché λ si semplifica nella divisione: 9 − 1 = 8. Ogni coppia dà 2 equazioni (per x′ e per y′), quindi 8/2 = 4 coppie, con nessuna terna allineata, altrimenti il sistema ha infinite soluzioni.</p></details>
+    <details><summary>Scatti due foto spostandoti di un metro di lato davanti a un cortile con alberi vicini e montagne sullo sfondo. Puoi cucirle con un'omografia?</summary><p>No, non esattamente: la camera trasla e la scena non è piana, quindi c'è parallasse. Le montagne (f·t/Z ≈ 0) si allineano quasi perfettamente, gli alberi daranno doppie immagini.</p></details>
+    <details><summary>Hai 1000 match con il 30% di outlier. Quante iterazioni di RANSAC servono per stimare un'omografia con confidenza 0.99? E se i match fossero 100?</summary><p>w = 0.7, n = 4: w<sup>4</sup> = 0.2401, k = log(0.01)/log(0.7599) = −4.605/−0.2746 ≈ 16.8, quindi 17. Con 100 match è lo stesso: k dipende solo da w, n e p, non dal numero di punti.</p></details>
+    <details><summary>Perché RANSAC per un'omografia campiona 4 coppie e non, per esempio, 8?</summary><p>Perché la probabilità che il campione sia tutto di inlier è w<sup>n</sup>: con w = 0.5 vale 0.0625 per n = 4 e 0.0039 per n = 8, e le iterazioni passano da 72 a circa 1200. Il campione minimo massimizza la probabilità di pescarne uno pulito; la precisione si recupera dopo, ristimando su tutti gli inlier.</p></details>
+    <details><summary>Nel warping all'indietro, quale mappa usi e perché non il forward mapping?</summary><p>Per ogni pixel dell'uscita serve la mappa dall'uscita all'immagine di ingresso, poi si interpola l'ingresso in quel punto (bilineare). Il forward mapping manda i pixel di ingresso in posizioni non intere e lascia buchi dove l'immagine si allarga. Se H va dall'immagine da deformare al riferimento dell'uscita si usa H<sup>−1</sup>, altrimenti H.</p></details>
+  </div>
+
+  <h3>Come proseguire</h3>
+  <ul>
+    <li>Visionbook, cap. 41 <a href="https://visionbook.mit.edu/homography.html" target="_blank">Homographies</a>: tutto, è breve (derivazioni del § 41.2, DLT, RANSAC, stitching). Occhio al refuso w = 0.18 nell'esempio di RANSAC.</li>
+    <li>Visionbook, cap. 38 <a href="https://visionbook.mit.edu/homogeneous_coordinates.html" target="_blank">Representing Images and Geometry</a>: § 38.2–38.5 (coordinate omogenee, gerarchia delle trasformazioni, rette, warping).</li>
+    <li>Szeliski, <i>Computer Vision: Algorithms and Applications</i>, 2a ed. (<a href="https://szeliski.org/Book/" target="_blank">szeliski.org/Book</a>): cap. 7, paragrafo Feature matching (ratio test, chiamato NNDR); cap. 8 Image alignment and stitching, paragrafi Pairwise alignment (minimi quadrati robusti e RANSAC), Image stitching (panorami rotazionali, proiezioni cilindriche) e Compositing (feathering, cuciture, blending).</li>
+    <li>Lowe 2004, § 7.1, per la motivazione del ratio test.</li>
+  </ul>
+  <p>Ora ripassa con le schede qui sotto, slide per slide: i riquadri «Dal libro» riprendono le derivazioni, i riquadri Attenzione correggono le slide 22, 32, 41 e 49.</p>
+</div>

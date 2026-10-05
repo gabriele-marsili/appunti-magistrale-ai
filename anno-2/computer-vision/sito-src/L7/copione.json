@@ -1,0 +1,473 @@
+{
+ "L": "L7",
+ "segs": [
+  {
+   "a": "In una frase: un'immagine è una somma di",
+   "t": "Partiamo da un problema concreto. Hai una foto scansionata da una rivista, coperta di righe regolari, e vuoi toglierle senza rovinare il volto. Oppure vuoi capire se una piccola immagine mostra una camicia o un cappotto. Alla fine della lezione saprai fare entrambe le cose, e capirai perché la seconda porta dritta alle reti neurali convoluzionali."
+  },
+  {
+   "a": "In una frase: un'immagine è una somma di",
+   "t": "Il filo è questo. Un'immagine è una somma di onde, e guardando quali onde contiene, cioè il suo spettro, puoi sfocarla, ripulirla e comprimerla con una moltiplicazione. Però Fourier dice cosa c'è, non dove. Per riconoscere oggetti servono filtri piccoli, una non linearità e un pooling: è uno strato di CNN, cioè rete neurale convoluzionale, con i filtri scelti a mano."
+  },
+  {
+   "a": "Prima di iniziare",
+   "t": "Questa è una lezione di laboratorio: niente slide, ma due notebook. Il primo, demo, applica Fourier alle immagini. Il secondo, filter bank, cioè banco di filtri, classifica foto di vestiti. Ti servono il teorema di convoluzione della lezione 3, la FFT, cioè trasformata di Fourier veloce, della lezione 4, i filtri gaussiani e Sobel della 5, l'aliasing della 6, e le basi di training, validazione e test."
+  },
+  {
+   "a": "Guarda prima questi video",
+   "t": "Qui trovi alcuni video. Sono un complemento, non un obbligo: puoi guardarli prima per farti un'idea, oppure dopo per ripassare. Quelli di Shree Nayar coprono la prima metà, quello di Stanford sulle reti convoluzionali chiude il cerchio con l'ultima sezione."
+  },
+  {
+   "a": "1 · Un'immagine è una somma di onde",
+   "t": "Sezione 1: un'immagine è una somma di onde. Pensa a cosa vuoi fare a una foto: sfocarla vuol dire togliere le variazioni rapide, estrarre i dettagli vuol dire tenere solo quelle. Nello spazio dei pixel sono convoluzioni, spesso con kernel, cioè maschere di pesi, grandi. Nello spazio delle frequenze diventano una semplice moltiplicazione."
+  },
+  {
+   "a": "L'idea. Un' onda 2D è un'immagine a stri",
+   "t": "Cos'è un'onda 2D? Immagina una tenda a strisce: un coseno che varia lungo una direzione ed è costante lungo quella perpendicolare. Ha una frequenza, cioè quanto sono fitte le strisce, e un'orientazione. Fourier dice che ogni immagine di H righe e W colonne è la somma di H per W onde così, ognuna con la sua ampiezza e il suo sfasamento. Lo spettro è la ricetta."
+  },
+  {
+   "a": "Sopra quattro onde 64 × 64; sotto il lor",
+   "t": "Guarda la figura: in alto quattro onde, sotto il loro spettro, con la frequenza zero al centro. Strisce verticali larghe: due puntini cerchiati sull'asse orizzontale, a più e meno 4. Strisce verticali più fitte: i punti si allontanano, a più e meno 12. Strisce orizzontali: i punti finiscono sull'asse verticale. Strisce oblique che scendono verso destra: i punti stanno sull'altra diagonale."
+  },
+  {
+   "a": "Sopra quattro onde 64 × 64; sotto il lor",
+   "t": "La regola che ne esce: ogni onda accende due punti simmetrici rispetto al centro, la distanza dal centro è la frequenza, e la direzione dei punti è perpendicolare alle strisce. Strisce verticali, che variano lungo x, danno punti sull'asse orizzontale."
+  },
+  {
+   "a": "F[v, u] = ∑ y=0 H−1 ∑ x=0 W−1 f[y, x] · ",
+   "t": "Ora la formula che vedi, la DFT 2D, cioè la trasformata discreta di Fourier. A parole: il coefficiente F di v, u è la somma, su tutti i pixel, del pixel f di y, x moltiplicato per un esponenziale complesso, con esponente meno 2 pi greco j per u x su W più v y su H."
+  },
+  {
+   "a": "f[y, x] : il pixel in riga y e colonna x",
+   "t": "u e v sono interi: quanti periodi compie l'onda in orizzontale e in verticale. Divisi per larghezza e altezza danno la frequenza in cicli per pixel, fra meno zero virgola cinque e zero virgola cinque. L'esponenziale, per Eulero, è un coseno e un seno insieme. E la somma è un prodotto scalare: misura quanto l'immagine somiglia a quell'onda."
+  },
+  {
+   "a": "f[y, x] : il pixel in riga y e colonna x",
+   "t": "Il risultato è un numero complesso. Il suo modulo dice quanto pesa l'onda, la sua fase dice dove stanno le creste. Tieni a mente questa divisione, perché tornerà nella sezione 3."
+  },
+  {
+   "a": "Componente continua (DC). Con u = v = 0 ",
+   "t": "L'inversa è la stessa somma con il segno più e un fattore uno su H per W, e ridà l'immagine con errore dieci alla meno sedici. Due conseguenze. Con u e v nulli l'esponenziale vale 1, quindi F di zero, zero è la somma dei pixel: è la componente continua, o DC, e divisa per il numero di pixel dà la media."
+  },
+  {
+   "a": "Componente continua (DC). Con u = v = 0 ",
+   "t": "E poi Parseval: l'energia si conserva. La somma dei quadrati dei pixel è uguale, a meno del fattore uno su H per W, alla somma dei moduli al quadrato dei coefficienti. Quindi ha senso chiedersi quanta energia sta in certe frequenze, e servirà per comprimere."
+  },
+  {
+   "a": "Esempio svolto. Un'immagine 256 × 256 co",
+   "t": "Esempio. Un'immagine 256 per 256 con un coseno obliquo, u uguale a 12 e v uguale a 8. Per Eulero il coseno è metà di un esponenziale più metà dell'esponenziale opposto: due sole onde complesse, in 12, 8 e in meno 12, meno 8. Gli esponenziali sono ortogonali, quindi ognuno accende solo il proprio coefficiente, con valore metà di 65536, cioè 32768. Tutti gli altri valgono zero."
+  },
+  {
+   "a": "Il punto La DFT riscrive l'immagine come",
+   "t": "Da portare a casa: la DFT riscrive l'immagine come somma di onde. Ogni coefficiente è una frequenza, con un modulo che dice quanto pesa e una fase che dice dove sta. Un coseno puro sono due punti simmetrici."
+  },
+  {
+   "a": "2 · Leggere lo spettro di una foto",
+   "t": "Sezione 2: leggere lo spettro di una foto. Calcoli fft2 del cameraman, lo disegni, e vedi quattro macchie negli angoli e una croce. Cosa stai guardando? Si confondono due cose: l'ordine in cui numpy salva le frequenze, e il fatto che la DFT vede l'immagine come una piastrella ripetuta all'infinito."
+  },
+  {
+   "a": "Dove sono le frequenze nell'array. fft2 ",
+   "t": "L'ordine prima. lungo ogni asse fft2 mette prima la DC, poi le frequenze positive, e dalla metà in poi quelle negative. Per esempio fftfreq di 10 sale da zero a zero virgola quattro, poi salta a meno zero virgola cinque e risale. Quindi le basse frequenze stanno nei quattro angoli. Regola pratica: fftshift serve solo per guardare, le maschere si costruiscono sulle griglie di fftfreq, già nell'ordine giusto."
+  },
+  {
+   "a": "A sinistra l'array di  fft2 : le basse f",
+   "t": "Guarda la figura. A sinistra l'array come esce da fft2: le zone luminose, le basse frequenze, sono spezzate nei quattro angoli cerchiati in azzurro. A destra, dopo fftshift, si ricompongono in una macchia al centro. E nota la croce sottile lungo gli assi: la freccia bianca dice che viene dai bordi non periodici."
+  },
+  {
+   "a": "Leakage e croce. Se la frequenza non è i",
+   "t": "Ecco il secondo ingrediente, il leakage, cioè la dispersione dello spettro. Se la frequenza non è intera, per esempio dodici virgola cinque, l'onda non chiude un numero intero di periodi, e la piastrella ripetuta ha un salto al bordo. L'energia si spalma: 256 coefficienti sopra l'uno per cento del massimo invece di 2. La croce del cameraman ha la stessa origine: i bordi opposti non combaciano, e quei salti sono bordi finti."
+  },
+  {
+   "a": "Al centro i due soli coefficienti accesi",
+   "t": "Nella figura, al centro lo spettro dell'onda 12, 8: due soli puntini, in alto a sinistra e in basso a destra, con modulo 32768. A destra la stessa onda con u uguale a dodici virgola cinque: i due punti diventano due righe orizzontali luminose, a v uguale a più e meno 8."
+  },
+  {
+   "a": "La forma tipica. Per le foto lo spettro ",
+   "t": "Ultima osservazione, importantissima. Per le foto lo spettro ha sempre la stessa forma: massimo al centro e decadimento con la distanza. Le basse frequenze contengono quasi tutta l'energia. Questo fatto da solo spiega perché funzionano sia il passa-basso sia la compressione."
+  },
+  {
+   "a": "Il punto In fft2 la DC è nell'angolo e l",
+   "t": "Da portare a casa: in fft2 la DC è nell'angolo, fftshift serve solo per disegnare, e la croce sugli assi viene dai bordi non periodici, non dalla foto."
+  },
+  {
+   "a": "3 · Modulo e fase: dove sta la posizione",
+   "t": "Sezione 3: modulo e fase. Se sposto il soggetto della foto, cosa cambia nello spettro? Pensa a un'auto a guida autonoma che vede lo stesso pedone un metro più in là. Spostare l'immagine sposta ogni onda, e spostare un coseno non lo rende più alto, cambia solo dove cadono le creste. Quindi il modulo dice quali strutture ci sono, la fase dice dove sono."
+  },
+  {
+   "a": "Con  np.roll  di (10, 15) pixel il modul",
+   "t": "Guarda la figura. In alto il cameraman, il modulo del suo spettro e la fase, che sembra rumore. In basso la stessa foto spostata con roll di 10 righe e 15 colonne: il pezzo uscito a destra rientra a sinistra. Il modulo, al centro, è identico. In basso a destra la differenza di fase, vista da vicino: strisce oblique regolari, una rampa lineare che si riavvolge ogni 2 pi greco."
+  },
+  {
+   "a": "f[y − d y , x − d x ] ⟷ F[v, u] · e −2πj",
+   "t": "È il teorema di traslazione, nella formula che vedi: spostare l'immagine di d y righe e d x colonne moltiplica ogni coefficiente per un esponenziale di modulo 1. Il modulo non cambia, la fase diminuisce di 2 pi greco per f x d x più f y d y, lineare nella frequenza. Ecco la rampa."
+  },
+  {
+   "a": "Esempio svolto. Sposto di d x = 1 pixel ",
+   "t": "Facciamo i conti. Sposto di un pixel in orizzontale. L'onda con u uguale a 64, su 256, ha periodo 4 pixel: un pixel è un quarto di periodo, quindi la fase ruota di pi greco mezzi. L'onda con u uguale a 1 ha periodo 256 pixel e ruota pochissimo. Lo stesso spostamento pesa poco sulle onde lente e molto su quelle rapide."
+  },
+  {
+   "a": "Fig. 16.14 rifatta con il cameraman (A) ",
+   "t": "Quanto conta la fase? Nella figura il cameraman è A, l'astronauta è B. In basso a sinistra, con modulo di A e fase di B, vedi l'astronauta con il casco e la bandiera; in basso a destra, modulo di B e fase di A: vedi il cameraman con il treppiede. Riconosci sempre l'immagine che ha dato la fase. La struttura, cioè dove stanno i bordi, sta nella fase."
+  },
+  {
+   "a": "Attenzione: vale solo per lo shift circo",
+   "t": "Attenzione a una trappola: lo shift cambia solo la fase è esatto per lo spostamento circolare di roll. Se la camera si sposta davvero, entrano pixel nuovi ed escono quelli vecchi, e il modulo cambia, del 22 per cento nell'esempio verificato."
+  },
+  {
+   "a": "Il punto Una traslazione moltiplica lo s",
+   "t": "Da portare a casa: una traslazione moltiplica lo spettro per una rampa di fase e lascia il modulo invariato. La posizione delle cose sta nella fase."
+  },
+  {
+   "a": "4 · Filtrare = moltiplicare, e il proble",
+   "t": "Sezione 4: filtrare vuol dire moltiplicare. Dalla lezione 3, convolvere nello spazio equivale a moltiplicare le trasformate. Quindi un filtro si progetta come una maschera in frequenza: 1 tiene la frequenza intatta, 0 la elimina. Il filtraggio è una riga: trasformi, moltiplichi, antitrasformi e prendi la parte reale."
+  },
+  {
+   "a": "Il prezzo. Il teorema vale per la convol",
+   "t": "Il prezzo è che il teorema vale per la convoluzione circolare. La DFT tratta l'immagine come una piastrella, quindi a sinistra del bordo sinistro c'è il bordo destro. Nello spazio questa scelta si chiama wrap, estensione periodica, e ce ne sono altre due."
+  },
+  {
+   "a": "Lo stesso segnale (blu) esteso in tre mo",
+   "t": "Guarda la figura. Il segnale blu sono 4 campioni bianchi e 4 neri, sfocati con una media su 5. In alto, con gli zeri fuori, la curva rossa parte da zero virgola sei: il bianco si scurisce. Al centro, periodica, a destra ricompare in grigio il bianco dell'altro lato, e la curva arancione risale a zero virgola quattro. In basso, a specchio, la curva verde parte da 1 e finisce a 0: bordi puliti."
+  },
+  {
+   "a": "Esempio svolto (scheda 6). Il notebook s",
+   "t": "Il notebook sfoca un quadrato metà bianco e metà nero con una gaussiana di sigma 3. L'angolo bianco dovrebbe restare vicino a 1: vale zero virgola tre due con fill, zero virgola cinque sei con wrap, zero virgola nove nove con symm. Con la FFT, quindi, vedrai fasce sbagliate ai bordi; il rimedio è il padding, un margine aggiunto prima e ritagliato dopo."
+  },
+  {
+   "a": "Il punto Un filtro lineare in frequenza ",
+   "t": "Da portare a casa: un filtro lineare in frequenza è una maschera moltiplicata per lo spettro, ma la FFT fa sempre convoluzione circolare, e i bordi opposti si mescolano."
+  },
+  {
+   "a": "5 · Passa-basso ideale contro gaussiano:",
+   "t": "Sezione 5: il ringing, cioè gli aloni attorno ai bordi. Vuoi sfocare tenendo le basse frequenze. L'idea ovvia è tagliare netto: tieni tutto sotto una soglia e butta il resto. Non funziona: un taglio netto in frequenza crea onde nello spazio. Un taglio morbido, gaussiano, sfoca senza artefatti."
+  },
+  {
+   "a": "M(f) = exp(−2π 2 σ 2 |f| 2 ), |f| = √(f ",
+   "t": "La maschera ideale vale 1 dentro un disco di raggio zero virgola zero otto cicli per pixel e 0 fuori. Quella gaussiana, nella formula che vedi, è l'esponenziale di meno 2 pi greco al quadrato per sigma al quadrato per il modulo della frequenza al quadrato. È proprio la trasformata di un blur gaussiano di deviazione standard sigma."
+  },
+  {
+   "a": "dove σ (in pixel) è la deviazione standa",
+   "t": "In frequenza la sua larghezza è uno su 2 pi greco sigma: con sigma uguale a 2 viene circa zero virgola zero otto, come il disco. Stessa larghezza, forma diversa: il confronto è equo. Regola da ricordare: largo nello spazio vuol dire stretto in frequenza."
+  },
+  {
+   "a": "Entrambi sfocano, ma l'ideale riempie l'",
+   "t": "Guarda la figura. Il passa-basso ideale, in alto al centro, riempie la foto di aloni paralleli ai contorni, come increspature attorno a un sasso nell'acqua. Il gaussiano, a destra, no. In basso al centro la loro differenza: solo onde rosse e blu. In basso a destra il profilo della riga arancio: la curva rossa dell'ideale oscilla, la blu del gaussiano è liscia."
+  },
+  {
+   "a": "Perché succede. Il filtro nello spazio è",
+   "t": "Perché succede? Il filtro nello spazio è la trasformata inversa della maschera. Un rettangolo in frequenza diventa una sinc, cioè seno di x diviso x: un kernel esteso con lobi negativi. Con pesi negativi non è più una media pesata: vicino a un bordo sottrae i pixel dell'altro lato e crea onde. È il fenomeno di Gibbs, mentre la gaussiana ha trasformata gaussiana, positiva ovunque, quindi l'uscita resta fra i valori di partenza."
+  },
+  {
+   "a": "In 1D: la maschera ideale (sopra) è un k",
+   "t": "La figura in una dimensione è chiarissima. In alto, in rosso: maschera rettangolare, kernel con lobi sotto lo zero, e la risposta al gradino oscilla da meno zero virgola zero nove a uno virgola zero nove, un overshoot, cioè uno sforamento, del 9 per cento. In basso, in blu: tutto gaussiano e positivo, e il gradino sale monotono da 0 a 1."
+  },
+  {
+   "a": "Il passa-alto. Con la maschera complemen",
+   "t": "Il passa-alto si ottiene con la maschera complementare, uno meno la maschera: è l'immagine meno la sua versione sfocata, quella in basso a sinistra nella figura del cameraman. Ha media zero e contiene contorni, texture e rumore insieme: un filtro lineare non sa separarli, perché occupano le stesse frequenze. È lo stesso passo della piramide laplaciana."
+  },
+  {
+   "a": "Il punto Taglio netto in frequenza = ker",
+   "t": "Da portare a casa: taglio netto in frequenza vuol dire kernel con lobi negativi, quindi ringing con overshoot del 9 per cento. La gaussiana sfoca senza artefatti perché resta una media pesata positiva."
+  },
+  {
+   "a": "6 · Togliere un disturbo periodico: il f",
+   "t": "Sezione 6: il filtro notch, cioè a tacca. Una foto scansionata da una rivista è coperta di righe regolari. Sfocarla toglie le righe ma rovina la foto. L'idea: un disturbo periodico è un'onda, nello spazio è ovunque, ma nello spettro sono due soli punti, di solito lontani dal centro dove sta l'energia della foto. Basta spegnerli."
+  },
+  {
+   "a": "Il notebook (schede 10–11) aggiunge al c",
+   "t": "Il notebook aggiunge al cameraman un'onda di ampiezza zero virgola due, con frequenze 37 e 21. Il notch è una maschera che vale 1 ovunque tranne due piccoli buchi gaussiani centrati sui picchi."
+  },
+  {
+   "a": "A sinistra lo spettro corrotto: il distu",
+   "t": "Guarda la figura: a sinistra lo spettro corrotto: oltre alla macchia centrale, due puntini isolati cerchiati in azzurro. Sono il disturbo. A destra le maschere lungo la retta dei picchi. La verde, il notch, vale 1 ovunque e scende a zero solo sulle linee rosse tratteggiate. La blu, il passa-basso con sigma 2, lì vale ancora zero virgola uno uno: lascia l'11 per cento del disturbo e intanto attenua le frequenze medie della foto."
+  },
+  {
+   "a": "Immagine corrotta: l'errore è la potenza",
+   "t": "Gli errori quadratici medi, in inglese MSE. La foto corrotta ha errore zero virgola zero due, cioè ampiezza al quadrato mezzi, perché la media del coseno al quadrato è un mezzo. Il notch scende a un milionesimo. Il passa-basso si ferma a circa zero virgola zero zero cinque: lascia l'11 per cento dell'onda e in più sfoca."
+  },
+  {
+   "a": "Lo stesso ritaglio nei tre casi, con gli",
+   "t": "Lo vedi nella figura del volto. A sinistra le righe oblique coprono tutto. Al centro, dopo il notch, sono sparite e restano orecchio, capelli e colletto nitidi. A destra, con il gaussiano, le righe si intravedono ancora e il volto è sfocato. Un dettaglio: vanno tolti entrambi i picchi, altrimenti resta metà dell'onda e la ricostruzione diventa complessa."
+  },
+  {
+   "a": "calcola lo spettro della foto osservata;",
+   "t": "Nell'esercizio 1 la frequenza del disturbo è ignota. L'algoritmo: calcoli lo spettro; azzeri le basse frequenze, sotto zero virgola zero cinque, perché lì il massimo sarebbe la DC; trovi il picco con argmax e converti l'indice con fftfreq; applichi il notch lì e nel simmetrico."
+  },
+  {
+   "a": "Simulazione con i parametri dell'eserciz",
+   "t": "La figura segue i passi da sinistra a destra: la tazzina coperta di righe sottili, lo spettro con due puntini cerchiati, lo stesso spettro con un disco nero al centro, dove il massimo cade proprio sulla coppia cerchiata, e infine la tazzina pulita. L'errore scende a circa due milionesimi."
+  },
+  {
+   "a": "Il punto Il passa-basso non è un buon de",
+   "t": "Da portare a casa: il passa-basso non è un buon modo generale di togliere il rumore. Ma quando il disturbo sta in frequenze dove la foto non ha quasi nulla, lo togli chirurgicamente spegnendo quei coefficienti."
+  },
+  {
+   "a": "7 · Comprimere: tenere i coefficienti pi",
+   "t": "Sezione 7: comprimere. Una foto 256 per 256 sono 65536 numeri: servono tutti per riconoscerla? È la domanda dietro JPEG. Siccome lo spettro decade in fretta, pochi coefficienti grandi portano quasi tutta l'energia. Teniamo quelli di modulo più grande, azzeriamo il resto e ricostruiamo."
+  },
+  {
+   "a": "Allo 0.2% si vedono solo le masse scure,",
+   "t": "Guarda la figura da sinistra a destra. Con lo zero virgola due per cento dei coefficienti, 131, solo masse scure. All'uno per cento, 655, il cameraman è già riconoscibile. Al 5 per cento si leggono volto e treppiede, al 20 per cento è quasi uguale all'originale. Sopra ogni pannello il PSNR, che sale da diciotto a trentadue decibel circa."
+  },
+  {
+   "a": "La matematica. Perché proprio i più gran",
+   "t": "Perché proprio i più grandi? Le onde di Fourier sono una base ortogonale, e per Parseval l'errore quadratico è la somma dei moduli al quadrato dei coefficienti scartati. Per errore minimo scarti i più piccoli: è la migliore approssimazione ai minimi quadrati con n onde."
+  },
+  {
+   "a": "Esempio svolto. Tenendo l'1% dei coeffic",
+   "t": "La qualità si misura con il PSNR, rapporto segnale rumore di picco: nella formula, 10 per il logaritmo in base 10 di uno diviso l'MSE. All'uno per cento l'MSE è circa zero virgola zero zero otto, uno diviso fa circa 129, e il PSNR è ventuno decibel. Quei 655 coefficienti tengono il 97 per cento dell'energia."
+  },
+  {
+   "a": "Gli artefatti forti sono onde su tutta l",
+   "t": "Nota gli artefatti: sono onde su tutta l'immagine, perché ogni coefficiente buttato toglie un'onda ovunque, anche nel cielo liscio. Per questo JPEG trasforma blocchi separati di 8 per 8. E un'avvertenza dal notebook: la soglia può tagliare uno solo dei due coefficienti coniugati, e la ricostruzione acquista una piccola parte immaginaria. Conviene tenere le coppie intere."
+  },
+  {
+   "a": "Il punto Tenere gli n coefficienti di mo",
+   "t": "Da portare a casa: tenere gli n coefficienti più grandi è la compressione ottima ai minimi quadrati, e l'uno per cento basta a riconoscere il soggetto."
+  },
+  {
+   "a": "8 · Dal \"cosa\" al \"dove\": la pipeline de",
+   "t": "Sezione 8: dal cosa al dove. Ora il compito cambia: riconoscere cosa contiene un'immagine. Il libro dice che Fourier ci dice qualcosa su cosa succede, ma niente su dove: ogni coefficiente dipende da tutti i pixel. All'estremo opposto, un pixel dice dove ma non cosa. Ci serve una via di mezzo."
+  },
+  {
+   "a": "L'idea. Una via di mezzo: misurare local",
+   "t": "La via di mezzo è un banco di filtri: un insieme di kernel piccoli, ognuno sensibile a un tipo di struttura, un bordo verticale, un bordo a 45 gradi, una linea, una macchia, applicati in ogni posizione. Misurano localmente quanta struttura c'è a una certa scala e orientazione."
+  },
+  {
+   "a": "Il compito del notebook è Fashion-MNIST ",
+   "t": "Il compito è Fashion MNIST: immagini 28 per 28 di 10 tipi di capi, dalla T-shirt allo stivaletto, con ventimila immagini di training e diecimila per validazione e per test. Il classificatore resta sempre lo stesso, un ridge lineare, cioè regressione lineare regolarizzata. Cambiano solo le feature, le caratteristiche in ingresso."
+  },
+  {
+   "a": "x → x ∗ w k → ρ(x ∗ w k ) → P(ρ(x ∗ w k ",
+   "t": "La pipeline nella formula ha quattro passi. Convolvi l'immagine con ogni filtro. Applichi pixel per pixel una non linearità, rho: valore assoluto, quadrato, o il massimo fra il valore e zero, la ReLU, unità lineare rettificata. Fai il pooling, cioè la media su blocchi p per p: con p uguale a 4 la mappa diventa 7 per 7. Infine il classificatore lineare."
+  },
+  {
+   "a": "Sobel x risponde ai fianchi, Sobel y all",
+   "t": "Guarda la figura con la maglietta stilizzata. Sobel x risponde ai fianchi verticali, Sobel y alle righe orizzontali e alle spalle, con blu e rosso secondo il verso del bordo. Dopo il valore assoluto resta solo il bianco: c'è un bordo. Dopo il pool 4 restano 49 quadretti, quanto bordo c'è in ogni zona. È tutto ciò che vede il classificatore."
+  },
+  {
+   "a": "Esempio svolto: quante feature? Le mappe",
+   "t": "Le feature sono il numero di filtri per 28 diviso p, al quadrato: con 7 filtri e pool 4, 7 per 49 fa 343. Il punto di partenza sono i 784 pixel grezzi: ottantuno virgola tre per cento. La baseline, con identità, box e le due Sobel, valore assoluto e pool 4, arriva all'ottantatré virgola otto con 196 feature: quattro volte meno dei pixel, e meglio."
+  },
+  {
+   "a": "Attenzione: \"ReLU\" non esiste nel dizion",
+   "t": "Un piccolo inciampo del notebook: il testo chiama ReLU una non linearità che nel codice si chiama rectify, quindi scrivere ReLU dà errore."
+  },
+  {
+   "a": "Il punto Un banco di filtri descrive un'",
+   "t": "Da portare a casa: un banco di filtri descrive un'immagine con quanta struttura di ogni tipo c'è in ogni zona: convoluzione, non linearità, pooling, classificatore lineare."
+  },
+  {
+   "a": "9 · Perché la non linearità è indispensa",
+   "t": "Sezione 9: perché la non linearità è indispensabile. È il ragionamento più importante del notebook e una domanda d'esame quasi certa, quindi rallentiamo. Perché non dare al classificatore direttamente le risposte dei filtri, senza rho? Perché convoluzione e pooling medio sono lineari, e nella media i bordi positivi e negativi si annullano."
+  },
+  {
+   "a": "Il blocco A ha una striscia chiara, il b",
+   "t": "Guarda la figura. A sinistra due blocchi da 8 pixel: A, in blu, ha una striscia chiara al centro, B, in grigio, è uniforme. Al centro A filtrato con la derivata: più 1 in rosso sul bordo di salita, meno 1 in blu su quello di discesa. B dà zero ovunque."
+  },
+  {
+   "a": "Il blocco A ha una striscia chiara, il b",
+   "t": "A destra il pooling medio. Senza rho A fa zero, perché più 1 e meno 1 si cancellano, e B fa zero: due blocchi diversi diventano indistinguibili. Con il valore assoluto A vale zero virgola cinque, la barra verde, e B resta zero. Ecco tutto il senso di rho."
+  },
+  {
+   "a": "s = w T z = w T A x = (A T w) T x",
+   "t": "Ora la matematica. Senza rho le feature sono z uguale A per x, con A una matrice enorme ma fissata. Il classificatore calcola il punteggio nella formula: w trasposto per A per x, che si riscrive come A trasposta per w, trasposto, per x. È ancora un classificatore lineare sui pixel, con pesi A trasposta per w."
+  },
+  {
+   "a": "che è ancora un classificatore lineare s",
+   "t": "Quindi aggiungere filtri lineari, anche mille, non allarga la famiglia di funzioni. Può solo restringerla, se A perde informazione, come fa il pooling. Con i pixel puoi al massimo pareggiare."
+  },
+  {
+   "a": "Esempio svolto (scheda 23). Con 7 filtri",
+   "t": "Il notebook lo conferma. Con 7 filtri, niente non linearità e pool 1, cioè 5488 feature, ottieni zero virgola otto uno due sette contro zero virgola otto uno due otto dei pixel: identico. Con il valore assoluto e pool 4 lo stesso banco sale a zero virgola otto sei quattro."
+  },
+  {
+   "a": "Cosa fa ρ, intuitivamente. Rende la feat",
+   "t": "Intuitivamente, rho rende la feature indipendente dalla polarità del bordo e fa sì che il pooling misuri quanto bordo c'è. Valore assoluto e ReLU vanno ugualmente bene. Il quadrato fa peggio, zero virgola otto quattro sette, perché esalta i valori grandi e pochi bordi molto contrastati dominano."
+  },
+  {
+   "a": "Attenzione: il pooling medio non è una n",
+   "t": "E un errore del notebook da non ripetere all'esame: scrive che il pooling dà una non linearità. Falso: il pooling medio è lineare, un blur box più un sottocampionamento. Il max pooling invece è non lineare."
+  },
+  {
+   "a": "Il punto Senza ρ, filtri + pooling medio",
+   "t": "Da portare a casa: senza rho, filtri più pooling medio più classificatore lineare sono un classificatore lineare sui pixel, e non battono i pixel grezzi. La non linearità è ciò che rende utili i filtri."
+  },
+  {
+   "a": "10 · Il pooling: invarianza contro posiz",
+   "t": "Sezione 10: il pooling. Lo stesso pantalone spostato di un pixel deve restare un pantalone, ma per un classificatore lineare è un'altra immagine. La convoluzione è equivariante: se l'oggetto si sposta, la mappa si sposta. Il pooling converte l'equivarianza in invarianza locale: finché il bordo resta nello stesso blocco, la feature non cambia."
+  },
+  {
+   "a": "Lo stesso bordo spostato di una colonna:",
+   "t": "La figura lo mostra. In alto un bordo in colonna 5, in basso in colonna 6. Le mappe del valore assoluto di Sobel x sono diverse, la striscia scura si è spostata. Ma resta dentro il blocco centrale delimitato dalle linee blu, e a destra le nove feature sono identiche: 2 al centro, 0 ai lati."
+  },
+  {
+   "a": "Il prezzo. Il pooling inoltre riduce il ",
+   "t": "Il pooling riduce anche feature e rumore. Il prezzo è la posizione: con un blocco grande quanto l'immagine resta un numero per filtro, quanti bordi verticali ci sono, senza sapere dove."
+  },
+  {
+   "a": "I numeri del notebook. A sinistra (pool ",
+   "t": "Guarda il grafico a destra: accuratezza contro lato del blocco. Pool 1 ottantasei virgola quattro, il massimo a pool 2 con ottantotto virgola uno, poi giù fino a cinquantadue virgola quattro con pool 28. Su capi 28 per 28 centrati, blocchi 2 per 2 assorbono un pixel di spostamento senza confondere le zone. A sinistra, la barra grigia senza non linearità sta sotto la linea rossa dei pixel."
+  },
+  {
+   "a": "Due varianti (scheda 25). Il max pooling",
+   "t": "Due varianti. Il max pooling fa peggio della media, perché tiene solo la risposta più forte ed è più sensibile al rumore. La radice delle feature guadagna quasi un punto: comprime i valori grandi, quindi conta più se c'è struttura che quanto è contrastata. E il pooling medio è un sottocampionamento: vale l'aliasing della lezione 6."
+  },
+  {
+   "a": "Attenzione: show_responses usa sempre po",
+   "t": "Nota pratica: la funzione show responses disegna sempre mappe 7 per 7, quindi cambiando il pooling le figure non cambiano."
+  },
+  {
+   "a": "Il punto Il pooling scambia posizione co",
+   "t": "Da portare a casa: il pooling scambia posizione con tolleranza agli spostamenti. Troppo piccolo non tollera nulla, troppo grande butta via il dove. Qui l'ottimo è a 2."
+  },
+  {
+   "a": "11 · Quali filtri: orientazioni, scale e",
+   "t": "Sezione 11: quali filtri. Ogni famiglia aggiunge un tipo di informazione: più orientazioni e più scale aiutano, con guadagni che calano."
+  },
+  {
+   "a": "Diagonali e laplaciano (scheda 19). Le d",
+   "t": "Le Sobel diagonali, per colletti a V e spalle, aggiungono due punti. Il laplaciano, isotropo, cioè uguale in tutte le direzioni, ne aggiunge uno. Le derivate della gaussiana a più scale arrivano a circa zero virgola otto nove: sigma piccolo vede cuciture e bottoni, sigma grande la forma della manica. È lo spazio delle scale della lezione 6."
+  },
+  {
+   "a": "Diagonali e laplaciano (scheda 19). Le d",
+   "t": "La sorpresa sono i filtri casuali: kernel 5 per 5 con valori a caso. Con 34 filtri arrivano a zero virgola otto nove due, quasi quanto i banchi progettati con lo stesso numero di feature."
+  },
+  {
+   "a": "Tutti gli esperimenti: accuratezza di va",
+   "t": "Guarda la figura: accuratezza contro numero di feature, in scala logaritmica. In basso la linea tratteggiata dei pixel. I punti rossi, i filtri casuali, stanno appena sotto i banchi progettati di pari dimensione. In alto il punto viola, il migliore: Gabor a 8 orientazioni con la radice delle feature, novanta virgola sei."
+  },
+  {
+   "a": "Cosa dicono i filtri casuali. Un filtro ",
+   "t": "Cosa insegnano i filtri casuali? Tanti filtri casuali coprono lo spettro, quindi il grosso del lavoro lo fanno rho, pooling e classificatore. I filtri a mano vincono in interpretabilità ed efficienza: ne servono meno."
+  },
+  {
+   "a": "Una sottigliezza: perché le diagonali ai",
+   "t": "Sottigliezza: le derivate gaussiane sono steerable, cioè orientabili. La derivata in direzione theta è coseno di theta per G x più seno di theta per G y, quindi prima di rho una diagonale è ridondante. Ma dopo il valore assoluto no: un bordo a 45 gradi e uno a meno 45 danno entrambi zero virgola sette uno e zero virgola sette uno. Solo un filtro diagonale li distingue."
+  },
+  {
+   "a": "Il punto Più orientazioni e più scale mi",
+   "t": "Da portare a casa: più orientazioni e scale aiutano, e dopo la non linearità le orientazioni vanno messe esplicitamente. Anche filtri casuali funzionano quasi altrettanto bene."
+  },
+  {
+   "a": "12 · Il filtro di Gabor: un po' di Fouri",
+   "t": "Sezione 12: il filtro di Gabor, cioè Fourier in un punto. Vorremmo un filtro che dica: qui c'è un'onda di questa frequenza e orientazione. Un'onda pura sta ovunque, un pixel non ha frequenza. Il Gabor è una gaussiana moltiplicata per un'onda: la gaussiana dice dove guardare, l'onda quale frequenza cercare. Come ascoltare una nota, ma per un attimo."
+  },
+  {
+   "a": "Gaussiana × onda = Gabor pari (con il se",
+   "t": "Guarda la figura. In alto: una gaussiana, un'onda a strisce verticali, il loro prodotto, il Gabor pari con una barra rossa fra due blu, e il dispari, fatto con il seno, con un passaggio da blu a rosso. Sotto gli spettri: la gaussiana è una macchia al centro, l'onda due punti a più e meno un ottavo, il Gabor due macchie a più e meno un ottavo. Localizzato in entrambi i mondi."
+  },
+  {
+   "a": "g(x, y) = exp(−(x' 2 + y' 2 ) / 2σ 2 ) ·",
+   "t": "Nella formula ci sono quattro parametri. Sigma è la larghezza della gaussiana, la zona osservata. Theta è l'orientazione, e x primo e y primo sono le coordinate ruotate. Lambda è la lunghezza d'onda, quindi il filtro è sintonizzato sulla frequenza uno su lambda. Phi è la fase: zero dà il pari, che rileva le linee, pi greco mezzi il dispari, che rileva i bordi, e insieme sono una coppia in quadratura."
+  },
+  {
+   "a": "Perché in frequenza è un passa-banda. Mo",
+   "t": "Perché è un passa-banda? Moltiplicare per un'onda sposta lo spettro, come la modulazione in radio. La trasformata del Gabor è la gaussiana dell'inviluppo, larga uno su 2 pi greco sigma, spostata nei punti dell'onda. Un passa-banda orientato, localizzato nello spazio e in frequenza: anzi, il filtro che ottimizza questa localizzazione congiunta."
+  },
+  {
+   "a": "Esempio svolto. Le due scale del noteboo",
+   "t": "Il notebook usa due scale, sigma uno virgola cinque con lambda 4, e sigma 3 con lambda 8: stesso rapporto, lo stesso filtro ingrandito, come in una piramide. Con 8 orientazioni, 2 scale e 2 fasi sono 32 Gabor, più l'identità: 1617 feature e l'ottantanove virgola cinque per cento."
+  },
+  {
+   "a": "Tre Gabor del notebook e i loro spettri:",
+   "t": "Nella figura, tre Gabor e i loro spettri. A zero gradi strisce verticali e macchie sull'asse orizzontale. A 45 gradi macchie in diagonale. A 90 gradi, con lambda 4, macchie sull'asse verticale e più lontane, perché la frequenza è più alta. A destra la somma di tutto il banco: due anelli che coprono il piano in tutte le direzioni."
+  },
+  {
+   "a": "Ampiezza locale (challenge, scheda 27; §",
+   "t": "Una sfida del notebook è l'ampiezza locale: la radice della somma dei quadrati di pari e dispari. Non dipende più dalla fase né dal segno del contrasto, e con metà delle feature dà zero virgola otto nove due. Il libro nota che è già una piccola rete a due strati, il modello delle cellule complesse della corteccia visiva."
+  },
+  {
+   "a": "Il punto Gabor = gaussiana × onda: un pa",
+   "t": "Da portare a casa: Gabor è gaussiana per onda, un passa-banda orientato che dice quale frequenza c'è in quale punto. Un banco di Gabor è un'analisi di Fourier locale, ed è il miglior banco fisso del notebook."
+  },
+  {
+   "a": "13 · Il metodo: validazione, test e cosa",
+   "t": "Sezione 13: il metodo. Abbiamo scelto la configurazione migliore fra decine guardando la validazione, quindi quel novanta virgola sei è un po' ottimistico. Regola d'oro: le scelte si fanno sulla validazione, il test si usa una volta sola alla fine. Sul test il miglior banco fa ottantanove virgola nove, contro ottantuno dei pixel, e il calo di sette decimi rispetto alla validazione è normale."
+  },
+  {
+   "a": "Attenzione: nel notebook del docente FIN",
+   "t": "Attenzione: nel notebook del docente il banco finale è impostato sulla baseline, mentre il commento chiede il migliore. Così finale e baseline coincidono. Devi metterci il tuo banco migliore."
+  },
+  {
+   "a": "Cosa sbaglia (scheda 29). La matrice di ",
+   "t": "Cosa sbaglia ancora? La classe peggiore è la camicia, giusta solo nel 66 per cento dei casi, confusa con T-shirt, cappotto e pullover; pantaloni e borse sono al 98. Hanno la stessa sagoma e differiscono per un colletto o dei bottoni. Un solo strato conta i bordi per zona, ma non sa comporli in un colletto."
+  },
+  {
+   "a": "Il punto Validazione per scegliere, test",
+   "t": "Da portare a casa: validazione per scegliere, test una volta sola. Il miglior banco fisso arriva circa al 90 per cento e sbaglia sui dettagli piccoli."
+  },
+  {
+   "a": "14 · Dal banco di filtri alla CNN",
+   "t": "Sezione 14: dal banco di filtri alla CNN. Per superare il 90 per cento servono due cose. Prima: filtri appresi. Uno strato convoluzionale fa la stessa convoluzione del notebook, ma i pesi si ottimizzano con la discesa del gradiente sul compito. Una CNN impara da sola filtri simili a derivate gaussiane: impara un banco di filtri efficace."
+  },
+  {
+   "a": "Filtri appresi. Un layer convoluzionale ",
+   "t": "Seconda: la gerarchia. Si ripete il blocco convoluzione, ReLU, pooling più volte. Il secondo strato combina i bordi in angoli e texture, poi in parti e oggetti, e a ogni pooling cresce il campo recettivo, la zona di immagine da cui dipende un neurone. Ecco il colletto della camicia: un filtro 3 per 3 non lo vede, una gerarchia sì."
+  },
+  {
+   "a": "Esempio. Il classificatore CNN più sempl",
+   "t": "La CNN più semplice del libro è convoluzione, ReLU, pooling medio globale, strato lineare e softmax: esattamente la pipeline del notebook, con i filtri appresi. Nelle reti la convoluzione è in realtà una cross-correlazione, senza ribaltare il kernel, ma con pesi appresi non conta."
+  },
+  {
+   "a": "Il punto Una CNN è la stessa pipeline (f",
+   "t": "Da portare a casa: una CNN è la stessa pipeline con filtri imparati dai dati e ripetuta su più strati, per comporre bordi in parti e parti in oggetti."
+  },
+  {
+   "a": "1. Un'immagine 256 × 256 è cos(2π(5x/256",
+   "t": "Passiamo alla verifica. Prima domanda: un'immagine 256 per 256 è un coseno con u uguale a 5 e v uguale a meno 20. Dove sono i picchi nell'array di fft2, quanto valgono, come sono le strisce? Metti in pausa e prova a rispondere."
+  },
+  {
+   "a": "1. Un'immagine 256 × 256 è cos(2π(5x/256",
+   "t": "I due esponenziali sono in 5, meno 20 e in meno 5, 20. Nell'array la riga è v modulo 256 e la colonna u modulo 256: riga 236 colonna 5, e riga 20 colonna 251. Valgono entrambi 32768, cioè metà di 256 per 256. Le strisce sono perpendicolari alla direzione 5, meno 20, quasi verticale: sono quasi orizzontali."
+  },
+  {
+   "a": "2. Perché il passa-basso ideale produce ",
+   "t": "Seconda domanda: perché il passa-basso ideale produce aloni e il gaussiano no? Metti in pausa e prova a rispondere."
+  },
+  {
+   "a": "2. Perché il passa-basso ideale produce ",
+   "t": "Il filtro nello spazio è la trasformata inversa della maschera. Il taglio netto dà una sinc, con lobi negativi: vicino ai bordi l'uscita oscilla e sfora del 9 per cento. La gaussiana ha trasformata gaussiana, positiva, quindi è una media pesata e resta fra i valori di partenza."
+  },
+  {
+   "a": "3. Il passa-basso con σ = 2 lascia ancor",
+   "t": "Terza domanda: il passa-basso con sigma 2 lascia vedere le righe del disturbo 37, 21. Quanto ne lascia, e perché il notch fa meglio? Metti in pausa e prova a rispondere."
+  },
+  {
+   "a": "3. Il passa-basso con σ = 2 lascia ancor",
+   "t": "La frequenza del disturbo è circa zero virgola uno sei sei; lì la maschera vale circa zero virgola uno uno, quindi resta l'11 per cento dell'onda, e la foto viene sfocata. Il notch spegne solo i due coefficienti del disturbo: l'errore scende da zero virgola zero due a un milionesimo, contro zero virgola zero zero cinque del passa-basso."
+  },
+  {
+   "a": "4. Perché un banco di filtri senza non l",
+   "t": "Quarta domanda: perché un banco senza non linearità non batte i pixel grezzi, per quanti filtri si aggiungano? Metti in pausa e prova a rispondere."
+  },
+  {
+   "a": "4. Perché un banco di filtri senza non l",
+   "t": "Convoluzioni e pooling medio sono lineari, quindi le feature sono A per x, e il classificatore calcola w trasposto per A per x: un classificatore lineare sui pixel con pesi A trasposta per w. La famiglia non si allarga. Infatti 5488 feature danno zero virgola otto uno due sette, come i pixel."
+  },
+  {
+   "a": "5. Cosa si guadagna e cosa si perde aume",
+   "t": "Quinta domanda: cosa si guadagna e cosa si perde aumentando il pooling, e perché l'ottimo è a 2? Metti in pausa e prova a rispondere."
+  },
+  {
+   "a": "5. Cosa si guadagna e cosa si perde aume",
+   "t": "Si guadagnano invarianza ai piccoli spostamenti, meno feature e meno rumore; si perde la posizione. Sui capi centrati i dettagli utili sono di pochi pixel: blocchi 2 per 2 assorbono un pixel di spostamento senza confondere le zone. Già 4 perde troppo, e 28 lascia solo un conteggio globale."
+  },
+  {
+   "a": "6. Che cos'è un filtro di Gabor, che asp",
+   "t": "Sesta domanda: cos'è un filtro di Gabor, com'è il suo spettro, e cosa aggiunge una CNN a un banco di Gabor fisso? Metti in pausa e prova a rispondere."
+  },
+  {
+   "a": "6. Che cos'è un filtro di Gabor, che asp",
+   "t": "È una gaussiana di larghezza sigma per un'onda di orientazione theta, lunghezza d'onda lambda e fase phi. Lo spettro sono due macchie gaussiane a distanza uno su lambda dal centro, lungo theta, larghe uno su 2 pi greco sigma: un passa-banda orientato. Una CNN impara i filtri dai dati e li impila su più strati, con campo recettivo crescente."
+  },
+  {
+   "a": "Come proseguire",
+   "t": "Per proseguire: nel libro il capitolo 16 su Fourier, il 22 sui banchi di filtri e i Gabor, e come ponte le prime sezioni del 24 sulle reti convoluzionali. Poi apri i notebook e, per ogni scheda, prova a prevedere il risultato prima di controllare il numero."
+  },
+  {
+   "a": "Ora apri i notebook e ripassa con le sch",
+   "t": "Riassumiamo. Un'immagine è una somma di onde: il modulo dice quali ci sono, la fase dice dove. In frequenza filtrare è moltiplicare: il gaussiano sfoca senza aloni, il notch toglie un disturbo periodico, tenere i coefficienti grandi comprime al meglio. Per riconoscere oggetti servono invece filtri locali, una non linearità e un pooling, e senza non linearità non si battono i pixel. Impara quei filtri dai dati e impilali, e hai una rete convoluzionale."
+  }
+ ]
+}

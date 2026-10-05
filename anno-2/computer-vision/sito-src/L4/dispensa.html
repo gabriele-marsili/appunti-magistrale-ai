@@ -1,0 +1,248 @@
+<div class="sec" id="l4-dispensa"><h2>Dispensa</h2><span>parti da qui · circa 60 minuti</span></div>
+<div class="disp">
+  <p><b>In una frase:</b> il laboratorio prende gli strumenti della <a href="#L3">L3</a> (DFT, convoluzione, teorema di convoluzione) e li usa su segnali 1D che si possono vedere e ascoltare, per imparare tre abilità concrete: leggere uno spettro, capire che cosa fa un kernel guardando la sua risposta in frequenza, e usare la cross-correlazione per misurare la somiglianza, fino a classificare cifre parlate e a cercare un pattern in un'immagine.</p>
+
+  <h3>Prima di iniziare</h3>
+  <p>Ti servono tre cose, tutte della <a href="#L3">L3</a>.</p>
+  <ul>
+    <li><b>Segnale discreto</b>: una sequenza x[0], …, x[N−1] di numeri presi a intervalli regolari. Nell'audio il passo è 1/f<sub>s</sub> secondi, dove f<sub>s</sub> (sample rate) è il numero di campioni al secondo.</li>
+    <li><b>Numeri complessi</b>: e<sup>jθ</sup> = cos θ + j sin θ. Il modulo |X| di un numero complesso dice "quanto" di una sinusoide c'è, la fase "dove è spostata".</li>
+    <li><b>Convoluzione</b>: ogni campione di uscita è una somma pesata dei campioni vicini dell'ingresso, con i pesi dati dal kernel ribaltato. La riprendiamo da zero nella sezione 6.</li>
+  </ul>
+  <p>Più numpy e l'idea di k-NN dal corso di machine learning.</p>
+
+  <h3>Guarda prima questi video</h3>
+  <div class="watch">
+    <a href="https://www.youtube.com/watch?v=spUNpyF58BY"><span class="k">Video</span><b>But what is the Fourier Transform? A visual introduction.</b><span class="d">3Blue1Brown. Guardalo tutto: l'idea di "avvolgere" il segnale attorno a una circonferenza a ogni frequenza è esattamente ciò che fa la DFT, e l'esempio è proprio un suono composto da più note, come l'accordo di demo.ipynb.</span></a>
+    <a href="https://www.youtube.com/watch?v=KuXjwB4LzSA"><span class="k">Video</span><b>But what is a convolution?</b><span class="d">3Blue1Brown. Tutto: la convoluzione dalle probabilità alla media mobile e allo sfocamento, il ribaltamento del kernel, e nell'ultima parte perché la FFT la rende veloce (teorema di convoluzione).</span></a>
+    <a href="https://www.youtube.com/watch?v=s2K1JfNR7Sc"><span class="k">Video</span><b>Denoising Data with FFT [Python]</b><span class="d">Steve Brunton. Il codice è quasi identico a freq_filter del notebook: FFT, maschera sullo spettro, IFFT. Guarda come sceglie la soglia osservando lo spettro e come confronta il segnale prima e dopo.</span></a>
+    <a href="https://www.youtube.com/watch?v=1_hwFc8PXVE"><span class="k">Video</span><b>Template Matching</b><span class="d">Shree Nayar, First Principles of Computer Vision (Image Processing I). Per l'ultima parte del lab: perché la correlazione semplice sbaglia sulle zone chiare e come la correlazione normalizzata risolve il problema.</span></a>
+  </div>
+
+  <h3>1. Perché un laboratorio sull'audio</h3>
+  <p><b>Il problema.</b> Nelle prossime lezioni (<a href="#L5">L5</a>, <a href="#L6">L6</a>, <a href="#L7">L7</a>) filtri, derivate e spettri verranno applicati alle immagini, dove sono bidimensionali e <mark class="sh sh-y">difficili</mark> da intuire.</p>
+  <p><b>L'idea.</b> Il suono <mark class="sh sh-y">è il caso più semplice</mark>: una sola variabile, spettri che sono curve, e un controllo immediato, perché un passa-basso lo senti come voce "ovattata", come attraverso un muro. Ogni idea passa invariata alle immagini sostituendo il tempo con le coordinate dei pixel.</p>
+  <p>I tre notebook vanno fatti in ordine e hanno ciascuno un obiettivo diverso:</p>
+  <ul>
+    <li><b>demo.ipynb</b> (schede 1–12): leggere uno spettro e filtrare, prima in frequenza e poi nel tempo con tre kernel.</li>
+    <li><b>classification.ipynb</b> (schede 13–20): usare lo spettro non per modificare il segnale ma per <b>descriverlo</b>, e classificare con un k-NN quale cifra viene pronunciata.</li>
+    <li><b>15lif.ipynb</b> (schede 21–27): scrivere a mano convoluzione e cross-correlazione, in 1D e 2D, fino al template matching.</li>
+  </ul>
+  <p><mark class="sh sh-y">Il filo che li lega è uno solo:</mark> <b>un segnale si può guardare nel tempo o in frequenza, e una convoluzione nel tempo è una moltiplicazione in frequenza</b>.</p>
+  <figure><img src="{{IMG:disp2_due_mondi.png}}" alt="Schema con due riquadri, tempo e frequenza, collegati da DFT e IDFT, e sotto le corrispondenze: convoluzione e prodotto, kernel e risposta in frequenza, finestra finita e sinc, fronte ripido e frequenze alte"><figcaption>Ogni operazione nel tempo ha una gemella in frequenza: è la mappa di tutto il lab.</figcaption></figure>
+  <div class="box k"><b>Il punto</b><p>L'audio è la palestra 1D per tutto ciò che farai sulle immagini. Il lab allena un solo riflesso: per ogni operazione, chiederti che cosa fa nel tempo e che cosa fa in frequenza.</p></div>
+
+  <h3>2. Dal tempo alla frequenza: la DFT</h3>
+  <p><b>Il problema.</b> Il notebook sintetizza un accordo di La minore: tre sinusoidi a 220 (A3), 261.63 (C4) e 329.63 Hz (E4), più rumore, campionate a f<sub>s</sub> = 22050 Hz per 2 secondi. Se disegni il segnale nel tempo (scheda 3) vedi un'oscillazione irregolare con un inviluppo che sale e scende (i <b>battimenti</b> fra note vicine, alla frequenza differenza, circa 42 Hz), ma non riesci a dire <mark class="sh sh-y">quante note ci sono né quali. Il tempo nasconde le frequenze. La DFT serve a rendere</mark> visibile proprio questa informazione.</p>
+  <figure><img src="{{IMG:disp2_tempo_nasconde.png}}" alt="Sopra 60 millisecondi dell'accordo, un'oscillazione irregolare; sotto le tre sinusoidi pure che lo compongono, A3, C4 ed E4"><figcaption>Sopra ciò che registri (60 ms dell'accordo), sotto le tre sinusoidi che lo formano: nella somma non si riconoscono.</figcaption></figure>
+  <p><b>L'idea.</b> <mark class="sh sh-y">La DFT è un cambio di base</mark> (libro, cap. 16, § 16.2 e 16.5). <mark class="sh sh-y">Invece di descrivere il segnale con N valori nel tempo, lo descrivi con N coefficienti, uno per ciascuna sinusoide complessa che compie un numero intero di cicli nella finestra.</mark> Il coefficiente u misura quanto il segnale "somiglia" alla sinusoide che fa u cicli: è un prodotto scalare, grande se le due curve vanno su e giù insieme.</p>
+  <figure><img src="{{IMG:disp2_base_dft.png}}" alt="A sinistra le prime quattro sinusoidi della base DFT con N = 32, da zero a tre cicli; a destra un segnale somma di quella con un ciclo e di mezza quella con tre cicli, e la sua rfft con due soli picchi alti 16 e 8"><figcaption>La sinusoide u fa u cicli nella finestra. Il segnale a destra, 1·(u = 1) + 0.5·(u = 3), dà due soli picchi, alti 16 e 8.</figcaption></figure>
+  <p><b>La matematica.</b></p>
+  <span class="f"><mark class="sh sh-b">X[u] = ∑<sub>n=0</sub><sup>N−1</sup> x[n] e<sup>−2πj un/N</sup>,   u = 0, …, N−1</mark></span>
+  <ul>
+    <li><b>x[n]</b> è il campione n-esimo, <b>N</b> il numero di campioni.</li>
+    <li><b>u</b> è l'indice di frequenza (il <mark class="sh sh-b"><b>bin</b>: conta i cicli che la sinusoide compie nella finestra</mark> di N campioni).</li>
+    <li><b>e<sup>−2πj un/N</sup></b> è la sinusoide complessa con cui confronti il segnale; il segno meno è una convenzione.</li>
+    <li>L'inversa ha davanti 1/N: x[n] = (1/N) ∑<sub>u</sub> X[u] e<sup>+2πj un/N</sup>. È la convenzione del libro e di numpy: <mark class="sh sh-p">la FFT diretta non divide per nulla</mark>, quindi i picchi sono grandi (scheda 4).</li>
+  </ul>
+  <p>A parole: per ogni u, moltiplica il segnale campione per campione per una sinusoide che fa u cicli e somma tutto. Se il segnale contiene quella sinusoide i prodotti si sommano, altrimenti si cancellano. La FFT calcola la stessa cosa in O(N log N).</p>
+  <p><mark class="sh sh-g">Per un segnale reale vale la <b>simmetria hermitiana</b> X[N−u] = X[u]<sup>*</sup></mark> (il coniugato): la seconda metà dello spettro ripete la prima. Per questo <code>np.fft.rfft</code> restituisce solo i bin da 0 a N/2, cioè N/2 + 1 valori.</p>
+  <p><b>Esempio svolto.</b> Prendi N = 8 e x = [1, 0, −1, 0, 1, 0, −1, 0]: è un coseno che fa 2 cicli nella finestra. Calcola X[2] = ∑ x[n] e<sup>−2πj·2n/8</sup> = ∑ x[n] e<sup>−jπn/2</sup>: i termini non nulli sono n = 0, 2, 4, 6, con e<sup>−jπn/2</sup> = 1, −1, 1, −1, quindi X[2] = 1·1 + (−1)(−1) + 1·1 + (−1)(−1) = 4. Tutti gli altri bin valgono 0 tranne X[6] = 4, il gemello coniugato. <mark class="sh sh-y"><code>np.fft.rfft(x)</code> restituisce [0, 0, 4, 0, 0]</mark>: cinque valori (N/2 + 1), un solo picco. L'altezza è <mark class="sh sh-y">A·N/2</mark> = 1·8/2 = 4: metà dell'ampiezza va nel bin positivo, metà nel suo gemello negativo che rfft non mostra.</p>
+  <div class="box k"><b>Il punto</b><p>La DFT riscrive N campioni come N coefficienti, uno per ogni sinusoide che fa un numero intero di cicli nella finestra. Ogni coefficiente è un prodotto scalare: misura quanto di quella sinusoide c'è nel segnale.</p></div>
+
+  <h3>3. Leggere uno spettro: bin, hertz, risoluzione, scala log</h3>
+  <p><b>Il problema.</b> Per dire "c'è una nota a 220 Hz" devi sapere a quale frequenza corrisponde ogni indice u, quanto distano due indici e dove finisce l'asse.</p>
+  <p><b>L'idea.</b> <mark class="sh sh-y">Per passare dai bin agli hertz</mark> basta ricordare che la finestra dura N/f<sub>s</sub> secondi. Se la sinusoide fa u cicli <mark class="sh sh-y">in N/f<sub>s</sub> secondi, la sua frequenza è:</mark></p>
+  <span class="f"><mark class="sh sh-g">f<sub>u</sub> = u · f<sub>s</sub> / N,   Δf = f<sub>s</sub> / N = 1 / durata,   f<sub>max</sub> = f<sub>s</sub> / 2</mark></span>
+  <ul>
+    <li><b>Δf</b> è la <mark class="sh sh-b"><b>risoluzione</b>, la distanza in Hz fra due bin vicini</mark>.</li>
+    <li><b>f<sub>s</sub>/2</b> è la <mark class="sh sh-b"><b>frequenza di Nyquist</b></mark>, <mark class="sh sh-y">la più alta rappresentabile: sopra, una sinusoide è indistinguibile da una più lenta (aliasing</mark>, che vedrai in <a href="#L6">L6</a>).</li>
+  </ul>
+  <p>Nota la conseguenza pratica, la più controintuitiva del lab: <mark class="sh sh-y">per separare due frequenze vicine serve un segnale <b>più lungo</b>, non un campionamento più fitto.</mark> Alzare f<sub>s</sub> allunga l'asse verso le alte frequenze, ma la distanza fra i bin dipende solo dalla durata. Per questo un accordatore deve "ascoltare" la nota per un po'.</p>
+  <figure><img src="{{IMG:disp2_risoluzione.png}}" alt="Spettro di due note a 440 e 441 Hz campionate a 16 kHz: con 0.5 secondi un solo picco allargato su bin distanti 2 Hz, con 4 secondi due picchi separati su bin distanti 0.25 Hz"><figcaption>Stessa f<sub>s</sub>, durata diversa: con 0.5 s (bin ogni 2 Hz) le due note si fondono, con 4 s (bin ogni 0.25 Hz) si separano.</figcaption></figure>
+  <p><b>Esempio svolto.</b> Con i numeri del notebook (scheda 4): N = 44100 campioni (2 s a f<sub>s</sub> = 22050 Hz), quindi rfft dà 22051 valori, Δf = 0.5 Hz, f<sub>max</sub> = 11025 Hz, e la nota A3 a 220 Hz cade nel bin 220/0.5 = 440. Un picco ha altezza A·N/2 = A·22050: per leggere l'ampiezza vera dividi per N/2.</p>
+  <pre>X = np.fft.rfft(x)                        # N/2+1 coefficienti complessi
+freqs = np.fft.rfftfreq(len(x), d=1/SR)   # asse in Hz: k * SR / N
+mag = np.abs(X)                           # quanto di ogni frequenza
+plt.semilogy(freqs, mag)                  # scala log sulle y</pre>
+  <p><b>Perché la scala logaritmica</b> (scheda 5). In scala lineare vedi solo i tre picchi, alti migliaia; il rumore, circa mille volte più piccolo, è <mark class="sh sh-y">schiacciato sullo zero. In scala log ogni fattore 10 occupa lo stesso spazio, e compare il <b>pavimento di rumore</b>, piatto perché il rumore bianco</mark> contiene tutte le frequenze in egual misura. Nella figura i picchi sono alti circa 6800 (A3) e 6070 (C4, E4). <mark class="sh sh-y">In log compaiono il pavimento di rumore intorno a 10–30 e le "gonne"</mark> attorno a C4 ed E4. Nelle immagini si usa quasi sempre il log.</p>
+  <figure><img src="{{IMG:disp_spettro.png}}" alt="Spettro dell'accordo di La minore fra 150 e 450 Hz, in scala lineare sopra e logaritmica sotto, con le tre note segnate"><figcaption>Sopra leggi le posizioni dei picchi; sotto il fondo piatto del rumore e le "gonne" di C4 ed E4, assenti attorno ad A3.</figcaption></figure>
+  <div class="box k"><b>Il punto</b><p>Bin u = u·f<sub>s</sub>/N hertz; i bin distano 1/durata; l'asse finisce a f<sub>s</sub>/2. Per vedere dettagli fini in frequenza serve un segnale lungo, e lo spettro si guarda in scala log.</p></div>
+
+  <h3>4. Perché tre note uguali danno picchi diversi: il leakage</h3>
+  <p><b>Il problema.</b> Guardando lo spettro della scheda 5 noti un dettaglio <mark class="sh sh-y">strano: le tre sinusoidi hanno la stessa ampiezza, ma il picco di A3 è più alto (circa 6810) di quelli di C4 ed E4</mark> (circa 6070), che in scala log hanno anche <mark class="sh sh-p">"gonne" larghe</mark>. Non è un errore: è lo <mark class="sh sh-b"><b>spectral leakage</b> (dispersione spettrale)</mark>.</p>
+  <p><b>L'idea.</b> <mark class="sh sh-y">La DFT usa solo sinusoidi che fanno un numero <b>intero</b> di cicli nella finestra, e tratta il segnale come se si ripetesse</mark> all'infinito (finestra incollata a se stessa). Se la tua sinusoide fa 8 cicli esatti, l'incollatura è perfetta e tutta l'energia finisce in un bin. Se <mark class="sh sh-p">ne fa 8.5, alla giunzione c'è un salto, e per descrivere</mark> quel salto servono anche i bin vicini.</p>
+  <figure><img src="{{IMG:disp_leakage.png}}" alt="Coseno con 8 e con 8.5 cicli nella finestra, ripetuto due volte, e i rispettivi spettri"><figcaption>La finestra di 64 campioni ripetuta come la vede la DFT (rosso = giunzione) e i due spettri: un bin solo contro una coda lunga.</figcaption></figure>
+  <p>Nella figura, <mark class="sh sh-p">con 8 cicli la giunzione è invisibile, con 8.5 c'è un salto</mark>, e lo spettro passa da un bin solo a una coda lunga.</p>
+  <p><b>La matematica.</b> Il libro fornisce gli strumenti per fare il conto (scheda 5, riquadro "Dal libro"), in tre passi:</p>
+  <ol>
+    <li><mark class="sh sh-y">Osservare una sinusoide per 2 secondi significa moltiplicarla per un <b>box</b></mark>.</li>
+    <li>Un prodotto nel tempo è una convoluzione in frequenza (<mark class="sh sh-y">dual convolution, § 16.7.5); la trasformata del box</mark> è una <b>sinc discreta</b> (§ 16.6.3), con zeri a distanza di un bin.</li>
+    <li>Ogni riga dello spettro diventa quindi una sinc, e i bin la campionano: se la frequenza cade esattamente su un bin, i bin vicini cadono sugli zeri della sinc; altrimenti raccolgono i suoi lobi.</li>
+  </ol>
+  <span class="f">|picco| / (A·N/2) ≈ |sin(πδ) / (πδ)|,   δ = distanza della frequenza vera dal bin più vicino</span>
+  <p><b>Esempio svolto.</b> A3: 220 Hz / 0.5 Hz = bin 440 esatto, δ = 0, nessuna perdita. C4: 261.63 / 0.5 = 523.26, quindi δ = 0.26 e <mark class="sh sh-g">il picco si riduce di |sin(0.26π)/(0.26π)| ≈ 0.89, cioè 6070/6810</mark>. L'energia mancante è finita nei bin vicini: sono le gonne.</p>
+  <figure><img src="{{IMG:disp2_sinc_bin.png}}" alt="A sinistra la sinc campionata sui bin: per una frequenza sul bin i campioni cadono sugli zeri, per una frequenza a 0.26 bin il picco scende a 0.89 e i vicini raccolgono i lobi; a destra lo spettro in log di un coseno con 8.5 cicli con e senza finestra di Hann"><figcaption>A sinistra la sinc campionata dai bin: frequenza sul bin (blu) o a 0.26 bin (rosso, picco a 0.89). A destra la finestra di Hann abbatte le code.</figcaption></figure>
+  <p><mark class="sh sh-g">Rimedio standard: moltiplicare prima per una finestra liscia (Hann)</mark>, che scende dolcemente a zero ai bordi. La sua trasformata ha lobi molto più bassi, al prezzo di un picco un po' più largo. Nelle immagini <mark class="sh sh-p">lo stesso fenomeno produce la croce lungo gli assi dello spettro</mark> (<a href="#L7">L7</a>): i bordi della foto sono salti.</p>
+  <div class="box k"><b>Il punto</b><p>Una finestra finita è un box, e il box in frequenza è una sinc: ogni riga dello spettro si allarga. Se la frequenza non cade su un bin, il picco si abbassa e l'energia si spalma sui vicini.</p></div>
+
+  <h3>5. Filtrare in frequenza è convolvere nel tempo</h3>
+  <p><b>Il problema.</b> Vuoi <mark class="sh sh-y">togliere da un segnale alcune frequenze e lasciarne altre</mark>: tenere solo la nota più bassa, eliminare il fruscio acuto. Con lo spettro in mano la soluzione sembra ovvia: azzera i bin che non ti servono e torna indietro.</p>
+  <p><b>L'idea.</b> È quello che fa <mark class="sh sh-y"><code>freq_filter(x, sr, mask_fn)</code></mark> (scheda 6), in tre passi: <code>np.fft.rfft(x)</code>, moltiplicazione per una maschera, antitrasformata.</p>
+  <pre>def freq_filter(x, sr, mask_fn):
+    X = np.fft.rfft(x)                          # 1. vai in frequenza
+    f = np.fft.rfftfreq(len(x), d=1/sr)
+    return np.fft.irfft(X * mask_fn(f), n=len(x))  # 2. moltiplica, 3. torna</pre>
+  <p>La maschera H(f) vale 1 dove vuoi tenere e 0 dove vuoi togliere: <b>passa-basso</b> (f ≤ 240 Hz, resta solo A3), <b>passa-alto</b> (f ≥ 300 Hz, restano E4 e il rumore), <b>passa-banda</b> (245–280 Hz, resta C4). Il passa-banda <mark class="sh sh-y">funziona perché le note</mark> distano circa 42 Hz e con Δf = 0.5 Hz la banda contiene 70 bin e una sola nota (schede 6–7). <mark class="sh sh-y">Nella scheda 8 lo stesso trucco separa accordo e melodia</mark> (D5 e E5, a 587 e 659 Hz) perché occupano bande disgiunte, sotto 400 Hz e sopra 500 Hz.</p>
+  <figure><img src="{{IMG:disp2_maschere.png}}" alt="Quattro spettri in scala log, prima in grigio e dopo a colori: passa-basso a 240 Hz, passa-alto a 300 Hz, passa-banda 245–280 Hz, e mix di accordo e melodia filtrato sotto 400 Hz"><figcaption>Zona colorata = maschera a 1: lì lo spettro resta identico, rumore compreso; fuori crolla a zero.</figcaption></figure>
+  <p>Limite: il rumore dentro la banda tenuta resta tutto, e nella separazione il rumore dell'accordo sopra 500 Hz finisce nella melodia: <mark class="sh sh-p">un filtro lineare</mark> <mark class="sh sh-y">non separa ciò che si sovrappone in frequenza</mark>.</p>
+  <p><b>La matematica: il teorema che collega i due mondi.</b></p>
+  <span class="f"><mark class="sh sh-b">DFT(h ∘<sub>N</sub> x) = H · X</mark></span>
+  <p>Qui ∘<sub>N</sub> è la convoluzione <b>circolare</b> (libro § 15.4.4 e § 16.7.4): gli indici si prendono modulo N, cioè il segnale è <mark class="sh sh-p">trattato come periodico, la stessa ipotesi del leakage. Letto da destra a sinistra, il teorema dice</mark> <mark class="sh sh-p">che moltiplicare lo spettro per una maschera</mark> H equivale a convolvere il segnale con il kernel h = IDFT(H). Quindi <mark class="sh sh-y">ogni maschera ha un kernel nel tempo, e ogni kernel ha una maschera in frequenza</mark>: sono la stessa operazione vista da due lati. Per ottenere via FFT la convoluzione lineare di <code>np.convolve</code> si allungano i segnali con zeri fino a N + M − 1 campioni (scheda 6).</p>
+  <h4>Il prezzo del taglio netto: il ringing</h4>
+  <p>Che kernel corrisponde a una maschera 0/1? Una sinc: un picco centrale con code che oscillano e decadono lentamente, con lobi <b>negativi</b>. Convolvere un fronte ripido con un kernel che ha lobi negativi produce un'uscita che supera il valore finale e poi oscilla: è il <mark class="sh sh-p"><b>ringing</b> (fenomeno di Gibbs)</mark>. Una maschera morbida, per esempio gaussiana, ha come kernel una gaussiana, sempre positiva, e <mark class="sh sh-g">il ringing sparisce</mark>. Nelle immagini sono gli aloni attorno ai bordi delle foto troppo compresse.</p>
+  <figure><img src="{{IMG:disp_ringing.png}}" alt="Maschera ideale e gaussiana, i rispettivi kernel nel tempo e il loro effetto su un impulso rettangolare"><figcaption>Maschera netta contro gaussiana: kernel sinc con lobi negativi contro gaussiana positiva, e quindi oscillazioni sui fronti contro fronti morbidi.</figcaption></figure>
+  <p><b>Esempio.</b> Sull'accordo il ringing non si sente: non ci sono fronti. Sull'impulso rettangolare della scheda 9 invece l'uscita di <code>freq_filter</code> supera il livello finale di circa il 10% (codice nella guida allo studio, "Il ringing").</p>
+  <h4>E nel mondo reale: causalità</h4>
+  <p>Il notebook nota che i sistemi audio reali non filtrano così: <code>freq_filter</code> ha bisogno dell'intero segnale, incluso il futuro. <mark class="sh sh-y">Il cap. 19 del libro (§ 19.4) formalizza il punto: un filtro applicabile in tempo reale deve essere</mark> <mark class="sh sh-b"><b>causale</b>, h[t] = 0 per t &lt; 0</mark>: usa solo presente e passato. Un kernel centrato si rende causale spostandolo in avanti, pagando un ritardo; in alternativa si usano filtri ricorsivi come y[t] = x[t] + α·y[t−1], con risposta all'impulso α<sup>t</sup> infinita, <mark class="sh sh-p">stabili solo se |α| &lt; 1</mark> (scheda 10, riquadro "Dal libro"). Con α = 0.5 un impulso dà 1, 0.5, 0.25, … e si spegne; con α = 1.1 dà 1, 1.1, 1.21, … ed esplode.</p>
+  <div class="box k"><b>Il punto</b><p>rfft, maschera, irfft equivale a convolvere con h = IDFT(maschera). Una maschera a taglio netto ha come kernel una sinc con lobi negativi, quindi produce ringing; una maschera morbida no.</p></div>
+
+  <h3>6. La convoluzione 1D, indice per indice</h3>
+  <p><b>Il problema.</b> Fra tutti i modi di trasformare un segnale, perché proprio la convoluzione? E come si calcola a mano senza sbagliare gli indici?</p>
+  <p><b>L'idea.</b> Il libro (cap. 15, § 15.3–15.4) parte da due richieste ragionevoli su un filtro.</p>
+  <ul>
+    <li><mark class="sh sh-y"><b>Linearità</b>: l'uscita è una combinazione lineare degli ingressi, y[n] = ∑<sub>k</sub> h[n, k] x[k]</mark>, con un peso per ogni coppia (uscita n, ingresso k): <mark class="sh sh-y">una matrice qualunque</mark>, come uno strato fully connected.</li>
+    <li><b>Invarianza alla traslazione</b>: se sposti l'ingresso, l'uscita si sposta uguale, perché un suono (o un oggetto in un'immagine) va trattato allo stesso modo ovunque compaia.</li>
+  </ul>
+  <p><mark class="sh sh-y">La seconda richiesta obbliga il peso a </mark><mark class="sh sh-g">dipendere solo dalla distanza</mark>: h[n, k] = h[n − k]. Il risultato è la <mark class="sh sh-g">convoluzione:</mark></p>
+  <span class="f"><mark class="sh sh-g">y[n] = (h ∗ x)[n] = ∑<sub>k</sub> x[k] · h[n − k]</mark></span>
+  <p><b>La matematica.</b> y[n] è l'uscita nella posizione n, x[k] l'ingresso, h il kernel. L'indice n − k è ciò che "ribalta" il kernel: <mark class="sh sh-y">mentre k cresce, l'indice del kernel decresce. Il libro scrive la convoluzione con ∘, le slide della L3 e le schede con ∗.</mark></p>
+  <p><mark class="sh sh-y">Conseguenza immediata: se l'ingresso è un impulso δ (un 1 e poi zeri), l'uscita è h stesso.</mark> Per questo h si chiama <mark class="sh sh-b"><b>risposta all'impulso</b></mark> (§ 15.6), e lo vedi nella scheda 24: convolvere un'immagine con due pixel accesi "stampa" due copie del kernel. Esempio del libro: un battito di mani registrato in una stanza è la sua risposta all'impulso, e convolvere un suono con quella registrazione lo fa "suonare" come lì.</p>
+  <p><b>Esempio svolto</b> (15lif.ipynb, scheda 21): x = [1, 2, 3, 4], h = [−1, −2, −3]. Ribalta h in [−3, −2, −1] e fallo scorrere sopra x, sommando i prodotti dove si sovrappongono:</p>
+  <ul>
+    <li>y[0] = 1·(−1) = −1 (solo il primo campione si sovrappone)</li>
+    <li>y[1] = 1·(−2) + 2·(−1) = −4</li>
+    <li>y[2] = 1·(−3) + 2·(−2) + 3·(−1) = −10</li>
+    <li>y[3] = 2·(−3) + 3·(−2) + 4·(−1) = −16</li>
+    <li>y[4] = 3·(−3) + 4·(−2) = −17, y[5] = 4·(−3) = −12</li>
+  </ul>
+  <figure><img src="{{IMG:disp_convoluzione.png}}" alt="Il segnale x = [1, 2, 3, 4] e sotto, per n da 0 a 5, il kernel ribaltato [−3, −2, −1] spostato di una posizione per riga, con i prodotti calcolati"><figcaption>Ogni riga è un valore di uscita: il kernel ribaltato scorre di un passo; contano solo le celle rosse, sovrapposte a x.</figcaption></figure>
+  <p>Risultato [−1, −4, −10, −16, −17, −12]: 4 + 3 − 1 = 6 valori, identico a <code>np.convolve</code>.</p>
+  <h4>Le modalità di uscita</h4>
+  <p>Ai bordi il kernel "esce" dal segnale e bisogna decidere cosa fare: è la scelta delle <mark class="sh sh-y">modalità di uscita</mark>. Con un segnale di lunghezza N e un kernel di lunghezza M (scheda 9, N = 60, M = 7):</p>
+  <ul>
+    <li><mark class="sh sh-y"><b>full</b>: ogni posizione con almeno un campione in comune</mark>, N + M − 1 = 66 valori (come l'esempio <mark class="sh sh-y">sopra);</mark></li>
+    <li><mark class="sh sh-y"><b>same</b>: la parte centrale di full, lunga N = 60, allineata all'ingresso</mark>;</li>
+    <li><b>valid</b>: solo dove il kernel sta tutto dentro il segnale, N − M + 1 = 54 valori, <mark class="sh sh-g">senza bordi inventati</mark>.</li>
+  </ul>
+  <p><mark class="sh sh-p">Full e same assumono zeri fuori dal segnale</mark>, che scuriscono i bordi. Il libro (§ 15.4.3) elenca anche circolare, mirror (<mark class="sh sh-g">la migliore</mark>) e repeat: sono le scelte di <code>padding</code> di una CNN.</p>
+  <h4>Convoluzione e cross-correlazione</h4>
+  <p><mark class="sh sh-y">Se non ribalti il kernel ottieni la</mark> <mark class="sh sh-b">cross-correlazione</mark> (scheda 22):</p>
+  <span class="f"><mark class="sh sh-b">(h ⋆ x)[n] = ∑<sub>k</sub> h[k] · x[n + k]</mark></span>
+  <p>A parole: il prodotto scalare fra h e il tratto di segnale che parte da n. Sullo stesso esempio il notebook dà [−14, −20, −11, −4]: per esempio −14 = (−1)·1 + (−2)·2 + (−3)·3. <mark class="sh sh-g">Le due operazioni coincidono per kernel simmetrici</mark> (box, gaussiana) e <mark class="sh sh-p">differiscono di segno per quelli antisimmetrici</mark> (derivate). Le "convoluzioni" delle CNN sono cross-correlazioni: con pesi appresi il ribaltamento non conta. A differenza della convoluzione, la cross-correlazione <mark class="sh sh-p">non è commutativa né associativa</mark> (§ 15.5).</p>
+  <div class="box k"><b>Il punto</b><p>Lineare più invariante alla traslazione vuol dire convoluzione, e il kernel è la risposta all'impulso. La cross-correlazione è la stessa cosa senza ribaltare il kernel; full, same e valid sono solo modi diversi di trattare i bordi.</p></div>
+
+  <h3>7. Tre kernel visti dai due lati</h3>
+  <p><b>Il problema.</b> La parte finale di demo.ipynb (schede 10–11) <mark class="sh sh-y">applica tre kernel all'impulso rumoroso</mark>: un box di 7 campioni, una gaussiana di 15 campioni con σ = 2.5 e la derivata [−1, 0, 1]/2. La risposta in frequenza dice cosa fa il kernel su <b>qualunque</b> segnale: è il punto più importante del lab.</p>
+  <figure><img src="{{IMG:disp2_kernel_tempo.png}}" alt="Un impulso rettangolare rumoroso e le uscite dei tre kernel: il box dà rampe lineari, la gaussiana fronti a S, la derivata due picchi di segno opposto sui fronti più rumore"><figcaption>Il box dà rampe di 7 campioni, la gaussiana fronti a S, la derivata due picchi sui fronti più rumore amplificato.</figcaption></figure>
+  <p><b>L'idea.</b> Un filtro lineare e invariante alla traslazione non può creare frequenze nuove: <mark class="sh sh-g">una sinusoide lo attraversa restando la stessa sinusoide</mark>, solo moltiplicata per un numero complesso H(f). Il modulo |H(f)| dice quanto quella frequenza viene amplificata o attenuata: è la <mark class="sh sh-b"><b>risposta in frequenza</b> (o funzione di trasferimento) del kernel</mark>.</p>
+  <figure><img src="{{IMG:disp2_sinusoide_filtro.png}}" alt="Tre sinusoidi a 0.05, 0.25 e 0.45 cicli per campione e la loro uscita dopo la differenza centrale, con ampiezze 0.31, 1.00 e 0.31"><figcaption>Le sinusoidi escono dalla differenza centrale con la stessa frequenza e ampiezza |H(f)|: 0.31, 1.00, 0.31.</figcaption></figure>
+  <p><b>La matematica: il trucco per calcolare H a mano.</b> Inserisci x[n] = e<sup>2πj f n</sup> nella formula del filtro e raccogli. Per la derivata centrale y[n] = (x[n+1] − x[n−1]) / 2:</p>
+  <span class="f"><mark class="sh sh-y">y[n] = e<sup>2πj f n</sup> · (e<sup>2πj f</sup> − e<sup>−2πj f</sup>) / 2 = e<sup>2πj f n</sup> · j sin(2πf)  ⇒  |H(f)| = |sin(2πf)|</mark></span>
+  <p>con f in cicli per campione, da 0 a 0.5 (Nyquist). Allo stesso modo per il box di 7 campioni a somma 1 ottieni |H(f)| = |sin(7πf) / (7 sin πf)|, la sinc discreta del libro (§ 16.6.3), e per la gaussiana un'altra gaussiana.</p>
+  <p><b>Esempio svolto.</b> Differenza centrale a f = 0.05: |sin(0.1π)| = 0.31; a f = 0.25: |sin(0.5π)| = 1; a f = 0.45: |sin(0.9π)| = 0.31. Sono le tre ampiezze della figura sopra. Per il box a f = 0: sin(7πf)/(7 sin πf) → 1, la media non cambia; a f = 1/7: sin(π) = 0, quella frequenza viene cancellata.</p>
+  <figure><img src="{{IMG:disp_kernel_freq.png}}" alt="Modulo della risposta in frequenza di box, gaussiana, differenza centrale e differenza in avanti, da 0 a Nyquist"><figcaption>Box e gaussiana: passa-basso (il box con lobi fino a 0.23). Differenza centrale: passa-banda. Differenza in avanti: passa-alto.</figcaption></figure>
+  <p><b>Cosa dice ciascuna curva.</b></p>
+  <ul>
+    <li><mark class="sh sh-y"><b>Box</b></mark> (media di 7 <mark class="sh sh-y">campioni</mark>): |H(0)| = 1, quindi la media del segnale resta uguale. Primo zero a f = 1/7 ≈ 0.14, poi <mark class="sh sh-p"><b>lobi laterali</b> fino al 23%</mark>, con segno alterno. Passa-basso imperfetto: lascia passare un po' di alte frequenze, alcune con segno invertito.</li>
+    <li><b>Gaussiana</b> (15 campioni, σ = 2.5): |H| è anch'essa una gaussiana, monotona e praticamente nulla <mark class="sh sh-y">oltre 0.2. È il passa-basso "pulito"</mark>.</li>
+    <li><b>Derivata centrale</b> [−1, 0, 1]/2: |H| = |sin(2πf)|, nulla in 0 (un segnale costante ha derivata zero), massima a 0.25 e di nuovo nulla a Nyquist. <mark class="sh sh-b">È un <b>passa-banda</b>, non un passa-alto</mark> come dice il notebook (scheda 11, riquadro Attenzione): l'alternanza [1, −1, 1, −1, …] dà x[n+1] − x[n−1] = 0. La differenza in avanti [1, −1] ha invece |H| = 2|sin πf| e cresce fino a Nyquist. Li ritroverai in <a href="#L5">L5</a>.</li>
+  </ul>
+  <p>Due correzioni al notebook. <mark class="sh sh-y">La prima: il box non produce ringing</mark> nel tempo. <mark class="sh sh-g">Un kernel tutto positivo e a somma 1 fa una media pesata</mark>, quindi l'uscita resta fra il minimo e il massimo dell'ingresso: sul gradino dà una rampa monotona. Il ringing viene dai kernel con lobi negativi, come la sinc della sezione 5. La seconda è il segno della derivata.</p>
+  <h4>Il segno della derivata</h4>
+  <p>Il notebook usa <code>np.convolve(x, [-1, 0, 1]/2)</code>. <mark class="sh sh-y">La convoluzione ribalta il kernel, quindi calcola (x[n−1] − x[n+1])/2, cioè meno</mark> <mark class="sh sh-p">la derivata: il fronte di salita dà un picco negativo</mark> (scheda 10, riquadro Attenzione).</p>
+  <figure><img src="{{IMG:disp_flip.png}}" alt="Un impulso rettangolare, la sua convoluzione e la sua cross-correlazione con il kernel [-1, 0, 1]/2"><figcaption>Con np.convolve la salita dà −0.5, con np.correlate +0.5: stesso kernel, segno opposto.</figcaption></figure>
+  <p><mark class="sh sh-p">La derivata amplifica il rumore</mark>, perché |H| è grande alle frequenze medio-alte dove il rumore ha la stessa energia del segnale: per questo in <a href="#L5">L5</a> si deriva dopo aver sfocato.</p>
+  <h4>Come leggere i grafici di demo.ipynb</h4>
+  <ul>
+    <li><b><mark class="sh sh-y">Forma d'onda</mark></b> (scheda 3): cerca <mark class="sh sh-y">solo l'inviluppo che</mark> pulsa (battimenti).</li>
+    <li><b><mark class="sh sh-y">Spettro lineare e</mark> log</b> (scheda 5): posizione dei picchi, pavimento di rumore, gonne di C4 ed E4.</li>
+    <li><b><mark class="sh sh-y">Dopo ogni maschera</mark></b> (scheda 7): la zona tolta crolla a 10<sup>−13</sup>, lo zero numerico.</li>
+    <li><b><mark class="sh sh-y">Mix e separazione</mark></b> (scheda 8): cinque picchi nel mix, tre e due nei recuperati, e il rumore che segue <mark class="sh sh-y">la parte alta.</mark></li>
+    <li><b>Kernel nel tempo e in frequenza</b> (schede 10–11): larghezza delle rampe, <mark class="sh sh-y">rumore ridotto, segno</mark> dei picchi della derivata, valore in 0 e lobi di |H|. Lo zero-padding a 256 campioni rende solo la curva liscia.</li>
+  </ul>
+  <div class="box k"><b>Il punto</b><p>La risposta in frequenza |H(f)| dice che cosa un kernel fa a ogni frequenza: box e gaussiana sono passa-basso (il box con lobi), la differenza centrale è un passa-banda. np.convolve ribalta il kernel, quindi [−1, 0, 1] dà meno la derivata.</p></div>
+
+  <h3>8. Lo spettro come descrittore: classificare cifre parlate</h3>
+  <p><b>Il problema.</b> Finora lo spettro serviva a modificare il segnale. classification.ipynb lo usa per <b>descriverlo</b>. Il dataset è il Free Spoken Digit Dataset: 3000 registrazioni a 8 kHz di 6 speaker che dicono 50 volte ciascuna le cifre da 0 a 9 (scheda 13). Il compito è riconoscere la cifra.</p>
+  <p><b>L'idea.</b> Vocali e consonanti diverse occupano zone diverse dello spettro: "six" e "seven" hanno sibilanti sopra i 2000 Hz, "four" e "zero" no. Se lo spettro cambia da cifra a cifra, lo si può usare come vettore di feature.</p>
+  <figure><img src="{{IMG:disp2_spettri_cifre.png}}" alt="Dieci spettri in scala log, uno per cifra da 0 a 9, da 0 a 4000 Hz"><figcaption>Figura prodotta da classification.ipynb (scheda 14): uno spettro in log per cifra; cambia la distribuzione dell'energia fra le bande.</figcaption></figure>
+  <p>Ogni clip è portata a 8000 campioni (1 s) con zeri in coda: tutte le FFT hanno lo stesso asse, 4001 bin da 0 a 4000 Hz (la Nyquist a 8 kHz, banda telefonica).</p>
+  <h4>Tre numeri per clip</h4>
+  <p>Invece di 4001 valori, il notebook estrae tre misure di "brillantezza" (contenuto ad alta frequenza) (scheda 15):</p>
+  <span class="f"><mark class="sh sh-b">centroide = ∑<sub>k</sub> f<sub>k</sub> |X<sub>k</sub>| / ∑<sub>k</sub> |X<sub>k</sub>|</mark></span>
+  <ul>
+    <li><b>Centroide</b>: <mark class="sh sh-b">il baricentro dello spettro, la media delle frequenze f<sub>k</sub> pesata con la magnitudine |X<sub>k</sub>|</mark>. Esempio: magnitudine 1 a 100 Hz, 1 a 200 Hz, 2 a 1000 Hz dà (100 + 200 + 2000)/4 = 575 Hz.</li>
+    <li><mark class="sh sh-y"><b>Rolloff</b>: la frequenza sotto cui sta l'85% della somma cumulata</mark>. Il codice somma |X| e non |X|<sup>2</sup>, quindi <mark class="sh sh-p">non è "l'85% dell'energia"</mark> come dice il testo, e sulle clip vere la differenza è grande: con |X|<sup>2</sup> il rolloff mediano scende da 2128 a 668 Hz (scheda 15, riquadro Attenzione).</li>
+    <li><mark class="sh sh-y"><b>Zero-crossing rate</b>: la frazione di coppie di campioni consecutivi che cambiano segno</mark>. Una sinusoide a frequenza f attraversa lo zero 2f volte al secondo, quindi ZCR ≈ 2f/f<sub>s</sub>: <mark class="sh sh-g">stima la frequenza senza FFT</mark>. <mark class="sh sh-p">Calcolata sulla clip riempita di zeri, però, misura soprattutto la durata</mark> (scheda 15).</li>
+  </ul>
+  <figure><img src="{{IMG:disp2_feature.png}}" alt="Spettro sintetico tipo voce con le linee verticali di centroide e dei due rolloff, e sotto le somme cumulate di |X| e |X| al quadrato con la soglia dell'85%"><figcaption>Spettro sintetico, non del dataset. Con |X| il fondo largo pesa molto e il rolloff va a 2843 Hz; con |X|² dominano i picchi e scende a 1648 Hz.</figcaption></figure>
+  
+  <p>Nello scatter centroide-rolloff (scheda 16) cerca due cose: i punti formano <mark class="sh sh-y">una sola banda curva</mark>, quindi <mark class="sh sh-p">le due feature misurano quasi la stessa cosa</mark>; e i colori sono in parte ordinati lungo la banda ma molto sovrapposti. Tre numeri non bastano per dieci classi.</p>
+  <figure><img src="{{IMG:disp_scatter.png}}" alt="Scatter di centroide contro rolloff per le 3000 clip, colorato per cifra"><figcaption>Figura prodotta da classification.ipynb (scheda 16): una sola banda curva, cifre molto mescolate.</figcaption></figure>
+  <h4>k-NN e standardizzazione</h4>
+  <p><mark class="sh sh-y">Il k-NN con k = 5 assegna la classe più votata fra i 5 esempi di training più vicini</mark> in distanza euclidea. Prima si <mark class="sh sh-y"><b>standardizza</b> ogni feature (media 0, deviazione standard 1)</mark>: altrimenti il centroide, in migliaia di Hz, dominerebbe la ZCR, in decimi. Due clip che differiscono di 300 Hz nel centroide e di 0.2 nella ZCR distano ≈ 300: decide solo il centroide. Risultato con split casuale 80/20 (scheda 17): 49.8% con 3 feature, <mark class="sh sh-g">88.0% aggiungendo il log-spettro completo</mark> log(|X| + 1). Il log comprime la dinamica come nei grafici, così le distanze non sono decise solo dai picchi più alti. La matrice di confusione (scheda 18) si legge per righe: riga = cifra vera, colonna = predetta, 60 esempi per riga; gli errori principali sono fra 0, 2, 3 e 6, foneticamente vicini.</p>
+  <h4>Il risultato che conta: speaker nuovi</h4>
+  <p>Nello split casuale ogni clip di test ha nel training decine di registrazioni della stessa cifra detta dalla stessa persona. Il vicino più prossimo è quasi sempre "lei che dice la stessa cosa", e lo spettro dell'intera clip contiene anche timbro, altezza della voce, volume, microfono. Con il <mark class="sh sh-b"><b>leave-one-speaker-out</b> (6 fold, ciascuno testa su uno speaker mai visto)</mark> <mark class="sh sh-p">l'accuratezza crolla: 28.7% con 3 feature, 32.2% con lo spettro</mark> (scheda 19).</p>
+  <figure><img src="{{IMG:disp_loso.png}}" alt="Accuratezza per speaker di test con leave-one-speaker-out, con 3 feature e con il log-spettro, confrontata con lo split casuale"><figcaption>Figura prodotta da classification.ipynb (scheda 19): barre per speaker escluso molto sotto le linee tratteggiate dello split casuale; punteggiata = caso, 10%.</figcaption></figure>
+  <p>Vale identico per le immagini: <mark class="sh sh-p">un buon numero su uno split sbagliato misura le scorciatoie</mark> (stessa camera, stesso sfondo). L'esercizio (scheda 20) chiede feature robuste allo speaker (log meno la media, poche bande larghe, pezzi consecutivi del parlato): la soluzione nella guida allo studio arriva al 61%.</p>
+  <div class="box k"><b>Il punto</b><p>Lo spettro è anche una feature: con il k-NN dà l'88% su split casuale. Ma crolla al 32% su speaker nuovi, perché codifica anche la voce: come valuti conta quanto le feature che scegli.</p></div>
+
+  <h3>9. Template matching: la correlazione come misura di somiglianza</h3>
+  <p><b>Il problema.</b> Hai un piccolo pattern (un triangolo 3×5 nel notebook, una lettera in una pagina, un logo in una foto) e vuoi trovare dove compare in un'immagine. L'idea più semplice: far scorrere il pattern ovunque e misurare la somiglianza.</p>
+  <p><b>L'idea.</b> Il prodotto scalare fra due vettori è grande quando puntano nella stessa direzione. La cross-correlazione calcola esattamente il prodotto scalare fra il pattern h e ogni finestra dell'immagine, quindi è <mark class="sh sh-y">un rivelatore di somiglianza</mark> (scheda 25). La convoluzione invece ribalta il pattern e <mark class="sh sh-p">cerca il triangolo capovolto</mark>: nella figura della scheda 25 i due triangoli dritti danno 9 nella correlazione, quello capovolto lo dà nella convoluzione.</p>
+  <p>Ma il prodotto scalare cresce anche con la luminosità della finestra: <mark class="sh sh-p">una zona bianca uniforme può superare il pattern vero</mark>. Nella scheda 26 il notebook aggiunge un rettangolo bianco: nella correlazione semplice raggiunge 9 come i triangoli, e 26 posizioni sono a pari merito.</p>
+  <figure><img src="{{IMG:disp2_template2d.png}}" alt="Immagine 30 per 30 con due triangoli dritti, uno capovolto e un rettangolo bianco; la correlazione semplice, alta anche sul rettangolo; la correlazione normalizzata, che vale 15 sui triangoli e zero dentro il rettangolo"><figcaption>Ricostruzione dell'esempio di 15lif.ipynb: la correlazione semplice si accende anche sul rettangolo, quella normalizzata vale 15 sui triangoli e 0 dentro il rettangolo.</figcaption></figure>
+  <p><b>La matematica.</b> La <mark class="sh sh-b"><b>correlazione normalizzata</b></mark> (libro § 15.5.1, scheda 26) corregge in due passi:</p>
+  <span class="f"><mark class="sh sh-b">y[n] = (1/σ[n]) ∑<sub>k</sub> x[n + k] · ĥ[k]</mark></span>
+  <ul>
+    <li><b>ĥ</b> è il template a media zero (e norma o deviazione standard fissata): <mark class="sh sh-g">su una zona costante il prodotto scalare vale 0, qualunque sia la sua luminosità</mark>.</li>
+    <li><b>σ[n]</b> è la deviazione standard dell'immagine nella finestra che parte da n: <mark class="sh sh-g">dividendo, il risultato non dipende dal contrasto locale</mark>.</li>
+  </ul>
+  <p><b>Esempio svolto in 1D.</b> Segnale x = [0, 0, 1, 2, 1, 0, 5, 5, 5], template h = [1, 2, 1]. La correlazione semplice sulle finestre valide dà [1, 4, 6, 4, 6, 15, 20]: il massimo, 20, cade sulla finestra [5, 5, 5], che non somiglia affatto al template; il pattern vero, [1, 2, 1], vale solo 6, a pari merito con [1, 0, 5].</p>
+  <p>Normalizziamo come il notebook. La media di h è 4/3, la sua deviazione standard √(2/9) ≈ 0.471, quindi ĥ = (h − 4/3)/0.471 ≈ [−0.707, 1.414, −0.707]. Sulla finestra [1, 2, 1]: ĥ·x = −0.707 + 2.828 − 0.707 = 1.414, la σ locale è 0.471, risultato 3.0. Su [5, 5, 5]: ĥ·x = 5·(−0.707 + 1.414 − 0.707) = 0, risultato 0. Su [1, 0, 5]: −1.96. Ora il massimo è sul pattern vero e vale 3, il numero di campioni del template (il notebook normalizza a deviazione standard 1, non a norma 1): per questo in 2D, con un template 3×5, il massimo è 15. Dividendo per 15 ottieni la NCC in [−1, 1].</p>
+  <figure><img src="{{IMG:disp_ncc.png}}" alt="Il segnale dell'esempio, la sua correlazione semplice e quella normalizzata con il template [1, 2, 1], posizione per posizione"><figcaption>La correlazione semplice ha il massimo (20) sulla zona chiara, quella normalizzata (3) sul pattern vero.</figcaption></figure>
+  <p>Nelle figure delle schede 24–26 la correlazione del notebook aggancia la finestra all'angolo in alto a sinistra, quindi i picchi cadono lì e non al centro del pattern. E anche nella versione normalizzata <mark class="sh sh-p">il bordo del rettangolo arriva a 9. La normalizzazione aiuta, non risolve tutto.</mark></p>
+  <p>Il metodo è <mark class="sh sh-g">invariante alla traslazione</mark> ma <mark class="sh sh-p">non a scala, rotazione o cambio di forma</mark>: lo stesso libro lo definisce fragile. Le piramidi (<a href="#L6">L6</a>) affrontano la scala, i descrittori (<a href="#L8">L8</a>) il resto.</p>
+  <div class="box k"><b>Il punto</b><p>Template matching = cross-correlazione, cioè un prodotto scalare in ogni posizione. Va normalizzato (template a media zero, divisione per la σ locale) per non premiare le zone chiare, e resta fragile a scala e rotazione.</p></div>
+
+  <h3>Il riassunto in 10 righe</h3>
+  <ol>
+    <li>La DFT riscrive N campioni come N sinusoidi; il bin u fa u cicli nella finestra, cioè f = u·f<sub>s</sub>/N.</li>
+    <li>Risoluzione Δf = f<sub>s</sub>/N = 1/durata; frequenza massima f<sub>s</sub>/2; rfft restituisce N/2 + 1 bin per simmetria hermitiana.</li>
+    <li>numpy non normalizza la FFT diretta: una sinusoide di ampiezza A dà un picco A·N/2; lo spettro si guarda in scala log.</li>
+    <li>Le frequenze che non cadono su un bin si spalmano sui vicini (leakage): finestra finita = box, la cui trasformata è una sinc. Rimedio: finestra di Hann.</li>
+    <li>Filtrare in frequenza (rfft, maschera, irfft) equivale a una convoluzione circolare con h = IDFT(H).</li>
+    <li>Una maschera a taglio netto ha come kernel una sinc con lobi negativi: ringing sui fronti. Una maschera gaussiana no.</li>
+    <li>La convoluzione è l'unico operatore lineare e invariante alla traslazione; il kernel è la risposta all'impulso. Modalità full, same, valid.</li>
+    <li>Box: passa-basso con lobi; gaussiana: passa-basso pulito; differenza centrale: passa-banda |sin 2πf|; np.convolve ribalta, quindi [−1, 0, 1] dà meno la derivata.</li>
+    <li>Lo spettro descrive un suono; con il k-NN funziona su split casuale (88%) ma crolla su speaker nuovi (32%): la valutazione conta quanto le feature.</li>
+    <li>Template matching = cross-correlazione; va normalizzato (template a media zero, divisione per la σ locale) e non gestisce scala né rotazione.</li>
+  </ol>
+
+  <h3>Verifica di aver capito</h3>
+  <details><summary>Un segnale di 0.5 s campionato a 16 kHz: quanti valori restituisce rfft, qual è la risoluzione e la frequenza massima? Riesci a separare due note a 440 e 441 Hz?</summary><p>N = 8000, quindi 4001 valori; Δf = 16000/8000 = 2 Hz; f<sub>max</sub> = 8000 Hz. No: le note distano mezzo bin. Si fondono in un unico picco allargato (figura della sezione 3). Serve un segnale più lungo (con 4 s, Δf = 0.25 Hz e le note distano 4 bin), non una f<sub>s</sub> più alta.</p></details>
+  <details><summary>Perché nel notebook il picco di A3 è più alto di quello di C4, anche se le sinusoidi hanno la stessa ampiezza?</summary><p>220 Hz cade esattamente sul bin 440; 261.63 Hz cade a 523.26, fra due bin. La finestra finita trasforma ogni riga in una sinc: fuori dal bin il picco si abbassa (di 0.89) e l'energia va nei vicini (leakage).</p></details>
+  <details><summary>Applichi a un segnale una maschera passa-basso 0/1 in frequenza e vedi oscillazioni vicino ai fronti. Da dove vengono e come le elimini?</summary><p>Per il teorema di convoluzione la maschera equivale a convolvere con la sua IDFT, una sinc con lobi negativi: è il ringing (Gibbs). Si elimina con una maschera che scende gradualmente, per esempio gaussiana, il cui kernel è positivo.</p></details>
+  <details><summary>Calcola |H(f)| della differenza centrale e dì se è un passa-alto.</summary><p>Inserendo e<sup>2πjfn</sup> in y[n] = (x[n+1] − x[n−1])/2 ottieni H(f) = j sin(2πf), quindi |H| = |sin 2πf|: zero in 0 e in 0.5, massimo in 0.25. È un passa-banda. La differenza in avanti [1, −1] ha 2|sin πf| ed è un passa-alto.</p></details>
+  <details><summary>Calcola a mano la convoluzione full di [1, 1, 2] con [1, −1] e la cross-correlazione valid degli stessi.</summary><p>Convoluzione: [1, 1−1, 2−1, −2] = [1, 0, 1, −2] (4 = 3 + 2 − 1 valori). Cross-correlazione valid, h ⋆ x[n] = h[0]x[n] + h[1]x[n+1]: [1 − 1, 1 − 2] = [0, −1]. Sono una il ribaltamento dell'altra: la convoluzione valid sarebbe [0, 1].</p></details>
+  <details><summary>Perché il k-NN sullo spettro passa dall'88% al 32% quando lo speaker di test non è nel training, e perché la correlazione semplice è un cattivo template matcher? Cosa hanno in comune?</summary><p>Nel primo caso lo spettro codifica anche la voce, e lo split casuale premia chi la riconosce; nel secondo il prodotto scalare premia la luminosità della finestra. In entrambi la misura di somiglianza risponde a qualcosa che non è ciò che cerchi, e la cura è rendersi invarianti a ciò che non conta (sottrarre la media del log-spettro; template a media zero e divisione per la σ locale).</p></details>
+
+  <h3>Come proseguire</h3>
+  <ul>
+    <li><a href="https://visionbook.mit.edu/linear_image_filtering.html">Cap. 15 Linear Image Filtering</a>: § 15.3–15.4 (dalla linearità alla convoluzione, proprietà, bordi, convoluzione circolare), § 15.5–15.5.1 (correlazione e template matching normalizzato), § 15.6 (risposta all'impulso, l'esempio acustico della stanza).</li>
+    <li><a href="https://visionbook.mit.edu/image_processing_fourier.html">Cap. 16 Fourier Analysis</a>: § 16.5 (DFT), § 16.6.3 (box e sinc), § 16.7.4–16.7.5 (teorema di convoluzione e dual convolution), § 16.10 (funzione di trasferimento e tipi di filtro).</li>
+    <li><a href="https://visionbook.mit.edu/temporal_filters_v2.html">Cap. 19 Temporal Filters</a>: § 19.4, solo causalità, filtri ricorsivi e derivata temporale.</li>
+  </ul>
+  <p>La sezione "Studia dal libro" in fondo alla pagina dice cosa saltare e spiega le derivazioni centrali. Ora apri i notebook e ripassa con le schede qui sotto, una per blocco di celle: i riquadri Attenzione segnalano i punti in cui il notebook sbaglia.</p>
+</div>

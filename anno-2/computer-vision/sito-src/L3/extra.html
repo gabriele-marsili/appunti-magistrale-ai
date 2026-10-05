@@ -1,0 +1,162 @@
+
+<div class="sec" id="l3-libro"><h2>Studia dal libro</h2><span>visionbook, capitoli 15 e 16: circa 3 ore di lettura</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Cosa leggere, in ordine</h3>
+    <div class="meta">Torralba, Isola, Freeman, <i>Foundations of Computer Vision</i>, gratis online</div>
+    <ol>
+      <li><a href="https://visionbook.mit.edu/linear_image_filtering.html">Cap. 15, Linear Image Filtering</a>: § 15.2 (segnali e immagini, notazione), § 15.3 (sistemi lineari e LTI), § 15.4 tutto (convoluzione, proprietà, esempi, bordi, circolare, continua), § 15.5 (correlazione e template matching), § 15.6 (risposta all'impulso). Copre le slide 4–31.</li>
+      <li><a href="https://visionbook.mit.edu/image_processing_fourier.html">Cap. 16, Fourier Analysis</a>: § 16.2–16.5 (trasformate, serie, onde, DFT e matrice di Fourier), § 16.6 (delta, coseni, box), § 16.7 (proprietà: separabilità, Parseval, convoluzione, duale, shift, modulazione), § 16.9 (ampiezza e fase), § 16.10 (filtri in frequenza). Copre le slide 32–73.</li>
+    </ol>
+    <p><b>Si può leggere in fretta</b>: § 15.1 e § 16.1 (introduzioni), l'esempio acustico di § 15.6 (basta l'idea), § 16.8 (famiglia di trasformate: serve soprattutto in L6), § 16.10.2 sulla CSF (curiosità utile, non centrale).</p>
+    <p><b>Nel libro ma non nelle slide</b>, e utile per capire: il passaggio da layer denso a convoluzione (§ 15.3.1), il confronto quantitativo fra padding (§ 15.4.3), la correlazione normalizzata (§ 15.5.1), Parseval (§ 16.7.3), il teorema duale e la modulazione (§ 16.7.5–16.7.7), la DFT esatta del box (§ 16.6.3). <b>Nelle slide ma non nel libro</b>: separabilità dei filtri e costi, depthwise separable, simmetria coniugata e <code>rfft</code>, zero padding per la FFT, Gibbs, JPEG/DCT, collegamenti con le CNN.</p>
+  </div>
+  <div class="two">
+    <div class="card">
+      <h3>1 · Dalla matrice piena alla convoluzione</h3>
+      <p>Un sistema lineare qualunque è ℓ<sub>out</sub> = H ℓ<sub>in</sub> con H piena: un layer fully connected. L'invarianza per traslazione impone h[n, k] = h[n − k], cioè ogni riga di H è la precedente spostata di uno. Restano solo i valori del kernel: la convoluzione è un layer denso con <b>pesi condivisi e locali</b>. Scritto l'input come somma di impulsi traslati, l'output è la somma delle risposte h traslate: da qui y = h ∘ x e il nome "risposta all'impulso" (§ 15.3, 15.6).</p>
+    </div>
+    <div class="card">
+      <h3>2 · Convoluzione, correlazione, bordi</h3>
+      <p>Convoluzione = specchia, sposta, moltiplica, somma; correlazione = come sopra senza specchiare. Solo la convoluzione è commutativa e associativa; solo la correlazione "trova" un pattern uguale al kernel, e per farlo bene va normalizzata (media zero, divisione per la deviazione standard locale). Ai bordi bisogna inventare pixel: il libro mostra che il mirror sbaglia meno e lo zero padding di più; il padding circolare è quello implicito nella DFT (§ 15.4.3–15.5).</p>
+    </div>
+    <div class="card">
+      <h3>3 · DFT come proiezione su una base ortogonale</h3>
+      <p>Gli esponenziali e<sub>u,v</sub>[n, m] = exp(2πj(un/N + vm/M)) sono ortogonali con ⟨e<sub>u,v</sub>, e<sub>u′,v′</sub>⟩ = NM δ[u − u′] δ[v − v′]. Il coefficiente ℒ[u, v] è il prodotto scalare dell'immagine con e<sub>u,v</sub>; ricostruire significa sommare le onde pesate e dividere per la norma² NM. Tutti i fattori (1/NM nell'inversa, F<sup>−1</sup> = F<sup>∗</sup>/N, 1/NM in Parseval) vengono da qui (§ 16.4.2, 16.5).</p>
+    </div>
+    <div class="card">
+      <h3>4 · Filtrare = ripesare le frequenze</h3>
+      <p>Per la convoluzione circolare ℒ<sub>out</sub> = H · ℒ<sub>in</sub>, con H = DFT del kernel: |H| è il guadagno a ogni frequenza, ∠H lo sfasamento. Un filtro lineare non crea frequenze nuove. Il duale (prodotto nello spazio ↔ convoluzione/NM in frequenza) spiega modulazione e campionamento. Lo shift cambia solo la fase: da qui l'idea che la posizione delle cose stia nella fase (§ 16.7, 16.9, 16.10).</p>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Differenze di notazione fra slide e libro</h3>
+    <ul>
+      <li><b>Simbolo di convoluzione</b>: slide ∗, libro ∘ (e ∘<sub>N</sub> o ∘<sub>N,M</sub> per quella circolare). Correlazione: ⋆ in entrambi.</li>
+      <li><b>Nome</b>: slide LSI (shift-invariant), libro LTI (translation invariant). Stessa cosa.</li>
+      <li><b>Indici</b>: libro ℓ[n, m] con n orizzontale in [0, N−1], m verticale in [0, M−1], immagine in ℝ<sup>M×N</sup>. La slide 5 scrive f[m, n] con m = 0, …, M−1; le slide 14 e 28 scrivono (f ∗ h)[m, n]. Le slide 11, 23 e quelle sulla DFT (49 in poi) usano invece la notazione del libro (la 47 le mescola).</li>
+      <li><b>Correlazione</b>: il libro scrive ∑ ℓ<sub>in</sub>[n + k, m + l] h[k, l] (come le librerie); la slide 28 scrive ∑ f[i, j] h[m + i, n + j], che dà la stessa mappa specchiata.</li>
+      <li><b>DFT</b>: slide e libro usano la stessa convenzione di numpy: diretta con segno − e nessun fattore, inversa con segno + e 1/NM. Ma sia il libro sia le slide mescolano formule della versione normalizzata: F<sup>−1</sup> = F<sup>∗</sup> (vale solo per F/√N) e le coppie coseno ↔ ½(δ + δ) (con la DFT non normalizzata il fattore è NM/2). Fissata la convenzione, rifai sempre i conti.</li>
+      <li><b>Serie di Fourier</b>: libro su (0, π) con a<sub>n</sub> = (2/π) ∫<sub>0</sub><sup>π</sup>; slide con 1/T ∫<sub>0</sub><sup>T</sup> (fattore sbagliato, slide 35).</li>
+      <li><b>DFT centrata</b>: libro e slide scrivono frequenze in [−N/2, N/2]; con N pari sono N valori in [−N/2, N/2 − 1] (ordine di <code>fftshift</code>).</li>
+      <li><b>Frequenza continua</b>: libro w (radianti), slide ξ e ω. Unità immaginaria j in entrambi (la slide 43 usa i).</li>
+    </ul>
+  </div>
+</div>
+
+<div class="sec" id="l3-guida"><h2>Guida allo studio</h2><span>4–5 ore in quattro blocchi, più i conti da rifare</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Prima di iniziare</h3>
+    <div class="meta">20 minuti</div>
+    <p>Ripassa tre cose che la lezione dà per scontate:</p>
+    <ul>
+      <li>numeri complessi in forma polare, formula di Eulero, cos θ = (e<sup>jθ</sup> + e<sup>−jθ</sup>)/2 e sin θ = (e<sup>jθ</sup> − e<sup>−jθ</sup>)/(2j);</li>
+      <li>serie geometrica finita: ∑<sub>n=0</sub><sup>N−1</sup> r<sup>n</sup> = (1 − r<sup>N</sup>)/(1 − r);</li>
+      <li>cambio di base e diagonalizzazione di una matrice (autovettori, autovalori).</li>
+    </ul>
+  </div>
+  <div class="two">
+    <div class="card">
+      <h3>1 · Immagini come segnali e sistemi LSI</h3>
+      <div class="meta">Slide 4–12 · circa 30 minuti</div>
+      <p>Obiettivo: saper dire se un'operazione è lineare, invariante per traslazione, entrambe o nessuna.</p>
+      <ul>
+        <li>Classifica a voce: blur, rotazione, rgb2gray, crop, gamma, soglia, ReLU, sharpening, resize.</li>
+        <li>Spiega la differenza fra equivarianza e invarianza con un esempio di task per ciascuna.</li>
+        <li>Verifica: sai dire perché la rotazione è lineare ma non è una convoluzione?</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>2 · Convoluzione</h3>
+      <div class="meta">Slide 13–31 · circa 1 ora e 15</div>
+      <p>Obiettivo: fare i conti a mano e conoscere proprietà e costi.</p>
+      <ul>
+        <li>Rifai l'esempio 1D (slide 16) e l'esempio con la matrice circolante (slide 30), senza guardare.</li>
+        <li>Correggi su OneNote la frase "righe = shift di h" della slide 30.</li>
+        <li>Scrivi i costi: 2D contro separabile (slide 25), standard contro depthwise (slide 26), con un esempio numerico.</li>
+        <li>Verifica: sai dimostrare che ogni sistema LSI è una convoluzione (slide 18)?</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>3 · Base di Fourier e DFT</h3>
+      <div class="meta">Slide 32–51 · circa 1 ora e mezza</div>
+      <p>Obiettivo: scrivere DFT e inversa a memoria con segni e fattori giusti, e capire perché è un cambio di base.</p>
+      <ul>
+        <li>Correggi subito le formule delle slide 35 (serie di Fourier, fattore 2/π come nel libro) e 51 (F<sup>−1</sup> = F<sup>∗</sup>/N).</li>
+        <li>Dimostra l'ortogonalità (slide 47) con la serie geometrica: è la dimostrazione più probabile all'orale.</li>
+        <li>Spiega perché le frequenze oltre N/2 non sono nuove (slide 41) e cosa fa <code>fftshift</code> (slide 50).</li>
+        <li>Verifica: da dove viene il fattore 1/NM dell'inversa?</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>4 · Esempi, proprietà, applicazioni</h3>
+      <div class="meta">Slide 52–77 · circa 1 ora e 15</div>
+      <p>Obiettivo: leggere uno spettro e usare il teorema di convoluzione.</p>
+      <ul>
+        <li>Correggi la slide 57 (segno del seno e fattore NM) e verifica la correzione con la simmetria coniugata.</li>
+        <li>Davanti alla slide 58 prevedi lo spettro di ogni immagine prima di guardarlo.</li>
+        <li>Dimostra il teorema di convoluzione in 1D (slide 63) e spiega perché serve lo zero-padding (slide 64).</li>
+        <li>Verifica: perché nell'esperimento ampiezza/fase vince la fase, e perché per le texture no (slide 60)?</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Conti da saper rifare</h3>
+    <div class="meta">Carta e penna, poi controlla con numpy nel lab della lezione 4</div>
+    <ol>
+      <li><b>Convoluzione 1D.</b> [1, 2, 3, 4] ∗ [1, 0, −1] in modo full, same e valid. <i>(Full: [1, 2, 2, 2, −3, −4]; same: [2, 2, 2, −3]; valid: [2, 2].)</i></li>
+      <li><b>DFT a mano.</b> x = [1, 2, 3, 4], N = 4, e<sup>−2πj/4</sup> = −j. <i>(X = [10, −2 + 2j, −2, −2 − 2j]. Controlli: X[0] = somma; X[3] = X[1]<sup>∗</sup> perché x è reale.)</i></li>
+      <li><b>Teorema di convoluzione.</b> Con h = [1, −1, 0, 0]: H = [0, 1 + j, 2, 1 − j]; X·H = [0, −4, −4, −4]; l'inversa (1/4)∑ … dà [−3, 1, 1, 1], lo stesso risultato della matrice circolante della slide 30. <i>Nota H[0] = 0: una derivata toglie il DC.</i></li>
+      <li><b>Impulso traslato.</b> DFT di δ[n − 1] con N = 4. <i>(e<sup>−2πju/4</sup> = [1, −j, −1, j]: ampiezza 1 ovunque, fase lineare.)</i></li>
+      <li><b>Coseno.</b> DFT di cos(2π·n/4) su N = 4. <i>(x = [1, 0, −1, 0], X = [0, 2, 0, 2]: N/2 in u = 1 e in u = 3 ≡ −1.)</i></li>
+      <li><b>Costi.</b> Immagine 1000×1000, kernel 15×15: diretto ≈ 2,25·10<sup>8</sup> moltiplicazioni, separabile ≈ 3·10<sup>7</sup>. Depthwise separable con k = 3, C = 128: rapporto 1/128 + 1/9 ≈ 0,12.</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h3>Errori delle slide da correggere su OneNote</h3>
+    <div class="meta">Dettagli nelle schede, riquadri rossi</div>
+    <ul>
+      <li><b>Slide 7</b>: l'aliasing non è "rumore ad alta frequenza", è alta frequenza che ricompare come falsa bassa frequenza.</li>
+      <li><b>Slide 30</b>: sono le colonne di H, non le righe, a essere shift ciclici di h.</li>
+      <li><b>Slide 35</b>: il fattore è 2/π su (0, π) come nel libro, non 1/T; soli seni bastano per l'estensione dispari, non per un segnale periodico qualunque.</li>
+      <li><b>Slide 41</b>: c<sub>N−k</sub> = c<sub>k</sub> e s<sub>N−k</sub> = −s<sub>k</sub> valgono per fase θ = 0.</li>
+      <li><b>Slide 51</b>: F<sup>−1</sup> = (1/N) F<sup>∗</sup> (anche il libro omette 1/N).</li>
+      <li><b>Slide 57</b>: manca il fattore NM (con la DFT della slide 49) e nel seno fra le due delta c'è un meno.</li>
+      <li><b>Slide 60</b>: la didascalia parla di scambio fra due immagini, la figura (libro fig. 16.15) mostra fase casuale e ampiezza 1/f; per il libro l'importanza di fase e ampiezza dipende dall'immagine.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Domande tipo orale</h3>
+    <div class="meta">Prova a rispondere, poi apri per la traccia</div>
+    <div class="qa">
+      <details><summary>Cos'è un sistema LSI? Dimostra che è una convoluzione.</summary><p>Lineare e invariante per traslazione. Si scrive l'input come somma di impulsi traslati; per linearità l'output è la somma delle risposte, per invarianza ogni risposta è h traslato, con h = T[δ]. Risultato: y = x ∗ h (slide 11, 18).</p></details>
+      <details><summary>Convoluzione e cross-correlazione: differenze. Cosa usano le CNN e perché non importa?</summary><p>La convoluzione ribalta il kernel, la correlazione no. Coincidono per kernel simmetrici. Solo la convoluzione è commutativa e associativa. Le CNN usano la correlazione: il kernel è appreso, quindi imparano direttamente la versione ribaltata (slide 28).</p></details>
+      <details><summary>Cos'è un filtro separabile e quanto si risparmia?</summary><p>h(x, y) = h<sub>x</sub>(x) h<sub>y</sub>(y), matrice di rango 1. Due passate 1D: O(MNk) invece di O(MNk²). Esempi: gaussiana, box, Sobel (slide 25). Stessa idea sull'asse dei canali: depthwise separable (slide 26).</p></details>
+      <details><summary>Scrivi la DFT 2D e la sua inversa. Da dove viene il fattore 1/NM?</summary><p>ℒ[u, v] = ∑∑ ℓ[n, m] e<sup>−2πj(un/N + vm/M)</sup>; ℓ = (1/NM) ∑∑ ℒ e<sup>+2πj(…)</sup>. Le onde sono ortogonali ma con norma² NM, quindi proiettare e ricostruire richiede di dividere per NM (slide 47, 49).</p></details>
+      <details><summary>Perché la DFT è un cambio di base? Cosa fa la FFT?</summary><p>È il prodotto per la matrice di Fourier F, con F<sub>u,n</sub> = e<sup>−2πjun/N</sup>, invertibile con F<sup>−1</sup> = F<sup>∗</sup>/N. La FFT calcola lo stesso prodotto in O(N log N) sfruttando la struttura di F (slide 51).</p></details>
+      <details><summary>Enuncia e dimostra il teorema di convoluzione. Quando vale con la DFT?</summary><p>ℱ{f ∗ h} = ℱ{f}·ℱ{h}. Si sostituisce n = k + r e la doppia somma si fattorizza. Con la DFT vale per la convoluzione circolare; per quella lineare serve zero-padding ad almeno N + k − 1 (slide 63, 64).</p></details>
+      <details><summary>Perché gli esponenziali complessi e non seni e coseni?</summary><p>Sono autofunzioni dei sistemi LSI: in input e<sup>jωn</sup>, in output H(ω) e<sup>jωn</sup>. Traslazioni e convoluzioni diventano moltiplicazioni. Equivale a dire che la base di Fourier diagonalizza le matrici circolanti (slide 29, 44).</p></details>
+      <details><summary>Cosa dice la simmetria coniugata e che conseguenze pratiche ha?</summary><p>Per ℓ reale, ℒ(−u) = ℒ(u)<sup>∗</sup>: ampiezza simmetrica, fase antisimmetrica. Metà dello spettro è ridondante, da cui <code>rfft</code>. Serve anche a controllare le formule, come quella del seno della slide 57 (slide 62).</p></details>
+      <details><summary>Com'è lo spettro di un impulso, di un coseno, di un rettangolo?</summary><p>Impulso: costante (tutte le frequenze, fase nulla). Coseno: due picchi simmetrici. Rettangolo: sinc, più stretta quanto più il rettangolo è largo. Ruotare l'immagine ruota lo spettro (slide 56–58).</p></details>
+      <details><summary>Conta di più l'ampiezza o la fase?</summary><p>Per la struttura la fase: scambiando le due fra immagini si riconosce quella che ha dato la fase, perché i bordi sono allineamenti di fase. Le ampiezze delle immagini naturali sono tutte simili (circa 1/f). Per le texture periodiche invece conta l'ampiezza (slide 59–60).</p></details>
+      <details><summary>Passa-basso, passa-alto, passa-banda: come si costruiscono e cosa fanno?</summary><p>Passa-basso: blur. Passa-alto = identità − passa-basso: bordi e dettagli. Passa-banda: differenza di due passa-basso, isola una scala (texture, orientazione). Tagli netti danno ringing (Gibbs), quindi si usano transizioni morbide (slide 48, 66–67).</p></details>
+      <details><summary>Quando conviene la convoluzione via FFT? Perché nelle CNN non si usa quasi mai?</summary><p>Quando il kernel è grande: O(P log P) contro O(Pk²). I kernel delle CNN sono 3×3, quindi conviene la convoluzione diretta o Winograd (slide 64).</p></details>
+      <details><summary>Che cosa aggiunge una nonlinearità in una CNN, dal punto di vista delle frequenze?</summary><p>Un sistema LSI può solo scalare e sfasare le frequenze presenti. ReLU e simili creano nuove frequenze (armoniche). Per questo impilare conv senza nonlinearità equivale a una sola conv, mentre con le nonlinearità no (slide 71–72).</p></details>
+      <details><summary>Perché JPEG funziona e da dove vengono gli artefatti a blocchi?</summary><p>L'energia delle immagini sta nelle basse frequenze: con la DCT su blocchi 8×8 si quantizzano forte le alte, poco visibili. I blocchi sono trattati in modo indipendente, quindi a bitrate basso i loro bordi non combaciano (slide 69–70).</p></details>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Collegamenti con le altre lezioni</h3>
+    <ul>
+      <li><b>L2</b>: la matrice A di formazione dell'immagine con blur è una matrice di convoluzione (slide 20, 29).</li>
+      <li><b>L4</b> (lab): tutte le formule di questa lezione si verificano con <code>np.fft</code>; utile controllare lì le correzioni delle slide 51 e 57.</li>
+      <li><b>L5</b>: gaussiana, derivate, Sobel e sharpening come kernel specifici.</li>
+      <li><b>L6</b>: campionamento = prodotto per un treno di impulsi = convoluzione in frequenza (il duale del teorema della slide 63), da cui aliasing e prefiltro.</li>
+    </ul>
+  </div>
+</div>

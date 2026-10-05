@@ -1,0 +1,238 @@
+<div class="sec" id="l2-dispensa"><h2>Dispensa</h2><span>parti da qui · circa 40 minuti</span></div>
+<div class="disp">
+  <p><b>In una frase:</b> una foto è il risultato di una catena fisica (luce che rimbalza su un materiale, raggi scelti da un foro o da una lente, un sensore che somma luce, tre numeri per il colore) e ogni anello della catena butta via informazione; questa lezione costruisce il <i>modello diretto</i> che la visione dovrà poi invertire.</p>
+
+  <h3>Prima di iniziare</h3>
+  <ul>
+    <li><b>Prodotto scalare</b> fra vettori <mark class="sh sh-y">unitari: n · p = cos θ</mark>, con θ angolo fra i due.</li>
+    <li><b>Triangoli simili</b>: stessi angoli, lati in proporzione.</li>
+    <li><b>Algebra lineare</b>: inversa, trasposta, autovalori di una matrice simmetrica, nucleo e teorema rango-nullità, gradiente di una forma quadratica.</li>
+    <li>Dalla <a href="#L1">L1</a>: la visione è un <i>problema inverso</i>, risalire dall'immagine alla scena (la grafica fa il contrario).</li>
+  </ul>
+
+  <h3>Guarda prima questi video</h3>
+  <p>Lezioni brevi di Shree Nayar (Columbia). Per la camera come sistema lineare basta il cap. 7 del libro.</p>
+  <div class="watch">
+    <a href="https://www.youtube.com/watch?v=HPNW0we-ft0"><span class="k">Video</span><b>Reflectance Models</b><span class="d">Shree Nayar. Guardalo tutto: modello lambertiano e riflessione speculare spiegati con esempi. Ti serve per le sezioni 2–4.</span></a>
+    <a href="https://www.youtube.com/watch?v=_EhY31MSbNM"><span class="k">Video</span><b>Pinhole and Perspective Projection</b><span class="d">Shree Nayar. Guardalo tutto: perché serve un foro, derivazione di x = fX/Z, punto di fuga. Sezioni 5 e 7–8.</span></a>
+    <a href="https://www.youtube.com/watch?v=7LX-19v_9ns"><span class="k">Video</span><b>Image Formation using Lenses</b><span class="d">Shree Nayar. Facoltativo: equazione della lente sottile e perché la lente non cambia la geometria del pinhole (sezione 6).</span></a>
+    <a href="https://www.youtube.com/watch?v=V4y3K6zoUQs"><span class="k">Video</span><b>Sensing Color</b><span class="d">Shree Nayar. Guarda la parte iniziale su spettro e sensibilità: come un sensore riduce uno spettro a tre numeri (sezioni 13–15).</span></a>
+  </div>
+
+  <h3>1. Il quadro: modello diretto e tre perdite</h3>
+  <p><b>Il problema.</b> Un'auto a guida autonoma vede un pedone: è alto o è vicino? Quella macchia scura è un'ombra o asfalto bagnato? Per rispondere bisogna sapere come la scena è diventata pixel.</p>
+  <p><b>L'idea.</b> <mark class="sh sh-y">Una foto è l'output di una funzione</mark>: in ingresso la scena, in uscita una matrice di numeri. <mark class="sh sh-y">Per invertirla bisogna saperla scrivere e sapere dove non è iniettiva</mark>, cioè dove scene diverse danno la stessa immagine. Lì nessun algoritmo le distingue senza <mark class="sh sh-y">informazione aggiuntiva</mark> (altre viste, conoscenze a priori, modelli appresi).</p>
+  <p><mark class="sh sh-y">La catena (slide 5): scena → ottica (foro o lente) → sensore → ISP</mark>. Il sensore somma la luce che cade su ogni pixel; l'ISP del telefono fa demosaicing, bilanciamento del bianco e <mark class="sh sh-p">gamma</mark>. Alla fine (slide 71) avrai tre perdite:</p>
+  <ol>
+    <li><mark class="sh sh-p">geometrica</mark>: la prospettiva confonde dimensione e profondità;</li>
+    <li><mark class="sh sh-p">lineare</mark>: la camera mescola i valori della scena con una matrice A, e invertirla è instabile;</li>
+    <li><mark class="sh sh-p">spettrale</mark>: il colore riduce uno spettro a tre numeri e mescola materiale e luce.</li>
+  </ol>
+  <p><mark class="sh sh-y">Un'ipotesi regge tutto: la linearità della luce</mark> (slide 10). Con due sorgenti, <mark class="sh sh-y">la luce riflessa è la somma dei contributi</mark> di ciascuna: lampada da sola 0.3, finestra da sola 0.5, insieme 0.8. Vale per il dato grezzo (raw). In un JPEG la gamma (circa valore<sup>1/2.2</sup>) la rompe: 0.3 e 0.5 diventano 0.58 e 0.73, ma 0.8 diventa 0.90, non 1.31.</p>
+  <div class="box k"><b>Il punto</b><p>Prima di invertire la formazione dell'immagine bisogna scriverla. Ogni stadio perde informazione: geometrica, lineare, spettrale. La luce raw è lineare, e questo rende tutto trattabile.</p></div>
+
+  <h3>2. Luce e superfici: BRDF e Lambert</h3>
+  <p><mark class="sh sh-p">Il problema.</mark> <mark class="sh sh-y">Un pixel misura la luce che lascia un punto verso la camera</mark>, e <mark class="sh sh-p">questa dipende da quanta luce arriva, da dove, dall'orientazione della superficie</mark> e dal materiale. Come lo scriviamo?</p>
+  <p><b>L'idea</b> (slide 7). In un bagno buio un solo raggio laser sul lavandino tinge di rosa tutta la stanza: una superficie opaca sparpaglia ogni raggio in molte direzioni. Il modo in cui lo fa è la "firma" del materiale, la <mark class="sh sh-y">BRDF (bidirectional reflectance distribution function</mark>, slide 9):</p>
+  <span class="f"><mark class="sh sh-y">ℓ<sub>out</sub> = F(ℓ<sub>in</sub>, n, p, q, λ)</mark></span>
+  <p><mark class="sh sh-y">ℓ<sub>in</sub> e ℓ<sub>out</sub>: intensità del raggio entrante e uscente; n: normale alla superficie (unitaria); p: vettore unitario che punta dalla superficie verso la sorgente; q: direzione uscente (verso la camera)</mark>; λ: lunghezza d'onda. "Bidirezionale": dipende da due direzioni, p e q.</p>
+  <p>Il caso più semplice è la <mark class="sh sh-y">superficie lambertiana</mark>, <mark class="sh sh-y">perfettamente opaca (carta, gesso, intonaco), che rimanda la luce allo stesso modo in tutte le direzioni</mark> (slide 11):</p>
+  <span class="f"><mark class="sh sh-g">ℓ<sub>out</sub> = a · ℓ<sub>in</sub>(λ) · (n · p)</mark></span>
+  <p><mark class="sh sh-g">a è l'albedo</mark>, un <mark class="sh sh-y">numero fra 0 e 1 che dice quale frazione della luce viene rimandata</mark>. n · p = cos θ, con θ angolo fra normale e luce. <mark class="sh sh-y">q non compare: la superficie ha la stessa luminosità da qualunque punto la guardi</mark>.</p>
+  <p>Perché il coseno? Un fascio inclinato <mark class="sh sh-y">si spalma su un'area 1/cos θ volte più grande</mark>, quindi ogni punto riceve meno luce. <mark class="sh sh-y">Se n · p &lt; 0 la luce sta dietro la superficie</mark>: si usa max(0, n · p).</p>
+  <figure><img src="{{IMG:disp2_coseno.png}}" alt="A sinistra un fascio di larghezza 1 che arriva perpendicolare e illumina un'area 1, e lo stesso fascio inclinato di 60 gradi che illumina un'area 2. A destra una sfera grigia illuminata dall'alto a sinistra, chiara dal lato della luce e nera dal lato opposto."><figcaption>A sinistra: inclinata di 60°, la stessa luce copre un'area doppia, quindi ogni punto ne riceve metà (cos 60° = 0.5). A destra: su una sfera θ cambia con continuità, da cui la sfumatura (slide 12).</figcaption></figure>
+  <p><b>Esempio.</b> a = 0.6, luce 1 a θ = 60°: ℓ<sub>out</sub> = 0.6 · 0.5 = 0.3. A θ = 0 il massimo, 0.6; a θ = 90° (luce radente) zero. Poiché lo shading dipende dalla normale, si può tentare di risalire alla forma (<i>shape from shading</i>).</p>
+  <div class="box k"><b>Il punto</b><p>La BRDF descrive il materiale. Una superficie lambertiana dipende da albedo, luce e angolo normale-luce, non dal punto di vista.</p></div>
+
+  <h3>3. Riflessi: il modello di Phong</h3>
+  <p><b>Il problema.</b> Sul cofano di un'auto c'è un punto bianco che si sposta quando ti muovi. Lambert non lo prevede, perché q non compare.</p>
+  <p><b>L'idea.</b> Plastica, metallo, ceramica smaltata <mark class="sh sh-y">hanno in più un riflesso brillante (highlight)</mark>, come uno specchio. Phong (slide 13–14) somma tre termini, grazie alla linearità:</p>
+  <span class="f">ℓ<sub>out</sub> = k<sub>a</sub> + a · ℓ<sub>in</sub> (n · p) + k<sub>s</sub> (r · q)<sup>α</sup> ℓ<sub>in</sub></span>
+  <p><mark class="sh sh-g">k<sub>a</sub> è un termine ambientale</mark> costante (approssima <mark class="sh sh-y">la luce rimbalzata dal resto della stanza); il secondo è il termine diffuso di Lambert</mark>; il terzo è lo speculare. r è la direzione di uno specchio perfetto, p ribaltato rispetto alla normale:</p>
+  <span class="f"><mark class="sh sh-y">r = 2 (n · p) n − p</mark></span>
+  <p>r · q vale 1 se guardi esattamente "nello specchio" e cala se ti sposti. k<sub>s</sub> regola la forza del riflesso, α (shininess) quanto è stretto: più α è grande, più (r · q)<sup>α</sup> crolla lontano da r.</p>
+  <figure><img src="{{IMG:disp2_slide16_sfere.png}}" alt="Griglia di nove sfere grigie con un riflesso bianco: scendendo nelle righe il riflesso diventa più luminoso, andando a destra nelle colonne diventa più piccolo."><figcaption>Dalla slide 16. Scendendo k<sub>s</sub> cresce (0.2, 0.6, 1.0) e il riflesso si accende; verso destra α cresce (5, 20, 80) e il riflesso si stringe.</figcaption></figure>
+  <p><mark class="sh sh-y">Esempio</mark> <b>svolto.</b> In 2D con n = (0, 1) e luce a 60°: p = (−0.866, 0.5), n · p = 0.5, r = 2 · 0.5 · (0, 1) − p = (0.866, 0.5), simmetrico a p. Con a = 0.6, ℓ<sub>in</sub> = 1, k<sub>a</sub> = 0.05, k<sub>s</sub> = 0.4, α = 20:</p>
+  <ul>
+    <li>camera lungo r: r · q = 1, ℓ<sub>out</sub> = 0.05 + 0.3 + 0.4 = 0.75;</li>
+    <li>camera <mark class="sh sh-y">lungo la normale</mark>: r · q = 0.5, 0.5<sup>20</sup> ≈ 10<sup>−6</sup>, <mark class="sh sh-y">ℓ<sub>out</sub> ≈ 0.35. Il riflesso è sparito.</mark></li>
+  </ul>
+  <figure><img src="{{IMG:disp_phong.png}}" alt="A sinistra la superficie con la normale n, la direzione della luce p a 60 gradi da un lato e la direzione speculare r a 60 gradi dall'altro; la camera q1 sta lungo r, la camera q2 lungo n. A destra la luminosità del punto in funzione della posizione della camera: piatta a 0.35 lontano da r, con un picco a 0.75 a 60 gradi, stretto per alfa 20 e più largo per alfa 5."><figcaption>L'esempio disegnato: muovendo la camera la parte lambertiana (0.35) resta fissa, il riflesso compare solo vicino a r (60°), dove vale 0.75.</figcaption></figure>
+  <p>Perché importa? <mark class="sh sh-y">Lo stesso punto ha valori diversi da due punti di vista, e questo disturba il confronto fra immagini</mark> (stereo, tracking, matching di <a href="#L8">L8</a>). Phong è empirico (slide 17), ma cattura l'essenziale.</p>
+  <div class="box k"><b>Il punto</b><p>Phong = ambiente + diffuso + speculare. Il termine k<sub>s</sub>(r · q)<sup>α</sup> dipende dalla vista: gli highlight si spostano con l'osservatore.</p></div>
+
+  <h3>4. La prima ambiguità: materiale, luce, forma</h3>
+  <p><b>Il problema.</b> Foto di un dolce su Instagram: è dorato perché è cotto bene o perché la vetrina ha luci calde?</p>
+  <p><b>L'idea.</b> <mark class="sh sh-p">La prima ambiguità: materiale contro luce e forma.</mark> In a · ℓ<sub>in</sub> · cos θ ci sono tre incognite moltiplicate. <mark class="sh sh-y">Un pixel scuro può essere un materiale scuro (a piccolo), una zona poco illuminata (ℓ<sub>in</sub> piccolo) o una superficie inclinata rispetto alla luce</mark> (cos θ piccolo): da solo non lo dice (slide 18–19).</p>
+  <figure><img src="{{IMG:disp2_slide19_luce.png}}" alt="Lo stesso banco di carne e dolci fotografato tre volte: con luce calda a 3000 K appare arancione, a 4000 K più neutro, con una lampada commerciale per alimenti più rosso."><figcaption>Dalla slide 19. Stessi oggetti, tre luci (3000 K, 4000 K, lampada per alimenti): i pixel cambiano molto. I negozi scelgono la luce che rende il cibo più invitante.</figcaption></figure>
+  <p><b>Esempio.</b> Tre pixel che valgono 0.3: (a = 0.3, ℓ<sub>in</sub> = 1, θ = 0), (a = 0.6, ℓ<sub>in</sub> = 0.5, θ = 0), (a = 0.6, ℓ<sub>in</sub> = 1, θ = 60°). Tre mondi, stesso numero.</p>
+  <div class="box k"><b>Il punto</b><p>Geometria, luce e materiale si moltiplicano: dal pixel non si separano. La stessa struttura torna nel colore (sezione 14).</p></div>
+
+  <h3>5. Perché serve una camera: il pinhole</h3>
+  <p><b>Il problema.</b> <mark class="sh sh-p">Un muro bianco davanti a una finestra riceve la luce di tutta la stanza. Perché non ci vediamo sopra l'immagine della finestra?</mark> Perché ogni punto del muro riceve luce da tutte le direzioni <mark class="sh sh-y">e la somma</mark>:</p>
+  <span class="f">ℓ<sub>out</sub> = ∫<sub>p</sub> a · ℓ<sub>in</sub>(p) · (n · p) dp</span>
+  <p>L'integrale corre sulle <mark class="sh sh-y">direzioni p della semisfera sopra la superficie. Il risultato è un solo numero</mark> per punto, quasi uguale per punti vicini: "da dove arriva cosa" è mediato via. La slide 21 (e il libro, § 5.3) scrive cos(n · p), un refuso perché n · p è già il coseno: <mark class="sh sh-y">la versione corretta è quella sopra</mark> (riquadro della slide 21 qui sotto).</p>
+  <p><b>L'idea.</b> <mark class="sh sh-y">Formare un'immagine vuol dire impedire l'integrazione</mark>: ogni punto deve ricevere luce da una sola direzione. Basta <mark class="sh sh-y">mettere davanti al muro una barriera con un piccolo foro</mark> (slide 22–23). <mark class="sh sh-y">Ora un punto del muro riceve la luce di un solo punto della scena: l'integrale diventa una corrispondenza uno a uno</mark> fra punti della scena e dell'immagine.</p>
+  <figure><img src="{{IMG:disp2_slide23_muro.png}}" alt="A sinistra un albero e un muro: ogni punto dell'albero manda raggi a ogni punto del muro. A destra fra albero e muro c'è una barriera nera con un foro: ogni punto dell'albero raggiunge un solo punto del muro e sul muro compare l'albero capovolto."><figcaption>Dalla slide 23. (a) Senza barriera ogni punto dell'albero illumina tutto il muro: nessuna immagine. (b) Con il foro ogni punto arriva in un solo punto del muro: compare l'albero, capovolto.</figcaption></figure>
+  <p>L'immagine (slide 24) è <b>capovolta</b>, <b>scura</b> (passa poca luce) e un po' <b>sfocata</b> (il foro non è un punto). Le macchie rotonde di sole sotto un albero sono immagini pinhole.</p>
+  <p><b>Esempio.</b> Scena di tre punti: verde, rosso, blu. Senza foro ogni punto del muro riceve la media, un grigio uniforme. Con il foro tre punti del muro ricevono verde, rosso, blu.</p>
+  <div class="box k"><b>Il punto</b><p>Una camera organizza i raggi: un raggio per punto immagine. Il pinhole ideale realizza la proiezione prospettica.</p></div>
+
+  <h3>6. Il compromesso e la lente</h3>
+  <p><b>Il problema.</b> Col pinhole <mark class="sh sh-y">nitidezza e luminosità sono in conflitto</mark> (slide 26): un foro piccolo dà un'immagine nitida ma buia; allargandolo, ogni punto della scena manda luce <mark class="sh sh-y">attraverso tutta l'apertura</mark> e si spalma su una macchia: <mark class="sh sh-g">l'immagine diventa luminosa</mark> ma sfocata.</p>
+  <p><b>L'idea.</b> <mark class="sh sh-g">La lente rompe il compromesso</mark>: raccoglie i raggi di un punto su tutta l'apertura e li fa <mark class="sh sh-y">riconvergere in un solo punto</mark>.</p>
+  <figure><img src="{{IMG:disp_slide26_lente.png}}" alt="Tre colonne: foro piccolo con un fascio sottile e immagine nitida ma scura del cane; foro grande con un fascio largo e immagine luminosa ma molto sfocata; lente che fa riconvergere un fascio largo in un punto e dà immagine nitida e luminosa."><figcaption>Dalla slide 26. Foro piccolo (nitido ma buio), foro grande (luminoso ma sfocato), lente (il fascio largo riconverge in un pixel: luminoso e nitido).</figcaption></figure>
+  <p><b>La matematica.</b> <mark class="sh sh-y">Il libro (cap. 6) ricava la condizione di fuoco per una lente sottile</mark>:</p>
+  <span class="f"><mark class="sh sh-b">1/a + 1/b = 1/f</mark></span>
+  <p><mark class="sh sh-y">a è la distanza dell'oggetto dalla lente, b quella del piano</mark> dove l'immagine è nitida, f la focale. Un punto all'infinito va a fuoco a distanza f. Il raggio per il centro della lente non devia: <mark class="sh sh-g">la geometria resta quella del pinhole</mark>, per questo il corso usa il modello pinhole anche con gli obiettivi.</p>
+  <figure><img src="{{IMG:disp2_lente.png}}" alt="Una lente sottile con focale 1. I raggi rossi da un punto a distanza 3 riconvergono sul sensore a distanza 1.5. I raggi verdi tratteggiati da un punto più lontano riconvergono prima del sensore e sul sensore formano un segmento, il disco di confusione."><figcaption>f = 1, oggetto a a = 3: b = 1.5 e i raggi rossi si incontrano sul sensore (F è il fuoco). Il punto verde, più lontano, andrebbe a fuoco prima: sul sensore è un disco.</figcaption></figure>
+  <p><b>Esempio.</b> Obiettivo da 50 mm, soggetto a 2 m: 1/b = 1/50 − 1/2000, b ≈ 51.3 mm. Per mettere a fuoco a 2 m il sensore si allontana di 1.3 mm rispetto al fuoco all'infinito.</p>
+  <p>Ma <mark class="sh sh-y">la lente mette a fuoco una sola distanza</mark>: gli altri punti diventano dischi (cerchi di confusione). <mark class="sh sh-y">L'intervallo di distanze ancora nitido è la profondità di campo</mark>, D ≈ 2NCU²/f² (N = f/apertura, C cerchio massimo accettabile, U distanza di fuoco). Con f = 50 mm, U = 2 m, C = 0.03 mm: a f/2.8 D ≈ 27 cm, a f/8 circa 77 cm.</p>
+  <div class="box k"><b>Il punto</b><p>La lente dà luce e nitidezza insieme, solo per i punti a fuoco. La geometria resta quella del pinhole.</p></div>
+
+  <h3>7. La proiezione prospettica</h3>
+  <p><mark class="sh sh-p">Il problema: dato un punto 3D, dove cade sull'immagine?</mark> La realtà aumentata lo calcola a ogni frame.</p>
+  <p><b>Il setup</b> (slide 28–30). <mark class="sh sh-y">Origine nel foro (centro ottico), asse Z = asse ottico verso la scena</mark>, X e Y orizzontale e verticale. Il piano immagine reale sta dietro il foro a distanza f, capovolto; <mark class="sh sh-y">per evitare i segni meno si usa un piano virtuale</mark> davanti al foro, sempre a distanza f. Fisicamente non esiste: è solo comodo.</p>
+  <p><b>L'idea: triangoli simili</b> (slide 31). Di lato, P, il foro e il piede di P sull'asse <mark class="sh sh-y">formano un triangolo rettangolo</mark> con cateti Z e Y. Il foro, <mark class="sh sh-y">il punto immagine p = (x, y) e il centro del piano virtuale</mark> ne formano uno con cateti f e y. Stessi angoli, quindi y / Y = f / Z.</p>
+  <figure><img src="{{IMG:disp2_triangoli.png}}" alt="Vista laterale: il foro nell'origine, il piano virtuale a distanza 1 davanti e il piano reale a distanza 1 dietro. Il punto P con Y uguale a 2 e Z uguale a 4 è collegato al foro da una retta che taglia il piano virtuale a y uguale a 0.5 e il piano reale a meno 0.5. Il triangolo grande azzurro e quello piccolo arancione sono simili."><figcaption>Triangolo grande (cateti Z = 4, Y = 2) e piccolo (cateti f = 1, y): simili, quindi y = 1 · 2/4 = 0.5. Sul piano reale lo stesso punto cade a −0.5, capovolto.</figcaption></figure>
+  <span class="f"><mark class="sh sh-y">x = f · X / Z &nbsp;&nbsp;&nbsp; y = f · Y / Z</mark></span>
+  <p>x, y: coordinate sul piano immagine (in mm, origine sull'asse ottico); X, Y, Z: il punto 3D nel sistema della camera; <mark class="sh sh-y">f la focale. Tutto l'effetto prospettico sta nella divisione per Z, che rende la mappa non lineare</mark>.</p>
+  <p><b>Esempio.</b> Spigolo di un tavolo in (0.4, −0.2, 2) m, f = 4 mm (telefono): x = 4 · 0.4/2 = 0.8 mm, y = −0.4 mm.</p>
+  <div class="box k"><b>Il punto</b><p>Prospettiva: (x, y) = f (X, Y) / Z, dai triangoli simili. La divisione per Z genera tutti gli effetti prospettici.</p></div>
+
+  <h3>8. Tre conseguenze della prospettiva</h3>
+  <p><mark class="sh sh-y">Tre conseguenze</mark> della divisione per Z.</p>
+  <p><b>1. Lontano = piccolo</b> (slide 32). Persona di 1.8 m a 10 m, f = 50 mm: x = 0.05 · 1.8/10 m = 9 mm sul sensore; a 20 m, 4.5 mm. La dimensione scala come 1/Z.</p>
+  <p><b>2.</b> <mark class="sh sh-y">Le rette parallele convergono in un punto di fuga.</mark> La slide 32 lo <mark class="sh sh-y">giustifica male</mark> (vedi il riquadro Attenzione): dice x → 0, vero solo per rette parallele all'asse ottico. <mark class="sh sh-y">Il ragionamento corretto</mark>: una retta è P(t) = P<sub>0</sub> + t d, con d = (d<sub>X</sub>, d<sub>Y</sub>, d<sub>Z</sub>) la direzione, e x(t) = f (X<sub>0</sub> + t d<sub>X</sub>) / (Z<sub>0</sub> + t d<sub>Z</sub>). Per t → ∞, se d<sub>Z</sub> ≠ 0:</p>
+  <span class="f">x → f · d<sub>X</sub> / d<sub>Z</sub> &nbsp;&nbsp;&nbsp; y → f · d<sub>Y</sub> / d<sub>Z</sub></span>
+  <p>Il limite non dipende da P<sub>0</sub>: <mark class="sh sh-y">ogni famiglia di parallele converge nel punto f(d<sub>X</sub>, d<sub>Y</sub>)/d<sub>Z</sub></mark>. Binari lungo l'asse, d = (0, 0, 1): verso (0, 0). Rette a 45°, d = (1, 0, 1): verso (f, 0). Se d<sub>Z</sub> = 0 (parallele al piano immagine) restano parallele.</p>
+  <figure><img src="{{IMG:disp_fuga.png}}" alt="Piano immagine con f uguale a 1: due binari blu convergono nel punto (0, 0) sull'orizzonte, tre rette rosse a 45 gradi convergono nel punto (f, 0), due rette verdi tratteggiate parallele al piano immagine restano orizzontali e parallele."><figcaption>Rette sul suolo con f = 1: binari (blu) verso (0, 0), rette a 45° (rosse) verso (1, 0), rette parallele al piano immagine (verdi) senza punto di fuga.</figcaption></figure>
+  <p><b>3.</b> <mark class="sh sh-p">Dimensione e profondità sono confuse (slide 33): conta solo il rapporto X/Z, quindi un oggetto di dimensione kX a profondità kZ dà la stessa immagine</mark> di uno X a profondità Z. Tutto un raggio per il foro finisce nello <mark class="sh sh-y">stesso pixel: la proiezione è una mappa molti a uno</mark>.</p>
+  <figure><img src="{{IMG:disp_proiezione.png}}" alt="A sinistra: due segmenti A e B, il secondo grande il doppio e lontano il doppio, proiettati attraverso il pinhole sullo stesso punto del piano virtuale. A destra: proiezione ortografica con raggi paralleli, dove A e B hanno dimensioni diverse nell'immagine indipendentemente dalla distanza."><figcaption>Sinistra: B, alto e lontano il doppio di A, cade nello stesso punto (x = 0.5 con f = 1). Destra: l'ortografica della sezione 10.</figcaption></figure>
+  <p><b>Esempio.</b> Auto di 4 m a 20 m e modellino di 40 cm a 2 m: stesso X/Z = 0.2, foto identiche. Servono altre viste, prior o modelli appresi; e feature invarianti alla scala (<a href="#L6">L6</a>, <a href="#L8">L8</a>).</p>
+  <div class="box k"><b>Il punto</b><p>Lontano = piccolo; le parallele fuggono in un punto che dipende solo dalla direzione; da una sola immagine dimensione e profondità non si separano.</p></div>
+
+  <h3>9. Dai millimetri ai pixel</h3>
+  <p><b>Il problema.</b> Il sensore dà indici di pixel (n, m), con origine in un angolo (slide 34–35); ogni libreria ha la sua convenzione.</p>
+  <p><b>L'idea.</b> Una scala più una traslazione:</p>
+  <span class="f">n = ± a x + n<sub>0</sub> &nbsp;&nbsp;&nbsp; m = ± a y + m<sub>0</sub></span>
+  <p><mark class="sh sh-y">a converte unità fisiche in pixel</mark> (pixel da 5 µm: a = 200 px/mm); (n<sub>0</sub>, m<sub>0</sub>) è il <mark class="sh sh-b">punto principale, il pixel dove cade l'asse ottico</mark>. Segno + se asse camera e asse pixel hanno lo stesso verso, − se opposto. La slide 35 scrive due segni meno, ma con la sua figura il secondo è <mark class="sh sh-p">+</mark> (libro: n = −ax + n<sub>0</sub>, m = ay + m<sub>0</sub>): all'esame dichiara i versi degli assi (riquadro della slide 35).</p>
+  <p><b>Esempio.</b> Convenzione OpenCV (x, n a destra; y, m in basso: segni +). Sensore 6000 × 4000 da 5 µm, punto principale (3000, 2000), f = 50 mm, punto (0.5, 1.0, 10) m: x = 2.5 mm, y = 5 mm, n = 200 · 2.5 + 3000 = 3500, m = 200 · 5 + 2000 = 3000.</p>
+  <p>Catena completa (slide 36): (X, Y, Z) → (x, y) → (n, m). Il libro (cap. 39) la scrive <mark class="sh sh-y">come prodotto per una matrice</mark> in coordinate omogenee: <mark class="sh sh-y">la matrice degli intrinseci K, che ritroverai nella parte di geometria; per ora basta sapere che esiste.</mark></p>
+  <div class="box k"><b>Il punto</b><p>Pixel = scala a più punto principale. I segni dipendono dai versi degli assi: dichiarali sempre.</p></div>
+
+  <h3>10. La proiezione ortografica</h3>
+  <p><b>Il problema.</b> <mark class="sh sh-p">La prospettiva nasce dal fatto che tutti i raggi passano per un punto. E se accettassimo solo i raggi perpendicolari al piano immagine</mark> (slide 38)?</p>
+  <p><b>L'idea.</b> Ogni punto arriva sull'immagine <mark class="sh sh-y">lungo una retta parallela all'asse ottico</mark>, e (slide 39)</p>
+  <span class="f"><mark class="sh sh-y">x = k · X &nbsp;&nbsp;&nbsp; y = k · Y</mark></span>
+  <p>con k scala fissa. Z è sparito: <mark class="sh sh-g">la dimensione nell'immagine non dipende dalla distanza</mark>, niente punti di fuga. Realizzazione fisica: un fascio di <mark class="sh sh-y">cannucce parallele, dipinte di nero dentro</mark> (slide 40), che lasciano passare solo i raggi allineati. Nel libro k = 1 e l'immagine non è capovolta.</p>
+  <figure><img src="{{IMG:disp2_slide40_cannucce.png}}" alt="Un fascio di cannucce nere visto di fronte, una mano aperta davanti a delle foglie, e il fascio appoggiato in verticale su una superficie dove compare un'immagine chiara e colorata."><figcaption>Dalla slide 40. (a) Il fascio di cannucce; (b) la scena; (c) l'immagine sotto il fascio: non capovolta, stessa scala a ogni distanza.</figcaption></figure>
+  <p><b>Esempio.</b> Un teleobiettivo su oggetti lontani è quasi ortografico: <mark class="sh sh-y">la "prospettiva debole" usa k = f / Z<sub>medio</sub></mark>. f = 400 mm, auto a 200 m: k = 0.002, l'auto è lunga 8 mm sul sensore, e muso e coda (4 m di differenza su 200) hanno scale diverse solo del 2%.</p>
+  <p>Il <mark class="sh sh-g">messaggio della slide 41: nessuna delle due proiezioni è "giusta"</mark>. La prospettica tiene un indizio di profondità ma lo confonde con la dimensione; l'ortografica toglie la confusione buttando via la profondità.</p>
+  <div class="box k"><b>Il punto</b><p>Ortografica: x = kX, niente Z. Ogni geometria sceglie quale informazione tenere.</p></div>
+
+  <h3>11. La camera come sistema lineare</h3>
+  <p><b>Il problema.</b> Un foro largo, lo spigolo di un muro (la corner camera della slide 48 "vede" chi cammina dietro l'angolo), un oggetto che fa ombra: serve un linguaggio unico, <mark class="sh sh-y">la camera come sistema lineare</mark>.</p>
+  <p><b>L'idea.</b> Per la linearità della luce, <mark class="sh sh-y">ogni pixel misura una somma pesata delle intensità della scena</mark>. <mark class="sh sh-y">Somme pesate di tante incognite: matrice per vettore.</mark></p>
+  <p><b>La matematica</b> (slide 44–45). Il libro usa "flatland": <mark class="sh sh-y">scena 1D a profondità fissa</mark>, N valori nel vettore ℓ<sub>w</sub> ∈ ℝ<sup>N</sup> (world); M pixel nel vettore ℓ<sub>s</sub> ∈ ℝ<sup>M</sup> (sensor):</p>
+  <span class="f"><mark class="sh sh-b">ℓ<sub>s</sub> = A ℓ<sub>w</sub>, &nbsp;&nbsp; A ∈ ℝ<sup>M×N</sup></mark></span>
+  <p>La riga i di A dice "cosa vede il pixel i"; la colonna j dove finisce la luce del punto j. I <mark class="sh sh-p">casi delle slide 46–49, con N = M = 13 come nel libro</mark>:</p>
+  <ul>
+    <li><b>Pinhole ideale</b>: ogni pixel vede un punto, A = I. Per una camera normale A è "quasi l'identità": per questo i dati del sensore somigliano già a un'immagine.</li>
+    <li><mark class="sh sh-y">Foro largo</mark>: ogni pixel vede due punti vicini, ogni riga ha due 1 consecutivi. È una media mobile, un <mark class="sh sh-p">blur</mark>: il ponte con la convoluzione di <a href="#L3">L3</a>.</li>
+    <li><b>Edge camera</b>: l'occlusore è uno spigolo; A è triangolare piena di 1 (somma cumulativa), l'inversa fa differenze (una derivata). La corner camera è una edge camera.</li>
+    <li><mark class="sh sh-g">Pinspeck camera: un piccolo oggetto</mark> opaco al posto del foro; A = 1 − A<sub>foro largo</sub> (1 = matrice di uni): <mark class="sh sh-p">un segnale piccolo sopra un fondo grande</mark>.</li>
+  </ul>
+  <figure><img src="{{IMG:disp2_camere.png}}" alt="In alto quattro matrici 13 per 13: identità, due diagonali di uno, triangolo superiore pieno, matrice tutta nera tranne due diagonali bianche. In basso le misure della stessa scena: per il pinhole uguali alla scena, per il foro largo simili ma più alte e lisce, per l'edge camera una curva decrescente, per la pinspeck valori fra 4.8 e 6.4."><figcaption>Stessa scena, quattro camere. Pinhole: misura = scena. Foro largo: scena più grande e più liscia. Edge: somma cumulativa, scena irriconoscibile. Pinspeck: variazioni di circa 1.5 su un fondo di 5.</figcaption></figure>
+  <p><b>Esempio a 3 pixel.</b> Scena (1, 0, 2), foro largo: A = [[1,1,0],[0,1,1],[0,0,1]], ℓ<sub>s</sub> = (1, 2, 2). Il punto buio in mezzo è sparito: il blur lo ha riempito.</p>
+  <div class="box k"><b>Il punto</b><p>Ogni camera è ℓ<sub>s</sub> = A ℓ<sub>w</sub>. Più A si allontana dall'identità, meno la misura somiglia alla scena.</p></div>
+
+  <h3>12. Invertire: rumore e inversa regolarizzata</h3>
+  <p><b>Il problema.</b> Se A è invertibile, ℓ<sub>w</sub> = A<sup>−1</sup> ℓ<sub>s</sub>. Ma c'è sempre rumore: ℓ<sub>s</sub> = A ℓ<sub>w</sub> + η, quindi A<sup>−1</sup>ℓ<sub>s</sub> <mark class="sh sh-y">= ℓ<sub>w</sub> + A<sup>−1</sup> η. Se A "schiaccia" quasi a zero qualche direzione (valori singolari piccoli), A<sup>−1</sup> la moltiplica per un numero enorme</mark>, e <mark class="sh sh-p">con essa il rumore</mark> (slide 50). Il problema è mal posto.</p>
+  <p><b>Esempio a due pixel.</b> Blur forte: A = [[1, 0.9], [0.9, 1]], autovettori u<sub>1</sub> = (1, 1)/√2 con autovalore 1.9 (la media, ben misurata) e u<sub>2</sub> = (1, −1)/√2 con autovalore 0.1 (la differenza, misurata quasi niente). Scena (1, 1), A ℓ<sub>w</sub> = (1.9, 1.9). Rumore <mark class="sh sh-y">minuscolo η = (0.05, −0.05): ℓ<sub>s</sub> = (1.95, 1.85)</mark>. Il rumore sta <mark class="sh sh-y">lungo u<sub>2</sub>, che A<sup>−1</sup> amplifica di 1/0.1 = 10</mark>: A<sup>−1</sup>ℓ<sub>s</sub> = (1.5, 0.5). <mark class="sh sh-p">Un errore di 0.05 sulle misure diventa 0.5 sulla scena.</mark></p>
+  <p><b>L'idea.</b> <mark class="sh sh-y">Invece di chiedere "la scena che spiega esattamente le misure"</mark>, chiediamo "una scena che le spieghi bene <i>e</i> sia plausibile" (slide 51):</p>
+  <span class="f">E(ℓ<sub>w</sub>) = ‖ℓ<sub>s</sub> − A ℓ<sub>w</sub>‖² + λ ‖ℓ<sub>w</sub>‖²</span>
+  <p>Primo termine: <b>fedeltà ai dati</b>. Secondo: <b>regolarizzatore</b>, penalizza scene con valori grandi. λ &gt; 0 pesa il compromesso (λ → 0: minimi quadrati puri; λ grande: ℓ<sub>w</sub> → 0).</p>
+  <p><b>Derivazione</b> (slide 52, da saper rifare). Con ∇<sub>x</sub>‖b − Ax‖² = −2A<sup>T</sup>(b − Ax) e ∇<sub>x</sub>(x<sup>T</sup>x) = 2x:</p>
+  <span class="f">−2A<sup>T</sup>(ℓ<sub>s</sub> − Aℓ<sub>w</sub>) + 2λ ℓ<sub>w</sub> = 0 &nbsp;⇒&nbsp; (A<sup>T</sup>A + λI) ℓ<sub>w</sub> = A<sup>T</sup>ℓ<sub>s</sub></span>
+  <span class="f"><mark class="sh sh-b">ℓ<sub>w</sub> = (A<sup>T</sup>A + λI)<sup>−1</sup> A<sup>T</sup> ℓ<sub>s</sub> = B ℓ<sub>s</sub></mark></span>
+  <p>B è l'<mark class="sh sh-b">inversa regolarizzata</mark> (slide 53). E è convessa (minimo globale) e A<sup>T</sup>A + λI è <mark class="sh sh-g">sempre invertibile</mark>: gli autovalori di A<sup>T</sup>A sono ≥ 0 e λI li sposta tutti di λ. È la regolarizzazione di Tikhonov, la ridge regression del machine learning.</p>
+  <p><b>Cosa fa B.</b> Lungo una direzione che A moltiplica per σ, A<sup>−1</sup> moltiplica per 1/σ, B per σ/(σ² + λ). σ grande: ≈ 1/σ, come l'inversa. σ piccolo: ≈ σ/λ → 0, <mark class="sh sh-g">B "spegne" la direzione mal misurata</mark> invece di esplodere. Nell'esempio, con λ = 0.1: lungo u<sub>1</sub> 1.9/3.71 ≈ 0.51 (contro 0.53), lungo u<sub>2</sub> 0.1/0.11 ≈ 0.91 (contro 10). B ℓ<sub>s</sub> ≈ (1.02, 0.93), vicino a (1, 1). <mark class="sh sh-p">Il prezzo è un piccolo bias</mark>: senza rumore B A ℓ<sub>w</sub> ≈ (0.97, 0.97) (slide 55).</p>
+  <figure><img src="{{IMG:disp_duepixel.png}}" alt="A sinistra il piano dei due pixel con le direzioni u1 e u2 tratteggiate: la scena vera in (1, 1), la misura in (1.95, 1.85), la ricostruzione con A inversa in (1.5, 0.5) spostata lungo u2 e quella con B in (1.02, 0.93) vicina alla vera. A destra il fattore di amplificazione in scala logaritmica: 1 su sigma cresce senza limite per sigma piccolo, sigma su sigma quadro più lambda ha un massimo vicino a radice di lambda e poi torna a zero."><figcaption>Sinistra: A<sup>−1</sup> sposta la stima lungo u<sub>2</sub>, B resta vicina a (1, 1). Destra: per σ = 0.1 l'inversa moltiplica per 10, B per 0.91; per σ grande coincidono.</figcaption></figure>
+  <p>Ora il foro largo del libro, con <mark class="sh sh-y">N = 13</mark>, rumore 0.05 e λ = 0.1 (in numpy: <code>B = np.linalg.solve(A.T @ A + 0.1*np.eye(13), A.T)</code>):</p>
+  <figure><img src="{{IMG:disp_inversa.png}}" alt="In alto tre matrici 13 per 13: A con due diagonali di uno, A inversa con una scacchiera triangolare di più e meno uno, B con una banda che decade allontanandosi dalla diagonale. In basso la scena vera, la misura sfocata e rumorosa, la ricostruzione con A inversa più seghettata e quella con B più vicina alla scena."><figcaption>In alto A, A<sup>−1</sup> (scacchiera di ±1) e B (rosso positivo, blu negativo). In basso: l'inversa esatta sbaglia di 0.46, B di 0.20.</figcaption></figure>
+  <p><b>Perché una scacchiera</b> (slide 47 e 54)? A = I + U, con U di 1 sulla sopradiagonale, nilpotente: A<sup>−1</sup> = I − U + U² − …, elementi (−1)<sup>j−i</sup> per j ≥ i. B ha <mark class="sh sh-y">la stessa struttura ma smorzata</mark>. L'alternanza <mark class="sh sh-y">±1 è la frequenza più alta, proprio quella che il blur attenua di più</mark> e l'inversa deve riamplificare. (La didascalia della slide 54 è un copia-incolla sbagliato: mostra due pinhole.)</p>
+  <figure><img src="{{IMG:disp2_lambda.png}}" alt="Grafico logaritmico dell'errore di ricostruzione in funzione di lambda per il foro largo con rumore 0.05: per lambda piccolo l'errore vale circa 0.49 come l'inversa esatta, scende fino a un minimo di circa 0.18 vicino a lambda 0.14, poi risale sopra 1 per lambda grande. Il rumore amplificato scende con lambda, il bias sale."><figcaption>Come scegliere λ (stesso caso, media su 400 prove): il rumore amplificato (blu) cala, il bias (rosso) cresce; il minimo, circa 0.18, cade intorno a λ = 0.14 (λ = 0.1 è già quasi ottimo), contro 0.49 dell'inversa.</figcaption></figure>
+  <p>In Fourier (<a href="#L3">L3</a>) B diventa H* / (|H|² + λ), il filtro di Wiener (slide 56): una deconvoluzione.</p>
+  <div class="box k"><b>Il punto</b><p>A<sup>−1</sup> amplifica il rumore lungo le direzioni misurate male. B le spegne: un po' di bias in cambio di molta stabilità.</p></div>
+
+  <h3>13. Il colore: spettri e primari</h3>
+  <p><b>Il problema.</b> La luce non è un numero ma una funzione: lo <mark class="sh sh-b">spettro di potenza ℓ(λ), l'intensità a ogni lunghezza d'onda</mark> (slide 58–59). Occhio e camera RGB ne tengono tre numeri. Cosa si perde?</p>
+  <p><b>L'idea.</b> Il visibile va da circa 400 nm (blu-violetto) a 700 nm (rosso): 400–500 blu, 500–600 verde, 600–700 rosso. Lo spettro ha infinite dimensioni (N se campionato); <mark class="sh sh-p">RGB ne è una proiezione su tre</mark>.</p>
+  <figure><img src="{{IMG:disp2_spettro.png}}" alt="In alto lo spettro visibile da 400 a 700 nanometri diviso in tre bande blu, verde e rosso. In basso a sinistra i primari additivi R, G, B come blocchi nelle tre bande; a destra i primari sottrattivi ciano, magenta e giallo come bianco a cui manca una banda."><figcaption>In alto le tre bande del visibile. In basso: gli additivi occupano una banda ciascuno, i sottrattivi sono il bianco meno una banda (tratteggiata).</figcaption></figure>
+  <p>Primari (slide 60): <b>additivi</b> negli schermi, si somma luce (R + G + B = bianco); <b>sottrattivi</b> nella stampa, ogni pigmento toglie una banda (ciano = bianco − rosso, magenta = bianco − verde, giallo = bianco − blu).</p>
+  <p><b>Esempio.</b> Lo schermo fa il giallo accendendo rosso e verde: lo spettro emesso ha due picchi e quasi niente a 580 nm, eppure lo vediamo come il giallo di un limone. Lo spiega la sezione 15.</p>
+  <div class="box k"><b>Il punto</b><p>Il colore fisico è uno spettro; tre numeri ne sono una compressione con perdita.</p></div>
+
+  <h3>14. Riflettanza e color constancy</h3>
+  <p><b>Il problema.</b> Sotto i lampioni arancioni il bilanciamento del bianco sbaglia e una camicia bianca esce arancione. Perché è difficile?</p>
+  <p><b>L'idea.</b> Lambert lunghezza d'onda per lunghezza d'onda: l'albedo diventa lo <mark class="sh sh-b">spettro di riflettanza s(λ) ∈ [0, 1]</mark>, quanta luce di ogni λ il materiale rimanda (slide 61). Alla camera arriva</p>
+  <span class="f"><mark class="sh sh-b">r(λ) = k · ℓ<sub>in</sub>(λ) · s(λ)</mark></span>
+  <p>con ℓ<sub>in</sub>(λ) spettro dell'illuminante, s(λ) il "colore vero" del materiale, k il fattore geometrico n · p. <mark class="sh sh-p">Di nuovo un prodotto di due incognite</mark>: da r(λ) non si <mark class="sh sh-y">separa s(λ) da ℓ<sub>in</sub>(λ)</mark> senza ipotesi (slide 62).</p>
+  <p><b>Esempio</b> (bande B, G, R). Oggetto rossastro s = (0.2, 0.2, 0.6) in luce bianca (1, 1, 1): r = (0.2, 0.2, 0.6). Oggetto grigio s = (0.3, 0.3, 0.3) in luce rossastra (0.67, 0.67, 2): r = (0.2, 0.2, 0.6). <mark class="sh sh-y">Stesso segnale, mondi diversi.</mark></p>
+  <figure><img src="{{IMG:disp_constancy.png}}" alt="Due righe di grafici a barre B, G, R. In alto riflettanza 0.2, 0.2, 0.6 per luce 1, 1, 1 dà segnale 0.2, 0.2, 0.6. In basso riflettanza grigia 0.3, 0.3, 0.3 per luce 0.67, 0.67, 2 dà lo stesso segnale 0.2, 0.2, 0.6."><figcaption>Due coppie (materiale, luce) diverse, stesso segnale r: guardando solo r non si sa quale scena c'era.</figcaption></figure>
+  <p>Stimare s scontando la luce è la <mark class="sh sh-b">color constancy</mark>: il cervello la fa in automatico, le camere con il bilanciamento del bianco. Il <i>grey world</i> assume che la media della scena sia grigia e <mark class="sh sh-y">scala i canali finché le medie sono uguali: un prior, come λ prima</mark>. Medie (0.4, 0.5, 0.8): si moltiplica per (1.25, 1, 0.625) e diventano tutte 0.5.</p>
+  <p>Anche noi usiamo prior: nella scacchiera di Adelson (slide 63) B sembra più chiaro di A perché il cervello sconta l'ombra. <mark class="sh sh-y">Il vestito</mark> (slide 64): chi assume luce calda lo vede blu e nero, chi assume luce fredda bianco e oro.</p>
+  <figure><img src="{{IMG:disp2_slide63_64_illusioni.png}}" alt="A sinistra la scacchiera di Adelson con un cilindro verde che proietta un'ombra: il quadrato A fuori dall'ombra sembra scuro, il quadrato B in ombra sembra chiaro. A destra la foto del vestito e lo schema: lo stesso vestito sotto luce calda appare blu e nero, sotto luce fredda bianco e oro."><figcaption>Dalle slide 63 e 64. A e B hanno pixel identici; il vestito vero è blu e nero.</figcaption></figure>
+  <div class="box k"><b>Il punto</b><p>Il pixel è materiale × luce, non il colore della superficie. La color constancy è mal posta: si risolve con prior.</p></div>
+
+  <h3>15. L'occhio, la tricromia e i metameri</h3>
+  <p><b>Il problema.</b> Perché bastano tre primari per gli schermi? E perché un vestito comprato in negozio a casa sembra di un altro colore?</p>
+  <p><b>L'idea.</b> La retina ha tre <mark class="sh sh-y">tipi di coni, L, M, S (lunghezze d'onda lunghe, medie, corte), con picchi intorno a 570, 540 e 440 nm</mark> (slide 65). Ogni cono somma lo spettro pesato dalla propria curva di sensibilità. Con lo spettro campionato in N valori t e le tre curve come righe di C<sub>eye</sub> ∈ ℝ<sup>3×N</sup> (slide 66):</p>
+  <span class="f"><mark class="sh sh-b">(L, M, S)<sup>T</sup> = C<sub>eye</sub> · t</mark></span>
+  <p>Di nuovo ℓ<sub>s</sub> = A ℓ<sub>w</sub>, con A larghissima: tre misure di N incognite. È la <b>tricromia</b>: per l'occhio un colore è fatto di tre numeri, quindi bastano tre primari.</p>
+  <p><b>La matematica.</b> Rango-nullità: se C<sub>eye</sub> ha rango 3, il nucleo ha dimensione N − 3. Se C<sub>eye</sub> v = 0, t e t + v danno la stessa risposta: <mark class="sh sh-b">due spettri diversi che vediamo identici si chiamano metameri</mark> (slide 67).</p>
+  <figure><img src="{{IMG:disp_metameri.png}}" alt="A sinistra tre curve a campana per i coni S, M e L con picchi a circa 445, 535 e 565 nanometri. A destra uno spettro piatto e uno spettro ondulato che danno le stesse tre risposte."><figcaption>A sinistra curve schematiche dei coni (gaussiane, non misurate). A destra: lo spettro viola è quello piatto più un vettore del nucleo; danno le stesse L, M, S.</figcaption></figure>
+  <p><b>Esempio.</b> Campioni ogni 10 nm fra 400 e 700: N = 31, nucleo di dimensione 28. <mark class="sh sh-p">Quasi tutta l'informazione spettrale ci è invisibile.</mark> Unico vincolo: lo spettro resta non negativo.</p>
+  <p>Una camera ha curve diverse dai coni, quindi un altro nucleo: due vestiti uguali a occhio possono uscire diversi in foto. Perché veda come l'occhio serve C = R C<sub>eye</sub>, R 3 × 3 invertibile (libro § 8.3.5). <mark class="sh sh-g">Le camere iperspettrali, con molte bande, distinguono i metameri</mark> (materiali, maturazione della frutta).</p>
+  <div class="box k"><b>Il punto</b><p>L'occhio è una mappa lineare 3 × N con nucleo di dimensione N − 3: spettri diversi appaiono uguali.</p></div>
+
+  <h3>16. Luminanza e crominanza</h3>
+  <p><b>Il problema.</b> Perché JPEG butta via tre quarti dei dati di colore senza che te ne accorga?</p>
+  <p><b>L'idea</b> (slide 68–69). <mark class="sh sh-y">Vediamo il dettaglio molto meglio nella luminanza</mark> (quanto è chiaro) che nella crominanza (che colore è). Sfocare G sfoca tutta la foto, sfocare B quasi non si nota: la luminanza è fatta soprattutto di verde e i coni S sono radi.</p>
+  <figure><img src="{{IMG:disp_slide69_rgb.png}}" alt="La stessa foto di due bambine tre volte: con il solo canale rosso sfocato appare quasi nitida, con il solo verde sfocato appare tutta sfocata, con il solo blu sfocato appare nitida."><figcaption>Dalla slide 69. Un canale sfocato alla volta: G (al centro) rovina l'immagine; B si nota appena, R un po' (capelli, ringhiera).</figcaption></figure>
+  <p><b>Esempio.</b> Y ≈ 0.30 R + 0.59 G + 0.11 B: un errore di 0.1 su G sposta Y di 0.059, su B di 0.011, cinque volte meno. JPEG salva Cb e Cr a metà risoluzione per lato (4:2:0): un quarto dei campioni di colore, differenza quasi invisibile.</p>
+  <div class="box k"><b>Il punto</b><p>Il dettaglio sta nella luminanza; il colore si può campionare più grossolanamente.</p></div>
+
+  <h3>Il riassunto in 10 righe</h3>
+  <ol>
+    <li>Modello diretto: scena → ottica → sensore → ISP; la visione lo inverte.</li>
+    <li>La luce (raw) è lineare: i contributi si sommano.</li>
+    <li>Lambert: a ℓ<sub>in</sub> (n · p), non dipende dalla vista; Phong aggiunge ambiente e speculare k<sub>s</sub>(r · q)<sup>α</sup>, che ne dipende.</li>
+    <li>Un muro integra la luce di tutte le direzioni; un pinhole tiene un raggio per punto.</li>
+    <li>Pinhole: nitidezza contro luce; la lente (1/a + 1/b = 1/f) le dà entrambe ai punti a fuoco.</li>
+    <li>Prospettiva: x = fX/Z; lontano = piccolo, punti di fuga f(d<sub>X</sub>, d<sub>Y</sub>)/d<sub>Z</sub>, dimensione e profondità confuse.</li>
+    <li>Pixel: n = ±a x + n<sub>0</sub>, segni dai versi degli assi. Ortografica: x = kX.</li>
+    <li>Ogni camera è ℓ<sub>s</sub> = Aℓ<sub>w</sub>; A<sup>−1</sup> amplifica il rumore, B = (A<sup>T</sup>A + λI)<sup>−1</sup>A<sup>T</sup> no, con un po' di bias.</li>
+    <li>Colore: r = k ℓ<sub>in</sub> s mescola luce e materiale (color constancy con prior).</li>
+    <li>Occhio: mappa 3 × N con nucleo enorme (metameri); il dettaglio sta nella luminanza.</li>
+  </ol>
+
+  <h3>Verifica di aver capito</h3>
+  <div class="qa">
+    <details><summary>Perché una superficie lambertiana appare ugualmente luminosa da ogni punto di vista, mentre un highlight si sposta quando ti muovi?</summary><p>In a ℓ<sub>in</sub>(n · p) la vista q non compare. Nel termine k<sub>s</sub>(r · q)<sup>α</sup> sì: è grande solo dove q è vicina a r, quindi muovendo la camera il punto con r · q ≈ 1 si sposta.</p></details>
+    <details><summary>Dove fuggono le rette con direzione d = (1, 0, 2) se f = 50 mm? E quelle con d = (1, 1, 0)?</summary><p>In (f d<sub>X</sub>/d<sub>Z</sub>, f d<sub>Y</sub>/d<sub>Z</sub>) = (25, 0) mm, ovunque partano. Le seconde hanno d<sub>Z</sub> = 0: restano parallele, nessun punto di fuga.</p></details>
+    <details><summary>Ricava l'inversa regolarizzata nel caso scalare A = a e commenta a = 2 e a = 0.01 con λ = 0.01.</summary><p>E = (s − a w)² + λ w², dE/dw = −2a(s − a w) + 2λ w = 0, w = a s/(a² + λ). a = 2: 2/4.01 ≈ 0.499 ≈ 1/a. a = 0.01: 0.01/0.0101 ≈ 0.99 invece di 100: niente amplificazione del rumore, al prezzo di una stima distorta.</p></details>
+    <details><summary>Lo spettro è campionato in 61 valori (ogni 5 nm fra 400 e 700). Quanto è grande lo spazio dei metameri, e perché una camera RGB può distinguere due metameri dell'occhio?</summary><p>C<sub>eye</sub> è 3 × 61 di rango 3: nucleo di dimensione 58. La camera ha un'altra C con un altro nucleo, quindi in generale C v ≠ 0 (salvo se C = R C<sub>eye</sub>).</p></details>
+  </div>
+
+  <h3>Come proseguire</h3>
+  <ol>
+    <li><a href="https://visionbook.mit.edu/imaging.html">Visionbook cap. 5 Imaging</a>: BRDF, Lambert, Phong, pinhole, prospettica e ortografica (slide 7–41).</li>
+    <li><a href="https://visionbook.mit.edu/lenses.html">Cap. 6 Lenses</a>: § 6.1 e § 6.3 (ray tracing, profondità di campo); la derivazione del § 6.2 leggila una volta.</li>
+    <li><a href="https://visionbook.mit.edu/camera_as_linsys.html">Cap. 7 Cameras as Linear Systems</a>: tutto, corrisponde alle slide 42–56.</li>
+    <li><a href="https://visionbook.mit.edu/color.html">Cap. 8 Color</a>: § 8.2–8.4; il § 8.3.5 (color matching) chiarisce la slide 67.</li>
+    <li><a href="https://visionbook.mit.edu/imaging_geometry.html">Cap. 39 Imaging Geometry</a>, § 39.2–39.3: la proiezione in coordinate omogenee, anticipo della parte di geometria.</li>
+  </ol>
+  <p>Percorso dettagliato nella sezione "Studia dal libro" in fondo. Ora ripassa con le schede qui sotto: i riquadri Attenzione delle slide 21, 32 e 35 e le note delle slide 47 e 54 correggono gli errori citati sopra.</p>
+</div>

@@ -1,0 +1,139 @@
+
+<div class="sec" id="l8-libro"><h2>Studia dal libro</h2><span>Szeliski cap. 7, § 7.1 + richiami dal visionbook</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Cosa leggere, in ordine</h3>
+    <div class="meta">Il visionbook non ha un capitolo sui keypoint: il testo di riferimento è Szeliski</div>
+    <ol>
+      <li><b>Szeliski, <i>Computer Vision: Algorithms and Applications</i>, 2a ed., cap. 7 Feature detection and matching, § 7.1 Points and patches</b> (la slide 83 rimanda proprio qui). PDF gratuito per uso personale da <a href="https://szeliski.org/Book/">szeliski.org/Book</a>.
+        <ul>
+          <li><b>§ 7.1.1 Feature detectors</b>: tutto. Autocorrelazione, sviluppo di Taylor, matrice A, misure di Harris / Shi-Tomasi / media armonica, ANMS, ripetibilità, invarianza di scala (DoG, Harris-Laplace), orientazione dominante. È il cuore della lezione.</li>
+          <li><b>§ 7.1.2 Feature descriptors</b>: la parte su normalizzazione bias/gain, MOPS e <b>SIFT</b>. Le varianti (PCA-SIFT, GLOH, descrittori appresi) sono facoltative.</li>
+          <li><b>§ 7.1.3 Feature matching</b>: facoltativo per ora, è la lezione successiva (nearest neighbor, ratio test).</li>
+        </ul></li>
+      <li><b>Lowe 2004</b> (IJCV), sezioni 3–6: tutti i numeri di SIFT (σ = 1.6, s = 3, soglia 0.03, r = 10, 36 bin, 80%, 4×4×8, clipping 0.2) e la derivazione della DoG dall'equazione del calore.</li>
+      <li><b>Visionbook, cap. 18 Image Derivatives</b>, § 18.8 Image Gradient and Directional Derivatives e § 18.9 Image Laplacian: ripasso di gradiente, derivate direzionali e LoG. <a href="https://visionbook.mit.edu/derivatives.html">visionbook.mit.edu/derivatives.html</a></li>
+      <li><b>Visionbook, cap. 23 Image Pyramids</b>, § 23.4 Gaussian Pyramid e § 23.5 Laplacian Pyramid: la struttura su cui SIFT costruisce la piramide DoG. Il libro dice esplicitamente che lo scale-space non è trattato. <a href="https://visionbook.mit.edu/pyramids_new_notation.html">visionbook.mit.edu/pyramids_new_notation.html</a></li>
+      <li><b>Visionbook, cap. 41 Homographies</b>, § 41.3 Creating Image Panoramas (41.3.1 DLT, 41.3.2 RANSAC): anteprima della lezione successiva, dove le corrispondenze vengono usate. <a href="https://visionbook.mit.edu/homography.html">visionbook.mit.edu/homography.html</a></li>
+    </ol>
+    <p><b>Cosa saltare</b> in Szeliski § 7.1: large-scale matching e retrieval, feature tracking, l'applicazione all'animazione; dal § 7.2 in poi (bordi, contorni, linee, segmentazione) non riguarda questa lezione.</p>
+  </div>
+
+  <div class="card">
+    <h3>Le idee centrali, come le spiega il libro</h3>
+    <div class="meta">Da saper ricostruire senza slide</div>
+    <p><b>1 · Dall'autocorrelazione alla matrice A.</b> Si confronta una patch con se stessa spostata di Δu: E<sub>AC</sub>(Δu) = Σ w [I(x + Δu) − I(x)]². Con Taylor al primo ordine la differenza diventa ∇I<sup>⊤</sup>Δu e l'errore diventa una forma quadratica Δu<sup>⊤</sup>AΔu con A = w ∗ [I<sub>x</sub>² I<sub>x</sub>I<sub>y</sub>; I<sub>x</sub>I<sub>y</sub> I<sub>y</sub>²]. Tutto il comportamento locale della superficie di errore è riassunto in una matrice 2×2 simmetrica e semidefinita positiva.</p>
+    <p><b>2 · Autovalori = variazione nelle direzioni principali.</b> Le curve di livello di Δu<sup>⊤</sup>AΔu sono ellissi. λ<sub>max</sub> dice quanto cambia la patch nella direzione peggiore per il match (quella del gradiente), λ<sub>min</sub> nella direzione in cui scivola. Un buon punto ha λ<sub>min</sub> grande. Harris (det − α trace²), Shi-Tomasi (λ<sub>min</sub>) e la media armonica (det/trace) sono tre modi di dire "entrambi grandi".</p>
+    <p><b>3 · Selezione della scala.</b> Una struttura ha una scala naturale; si cerca il massimo di una risposta normalizzata (σ²∇²G ∗ I) lungo σ. La normalizzazione σ² è ciò che rende confrontabili le scale; la σ* trovata segue lo zoom dell'immagine. La DoG ne è un'approssimazione economica perché G(kσ) − G(σ) ≈ (k − 1)σ²∇²G, conseguenza dell'equazione del calore ∂G/∂σ = σ∇²G (vista in L6).</p>
+    <p><b>4 · Invarianza per normalizzazione.</b> SIFT non cerca un descrittore "magicamente" invariante: stima posizione, scala e orientazione del punto, ricampiona la patch in quel sistema di riferimento, poi normalizza il vettore (norma unitaria + clipping). Ogni invarianza viene da un passo preciso della pipeline.</p>
+    <p><b>5 · Istogrammi invece di pixel.</b> Raccogliere i gradienti in istogrammi su celle 4×4 rende il descrittore tollerante a piccoli errori di posizione e deformazioni, cosa che la correlazione normalizzata non fa. L'interpolazione trilineare evita salti ai bordi delle celle e dei bin.</p>
+    <p><b>6 · Distribuire bene i punti.</b> ANMS (Brown, Szeliski e Winder): per ogni punto il raggio di soppressione è la distanza dal più vicino punto significativamente più forte; si tengono i punti con raggio maggiore. Risultato: copertura uniforme, utile per stimare trasformazioni globali.</p>
+  </div>
+
+  <div class="card">
+    <h3>Differenze di notazione fra slide e libro</h3>
+    <ul>
+      <li>Il parametro di Harris è α nelle slide e in Szeliski (valore tipico 0.06); in molti testi e in OpenCV si chiama k (0.04–0.06). Da non confondere con il k della DoG, che è il rapporto fra scale.</li>
+      <li>Szeliski scrive A come convoluzione w ∗ (…), le slide come somma pesata Σ w(x<sub>i</sub>)(…): è la stessa cosa calcolata in ogni pixel.</li>
+      <li>Le slide chiamano il gradiente J(x); in Szeliski J è in generale lo jacobiano di una trasformazione. Il visionbook usa ℓ per l'immagine e g per la gaussiana; le slide usano I e G.</li>
+      <li>λ<sub>0</sub> ≤ λ<sub>1</sub> in Szeliski; λ<sub>1</sub>, λ<sub>2</sub> o λ<sub>min</sub>, λ<sub>max</sub> nelle slide.</li>
+      <li>Hessiana H (derivate seconde di D, test sui bordi di SIFT) e matrice di struttura A (prodotti di derivate prime, Harris) sono matrici <b>diverse</b>: le slide le accostano per il trucco det/trace, ma non vanno confuse.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Cosa il libro aggiunge e le slide omettono</h3>
+    <ul>
+      <li>Le <b>altre misure di angolosità</b> (Shi-Tomasi, media armonica) e il fatto che sono tutte funzioni di det e trace o di λ<sub>min</sub>.</li>
+      <li>Le <b>due scale</b> di Harris: σ<sub>d</sub> per le derivate e σ<sub>i</sub> per la finestra di integrazione.</li>
+      <li>Il criterio di <b>ripetibilità</b> di Schmid et al. (punti ritrovati entro ε pixel) e il concetto di information content.</li>
+      <li>Alternative per l'invarianza di scala oltre alla DoG: <b>Harris-Laplace</b> (angoli di Harris in posizione, scala scelta con il LoG) e le estensioni affini (Mikolajczyk e Schmid).</li>
+      <li>La normalizzazione <b>bias/gain</b> delle patch (MOPS) come alternativa più semplice agli istogrammi.</li>
+      <li>Nel paper di Lowe: raddoppio iniziale dell'immagine, s + 3 gaussiane per ottava, interpolazione parabolica del picco di orientazione.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="sec" id="l8-guida"><h2>Guida allo studio</h2><span>3–4 ore in quattro blocchi</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Prima di iniziare</h3>
+    <div class="meta">15 minuti</div>
+    <p>Ripassa da L5 gradiente, derivate di gaussiana e LoG (cappello messicano, zero-crossing in r² = 2σ²), e da L6 scale-space, equazione del calore (∂L/∂σ = σ∇²L) e piramide gaussiana. Serve anche l'algebra delle matrici 2×2 simmetriche: autovalori, det = λ<sub>1</sub>λ<sub>2</sub>, trace = λ<sub>1</sub> + λ<sub>2</sub>.</p>
+  </div>
+  <div class="two">
+    <div class="card">
+      <h3>1 · Problema e requisiti</h3>
+      <div class="meta">Slide 2–18 · circa 30 minuti</div>
+      <p>Obiettivo: saper motivare perché si usano keypoint sparsi e cosa li rende buoni.</p>
+      <ul>
+        <li>Distingui con un esempio equivarianza del detector e invarianza del descrittore.</li>
+        <li>Per le tre patch della slide 14 (cielo, bordo, angolo) disegna a mano la superficie di autocorrelazione che ti aspetti.</li>
+        <li>Verifica: perché la staccionata (slide 16) è un problema anche se ogni punta è un buon angolo?</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>2 · Harris</h3>
+      <div class="meta">Slide 19–42 · circa 1 ora e mezza</div>
+      <p>Obiettivo: il blocco più chiesto. Derivazione completa e interpretazione.</p>
+      <ul>
+        <li>Rifai la derivazione autocorrelazione → Taylor → Δu<sup>⊤</sup>AΔu (slide 25–28) su un foglio bianco.</li>
+        <li>Disegna il piano (λ<sub>1</sub>, λ<sub>2</sub>) con le tre regioni e le curve R = 0 (slide 34, 36).</li>
+        <li>Calcola R sui due esempi numerici della slide 35 e sui casi limite (bordo puro, λ<sub>1</sub> = λ<sub>2</sub>).</li>
+        <li>Correggi su OneNote le slide 38 (ANMS vero) e 42 (Harris è già invariante alla rotazione nella risposta).</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>3 · Scala: LoG e DoG</h3>
+      <div class="meta">Slide 43–55 · circa 45 minuti</div>
+      <p>Obiettivo: spiegare selezione della scala e approssimazione DoG ≈ LoG.</p>
+      <ul>
+        <li>Spiega a voce perché serve il fattore σ² (slide 49).</li>
+        <li>Ricava il raggio √2σ del blob ottimo dallo zero-crossing del LoG (slide 50).</li>
+        <li>Ricava G(kσ) − G(σ) ≈ (k − 1)σ²∇²G dall'equazione del calore (slide 51) e correggi "small k" in "k vicino a 1".</li>
+        <li>Verifica: quanti vicini ha un punto nella ricerca 3×3×3, e perché si escludono la prima e l'ultima DoG dell'ottava?</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>4 · SIFT completo</h3>
+      <div class="meta">Slide 56–84 · circa 1 ora</div>
+      <p>Obiettivo: raccontare la pipeline dall'immagine al vettore da 128 numeri.</p>
+      <ul>
+        <li>Scrivi i quattro stadi e, per ognuno, l'invarianza che produce (slide 57 e 73).</li>
+        <li>Conta: s = 3 → quante gaussiane, quante DoG, quali livelli utili per ottava (slide 58).</li>
+        <li>Spiega il test sui bordi con trace²/det e perché (r + 1)²/r è crescente per r &gt; 1 (slide 62).</li>
+        <li>Distingui l'istogramma a 36 bin (orientazione) da quelli a 8 bin (descrittore).</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Formulario minimo</h3>
+    <div class="meta">Da saper scrivere a memoria</div>
+    <span class="f">E<sub>AC</sub>(Δu) = Σ w(x<sub>i</sub>)[I(x<sub>i</sub> + Δu) − I(x<sub>i</sub>)]² ≈ Δu<sup>⊤</sup>AΔu,   A = Σ w [I<sub>x</sub>² I<sub>x</sub>I<sub>y</sub> ; I<sub>x</sub>I<sub>y</sub> I<sub>y</sub>²]</span>
+    <span class="f">R = det A − α (trace A)² = λ<sub>1</sub>λ<sub>2</sub> − α(λ<sub>1</sub> + λ<sub>2</sub>)²,   α ≈ 0.04–0.06</span>
+    <span class="f">LoG normalizzato: σ²∇²(G<sub>σ</sub> ∗ I),   blob ottimo: r = √2·σ</span>
+    <span class="f">D(σ) = (G(kσ) − G(σ)) ∗ I ≈ (k − 1)σ²∇²G ∗ I,   k = 2<sup>1/s</sup></span>
+    <span class="f">x̂ = −H<sub>D</sub><sup>−1</sup>∇D,   scarta se |D(x̂)| &lt; 0.03 oppure trace(H)²/det(H) ≥ (r + 1)²/r con r = 10</span>
+    <span class="f">orientazione: 36 bin, gaussiana 1.5σ, picchi ≥ 80%;   descrittore: 4×4 celle × 8 bin = 128, norma 1, clip 0.2</span>
+  </div>
+
+  <div class="card">
+    <h3>Domande tipo orale</h3>
+    <div class="meta">Prova a rispondere, poi apri per la traccia</div>
+    <div class="qa">
+      <details><summary>Cos'è il problema della corrispondenza e perché si usano keypoint sparsi?</summary><p>Trovare pixel che sono proiezioni dello stesso punto 3D. Difficile per vista, scala, luce, occlusioni. La maggior parte dei pixel è ambigua; pochi punti distintivi e ripetibili bastano per stimare la geometria (slide 5–6, 12–13).</p></details>
+      <details><summary>Ricava la matrice di struttura di Harris partendo dall'autocorrelazione.</summary><p>E<sub>AC</sub> = Σw[I(x+Δu) − I(x)]²; Taylor: I(x+Δu) ≈ I(x) + ∇I<sup>⊤</sup>Δu; resta Σw(∇I<sup>⊤</sup>Δu)² = Δu<sup>⊤</sup>(Σw∇I∇I<sup>⊤</sup>)Δu = Δu<sup>⊤</sup>AΔu (slide 25–28).</p></details>
+      <details><summary>Come si classificano zone piatte, bordi e angoli con gli autovalori di A?</summary><p>Entrambi piccoli: piatto. Uno grande e uno piccolo: bordo (autovettore di λ<sub>max</sub> perpendicolare al bordo). Entrambi grandi: angolo. Le curve di livello di E<sub>AC</sub> sono ellissi con assi lungo gli autovettori (slide 32–35).</p></details>
+      <details><summary>Perché Harris usa det − α·trace² e che segno ha R nei tre casi?</summary><p>Evita l'autodecomposizione: det e trace si calcolano dalle entrate. R &gt; 0 grande: angolo; R &lt; 0: bordo; |R| piccolo: piatto. α regola la tolleranza all'anisotropia (slide 36–37).</p></details>
+      <details><summary>Harris è invariante a rotazione e scala?</summary><p>La risposta sì alla rotazione (dipende solo dagli autovalori), e anche ai cambi affini di intensità a meno della soglia. Non alla scala: la finestra è fissa. Manca anche un'orientazione canonica per il descrittore (slide 41–42).</p></details>
+      <details><summary>Cos'è l'ANMS e perché serve?</summary><p>Per ogni punto si calcola la distanza dal punto più vicino con risposta significativamente maggiore; si tengono gli n punti con raggio maggiore. Evita grappoli e concentrazione nelle zone ad alto contrasto: punti distribuiti su tutta l'immagine (slide 38–39).</p></details>
+      <details><summary>Cos'è la scala caratteristica e perché il LoG va moltiplicato per σ²?</summary><p>La σ che massimizza una risposta normalizzata in un punto; segue lo zoom dell'immagine. Le derivate seconde di gaussiana scalano come 1/σ²: senza σ² la risposta decresce con la scala e non si possono confrontare le scale (slide 46, 49–50).</p></details>
+      <details><summary>Perché la DoG approssima il LoG normalizzato?</summary><p>∂G/∂σ = σ∇²G; con un rapporto incrementale fra σ e kσ si ha G(kσ) − G(σ) ≈ (k − 1)σ²∇²G. Il fattore (k − 1) è costante, quindi gli estremi non cambiano. Costa una sottrazione di immagini già calcolate (slide 51).</p></details>
+      <details><summary>Descrivi la pipeline di detection di SIFT.</summary><p>Piramide gaussiana con s scale per ottava, DoG fra livelli adiacenti, estremi 3×3×3 (26 vicini), raffinamento sub-pixel con Taylor al secondo ordine, scarto per basso contrasto (|D| &lt; 0.03) e per bordi (trace²/det dell'hessiana) (slide 58–62).</p></details>
+      <details><summary>Come ottiene SIFT l'invarianza alla rotazione e all'illuminazione?</summary><p>Rotazione: istogramma a 36 bin delle orientazioni pesato da modulo e gaussiana 1.5σ, picco = orientazione, patch ruotata; picchi oltre l'80% duplicano il keypoint. Illuminazione: gradienti (offset), norma unitaria (contrasto), clipping a 0.2 e rinormalizzazione (saturazioni) (slide 65–71).</p></details>
+      <details><summary>Com'è fatto il descrittore SIFT e perché 128?</summary><p>Patch 16×16 ruotata e scalata, griglia 4×4 di celle, istogramma a 8 bin per cella: 4·4·8 = 128. Interpolazione trilineare dei voti; gli istogrammi tollerano piccoli spostamenti (slide 68–70).</p></details>
+      <details><summary>Che differenza c'è fra la matrice di Harris e l'hessiana del test sui bordi di SIFT?</summary><p>A contiene prodotti di derivate prime dell'immagine sommati su una finestra; H contiene derivate seconde di D nel punto. Entrambe si giudicano con il rapporto degli autovalori tramite det e trace (slide 28, 62).</p></details>
+    </div>
+  </div>
+</div>

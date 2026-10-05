@@ -1,0 +1,465 @@
+{
+ "L": "L1",
+ "segs": [
+  {
+   "a": "In una frase: la computer vision cerca d",
+   "t": "Il tuo telefono si sblocca guardandoti in faccia, eppure per lui una foto è solo una tabella di numeri. In questa lezione capirai perché passare da quei numeri a cosa c'è nella scena, e dove, è così difficile. Alla fine saprai spiegare a voce perché la visione è un problema inverso mal posto, come lo si rende risolvibile, e quali quattro temi tornano in tutto il corso."
+  },
+  {
+   "a": "In una frase: la computer vision cerca d",
+   "t": "La frase in cima alla pagina è la lezione in miniatura. Un'immagine da sola non basta per decidere com'è fatto il mondo. Ogni metodo del corso aggiunge qualcosa: ipotesi sul mondo, che chiameremo prior, cioè conoscenza a priori, oppure informazione presa da altre viste, dalla geometria, dalle rappresentazioni o dal tempo."
+  },
+  {
+   "a": "Prima di iniziare",
+   "t": "Prima di partire, i prerequisiti. Non ti serve nulla delle lezioni precedenti, solo quattro cose della triennale: derivate parziali e gradiente, per i bordi. I minimi quadrati, per i sistemi con più equazioni che incognite. Il teorema di Bayes. E un po' di trigonometria, con il teorema dei seni."
+  },
+  {
+   "a": "Guarda prima questi video",
+   "t": "Nella pagina trovi alcuni video, di Shree Nayar, Fei-Fei Li e Justin Johnson. Sono un complemento: puoi guardarli prima, per farti un'idea, o dopo, per risentire gli stessi concetti da un'altra voce."
+  },
+  {
+   "a": "1 · Che cosa vuol dire \"vedere\" per una ",
+   "t": "Partiamo dalla domanda più semplice: che cosa vuol dire vedere, per una macchina? Per il computer una foto a colori di 1000 per 1000 pixel è una tabella di tre milioni di numeri, ognuno dei quali dice solo quanta luce è arrivata su un punto del sensore. Da lì bisogna arrivare a frasi come: c'è una tazza sul tavolo, a mezzo metro, davanti al portatile."
+  },
+  {
+   "a": "L'idea. David Marr lo riassume così (sli",
+   "t": "David Marr lo riassume così: vedere significa sapere cosa c'è e dove, guardando. Cosa c'è è il riconoscimento, dove è la struttura spaziale, la forma in tre dimensioni. Il libro precisa: in uscita non vogliamo misure di luce, ma proprietà del mondo, cioè oggetti, forme, materiali. Questa distinzione tornerà con l'illusione della scacchiera."
+  },
+  {
+   "a": "Il modo più chiaro per capire cos'è la v",
+   "t": "Per capire la visione conviene confrontarla con i campi vicini, guardando cosa entra e cosa esce. L'image processing, cioè l'elaborazione delle immagini, prende un'immagine e restituisce un'immagine, per esempio senza rumore. La computer graphics prende la descrizione della scena, con geometria, materiali, luci e camera, e calcola l'immagine. È il problema diretto: una sola risposta."
+  },
+  {
+   "a": "image processing : immagine in ingresso,",
+   "t": "La computer vision fa il contrario: prende l'immagine e deve restituire la scena. È il problema inverso della grafica, la grafica eseguita al contrario, ed è qui che nasce la difficoltà. Intorno ci sono la robotica, perché spesso si vede per agire, e il machine learning, cioè l'apprendimento automatico, la cassetta degli attrezzi moderna."
+  },
+  {
+   "a": "Le tre discipline si distinguono per cos",
+   "t": "Ora guarda la figura. A sinistra il riquadro verde è la scena, a destra quello blu è l'immagine. La freccia grigia in alto va da sinistra a destra: è la grafica, problema diretto, una sola risposta. La freccia rossa in basso torna indietro: è la visione, problema inverso, tante scene possibili. L'arco arancione sopra l'immagine è l'image processing, che resta nel mondo dei pixel."
+  },
+  {
+   "a": "Un esempio. Un videogioco disegna l'imma",
+   "t": "Un esempio. Un videogioco disegna lo schermo dalla descrizione del livello, senza dubbi. Il contrario, ricostruire il livello da uno screenshot, non ha una risposta unica: un muro scuro può essere un muro grigio in ombra o un muro nero ben illuminato."
+  },
+  {
+   "a": "Il punto Vedere = ricavare cosa c'è e do",
+   "t": "Da portare a casa: vedere significa ricavare cosa c'è e dove a partire dalla luce. La grafica calcola l'immagine dalla scena, la visione deve indovinare la scena dall'immagine."
+  },
+  {
+   "a": "2 · Basso, medio e alto livello",
+   "t": "Seconda sezione. Fare visione copre compiti molto diversi: togliere il rumore da una foto notturna, misurare la distanza di un'auto, scrivere una didascalia. Per ordinarli il criterio è semplice: quanto il compito è lontano dai pixel."
+  },
+  {
+   "a": "basso livello : operazioni vicino ai pix",
+   "t": "Al basso livello stai vicino ai pixel: entra un'immagine ed esce un'immagine o un campo, come nel denoising, cioè la rimozione del rumore, nei bordi o nel flusso ottico. Al medio livello raggruppi pixel e ricavi geometria: segmentazione, profondità, corrispondenze. All'alto livello arrivi al significato: riconoscimento, detection, cioè localizzazione degli oggetti, didascalie, generazione di immagini da testo."
+  },
+  {
+   "a": "Dalle slide 6 e 7. Basso livello: l'usci",
+   "t": "Guarda la figura da sinistra a destra. Il primo pannello è una scrivania vista dall'alto, con portatili e tazze. Il secondo è la stessa scena ridotta ai bordi, linee bianche su nero: è ancora un'immagine, nessuno ha detto quali sono gli oggetti. Il terzo è una strada segmentata: le auto in blu, i pedoni in rosso, il marciapiede in rosa. Qui siamo al medio livello."
+  },
+  {
+   "a": "Esempio: un'auto a guida autonoma li usa",
+   "t": "Un'auto a guida autonoma usa tutti e tre i livelli in ogni fotogramma: trova i bordi delle corsie, segmenta la strada e stima la profondità degli ostacoli, riconosce pedone e semaforo rosso. E deve farlo in pochi millisecondi."
+  },
+  {
+   "a": "Il punto Basso livello lavora sui pixel,",
+   "t": "Da portare a casa: il basso livello lavora sui pixel, il medio sulla geometria e sulle regioni, l'alto sul significato. Il corso sale questa scala nello stesso ordine."
+  },
+  {
+   "a": "3 · Perché è difficile: un problema inve",
+   "t": "Terza sezione, il cuore della lezione. Nel 1966, al MIT, Seymour Papert pensava che degli studenti potessero risolvere buona parte della visione in un progetto estivo. Sessant'anni dopo ci stiamo ancora lavorando. Perché?"
+  },
+  {
+   "a": "L'idea. Un problema si dice ben posto (d",
+   "t": "Serve una definizione, quella di Hadamard. Un problema è ben posto se la soluzione esiste, è unica, e dipende con continuità dai dati, cioè un piccolo rumore cambia poco la risposta. Se manca una sola condizione, è mal posto. La visione cade già sull'unicità: passando dal 3D all'immagine in 2D si butta via una dimensione, e infinite scene producono la stessa immagine. E non solo per la profondità: la stessa sagoma può venire da forme diverse."
+  },
+  {
+   "a": "La matematica, in piccolo. In una camera",
+   "t": "Vediamolo con la matematica. In una camera, che studierai nella lezione 2, un oggetto alto H a distanza Z produce un'immagine alta h uguale a f per H diviso Z, dove f è la focale. La formula dipende solo dal rapporto fra H e Z: raddoppi altezza e distanza, e l'immagine non cambia."
+  },
+  {
+   "a": "Esempio svolto. Con f = 50 mm: una perso",
+   "t": "Facciamo i conti con una focale di 50 millimetri. Una persona alta uno virgola otto metri a 18 metri dà 5 millimetri sul sensore. Un bambino alto zero virgola nove metri a 9 metri dà ancora 5 millimetri. Stessa immagine, scene diverse."
+  },
+  {
+   "a": "Esempio svolto. Con f = 50 mm: una perso",
+   "t": "Come se ne esce? Se sai che un adulto è alto circa uno virgola otto metri, la distanza diventa calcolabile. Quella frase è un prior: un'ipotesi su come è fatto di solito il mondo, che ti permette di scegliere fra le scene compatibili. È la parola chiave della lezione."
+  },
+  {
+   "a": "Il punto La visione è mal posta perché l",
+   "t": "Da portare a casa: la visione è mal posta perché la proiezione dal 3D al 2D perde informazione, e molte scene danno la stessa immagine. Senza prior non c'è modo di scegliere. Puoi leggere tutto il corso come un catalogo di modi per aggiungerli."
+  },
+  {
+   "a": "4 · I fattori di disturbo",
+   "t": "Quarta sezione. Anche se l'ambiguità della profondità sparisse, resterebbe un altro problema: molte cose cambiano moltissimo i pixel senza cambiare la risposta. Si chiamano nuisance factors, fattori di disturbo."
+  },
+  {
+   "a": "Illuminazione (slide 13): direzione e co",
+   "t": "Sono quattro famiglie. L'illuminazione: direzione e colore della luce, ombre, riflessi. Il punto di vista: scorcio e auto-occlusione, cioè parti dell'oggetto che ne nascondono altre. Attenzione: nelle slide del prof la figura sul punto di vista non mostra un oggetto 3D da angoli diversi, ma la stessa foto piana deformata. Il concetto è giusto, l'esempio no."
+  },
+  {
+   "a": "Illuminazione (slide 13): direzione e co",
+   "t": "Poi l'occlusione: parti della scena mancano, e bisogna ragionare su ciò che non si vede con contesto e prior. Infine scala e variazione intra-classe: lo stesso oggetto può occupare tanti pixel o pochissimi, e oggetti della stessa categoria possono avere forma, colore e posa molto diversi."
+  },
+  {
+   "a": "Dalla slide 13. Stesso oggetto, stessa p",
+   "t": "Guarda le quattro tazzine. A sinistra luce normale. Poi sottoesposta, quasi nera. Poi sovraesposta, slavata. Infine luce laterale. Pixel per pixel sono quattro immagini molto diverse, ma la risposta è sempre la stessa: una tazzina."
+  },
+  {
+   "a": "Dalle slide 15 e 16. A sinistra l'auto è",
+   "t": "Nella figura successiva, a sinistra, due foto della stessa strada: prima un'auto blu scuro parcheggiata, poi passa un furgone bianco e dell'auto resta solo il muso. L'auto c'è ancora, ma quasi non ha pixel. A destra uno stormo di uccelli nel cielo: quelli in alto a sinistra sono grandi, quelli in basso a destra sono puntini."
+  },
+  {
+   "a": "Esempio svolto: la scala. Riprendi h = f",
+   "t": "Quantifichiamo con la stessa formula, con la focale in pixel, 1000 pixel. Un uccello di 30 centimetri a un metro occupa 300 pixel, a 100 metri ne occupa 3. In 3 pixel non ci sono becco né ali: servono elaborazione su più scale e rappresentazioni invarianti. La scala torna nella lezione 6 con le piramidi."
+  },
+  {
+   "a": "E le reti neurali? Gli umani risolvono t",
+   "t": "E le reti neurali? Noi risolviamo tutto questo in millisecondi, grazie a un'enorme conoscenza a priori. Le reti profonde oggi ci eguagliano su molti compiti ristretti, ma sbagliano in modo diverso: esempi avversari, perturbazioni invisibili che cambiano la predizione, e distribution shift, cioè dati di test diversi da quelli di addestramento. Di un sistema classico sai dove fallirà, perché le ipotesi sono scritte; di una rete è difficile prevederlo."
+  },
+  {
+   "a": "Il punto Luce, punto di vista, occlusion",
+   "t": "Da portare a casa: luce, punto di vista, occlusione, scala e variazione intra-classe cambiano i pixel senza cambiare la risposta. Un buon sistema deve essere insensibile a tutti questi fattori insieme, e sapere quando non lo è."
+  },
+  {
+   "a": "5 · Un sistema di visione completo, in p",
+   "t": "Quinta sezione, la più tecnica: qui rallentiamo. Le slide dicono che servono prior, ma non mostrano come si usano. Il capitolo 2 del libro lo fa nel mondo a blocchi della tesi di Larry Roberts, MIT, 1963: oggetti con facce solo orizzontali o verticali, appoggiati su un piano bianco. Sembra un giocattolo, ma contiene in miniatura tutto il corso."
+  },
+  {
+   "a": "Per semplicità il libro usa la proiezion",
+   "t": "Prima serve un modello di come nasce l'immagine. Il libro usa la proiezione ortografica: i raggi arrivano alla camera paralleli, come in una foto scattata da lontano con un forte zoom. Il mondo ha X verso destra, Y verso l'alto, Z in profondità, e la camera è inclinata verso il terreno di un angolo theta. Nella formula che vedi, x è uguale a X, mentre y è uguale a coseno di theta per Y meno seno di theta per Z."
+  },
+  {
+   "a": "dove (x, y) sono le coordinate nell'imma",
+   "t": "Ecco il cuore del problema. Nella seconda equazione altezza e profondità finiscono mescolate in un solo numero, la riga y del pixel. Due incognite, una sola misura."
+  },
+  {
+   "a": "Esempio svolto. Con θ = 60° si ha cos θ ",
+   "t": "Con theta a 60 gradi, il coseno vale zero virgola cinque e il seno circa zero virgola otto sei sei. Lo spigolo di un blocco alto 2, a profondità zero, finisce nella riga 1. Un punto del terreno a profondità meno uno virgola uno cinque cinque finisce anche lui nella riga 1. Due punti diversi, stesso pixel: tutti i punti di una retta nel piano profondità altezza sono indistinguibili."
+  },
+  {
+   "a": "Due punti diversi del mondo, stesso pixe",
+   "t": "Due punti del mondo completamente diversi, stesso pixel. Anzi, tutti i punti che soddisfano quell'equazione con risultato 1 formano una retta nel piano profondità altezza, e l'immagine non può distinguerli fra loro."
+  },
+  {
+   "a": "Sinistra: vista di lato della scena; la ",
+   "t": "Guarda la figura. A sinistra la scena vista di lato: profondità in orizzontale, altezza in verticale, il blocco è il rettangolo azzurro. La retta rossa passa per P uno, lo spigolo in cima al blocco, e per P due, sul terreno più a sinistra. Le rette grigie parallele sono le altre righe dell'immagine. A destra la colonna dell'immagine: P uno e P due cadono nello stesso pallino rosso, alla riga 1."
+  },
+  {
+   "a": "L'obiettivo del sistema è modesto ma con",
+   "t": "L'obiettivo del sistema è modesto: per ogni pixel ricostruire X, Y e Z. X è gratis, perché è uguale a x. Se conosci Y, Z si ricava invertendo la proiezione. Quindi tutto si riduce a stimare un numero per pixel: l'altezza Y."
+  },
+  {
+   "a": "Dai pixel ai bordi",
+   "t": "Primo passo, i bordi: punti dove l'intensità cambia bruscamente. Si misurano con il gradiente, il vettore delle due derivate parziali. Nell'immagine digitale, come nella formula che vedi, la derivata in x è il pixel meno quello alla sua sinistra, la derivata in y il pixel meno quello sotto."
+  },
+  {
+   "a": "La forza del bordo è la norma ‖∇ℓ‖, la s",
+   "t": "La forza del bordo è la lunghezza del gradiente, e si tiene ciò che supera una soglia. Esempio: un pixel di terreno bianco vale 200, quello a sinistra, sul blocco scuro, 60. La derivata in x vale 140, quella in y circa zero. Il gradiente punta in orizzontale, quindi il bordo è verticale: gradiente e bordo sono perpendicolari. Nella lezione 5 vedrai filtri migliori, perché le differenze semplici amplificano il rumore."
+  },
+  {
+   "a": "Poi i bordi vanno interpretati . Il libr",
+   "t": "Poi i bordi vanno interpretati. Ci sono bordi di occlusione, con un salto di profondità. Bordi di contatto, dove un oggetto poggia sul terreno, senza salto. Spigoli fra due facce. E bordi d'ombra. Il terreno si riconosce facilmente: pixel bianchi e poco saturi."
+  },
+  {
+   "a": "La pipeline dei bordi su una scena sinte",
+   "t": "Guarda la pipeline da sinistra a destra: la scena con un blocco blu e uno arancione, poi la forza del bordo, contorni neri su bianco, infine l'interpretazione. I bordi quasi verticali sono in blu e diventano spigoli verticali nel 3D, gli altri sono in rosso e diventano orizzontali."
+  },
+  {
+   "a": "Il prior della vista generica",
+   "t": "Ma con quale diritto un bordo verticale nell'immagine è verticale nel mondo? Con un prior, la vista generica: si assume che la camera non sia in una posizione speciale."
+  },
+  {
+   "a": "Come si decide se un bordo dell'immagine",
+   "t": "Ragiona così. Due segmenti che si toccano nel 3D si toccano anche nell'immagine, ma non viceversa: possono toccarsi nell'immagine per un allineamento casuale. Se il punto di vista non è speciale, queste coincidenze sono improbabili."
+  },
+  {
+   "a": "Gli stessi due segmenti, staccati nel 3D",
+   "t": "La figura lo mostra con due segmenti staccati, uno blu verticale e uno rosso orizzontale. Nelle prime due viste sono separati. Nella terza, la vista accidentale con il titolo in rosso, sembrano formare una L che nel 3D non esiste. Basta spostarsi di poco perché la coincidenza sparisca."
+  },
+  {
+   "a": "In pratica: un bordo quasi verticale nel",
+   "t": "In pratica, un bordo entro 15 gradi dalla verticale diventa verticale nel 3D, gli altri orizzontali. Nelle foto vere però le coincidenze accadono, ed è uno dei motivi per cui le regole fisse sono fragili."
+  },
+  {
+   "a": "terreno e bordi di contatto : Y = 0 ; bo",
+   "t": "Ora il passo decisivo: ogni prior diventa un'equazione lineare sulle altezze. Su terreno e bordi di contatto l'altezza è zero. Lungo un bordo verticale, salendo di un pixel l'altezza cresce di uno diviso coseno di theta, perché lì la profondità è costante. Lungo un bordo orizzontale l'altezza non cambia. Dentro una faccia piana le derivate seconde sono nulle: questo propaga l'informazione dai bordi alle zone uniformi, come un telo teso."
+  },
+  {
+   "a": "Messe insieme, le equazioni formano un s",
+   "t": "Messe insieme, le equazioni formano un sistema A per Y uguale a b: Y contiene tutte le altezze, ogni riga di A è un vincolo, b i termini noti. Le equazioni sono più delle incognite e, per gli errori nei bordi, non si possono soddisfare tutte. Si cerca allora la Y che le viola il meno possibile, minimizzando la somma pesata dei quadrati degli errori."
+  },
+  {
+   "a": "Y = (AᵀA)⁻¹ Aᵀ b",
+   "t": "Senza pesi, la soluzione è quella che vedi: Y uguale ad A trasposta per A, alla meno uno, per A trasposta per b. È la formula dei minimi quadrati della triennale. A è enorme ma sparsa, quindi si risolve in fretta."
+  },
+  {
+   "a": "Prendi una sola colonna dell'immagine, r",
+   "t": "Facciamolo a mano su una colonna di sei pixel, numerati da 0 a 5 dal basso, con theta a 60 gradi, quindi uno diviso coseno vale 2. Le righe 0 e 1 sono terreno, la riga 2 è il bordo di contatto, le righe dalla 2 alla 5 sono la faccia verticale del blocco."
+  },
+  {
+   "a": "terreno e contatto: Y₀ = 0, Y₁ = 0, Y₂ =",
+   "t": "I vincoli: le prime tre altezze sono zero, tre equazioni. Sulla faccia verticale ogni altezza supera la precedente di 2, altre tre. Sulla faccia piana ogni altezza è la media delle due vicine, due equazioni."
+  },
+  {
+   "a": "Otto equazioni, sei incognite. Sono coer",
+   "t": "Otto equazioni, sei incognite, ma coerenti: i minimi quadrati danno esattamente zero, zero, zero, 2, 4, 6. Ricavando le profondità, la riga 2 e la riga 4 hanno la stessa, quindi la faccia è davvero verticale. Hai ricostruito un blocco alto 6."
+  },
+  {
+   "a": "Supponi ora che il rilevatore di bordi s",
+   "t": "Ora il caso interessante. Il rilevatore sbaglia e dice che fra la riga 4 e la 5 l'altezza cresce di 1 invece che di 2. Le equazioni non sono più compatibili, ma i minimi quadrati non si bloccano: distribuiscono l'errore, e le ultime tre righe diventano circa uno virgola otto otto, tre virgola sei tre e 5. Un compromesso, non un crollo."
+  },
+  {
+   "a": "Sinistra: le etichette dei sei pixel. De",
+   "t": "Guarda la figura. A sinistra la colonna: due celle grigie di terreno in basso, quattro azzurre sopra. A destra l'altezza per riga. La linea blu con i cerchi sale dritta fino a 6. La linea rossa tratteggiata con i quadrati sta un po' sotto e arriva a 5: l'errore si è spalmato anche sulle righe 3 e 4."
+  },
+  {
+   "a": "Il codice qui sotto fa esattamente quest",
+   "t": "Il codice Python sotto fa esattamente questo: la funzione vincolo trasforma un prior in una riga della matrice, a partire da un dizionario di coefficienti e da un termine noto, e lstsq di numpy risolve. Fallo girare e cambia un termine noto per vedere il compromesso."
+  },
+  {
+   "a": "Il libro prova il sistema anche fuori da",
+   "t": "Dove si rompe? Fuori dalle sue ipotesi, con ombre nette o figure impossibili, spesso funziona ancora, ma niente lo garantisce. E il sistema non capisce gli oggetti: non sa contarli né immaginare le facce nascoste. Per questo servono riconoscimento e apprendimento."
+  },
+  {
+   "a": "Il punto Un problema mal posto diventa r",
+   "t": "Da portare a casa: un problema mal posto diventa risolvibile aggiungendo prior. Nel 1963 si scrivevano a mano come equazioni. Oggi una rete li impara dai dati: Depth Anything, per esempio, stima la profondità da una sola immagine proprio così."
+  },
+  {
+   "a": "6 · Cosa ci insegna la percezione umana",
+   "t": "Sesta sezione. Se la visione è così mal posta, come facciamo noi a vedere senza sforzo? Il nostro sistema visivo fa quello che abbiamo appena visto: usa prior fortissimi, quasi sempre senza accorgercene. Cinque esempi."
+  },
+  {
+   "a": "In un'immagine di pochi pixel per lato r",
+   "t": "Primo: il significato non sta nel pixel. In un'immagine di pochi pixel per lato riconosci una persona che scrive alla scrivania, con una tazza blu. Ritagliate da sole, le stesse zone sono macchie senza senso."
+  },
+  {
+   "a": "Dalle slide 21 e 22. Nell'immagine inter",
+   "t": "Nella figura, a sinistra, l'immagine intera a bassissima risoluzione: si vedono la persona di profilo e la tazza blu in basso. A destra le stesse patch, cioè ritagli, isolate: un quadratino marrone, una griglia di blu e grigi, un quadratino beige. Nessuno direbbe tazza guardando la griglia blu."
+  },
+  {
+   "a": "Il significato nasce dal contesto, non d",
+   "t": "Il significato nasce dal contesto. Per gli algoritmi servono quindi rappresentazioni che guardino regioni ampie, come il grande campo recettivo delle CNN, le reti convoluzionali, o l'attenzione globale dei ViT, i vision transformer."
+  },
+  {
+   "a": "In una foto sfocata di un ufficio \"vedia",
+   "t": "Secondo: il contesto completa la scena. In una foto sfocata di un ufficio vediamo senza esitare una persona al telefono. Nella versione nitida scopri che all'orecchio tiene tutt'altro."
+  },
+  {
+   "a": "Dalle slide 23 e 24. Guarda prima solo l",
+   "t": "Guarda solo la foto sfocata a sinistra e chiediti cosa tiene all'orecchio: quasi tutti dicono il telefono. Ora la foto nitida a destra: un ragazzo alla scrivania che si tiene una scarpa all'orecchio. Il cervello aveva messo l'oggetto più probabile in quel contesto. Il prior indovina quasi sempre, e quando sbaglia, sbaglia con sicurezza."
+  },
+  {
+   "a": "Nel punto cieco della retina, dove il ne",
+   "t": "Terzo: il cervello riempie i buchi. Nel punto cieco della retina, dove esce il nervo ottico, non ci sono fotorecettori, eppure non vediamo un buco: il cervello interpola con ciò che c'è intorno."
+  },
+  {
+   "a": "Nell'illusione della scacchiera di Adels",
+   "t": "Quarto, il più famoso: la scacchiera di Adelson. I quadrati A e B hanno lo stesso grigio, ma B ci sembra chiaro perché è in ombra."
+  },
+  {
+   "a": "Dalla slide 26. A sembra scuro e B chiar",
+   "t": "Guarda la figura. A è una casella scura nella fila in alto, alla luce. B sta nell'ombra del cilindro verde. A occhio A è scura e B chiara. Ma a destra ci sono i campioni presi dai pixel: due quadrati grigi identici, entrambi a 120 su 255."
+  },
+  {
+   "a": "Il sistema visivo stima la riflettanza :",
+   "t": "Perché? Il sistema visivo non misura la luce, stima la riflettanza: la frazione di luce che una superficie rimanda, il suo colore vero, scontando l'ombra. Se B riceve metà della luce di A e arriva comunque a 120, deve rimandarne il doppio: è chiara. Come misura è sbagliato, come risposta sulla scena è giusto. Ricordi Marr? L'uscita sono proprietà del mondo."
+  },
+  {
+   "a": "Lo stesso disegno di linee, ruotato di 9",
+   "t": "Quinto, prospettiva e mosso. Lo stesso disegno di linee, ruotato di 90 gradi, lo leggiamo come pavimento o come muro, perché ci aspettiamo un orizzonte orizzontale. E perfino il mosso porta informazione."
+  },
+  {
+   "a": "Dalla slide 28. I semafori vicini sono s",
+   "t": "Guarda la foto, scattata da un'auto in corsa a Parigi, di notte. In primo piano i semafori e i cartelli rossi sono strisciate. Sullo sfondo la Torre Eiffel è quasi nitida. Il mosso ti dice quanto è lontano ogni oggetto."
+  },
+  {
+   "a": "Perché: durante l'esposizione T l'auto s",
+   "t": "Il conto: un oggetto si sposta nell'immagine di circa focale per velocità per tempo di esposizione, diviso la distanza. Con 1000 pixel, 10 metri al secondo e un trentesimo di secondo, un semaforo a 5 metri si sposta di circa 67 pixel, la Torre a un chilometro di zero virgola tre. Un'immagine mossa è una media di copie traslate, cioè una convoluzione, che ritroverai nelle lezioni 3 e 5."
+  },
+  {
+   "a": "Il punto Cosa ci insegna la percezione u",
+   "t": "Da portare a casa: la percezione umana usa contesto, riempimento, prospettiva e perfino il mosso per scegliere la scena più plausibile. I sistemi robusti hanno bisogno di prior simili, e oggi li imparano dai dati."
+  },
+  {
+   "a": "7 · Vedere è inferire: Helmholtz e Bayes",
+   "t": "Settima sezione: questi esempi sono solo curiosità, o c'è una teoria che li unisce? Helmholtz diceva che la percezione è inferenza inconscia: vediamo la scena che più probabilmente ha prodotto ciò che arriva agli occhi. Oggi la chiamiamo inferenza bayesiana."
+  },
+  {
+   "a": "P(scena | immagine) ∝ P(immagine | scena",
+   "t": "La formula che vedi si legge così: la probabilità della scena data l'immagine è proporzionale alla probabilità dell'immagine data la scena, moltiplicata per la probabilità della scena."
+  },
+  {
+   "a": "P(scena | immagine) è il posteriore , qu",
+   "t": "Il primo pezzo è il posteriore, quello che vogliamo. Il secondo è la verosimiglianza: quanto quella scena spiega i pixel, ed è proprio il modello diretto, la grafica. Il terzo è il prior: quanto la scena è plausibile prima di guardare. Proporzionale vuol dire che alla fine si divide per la somma."
+  },
+  {
+   "a": "La formula dice: quando l'immagine è pov",
+   "t": "La formula dice una cosa precisa. Quando l'immagine è povera, sfocata, piccola o ambigua, la verosimiglianza è quasi uguale per molte scene, e allora decide il prior. Quando l'immagine è chiara, decide la verosimiglianza."
+  },
+  {
+   "a": "Esempio svolto (numeri inventati per la ",
+   "t": "Rifacciamo con i numeri la scena della scarpa, numeri inventati. Quattro ipotesi, con prior: telefono zero virgola cinque cinque, tazza zero virgola tre, banana zero virgola uno, scarpa zero virgola zero cinque."
+  },
+  {
+   "a": "Foto sfocata : verosimiglianze quasi ugu",
+   "t": "Foto sfocata: verosimiglianze quasi uguali, intorno a zero virgola due cinque. Moltiplichi, normalizzi, e il telefono ha posteriore zero virgola cinque nove: vince il prior. Foto nitida: la scarpa ha verosimiglianza zero virgola nove due, le altre pochi centesimi. Il posteriore della scarpa sale a zero virgola sei quattro: i dati battono il prior."
+  },
+  {
+   "a": "I numeri dell'esempio. Con la foto sfoca",
+   "t": "Nel grafico ogni ipotesi ha tre barre: grigia il prior, arancione la verosimiglianza, blu il posteriore. A sinistra, foto sfocata, le arancioni sono quasi alla stessa altezza e le blu seguono le grigie. A destra, foto nitida, l'arancione della scarpa è altissima e la sua blu arriva a zero virgola sei quattro."
+  },
+  {
+   "a": "Il punto Vedere = scegliere la scena con",
+   "t": "Da portare a casa: vedere significa scegliere la scena con il posteriore più alto. Il prior conta tanto più quanto l'immagine è povera. È lo stesso meccanismo dietro il mondo a blocchi, le illusioni e le reti addestrate."
+  },
+  {
+   "a": "8 · Breve storia: tre modi di programmar",
+   "t": "Ottava sezione, la storia. C'è un filo che lega decenni di metodi: sono tre modi diversi di inserire i prior in un sistema visivo."
+  },
+  {
+   "a": "regole scritte a mano (anni '60–'80: mon",
+   "t": "Dagli anni sessanta agli ottanta, regole scritte a mano: mondo a blocchi, primi rilevatori di bordi, stereo. Dagli anni novanta, algoritmi derivati da un modello del mondo, come Harris, SIFT, RANSAC e la geometria multi-vista, con feature, cioè caratteristiche, progettate a mano. Dal 2012, apprendimento dai dati: reti convoluzionali, poi transformer e foundation model."
+  },
+  {
+   "a": "Tre epoche, tre modi di mettere i prior ",
+   "t": "La figura è una linea del tempo in tre fasce. Blu dal 1960 al 1990, regole a mano, con Roberts nel 1963 e il progetto estivo nel 1966. Verde fino al 2012, modelli del mondo. Rossa da lì a oggi, apprendimento, con AlexNet e i ViT nel 2020."
+  },
+  {
+   "a": "Un numero per capire il salto del 2012. ",
+   "t": "Il salto del 2012 in un numero: nella gara ImageNet AlexNet sbagliò la top-5, cioè la classe giusta non era fra le sue cinque ipotesi, sul 15 virgola 3 per cento delle immagini, contro il 26 virgola 2 per cento del miglior metodo classico. I metodi classici però restano: spiegano cosa le reti devono imparare."
+  },
+  {
+   "a": "Il punto La storia della visione è la st",
+   "t": "Da portare a casa: la storia della visione è la storia di dove stanno i prior. Prima nel codice, poi nel modello del mondo, oggi nei dati."
+  },
+  {
+   "a": "9 · I quattro temi unificanti",
+   "t": "Nona sezione, la chiave di lettura del corso: quattro idee che tornano quasi ovunque. Corrispondenza, vincoli geometrici, rappresentazioni apprese, coerenza temporale."
+  },
+  {
+   "a": "Corrispondenza : date due immagini della",
+   "t": "La corrispondenza: date due immagini della stessa scena, trovare quale punto dell'una corrisponde a quale dell'altra. Serve per panorami, stereo, tracking, cioè inseguimento, e ricostruzione 3D. La ricetta classica: rilevare punti distintivi, i keypoint, descriverli con un vettore, accoppiare i descrittori simili. Lezioni 8 e 9."
+  },
+  {
+   "a": "Dalla slide 33. Ogni linea verde collega",
+   "t": "Nella figura due foto della stessa astronauta, la seconda un po' ruotata. Le linee verdi collegano lo stesso punto nelle due immagini e sono quasi tutte parallele. Le poche storte, come quella che parte dal guanto in basso, sono match sbagliati, cioè accoppiamenti errati, da scartare."
+  },
+  {
+   "a": "Le camere seguono un modello preciso, la",
+   "t": "I vincoli geometrici: le camere seguono la proiezione prospettica, e questo vincola come i punti si spostano fra le viste. Per una scena piana, o una camera che ruota soltanto, le immagini sono legate da una matrice 3 per 3, l'omografia, e il corrispondente è determinato. Per una scena qualsiasi vale il vincolo epipolare: il corrispondente sta su una retta."
+  },
+  {
+   "a": "Dove cercare, nella seconda immagine, il",
+   "t": "La figura mostra tre rettangoli. A sinistra è tutto colorato: senza vincoli cerchi ovunque, un milione di candidati in un'immagine 1000 per 1000. Al centro una retta rossa: col vincolo epipolare ne restano circa mille. A destra un solo pallino verde: con l'omografia, uno."
+  },
+  {
+   "a": "Il caso più semplice è la triangolazione",
+   "t": "Il caso più semplice è la triangolazione: una vista dà solo la direzione, due viste fissano il punto all'incrocio dei raggi. L'esempio del libro: due osservatori sulla costa a distanza t, la baseline, misurano gli angoli alfa e beta verso una barca. La formula dice che la distanza d è t per seno di alfa per seno di beta, diviso seno di alfa più beta."
+  },
+  {
+   "a": "Derivazione: il terzo angolo del triango",
+   "t": "Viene dal teorema dei seni: il terzo angolo vale 180 gradi meno alfa meno beta, e il suo seno è seno di alfa più beta. Ricavi il lato verso la barca e lo moltiplichi per seno di alfa. Con t di 100 metri e due angoli di 60 gradi il triangolo è equilatero, e d vale circa 86 virgola 6 metri."
+  },
+  {
+   "a": "Derivazione: il terzo angolo del triango",
+   "t": "Il punto importante: con una baseline piccola la somma degli angoli si avvicina a 180 gradi, il denominatore tende a zero, e piccoli errori sugli angoli cambiano molto d. Per questo lo stereo con camere vicine stima male gli oggetti lontani."
+  },
+  {
+   "a": "Sinistra: l'esempio del testo, d ≈ 86,6 ",
+   "t": "Nella figura, a sinistra il triangolo con la distanza tratteggiata in rosso. A destra la curva rossa dà l'errore su d per un grado di errore su alfa, al variare della baseline: circa 2 metri con 100 metri di baseline, quasi 40 con 5 metri."
+  },
+  {
+   "a": "Attenzione alla figura della slide 35: s",
+   "t": "Attenzione: nelle slide del prof, nella figura della triangolazione, solo il pannello di destra è triangolazione. Quello di sinistra usa una vista sola più l'altezza nota della scogliera: la distanza è l'altezza divisa la tangente di alfa. È un prior, non una seconda vista."
+  },
+  {
+   "a": "Una rappresentazione trasforma i pixel i",
+   "t": "Le rappresentazioni: trasformano i pixel in un vettore più utile, che deve essere invariante ai disturbi, come luce e punto di vista, e discriminativo per ciò che conta, come identità e categoria."
+  },
+  {
+   "a": "Schema illustrativo. Nello spazio dei pi",
+   "t": "Nello schema, a sinistra, lo spazio dei pixel grezzi: tre gruppi etichettati luce normale, controluce e penombra, e dentro ognuno tazze blu, scarpe rosse e telefoni verdi mescolati. A destra una buona rappresentazione: tre gruppi puliti, uno per oggetto."
+  },
+  {
+   "a": "Esempio svolto. Prendi una foto 100×100 ",
+   "t": "Esempio: una foto 100 per 100 di una tazza e una copia con ogni pixel più luminoso di 50. Come vettori di pixel distano 5000, molto diverse. Se togli a ogni foto la sua media, la differenza si annulla e le foto coincidono: invarianza alla luminosità."
+  },
+  {
+   "a": "Le due richieste tirano in direzioni opp",
+   "t": "Ma le due richieste tirano in direzioni opposte: una costante è invariante a tutto e inutile, i pixel grezzi distinguono tutto e non sono invarianti a niente. L'invarianza alla rotazione aiuta con una tazza girata, ma rende uguali un 6 e un 9. Classicamente la rappresentazione si progetta, come SIFT, oggi si impara."
+  },
+  {
+   "a": "Nei video frame consecutivi sono molto s",
+   "t": "La coerenza temporale: in un video i fotogrammi consecutivi sono quasi uguali, quindi identità, posizione ed etichetta di un oggetto non devono sfarfallare. È la corrispondenza applicata al tempo."
+  },
+  {
+   "a": "Esempio sintetico. Il detector frame per",
+   "t": "Nel grafico, in orizzontale 60 frame, in verticale la probabilità pedone, con la soglia tratteggiata a zero virgola cinque. Il pedone c'è sempre. La linea rossa, il detector frame per frame, va a zig zag e scende sotto soglia in 7 frame, il peggiore intorno al 24. La linea blu, media su 7 frame, resta sempre sopra."
+  },
+  {
+   "a": "Il modo più semplice di imporla è una me",
+   "t": "La media mobile prende i tre frame prima, quello corrente e i tre dopo. Il prior è semplice: gli oggetti non spariscono da un frame all'altro. Con questi quattro temi leggi anche gli esempi di stato dell'arte: Depth Anything, DINOv3, SAM 2, D4RT. Nelle slide il secondo link su D4RT è sbagliato."
+  },
+  {
+   "a": "Il punto Corrispondenza, vincoli geometr",
+   "t": "Da portare a casa: corrispondenza, vincoli geometrici, rappresentazioni e coerenza temporale sono i quattro modi in cui il corso aggiunge informazione a un'immagine che da sola non basta."
+  },
+  {
+   "a": "10 · La mappa del corso",
+   "t": "Decima sezione, la mappa del corso. Dove si colloca ciascuna lezione rispetto a tutto questo? Il corso ha quattro parti, e ognuna corrisponde ad alcuni dei temi appena visti."
+  },
+  {
+   "a": "Le quattro parti del corso, i temi unifi",
+   "t": "Nella figura, quattro riquadri. In alto a sinistra, azzurro, la parte 1, segnali e immagini. In alto a destra, verde, la parte 2, corrispondenza e geometria. In basso a sinistra, arancione, la parte 3, rappresentazioni apprese. In basso a destra, viola, la parte 4, applicazioni e sfide. La freccia curva dalla 2 alla 3 dice che le reti riprendono i concetti classici."
+  },
+  {
+   "a": "Parte 1 · Segnali e immagini ( L2 – L7 )",
+   "t": "Nella parte 1 ritrovi in modo rigoroso il gradiente, il motion blur e la scala visti oggi. La parte 2 tratta keypoint, omografie e stereo. Nella parte 3 le CNN sono banchi di filtri appresi, e grazie alla parte 1 non saranno scatole nere. L'esame è solo orale."
+  },
+  {
+   "a": "Come usare il sito: dispensa (questa sez",
+   "t": "Le slide riassumono il libro, spesso in modo impreciso: il libro serve per capire, le slide sono l'indice di cosa chiede l'esame."
+  },
+  {
+   "a": "Il punto Prima i segnali, poi corrispond",
+   "t": "Da portare a casa: prima i segnali, poi corrispondenza e geometria, poi le reti, poi le sfide, e ogni parte usa la precedente. L'esame è orale, quindi allenati a spiegare a voce, proprio come stiamo facendo ora."
+  },
+  {
+   "a": "Verifica di aver capito",
+   "t": "Ora verifica di aver capito. Prima domanda: perché si dice che la visione è un problema mal posto? Spiegalo con l'equazione del mondo a blocchi. Metti in pausa e prova a rispondere."
+  },
+  {
+   "a": "Perché si dice che la visione è un probl",
+   "t": "Un problema è ben posto se la soluzione esiste, è unica ed è stabile. Nel mondo a blocchi y è coseno di theta per Y meno seno di theta per Z: altezza e profondità finiscono in un solo numero, e tutti i punti di una retta cadono nello stesso pixel. Lo spigolo alto 2 e il punto del terreno davano entrambi la riga 1. Manca l'unicità, servono prior."
+  },
+  {
+   "a": "Perché si dice che la visione è un probl",
+   "t": "Seconda domanda: perché i minimi quadrati invece di risolvere esattamente? Metti in pausa e prova a rispondere. Le equazioni sono più delle incognite e, per gli errori nei bordi, non tutte compatibili. I minimi quadrati trovano le altezze che violano meno i vincoli, distribuendo l'errore invece di fallire, come nella colonna con il vincolo sbagliato."
+  },
+  {
+   "a": "Perché si dice che la visione è un probl",
+   "t": "Terza domanda: cosa mostra l'illusione di Adelson sull'uscita di un sistema visivo? Metti in pausa e prova a rispondere. A e B hanno lo stesso grigio, ma vediamo B più chiaro perché stimiamo la riflettanza scontando l'ombra. L'uscita della visione sono proprietà della scena, non quantità di luce."
+  },
+  {
+   "a": "Perché si dice che la visione è un probl",
+   "t": "Quarta domanda: nella formula di Bayes, quando vince il prior e quando la verosimiglianza? Metti in pausa e prova a rispondere. Con la foto sfocata le verosimiglianze sono quasi uguali e vince il prior, il telefono, a zero virgola cinque nove. Con la foto nitida la verosimiglianza della scarpa domina, e la scarpa vince a zero virgola sei quattro pur partendo da zero virgola zero cinque."
+  },
+  {
+   "a": "Perché si dice che la visione è un probl",
+   "t": "Quinta domanda: due osservatori a 100 metri vedono una barca con angoli di 60 gradi. Quanto dista, e cosa succede con una baseline piccola? Metti in pausa e prova a rispondere. Circa 86 virgola 6 metri. Con baseline piccola il denominatore tende a zero e piccoli errori sugli angoli diventano grandi errori sulla distanza."
+  },
+  {
+   "a": "Perché si dice che la visione è un probl",
+   "t": "Ultima domanda: perché invarianza e discriminatività sono in tensione? Metti in pausa e prova a rispondere. Più una rappresentazione ignora, meno informazione le resta per distinguere: una costante è invariante a tutto e inutile, e l'invarianza alla rotazione rende uguali un 6 e un 9."
+  },
+  {
+   "a": "Come proseguire",
+   "t": "Come proseguire: leggi il capitolo 1 del libro, tutto il capitolo 2, che è il mondo a blocchi con le figure vere, e sfoglia il capitolo 3 guardando le figure. Poi ripassa con le schede e la guida allo studio."
+  },
+  {
+   "a": "Ora ripassa con le schede qui sotto, sli",
+   "t": "Ricapitoliamo. La visione ricava dalle immagini cosa c'è e dove, ed è il problema inverso della grafica. È mal posta, perché la proiezione perde una dimensione, e luce, punto di vista, occlusione e scala cambiano i pixel senza cambiare la risposta. Si risolve con i prior: equazioni a mano nel mondo a blocchi, inferenza bayesiana nel cervello, conoscenza appresa nelle reti. Corrispondenza, geometria, rappresentazioni e tempo sono i quattro modi per aggiungere informazione. Nella prossima lezione vedrai il modello diretto vero, la formazione dell'immagine."
+  }
+ ]
+}

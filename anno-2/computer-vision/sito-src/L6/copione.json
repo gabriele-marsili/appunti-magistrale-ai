@@ -1,0 +1,493 @@
+{
+ "L": "L6",
+ "segs": [
+  {
+   "a": "In una frase: campionare un segnale ne c",
+   "t": "Hai mai fotografato uno schermo col telefono e visto comparire onde colorate che sullo schermo non ci sono? O hai ridotto la foto di una camicia a righe e le righe sono diventate bande curve? Oggi capiamo da dove vengono questi fantasmi, che si chiamano aliasing, e come si riduce un'immagine senza crearli."
+  },
+  {
+   "a": "In una frase: campionare un segnale ne c",
+   "t": "Alla fine saprai calcolare quale frequenza falsa compare quando campioni troppo di rado, costruire la piramide gaussiana e quella laplaciana, e usarle per cercare a tutte le scale e per fondere due immagini senza cuciture. Il filo rosso è uno solo: prima di rimpicciolire, bisogna sfocare."
+  },
+  {
+   "a": "Prima di iniziare",
+   "t": "Ripassiamo tre cose. La prima è Fourier: ogni segnale è una somma di sinusoidi, e il teorema di convoluzione dice che un prodotto in un dominio diventa una convoluzione nell'altro. Ricorda anche che la DFT, la trasformata discreta, di un segnale lungo N è periodica: la frequenza u e la frequenza u più N sono la stessa cosa."
+  },
+  {
+   "a": "Fourier e teorema di convoluzione ( L3 ,",
+   "t": "La seconda è il filtro gaussiano, un passa-basso tanto più forte quanto più sigma è grande, e la sua versione discreta, il binomiale b quattro: pesi uno, quattro, sei, quattro, uno, diviso sedici, con sigma di un pixel. La terza: sfocare due volte equivale a sfocare una volta sola, sommando le varianze, non le sigma. Le slide sbagliano proprio qui, e lo correggeremo."
+  },
+  {
+   "a": "Notazione: tonde per il continuo, ℓ(t); ",
+   "t": "Sulla notazione: tonde per il continuo, elle di t, quadre per il discreto, elle di n. T con pedice s è il periodo di campionamento, la distanza fra due campioni, e f s è il suo inverso, la frequenza di campionamento. Le slide saltano da f a omega senza avvisare: ricorda che omega è sempre due pi greco per f."
+  },
+  {
+   "a": "Guarda prima questi video",
+   "t": "La dispensa ti segnala tre video. Sono un complemento: puoi guardarli prima, per farti un'idea, o dopo, per ripassare. Brunton dà l'enunciato del teorema del campionamento, Nayar copre le sezioni dalla 2 alla 6 sulle immagini, e Jia-Bin Huang mostra piramidi e blending: quest'ultimo guardalo dopo la parte sulle piramidi."
+  },
+  {
+   "a": "1. Il problema: ridimensionare e guardar",
+   "t": "Sezione 1, il problema. In visione si cambia risoluzione di continuo: Instagram riduce la tua foto a 1080 pixel di lato, una rete vuole l'input a 224 per 224, e dentro la rete stride e pooling dimezzano le feature map. Un'auto autonoma deve riconoscere un pedone a 5 metri, dove è grande, e a 50, dove è minuscolo."
+  },
+  {
+   "a": "Come si riduce un'immagine senza rovinar",
+   "t": "Quindi due domande. Come si riduce un'immagine senza rovinarla? E come si analizza a tutte le scale? Invece di costruire un detector, cioè un rilevatore, per ogni dimensione, si riduce l'immagine più volte e si usa sempre lo stesso detector. Ma per farlo bisogna saper ridurre: ecco perché la prima domanda viene prima."
+  },
+  {
+   "a": "Dalla slide 6. (a) Righe sempre più fitt",
+   "t": "Guarda la figura. Nel pannello a, righe oblique sempre più fitte verso l'alto. Nel pannello b, la stessa immagine ridotta tenendo un pixel ogni tanto: compaiono bande curve e una scacchiera fitta che riempie quasi tutto il quadrato. Nell'originale non c'è nessuna scacchiera. È il moiré."
+  },
+  {
+   "a": "Il punto Ridurre un'immagine è un'operaz",
+   "t": "Da portare a casa: ridurre male un'immagine non la rende solo più povera, la riempie di strutture false. E capire perché è la base per costruire le piramidi."
+  },
+  {
+   "a": "2. Aliasing: una sinusoide che cambia id",
+   "t": "Sezione 2: l'aliasing, una sinusoide che cambia identità. Fra due campioni non sai cosa succede. Allora: un segnale veloce può sembrare lento solo perché lo guardi troppo di rado? Sì."
+  },
+  {
+   "a": "L'idea. Sì. Prendi una sinusoide veloce,",
+   "t": "Prendi una sinusoide a zero virgola nove cicli per unità di tempo e misurala una volta per unità. In 10 unità fa 9 oscillazioni, ma tu prendi solo 11 campioni. È come guardare una luce che lampeggia velocissima aprendo gli occhi una volta al secondo."
+  },
+  {
+   "a": "(a) La sinusoide a 0.9 f s  (blu) e quel",
+   "t": "Guarda il pannello a, a sinistra. La curva blu è la sinusoide vera, veloce. I punti rossi sono i campioni, da t uguale a zero fino a dieci. Ora segui la curva arancione tratteggiata: una sinusoide lentissima, un solo ciclo, che passa esattamente per tutti i punti rossi. Dai campioni non puoi sapere quale delle due c'era. I pannelli b e c li vediamo nella sezione 3."
+  },
+  {
+   "a": "cos(2π · 0.9 · n) = cos(2πn − 2π · 0.1 ·",
+   "t": "Perché? Il coseno di due pi greco per zero virgola nove per n si riscrive come coseno di due pi greco n meno due pi greco per zero virgola uno per n. Togliere due pi greco n è togliere giri interi, e non cambia nulla. Il segno meno rimasto sparisce perché il coseno è pari: resta la sinusoide lenta."
+  },
+  {
+   "a": "perché togliere 2πn (un numero intero di",
+   "t": "In generale, una sinusoide di frequenza f zero campionata a f s dà gli stessi campioni di tutte quelle a frequenza f zero meno k volte f s, in valore assoluto, con k intero. Fra queste candidate, chi guarda i campioni sceglie la più lenta: è il principio slow and smooth delle slide."
+  },
+  {
+   "a": "f vista = |f 0 − k f s |, con k intero s",
+   "t": "La frequenza vista è quindi il valore assoluto di f zero meno k f s, con k scelto perché il risultato cada fra zero e metà di f s. Quel limite, metà di f s, è la frequenza di Nyquist: la più alta che i campioni possono rappresentare. Sopra, la frequenza si ripiega."
+  },
+  {
+   "a": "Frequenza vista in funzione di quella ve",
+   "t": "Guarda la figura del ripiegamento. In orizzontale la frequenza vera, in verticale quella vista. Nella zona verde, fino a zero virgola cinque, la linea nera sale in diagonale: coincidono. Oltre, scende fino a zero in corrispondenza di f s, poi risale: uno zig zag. I tre punti sono i nostri esempi: arancione la sinusoide di prima, rosso l'esempio del libro, blu il ventilatore della verifica finale."
+  },
+  {
+   "a": "Esempio svolto (libro, § 20.2). ℓ(t) = c",
+   "t": "L'esempio del libro: il coseno di diciotto pi greco t ha frequenza 9. Lo campioni a f s uguale a 11. Nyquist è cinque virgola cinque, e 9 la supera. Con k uguale a 1, nove meno undici in valore assoluto fa 2: vedi un coseno di frequenza 2. Ecco la trappola: hai più campioni che oscillazioni, eppure non basta. Ne servono più del doppio."
+  },
+  {
+   "a": "Dove lo incontri. Nello spazio l'aliasin",
+   "t": "Dove lo incontri? Nello spazio è il moiré, sono i bordi a scaletta, le texture che diventano scacchiere quando riduci con nearest neighbor, cioè prendendo il pixel più vicino. Nel tempo è la ruota dei carri che nei film gira all'indietro. Il libro parla di confusione di frequenze: la frequenza alta non sparisce, viene scambiata per un'altra."
+  },
+  {
+   "a": "Non confondere campionamento ( dove misu",
+   "t": "E non confondere campionamento, cioè dove misuri, con quantizzazione, cioè con che precisione scrivi il valore. L'aliasing viene solo dal campionamento."
+  },
+  {
+   "a": "Il punto Campionando a f s , una frequen",
+   "t": "Da portare a casa: sopra metà di f s una frequenza si presenta travestita da una più bassa. Per rappresentarla servono più di due campioni per periodo."
+  },
+  {
+   "a": "3. Perché succede: le copie dello spettr",
+   "t": "Sezione 3: perché succede. Una foto contiene migliaia di sinusoidi. L'idea chiave: campionare vuol dire moltiplicare per un pettine. Una moltiplicazione nel tempo è una convoluzione in frequenza, e convolvere con un pettine fa copie. Quindi campionare copia lo spettro."
+  },
+  {
+   "a": "Sopra, nel tempo: segnale × pettine = ca",
+   "t": "Guarda la figura del pettine. In alto, nel tempo: la campana blu del segnale, per il pettine di frecce, dà le aste rosse dei campioni. In basso, le trasformate: il triangolo blu dello spettro, convoluto con un altro pettine di passo f s, dà copie rosse del triangolo, una su ogni freccia. Qui f max è zero virgola trentacinque, sotto zero virgola cinque, e nella banda verde resta solo la copia blu."
+  },
+  {
+   "a": "La matematica, passo 1. Il treno di delt",
+   "t": "Ora la matematica. Il pettine di Dirac è una somma di impulsi, delta di t meno n T s, su tutti gli interi n. Immagina ogni delta come un ago. Moltiplicando il segnale per il pettine, ogni ago raccoglie il valore del segnale nel suo punto e il resto si azzera: ottieni una funzione continua che contiene solo i campioni."
+  },
+  {
+   "a": "La trasformata di un pettine di passo T ",
+   "t": "Due fatti chiudono la dimostrazione. Primo: la trasformata di un pettine di passo T s è un pettine di passo f s. Campioni fitti nello spazio, impulsi radi in frequenza. Secondo: il prodotto diventa convoluzione, e convolvere con un pettine copia lo spettro su ogni impulso. La formula che vedi è proprio questa somma di copie, centrate sui multipli di omega s."
+  },
+  {
+   "a": "Passo 3. Torna alla figura della sezione",
+   "t": "Torna alla figura della sezione 2, pannelli b e c. Se lo spettro è nullo oltre omega max, ogni copia è larga due omega max e i centri distano omega s. Nel pannello b, con f s uguale a 2, i triangoli sono separati e nella banda verde c'è solo quello centrale."
+  },
+  {
+   "a": "ω s > 2 ω max ⇔ f s > 2 f max ⇔ T s < π ",
+   "t": "Le copie non si toccano se la distanza supera la larghezza: omega s maggiore di due omega max, cioè f s maggiore di due f max. È il teorema di Nyquist e Shannon."
+  },
+  {
+   "a": "È il teorema del campionamento di Nyquis",
+   "t": "Se vale, il segnale si ricostruisce perfettamente. La disuguaglianza è stretta: con f s esattamente doppia, i campioni di un coseno possono cadere tutti sugli zeri. Attenzione: nelle slide la frequenza di Nyquist è scritta mescolando i simboli; si intende f s mezzi in cicli, cioè omega s mezzi in radianti."
+  },
+  {
+   "a": "Se invece le copie si sovrappongono (pan",
+   "t": "Nel pannello c, con f s uguale a uno virgola uno, le copie si sovrappongono: vedi che la linea nera non torna più a zero fra i triangoli. Nella banda centrale si sommano l'originale e le code dei vicini. E una somma non si disfa: se 5 è a più b, non ricavi a e b. L'informazione non è persa, è mescolata, e nessun filtro successivo la separa."
+  },
+  {
+   "a": "Esempio svolto. L'orecchio sente fino a ",
+   "t": "Qualche numero. I CD campionano a quarantaquattro virgola uno kilohertz, più del doppio dei 20 che l'orecchio sente. La telefonia campiona a 8 e prima filtra la voce: senza filtro, una sibilante a 6 kilohertz ricomparirebbe a 2. Per le immagini, Nyquist è mezzo ciclo per pixel: nessun periodo più corto di 2 pixel."
+  },
+  {
+   "a": "Il punto Campionare copia lo spettro ogn",
+   "t": "Da portare a casa: campionare copia lo spettro ogni f s. Se f s supera il doppio di f max non perdi nulla; altrimenti le copie si sommano e l'errore non si toglie più."
+  },
+  {
+   "a": "4. Ricostruire dai campioni",
+   "t": "Sezione 4: ricostruire. Per ingrandire o ruotare una foto serve il valore fra due pixel. Se le copie sono separate, basta tenere quella centrale con un passa-basso ideale, un rettangolo in frequenza, che nello spazio è una sinc: seno di pi greco t diviso pi greco t."
+  },
+  {
+   "a": "ℓ̃(t) = ∑ n ℓ[n] · sinc((t − n T s ) / T",
+   "t": "Nella formula, il segnale ricostruito è la somma dei campioni, ciascuno moltiplicato per una sinc centrata su di sé. Ogni sinc vale 1 nel suo campione e zero negli altri, quindi la somma passa esattamente per tutti i campioni e in mezzo interpola."
+  },
+  {
+   "a": "(a) Ogni sinc grigia vale ℓ[n] nel propr",
+   "t": "Nel pannello a della figura, le curve grigie sono le singole sinc, e la blu spessa è la loro somma, che tocca tutti i punti rossi. Nel pannello b, tre kernel sugli stessi campioni: il box arancione dà i gradini del nearest neighbor, il triangolo verde una spezzata, cioè l'interpolazione lineare, la sinc blu una curva liscia, che può anche scendere sotto i campioni, come poco prima di t uguale a 3."
+  },
+  {
+   "a": "In pratica la sinc è troppo lunga (decad",
+   "t": "In pratica la sinc è troppo lunga: decade come uno su t, quindi ogni punto dipende da campioni lontanissimi. Si usano kernel corti: il box, il triangolo, o il solo lobo centrale della sinc, detto Lanczos. Sono i filtri del menu ridimensiona di qualunque programma."
+  },
+  {
+   "a": "Esempio svolto. Vuoi il valore in t = 2.",
+   "t": "Esempio: a metà fra un campione che vale 4 e uno che vale 8. Nearest neighbor dà 4 o 8, lineare dà 6. La sinc usa tutti i campioni: i due vicini con peso zero virgola sessantaquattro, i due successivi con peso negativo, meno zero virgola ventuno, e così via."
+  },
+  {
+   "a": "Da qui segue una cosa che la slide 5 dic",
+   "t": "Conseguenza: ingrandire non recupera nulla. Nessun kernel crea frequenze sopra la vecchia Nyquist. Lo zoom e migliora dei film non esiste."
+  },
+  {
+   "a": "Il punto Ricostruire = filtrare i campio",
+   "t": "Da portare a casa: ricostruire è filtrare con un passa-basso. La sinc è ideale ma infinita; box, triangolo e Lanczos sono approssimazioni corte, e nessuno crea dettaglio."
+  },
+  {
+   "a": "5. Nel discreto: decimare un'immagine",
+   "t": "Sezione 5: il discreto. Un'immagine digitale è già fatta di campioni, e la vogliamo ridurre di un fattore k. La decimazione ingenua tiene un pixel ogni k, per riga e per colonna. Equivale a moltiplicare per un pettine discreto di passo k, quindi lo spettro viene copiato k per k volte e la banda utile si restringe."
+  },
+  {
+   "a": "Dalla slide 23. Sopra, il maglione e la ",
+   "t": "Guarda la figura del maglione. In alto l'originale e le versioni a pettine, con un pixel acceso ogni 2 o ogni 4. Sotto le DFT: a sinistra lo spettro è concentrato al centro; per k uguale a 2 compaiono copie in una griglia, e il quadrato verde della nuova banda va da meno 32 a 31; per k uguale a 4 le copie sono più fitte e il quadrato va da meno 16 a 15. Quello che delle copie cade nel quadrato è aliasing."
+  },
+  {
+   "a": "L ↓k [u, v] = (1/k²) ∑ s=0 k−1 ∑ r=0 k−1",
+   "t": "La formula del libro dice che ogni frequenza dell'immagine ridotta è la media di k al quadrato frequenze dell'originale. In una dimensione con k uguale a 2: ogni coefficiente è la media fra una frequenza bassa e la sua gemella alta, spostata di N mezzi. Se la gemella è zero, tutto bene; se no, si mescolano: aliasing."
+  },
+  {
+   "a": "Esempio svolto. N = 8, ℓ[n] = cos(2π · 3",
+   "t": "Esempio: 8 campioni di un coseno con 3 cicli su 8. La DFT ha picchi in 3 e in 5, che equivale a meno 3. Dopo la decimazione di 2 la nuova Nyquist è 2, e 3 la supera. Tenendo i campioni pari ottieni un coseno con 3 cicli su 4, che togliendo un giro equivale a 1 ciclo su 4. La frequenza 3 si è travestita da 1, cioè tre meno quattro in valore assoluto."
+  },
+  {
+   "a": "L'esempio svolto. (a) I campioni pari (c",
+   "t": "Nel pannello a della figura, i campioni pari, cerchiati in rosso, stanno anche sul coseno lento tratteggiato, che fa un solo ciclo. Nel pannello b, le barre blu sono i picchi originali in 3 e 5; dopo la decimazione le barre rosse stanno in 1 e in 3, e la freccia rossa mostra il picco in 5 che salta in 1."
+  },
+  {
+   "a": "Un attacco che sfrutta la decimazione",
+   "t": "Un attacco che sfrutta la decimazione. Si prende un cartello di STOP e lo si moltiplica per meno uno elevato a n più m, cioè si cambia il segno a pixel alterni. Il suo contenuto finisce alle frequenze più alte, e diventa una trama finissima."
+  },
+  {
+   "a": "Dalla slide 17. La somma in alto a destr",
+   "t": "Nella figura, in alto: l'uccello, più la trama z con peso zero virgola zero cinque, dà un'immagine che a occhio è identica all'uccello. Sotto, dopo filtro, decimazione di 2 e ReLU: dall'uccello pulito esce il suo contorno su fondo nero, dall'immagine modificata esce un cartello di STOP. La decimazione ha ripiegato quelle frequenze sull'origine."
+  },
+  {
+   "a": "Il punto debole è la decimazione senza f",
+   "t": "Il punto debole è la decimazione senza filtro. Stride e pooling nelle CNN, le reti convoluzionali, sono decimazioni: spostando l'input di un pixel la predizione può cambiare. La correzione, le anti-aliased CNN di Zhang del 2019, è un piccolo blur prima di ogni sottocampionamento."
+  },
+  {
+   "a": "Il punto Decimare di k fa la media di k²",
+   "t": "Da portare a casa: decimare di k fa la media di k al quadrato frequenze in una, e ogni frequenza oltre la nuova Nyquist si somma a una bassa. È la sezione 3 nel discreto."
+  },
+  {
+   "a": "6. La cura: sfocare prima di decimare",
+   "t": "Sezione 6: la cura. Le frequenze sopra la nuova Nyquist le perdi comunque. Il punto è non farle travestire. Quindi le togli prima di decimare, con un passa-basso: il prefiltro anti-aliasing. Meglio sfocata ma fedele che nitida e falsa."
+  },
+  {
+   "a": "z = ℓ ∗ h k , ℓ out [n, m] = z[k n, k m]",
+   "t": "Nella formula: convolvi con un filtro h k, poi tieni un pixel ogni k. Il libro chiama downsampling l'operazione completa e decimazione solo il secondo passo. Per ridurre di k serve un taglio intorno a pi greco su k, cioè una gaussiana con sigma proporzionale a k: più riduci, più sfochi."
+  },
+  {
+   "a": "Dalla slide 27. Sopra: decimazione sempl",
+   "t": "Guarda la figura. In alto, decimazione semplice: a 32 per 32 il maglione è una poltiglia di quadretti senza senso. Sotto, prima il blur: a 32 per 32 la trama della lana sparisce, ma le pieghe restano e niente di falso compare."
+  },
+  {
+   "a": "Zone plate (slide 28–29): la frequenza c",
+   "t": "Lo zone plate è fatto di anelli la cui frequenza cresce col raggio. Riducendo di 4, Nyquist cade a raggio 32. Nel pannello b, senza prefiltro, una griglia di cerchi inventati. Nel pannello c, con blur di sigma 3, restano gli anelli centrali e il resto diventa grigio. Ed è la risposta giusta."
+  },
+  {
+   "a": "Quale passa-basso?",
+   "t": "Quale passa-basso? Il compromesso, che ritroverai ovunque, è che un filtro ripido in frequenza è lungo e oscillante nello spazio."
+  },
+  {
+   "a": "Ideale (box in frequenza, sinc nello spa",
+   "t": "L'ideale, una sinc nello spazio, taglia perfettamente ma produce ringing, cioè aloni paralleli ai bordi. La sinc con finestra di Hamming è più corta e il ringing si riduce, ma non sparisce. Il binomiale scende senza oscillare, quindi niente ringing, al prezzo di un po' di aliasing attenuato."
+  },
+  {
+   "a": "(a) Alla nuova Nyquist per k = 2 (0.25 c",
+   "t": "Nel pannello a della figura, alla linea rossa della nuova Nyquist per k uguale a 2, zero virgola venticinque cicli per pixel, l'ideale nero cade a zero, il pallino blu di b due vale un mezzo e quello verde di b quattro un quarto. Nel pannello b, su un bordo netto, la curva nera oscilla, l'arancione di Hamming meno, e la verde di b quattro sale liscia, solo un po' più morbida."
+  },
+  {
+   "a": "Esempio svolto. Riduci di k = 2 un segna",
+   "t": "I conti: la risposta di b due alla nuova Nyquist è un mezzo per uno più coseno di pi greco mezzi, cioè un mezzo. B quattro è b due applicato due volte, quindi un mezzo per un mezzo, un quarto. E una tenda a righe di periodo 3 pixel, ridotta di 2 senza filtro? Diventa righe false di periodo 6 pixel. Con il prefiltro, un grigio uniforme."
+  },
+  {
+   "a": "In visione si sceglie quasi sempre il bi",
+   "t": "In visione si usa quasi sempre binomiale o gaussiana: meglio un po' di aliasing che aloni su ogni bordo. E per ridurre molto conviene dimezzare più volte con un filtro piccolo: è già l'idea della piramide."
+  },
+  {
+   "a": "Il punto Downsampling corretto = passa-b",
+   "t": "Da portare a casa: downsampling corretto vuol dire passa-basso con taglio a circa pi greco su k, poi decimazione. Perdi il dettaglio fine, ma in modo onesto."
+  },
+  {
+   "a": "7. All'indietro: upsampling",
+   "t": "Sezione 7: l'upsampling, che servirà per la laplaciana. Due passi: espansione, cioè inserire zeri fra i campioni, e interpolazione con un passa-basso che riempie gli zeri."
+  },
+  {
+   "a": "(a) Espansione di [1, 11, 15, 5]: metà d",
+   "t": "Guarda la figura. Nel pannello a, il segnale uno, undici, quindici, cinque con zeri in mezzo: metà dei campioni è zero, quindi la media su 8 campioni si dimezza: la somma resta 32, ma è spalmata su posizioni doppie. Nel pannello b, sfocando con b quattro, la curva arriva appena sopra 6, mentre il gradino tratteggiato è alto 16: metà altezza. Nel pannello c, con due volte b quattro, arriva a circa 13 e l'altezza torna giusta."
+  },
+  {
+   "a": "La matematica. Inserire zeri dimezza il ",
+   "t": "Il motivo: gli zeri dimezzano la media, in due dimensioni la riducono a un quarto, e un filtro con somma 1 non la cambia. Quindi il filtro di interpolazione deve avere guadagno 2 per asse. Il kernel lineare, un mezzo, uno, un mezzo, è infatti due volte b due. Attenzione: le slide omettono questo fattore."
+  },
+  {
+   "a": "Esempio svolto. g = [1, 11, 15, 5] espan",
+   "t": "Il conto: nella posizione 2 del segnale espanso, i pesi uno, sei, uno cadono su uno, undici, quindici e danno ottantadue sedicesimi; per due, dieci virgola venticinque. Senza il due, la metà, come nel pannello b."
+  },
+  {
+   "a": "Il punto Upsampling = zeri + interpolazi",
+   "t": "Da portare a casa: upsampling è zeri più interpolazione con guadagno 2 per asse, altrimenti l'immagine esce più scura. E non aggiunge dettaglio."
+  },
+  {
+   "a": "8. Scale-space: tutte le scale insieme",
+   "t": "Sezione 8, inizia la seconda parte: lo scale-space, lo spazio delle scale. Un filtro di dimensione fissa vede bene solo strutture di una certa dimensione."
+  },
+  {
+   "a": "Dalla slide 32. Il riquadro rosso ha sem",
+   "t": "Nella figura degli uccelli il riquadro rosso ha sempre la stessa dimensione in pixel. Nella foto a ci entra solo un uccellino in basso. Riducendo la foto, nei pannelli dal b all'e, entrano uccelli sempre più grandi. Lo stesso detector, su tutte le versioni, li trova tutti."
+  },
+  {
+   "a": "L'idea. In L5 la soluzione era già nasco",
+   "t": "Lo sapevi già dalla lezione 5: la derivata di gaussiana con sigma piccola risponde ai bordi fini, con sigma grande ai contorni grossi. Lo scale-space è l'immagine convoluta con la gaussiana per tutte le sigma insieme: una famiglia di immagini sfocate, con sigma zero uguale all'originale."
+  },
+  {
+   "a": "Dalla slide 37. σ = 0, 1, 2, 4, 8: le sc",
+   "t": "Guarda l'astronauta. A sigma zero leggi i dettagli delle toppe. A sigma 2 le scritte sono sparite ma il viso è chiaro. A sigma 8 riconosci ancora la testa, il casco nero in basso a destra e il razzo. La texture fine sparisce per prima. E ogni immagine ha tutti i pixel dell'originale: ricordatelo."
+  },
+  {
+   "a": "Perché proprio la gaussiana? Perché è l'",
+   "t": "Perché la gaussiana? È l'unico kernel lineare, invariante per traslazione, simmetrico per rotazione, componibile e soprattutto senza creazione di struttura: salendo di scala non nascono bordi o picchi nuovi. Un box filter, invece, può creare oscillazioni spurie."
+  },
+  {
+   "a": "Slide 35 : la gaussiana risolve l'equazi",
+   "t": "Due correzioni alle slide. La gaussiana risolve l'equazione del calore con t uguale a sigma al quadrato mezzi: l'intensità si diffonde come il calore. E la composizione: due blur con sigma 1 danno sigma radice di 2, circa uno virgola quattro uno, non 2 come scrivono le slide."
+  },
+  {
+   "a": "Verifica della correzione alla slide 36:",
+   "t": "Lo vedi nella figura: i punti blu, due blur con sigma 1 calcolati davvero, stanno esattamente sulla curva verde, sigma radice di 2. La curva rossa tratteggiata, sigma 2, è più bassa e larga e non coincide. Quindi da sigma 2 a sigma 3 serve un secondo blur di radice di 5, non di 1."
+  },
+  {
+   "a": "Lo scale-space ha un difetto: tiene tutt",
+   "t": "Il difetto dello scale-space è che tiene tutte le scale a piena risoluzione. Ma un'immagine molto sfocata non ha più alte frequenze, quindi puoi campionarla più rada senza aliasing. Il blur dello scale-space è esattamente il prefiltro della sezione 6. Unisci le due cose e ottieni le piramidi."
+  },
+  {
+   "a": "Il punto Lo scale-space è l'immagine sfo",
+   "t": "Da portare a casa: la gaussiana è l'unico kernel che non inventa strutture, le varianze si sommano, e a sigma grande tenere tutti i pixel è uno spreco."
+  },
+  {
+   "a": "9. La piramide gaussiana",
+   "t": "Sezione 9: la piramide gaussiana. Parti dall'immagine, g zero, e ripeti: sfoca con b quattro, tieni un pixel ogni due per riga e per colonna. Ogni livello è il downsampling corretto del precedente."
+  },
+  {
+   "a": "Sopra, la piramide gaussiana g 0 …g 3 , ",
+   "t": "Nella riga in alto della figura vedi g zero a 256, g uno a 128, g due a 64 e g tre a 32 pixel di lato, nelle dimensioni vere. Ogni livello ha un quarto dei pixel, eppure in g tre riconosci ancora l'astronauta. La riga sotto è la laplaciana, ci arriviamo."
+  },
+  {
+   "a": "g k+1 = D k B k g k = G k g k",
+   "t": "In formula, g k più uno è D k per B k per g k: B è la matrice di blur con b quattro, D la decimazione, fatta con le righe dell'identità prese una sì e una no. Con 8 campioni, B è 8 per 8 e D è 4 per 8. Nel codice: una convoluzione e uno slicing con passo 2."
+  },
+  {
+   "a": "Lo stesso filtro piccolo simula filtri s",
+   "t": "Tre proprietà. Uno: dopo ogni dimezzamento i 5 coefficienti di b quattro coprono una zona doppia, quindi la sigma effettiva circa raddoppia a ogni livello; un raddoppio si chiama ottava. Due: la serie uno più un quarto più un sedicesimo e così via fa quattro terzi, quindi la piramide costa un terzo in più dell'immagine. Tre: perde informazione, da g k più uno non torni a g k."
+  },
+  {
+   "a": "Esempio svolto. Una foto 512×512 ha 262 ",
+   "t": "Con i numeri: una foto 512 per 512 ha circa 262 mila pixel, e la piramide intera circa 350 mila, quattro terzi. La sigma effettiva ai livelli 1, 2 e 3 vale circa 1, due virgola due e quattro virgola sei pixel dell'originale: il rapporto tende a 2."
+  },
+  {
+   "a": "Il punto Piramide gaussiana = \"sfoca con",
+   "t": "Da portare a casa: sfoca con b quattro e dimezza, ripetuto. Sigma circa doppia per livello, costo quattro terzi. Però non si torna indietro."
+  },
+  {
+   "a": "10. La piramide laplaciana",
+   "t": "Sezione 10: la piramide laplaciana. Vogliamo conservare il dettaglio buttato a ogni livello, separato per scala, e poter tornare all'originale. Idea: salvi proprio ciò che il blur ha tolto. Riporti g k più uno alla dimensione di g k e fai la differenza."
+  },
+  {
+   "a": "Sopra, la piramide gaussiana g 0 …g 3 , ",
+   "t": "Torna alla figura delle piramidi, riga in basso. Il grigio medio è zero, chiaro positivo, scuro negativo. In l zero ci sono solo i bordi fini: il viso, le stelle della bandiera, il casco. In l uno e l due forme sempre più grandi. L'ultimo riquadro è il residuo passa-basso, g tre."
+  },
+  {
+   "a": "l k = g k − F k g k+1 , F k = B k U k",
+   "t": "La formula: l k è g k meno F k g k più uno, dove F è espansione con zeri seguita dal blur con guadagno 2 per asse, quello della sezione 7. Il livello laplaciano è una banda di frequenze, non tutte le alte."
+  },
+  {
+   "a": "U k è l'espansione (inserisce zeri), B k",
+   "t": "Si chiama laplaciana perché la differenza di due gaussiane, DoG, somiglia al laplaciano di gaussiana della lezione 5: risponde sui bordi, ha media circa zero e valori di entrambi i segni."
+  },
+  {
+   "a": "Esempio svolto, 1D con 8 campioni. Un gr",
+   "t": "Esempio in una dimensione: il gradino zero, zero, sedici, sedici, sedici, sedici, zero, zero. Lo sfochi con b quattro e ottieni uno, cinque, undici, quindici, quindici, undici, cinque, uno. Tieni i pari: g uno è uno, undici, quindici, cinque."
+  },
+  {
+   "a": "Blur con [1, 4, 6, 4, 1]/16 (zero fuori ",
+   "t": "Lo riporti a 8 campioni con zeri e due volte b quattro, e ottieni una versione liscia del gradino, circa due, sei, dieci, tredici, tredici, dieci, cinque e mezzo, due e mezzo. La differenza fra g zero e questa versione è l zero."
+  },
+  {
+   "a": "Il conto qui sopra in figura. l 0  è gra",
+   "t": "Nella figura, l'ultimo pannello rosso è l zero: negativo fuori dal gradino, positivo dentro, grande vicino ai salti e più piccolo dove il segnale è piatto. È un rivelatore di bordi."
+  },
+  {
+   "a": "Senza il fattore 2 avresti F 0 g 1 circa",
+   "t": "Due trappole. Senza il fattore 2, l zero conterrebbe metà del gradino, non solo i bordi. E i livelli hanno segno, quindi vanno tenuti in float, non in uint8, gli interi senza segno: è uno dei due bug del notebook."
+  },
+  {
+   "a": "Invertire",
+   "t": "Ora si inverte: g k è l k più F k g k più uno. Conservi il residuo e risali: espandi, sfoca, aggiungi il livello laplaciano, ripeti. Nell'esempio, versione liscia più l zero ridà esattamente il gradino."
+  },
+  {
+   "a": "Si conserva l'ultimo livello della gauss",
+   "t": "Punto da orale: la ricostruzione è esatta con qualunque filtro, anche pessimo, perché l k è definito come quello che manca. Come una bilancia starata: se annoti ogni volta la correzione, ritrovi sempre il peso vero. Basta usare lo stesso F nei due versi. Il prezzo è che i numeri sono quattro terzi dell'immagine. Burt e Adelson nel 1983 la usavano per comprimere, perché i livelli sono quasi tutti vicini a zero."
+  },
+  {
+   "a": "Il punto l k = g k − F k g k+1 salva il ",
+   "t": "Da portare a casa: la laplaciana salva il dettaglio banda per banda, e con il residuo torni all'immagine esatta, con qualunque filtro."
+  },
+  {
+   "a": "11. Usare la piramide per cercare: coars",
+   "t": "Sezione 11: coarse to fine, dal grossolano al fine. Cercare tutte le posizioni di un template a piena risoluzione costa troppo. Si risolve prima al livello più piccolo, dove costa poco, e poi si raffina localmente scendendo. Come cercare una casa: prima la città sulla cartina, poi la via."
+  },
+  {
+   "a": "Template matching coarse-to-fine, calcol",
+   "t": "Nella figura, a sinistra il livello 2, 64 per 64: si provano tutte le 57 per 57 posizioni, e il riquadro rosso trova bocca e mento. Al centro e a destra, livelli 1 e 0: si raddoppia la stima e si provano solo 5 per 5 posizioni, la zona arancione. Il match finale è quello giusto."
+  },
+  {
+   "a": "Esempio svolto, con i numeri della figur",
+   "t": "I conti: la ricerca esaustiva a 256 per 256 costa circa 52 milioni di operazioni; coarse to fine circa 240 mila, più di 200 volte meno. Regola: scendere di un livello divide per 4 sia le posizioni sia i pixel del template, quindi il costo esaustivo cala di 16 volte per livello."
+  },
+  {
+   "a": "Flusso ottico (slide 54): uno spostament",
+   "t": "Vale anche per il flusso ottico: 32 pixel di spostamento al livello 4 sono 2 pixel, facili da stimare, poi raddoppi e raffini. È Lucas Kanade piramidale, e fra i metodi deep SPyNet e PWC-Net. Le slide citano anche RAFT, che però non è coarse to fine."
+  },
+  {
+   "a": "Il rischio: se al livello grossolano sce",
+   "t": "Il rischio: se al livello grossolano scegli male, i livelli fini non correggono, perché cercano solo vicino. Si mitiga tenendo più candidati."
+  },
+  {
+   "a": "Il punto Coarse-to-fine: ricerca complet",
+   "t": "Da portare a casa: ricerca completa solo dove costa poco, poi raffinamento. Risparmi ordini di grandezza, ma l'ottimo globale non è garantito."
+  },
+  {
+   "a": "12. Blending multi-banda",
+   "t": "Sezione 12: il blending multi-banda. Vuoi unire metà mela e metà arancia. Con una maschera sfumata su una zona larga i colori si raccordano, ma le texture si sovrappongono e vedi doppi contorni, come fantasmi. Con una zona stretta, niente fantasmi, ma vedi il salto di colore. Nessuna larghezza va bene per tutte le frequenze."
+  },
+  {
+   "a": "L'idea di Burt e Adelson (slide 58, libr",
+   "t": "L'idea di Burt e Adelson: una larghezza diversa per ogni banda. La laplaciana separa già le bande, quindi basta fonderle una per una."
+  },
+  {
+   "a": "piramidi laplaciane l A e l B delle due ",
+   "t": "La ricetta: piramidi laplaciane di A e di B, piramide gaussiana della maschera, che vale 1 dove vuoi A. A ogni livello il valore fuso è m k per A più uno meno m k per B, anche sul residuo. Poi ricostruisci."
+  },
+  {
+   "a": "Il profilo della maschera ai livelli del",
+   "t": "Guarda la figura della maschera. La linea nera, m zero, è un gradino netto. Salendo di livello, blu, verde, arancione, rossa e viola, la rampa si allarga, fino a m cinque che scende da 1 a quasi zero in circa 60 pixel. Ogni banda si fonde sulla larghezza del suo livello."
+  },
+  {
+   "a": "Perché funziona. Salendo nella piramide ",
+   "t": "Così colore e luce, le basse frequenze, si fondono su una zona larga, e texture e bordi su una zona stretta. Esempio: al livello 3, con maschera zero virgola sette, A uguale a 10 e B uguale a meno 4, il valore fuso è cinque virgola otto. Al livello 0 la maschera lì è già 0 o 1."
+  },
+  {
+   "a": "In 1D: A a sinistra (scuro, texture fine",
+   "t": "Nella figura in una dimensione, A a sinistra è scura con texture fine, B a destra chiara con onda quadra. Nel pannello a, maschera stretta: il livello medio arancione salta di colpo. Nel pannello b, maschera larga: il livello sale piano ma per decine di pixel le texture si sommano. Nel pannello c, il multi-banda: livello raccordato come in b, texture che cambia in pochi pixel come in a."
+  },
+  {
+   "a": "È il notebook di questa lezione: leggi l",
+   "t": "Questo è il notebook della lezione: leggi la sezione Notebook in fondo alla pagina, perché il codice fornito ha due bug, tutto in uint8, che rovinano la maschera sfumata."
+  },
+  {
+   "a": "Il punto Si fondono le piramidi laplacia",
+   "t": "Da portare a casa: fondi le laplaciane banda per banda, pesando con la gaussiana della maschera. Colori raccordati, texture senza fantasmi."
+  },
+  {
+   "a": "13. Piramidi nelle reti",
+   "t": "Sezione 13: le reti. Una CNN con stride e pooling è una piramide appresa: primi strati ad alta risoluzione e campo recettivo piccolo, ultimi a bassa risoluzione e campo grande. Ma di solito manca il prefiltro, quindi può fare aliasing."
+  },
+  {
+   "a": "Le Feature Pyramid Networks (slide 60, L",
+   "t": "Le Feature Pyramid Networks, FPN, aggiungono un percorso dall'alto verso il basso che porta le feature grossolane, ricche di significato, in alta risoluzione e le somma a quelle fini con connessioni laterali. È lo schema della ricostruzione laplaciana: contributo dall'alto più contributo laterale."
+  },
+  {
+   "a": "Il punto Le CNN sono piramidi apprese, s",
+   "t": "Da portare a casa: le CNN sono piramidi apprese, spesso senza anti-aliasing, e FPN copia la ricostruzione laplaciana per avere, a ogni scala, feature sia precise sia ricche di significato."
+  },
+  {
+   "a": "14. In pratica: il codice",
+   "t": "Sezione 14: il codice. Down sfoca con b quattro e prende un pixel ogni due. Up mette i valori in una griglia di zeri e sfoca con due volte b quattro per asse. La piramide lavora in float e salva le differenze, la ricostruzione risale dal residuo. Su un'immagine casuale l'errore è dell'ordine di dieci alla meno sedici: esatta."
+  },
+  {
+   "a": "Il riassunto in 10 righe",
+   "t": "La dispensa ha poi un riassunto in 10 righe: rileggilo con calma dopo il video, perché è il ripasso ideale prima dell'esame."
+  },
+  {
+   "a": "Verifica di aver capito",
+   "t": "Ora verifica di aver capito. Ti leggo le sei domande della dispensa: per ognuna metti in pausa, prova a rispondere, poi ascolta la spiegazione."
+  },
+  {
+   "a": "Un ventilatore con una sola pala dipinta",
+   "t": "Domanda 1. Un ventilatore con una pala rossa fa 11 giri al secondo e lo filmi a 12 fotogrammi al secondo. Cosa vedi? Metti in pausa e prova a rispondere."
+  },
+  {
+   "a": "Un ventilatore con una sola pala dipinta",
+   "t": "Fra due fotogrammi la pala fa undici dodicesimi di giro, indistinguibile da un dodicesimo all'indietro. Vedi il ventilatore girare lentamente all'indietro, a 1 giro al secondo: undici meno dodici in valore assoluto. Per vederlo giusto servirebbero più di 22 fotogrammi al secondo."
+  },
+  {
+   "a": "Segnale di 8 campioni ℓ[n] = cos(2π · 3n",
+   "t": "Domanda 2. Il coseno con 3 cicli su 8 campioni, decimato di 2 senza filtro. Che frequenza ottieni, e cosa avrebbe dovuto fare il prefiltro? Metti in pausa e prova a rispondere."
+  },
+  {
+   "a": "Segnale di 8 campioni ℓ[n] = cos(2π · 3n",
+   "t": "Ottieni un coseno di frequenza 1 su 4 campioni: il picco in 5 finisce in 1. La nuova Nyquist è 2 e 3 la supera. Un prefiltro con taglio a 2 avrebbe eliminato quel coseno, lasciando un segnale quasi costante."
+  },
+  {
+   "a": "Hai sfocato un'immagine con σ = 3 e la v",
+   "t": "Domanda 3. Hai sfocato con sigma 3 e vuoi arrivare a sigma 5. Con che sigma sfochi ancora? Metti in pausa e prova a rispondere."
+  },
+  {
+   "a": "Hai sfocato un'immagine con σ = 3 e la v",
+   "t": "Le varianze si sommano: 25 è 9 più 16, quindi serve sigma 4. Chi sommasse le sigma risponderebbe 2, e otterrebbe in realtà radice di 13, circa tre virgola sei."
+  },
+  {
+   "a": "Perché, nel costruire la laplaciana, il ",
+   "t": "Domanda 4. Perché nella laplaciana il blur dopo l'espansione va moltiplicato per 4 in due dimensioni? Metti in pausa e prova a rispondere."
+  },
+  {
+   "a": "Perché, nel costruire la laplaciana, il ",
+   "t": "Dopo l'espansione solo un pixel su quattro è diverso da zero, quindi la media scende a un quarto, e un filtro con somma 1 non la recupera. Senza compensare, la versione ingrandita sarebbe troppo scura e il livello laplaciano conterrebbe una copia attenuata dell'immagine."
+  },
+  {
+   "a": "La ricostruzione dalla laplaciana è esat",
+   "t": "Domanda 5. Perché la ricostruzione dalla laplaciana è esatta anche con un filtro scadente, come un box 3 per 3? Metti in pausa e prova a rispondere."
+  },
+  {
+   "a": "La ricostruzione dalla laplaciana è esat",
+   "t": "Perché l k è per definizione ciò che manca a F k g k più uno: risommandolo con lo stesso F torni esattamente a g k. Il filtro cambia la qualità delle bande, non l'invertibilità. Serve però conservare il residuo."
+  },
+  {
+   "a": "Nel blending multi-banda, perché si usa ",
+   "t": "Domanda 6. Nel blending, perché si usa la piramide gaussiana della maschera e non la laplaciana? Metti in pausa e prova a rispondere."
+  },
+  {
+   "a": "Nel blending multi-banda, perché si usa ",
+   "t": "Perché a ogni livello serve un peso fra 0 e 1, sempre più sfumato salendo: è esattamente la gaussiana. La laplaciana della maschera sarebbe nulla quasi ovunque e non darebbe pesi."
+  },
+  {
+   "a": "Come proseguire",
+   "t": "Come proseguire: sul libro i capitoli 20, 21 e 23, più il 17 per lo scale-space. Poi ripassa con le schede sotto la dispensa, che hanno le correzioni alle slide e il notebook con i due bug spiegati."
+  },
+  {
+   "a": "Ora ripassa con le schede qui sotto, sli",
+   "t": "Riassumiamo. Campionare copia lo spettro, e se le copie si toccano le alte frequenze si travestono da basse: è l'aliasing, e non si disfa. Per ridurre un'immagine la sfochi prima, con un binomiale o una gaussiana, poi decimi. Ripetendo ottieni la piramide gaussiana, che costa quattro terzi dell'immagine. Salvando ciò che il blur toglie ottieni la laplaciana, invertibile con qualunque filtro. E con le piramidi cerchi a tutte le scale e fondi immagini senza cuciture."
+  }
+ ]
+}

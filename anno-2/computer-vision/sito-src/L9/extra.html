@@ -1,0 +1,135 @@
+
+<div class="sec" id="l9-libro"><h2>Studia dal libro</h2><span>visionbook cap. 41 e 38 (circa 1 ora e mezza), poi Szeliski cap. 8 per RANSAC e stitching</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Cosa leggere, in ordine</h3>
+    <div class="meta">Torralba, Isola, Freeman, <i>Foundations of Computer Vision</i>, gratis online; Szeliski 2a ed. per le parti che il visionbook tratta in breve</div>
+    <ol>
+      <li><a href="https://visionbook.mit.edu/homogeneous_coordinates.html" target="_blank">Cap. 38, Representing Images and Geometry</a>: § 38.2 (coordinate omogenee, equivalenza a meno di scala), § 38.3 tutto (traslazione, scala, rotazione, shear, composizione, gerarchia euclidea → similitudine → affine → proiettiva, § 38.3.6 sui gradi di libertà), § 38.4 (rette omogenee, retta per due punti e intersezione con il prodotto vettoriale, test di collinearità con il determinante), § 38.5 (forward e backward warping). Copre le slide 22–25 e 49.</li>
+      <li><a href="https://visionbook.mit.edu/homography.html" target="_blank">Cap. 41, Homographies</a>: tutto, è breve ed è il capitolo della lezione. § 41.2 (definizione e conservazione della collinearità), § 41.2.1 (rotazione pura, H = KRK<sup>−1</sup>), § 41.2.2 (scena planare), § 41.3.1 (DLT), § 41.3.2 (RANSAC e numero di iterazioni; attenzione al refuso nell'esempio, scheda 41), § 41.3.3 (stitching di più immagini). Copre le slide 20–29, 37–41, 48.</li>
+      <li>Ripasso dal <a href="https://visionbook.mit.edu/imaging_geometry.html" target="_blank">cap. 39, Camera Modeling and Calibration</a>: § 39.3–39.5 (matrice K degli intrinseci, R e t degli estrinseci, modello completo λp̃ = K[R | t]P̃), solo quanto serve per seguire le due derivazioni del § 41.2.</li>
+      <li><b>Szeliski, <i>Computer Vision: Algorithms and Applications</i>, 2a ed.</b> (<a href="https://szeliski.org/Book/" target="_blank">szeliski.org/Book</a>): cap. 7, § 7.1.3 Feature matching (strategie di matching, NNDR = ratio test, indicizzazione per la ricerca dei vicini); cap. 8 Image alignment and stitching, § 8.1 Pairwise alignment (minimi quadrati, minimi quadrati robusti e RANSAC), § 8.2 Image stitching (modelli di moto, panorami rotazionali, coordinate cilindriche e sferiche), § 8.4 Compositing (superficie di proiezione, pesatura dei pixel, cuciture, blending). L'indice dei sottoparagrafi non è verificato online: cerca i titoli citati.</li>
+      <li><b>Lowe 2004</b> (IJCV), § 7.1 Keypoint matching: la motivazione del ratio test e la curva dei match corretti/sbagliati in funzione del rapporto.</li>
+      <li>Facoltativo, per la DLT normalizzata e la soglia di RANSAC: Hartley e Zisserman, <i>Multiple View Geometry</i>, cap. 4 (citato dal visionbook).</li>
+    </ol>
+    <p><b>Si può saltare</b>: § 38.1, 38.3.7 (trasformazioni come convoluzioni) e 38.6 (rappresentazioni implicite, SIREN) del cap. 38; § 41.4 (applicazioni: vista a volo d'uccello, punti di fuga) va letto solo per cultura. In Szeliski cap. 8: § 8.3 Global alignment (bundle adjustment) e la parte sui video.</p>
+    <p><b>Nel libro ma non nelle slide</b>: le due derivazioni dell'omografia (rotazione e piano), la forma esplicita della DLT con la SVD, la gerarchia completa delle trasformazioni, la dimostrazione della conservazione delle rette, il backward mapping con interpolazione. <b>Nelle slide ma non nel visionbook</b>: ratio test, mutual NN, metriche di Hamming, errore di trasferimento simmetrico, SuperGlue e LightGlue, blending dei panorami.</p>
+  </div>
+
+  <div class="card">
+    <h3>Le idee centrali, come le spiega il libro</h3>
+    <div class="meta">Da saper ricostruire senza slide</div>
+    <p><b>1 · Coordinate omogenee.</b> (x, y) diventa [x, y, 1]<sup>⊤</sup> e ogni multiplo non nullo è lo stesso punto. Così traslazioni, rotazioni, affini e omografie diventano tutte prodotti matrice-vettore 3×3, componibili con il prodotto di matrici, e la divisione prospettica si fa una sola volta alla fine. Le rette sono vettori l con l<sup>⊤</sup>p = 0; retta per due punti l = p<sub>1</sub> × p<sub>2</sub>, intersezione p = l<sub>1</sub> × l<sub>2</sub> (§ 38.2, 38.4).</p>
+    <p><b>2 · Perché esiste l'omografia.</b> Due casi, due derivazioni. Rotazione pura: [X, Y, Z] = λK<sup>−1</sup>p̃ dalla prima camera, lo si proietta con KR nella seconda e la profondità sparisce: H = KRK<sup>−1</sup>. Piano: con Z = 0 la terza colonna di R non conta e K[c<sub>1</sub> c<sub>2</sub> t] è una 3×3 dal piano all'immagine; fra due immagini H<sub>2</sub>H<sub>1</sub><sup>−1</sup> (§ 41.2.1–41.2.2).</p>
+    <p><b>3 · Collinearità.</b> Se p′ = Hp, la retta l diventa H<sup>−⊤</sup>l: le rette vanno in rette. Angoli, lunghezze e parallelismo no. È questo che distingue l'omografia dall'affine, che conserva anche il parallelismo (§ 41.2, 38.3.6).</p>
+    <p><b>4 · DLT.</b> Moltiplicando per il denominatore la mappa diventa lineare in h: due equazioni per coppia, A (2N × 9) h = 0; h è l'autovettore di A<sup>⊤</sup>A con autovalore minimo (ultimo vettore singolare destro). 8 gdl → 4 coppie. La DLT minimizza un errore algebrico: si usa come inizializzazione e poi si rifinisce sull'errore in pixel (§ 41.3.1).</p>
+    <p><b>5 · RANSAC.</b> Campione minimo, modello, consenso, ripeti; tieni il consenso più grande e ristima. Il numero di iterazioni k = log(1 − p)/log(1 − w<sup>n</sup>) dipende solo dalla frazione di inlier w e da n, non dal numero di punti (§ 41.3.2).</p>
+    <p><b>6 · Warping all'indietro.</b> Per ogni pixel di output si chiede "da dove viene?" con la mappa inversa e si interpola: niente buchi. Il forward mapping lascia buchi e aliasing (§ 38.5).</p>
+  </div>
+
+  <div class="card">
+    <h3>Differenze di notazione fra slide e libro</h3>
+    <ul>
+      <li>Punto omogeneo: slide p̃ = (x, y, 1)<sup>⊤</sup> con la tilde; libro p = [x, y, 1]<sup>⊤</sup> senza tilde e p′ per il punto trasformato.</li>
+      <li>Omografia: slide H con entrate h<sub>11</sub>…h<sub>33</sub>; libro prima [a b c; d e f; g h i] (§ 41.2), poi H.</li>
+      <li>RANSAC: slide t per la soglia e N per le iterazioni (slide 38, 42) ma k nella formula (slide 41); libro ε per la tolleranza e k per le iterazioni. In entrambi w = frazione di <b>inlier</b>, n = dimensione del campione minimo.</li>
+      <li>Matching: le slide usano d<sub>i</sub> ed e<sub>j</sub> per i descrittori di A e B; Szeliski parla di feature e di NNDR per il ratio test.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Cosa il libro aggiunge e le slide omettono</h3>
+    <ul>
+      <li>La <b>derivazione</b> di H = KRK<sup>−1</sup> e dell'omografia del piano: le slide le affermano soltanto (slide 27).</li>
+      <li>La <b>DLT esplicita</b>, che le slide rimandano a una lezione futura (slide 29).</li>
+      <li>La <b>gerarchia</b> delle trasformazioni 2D con gradi di libertà e invarianti: serve per capire il cambio di modello (affine nello Stitcher, slide 51).</li>
+      <li>Lo stitching di <b>più</b> immagini rispetto a quella centrale (§ 41.3.3).</li>
+      <li>Fuori dal visionbook ma utili: la <b>normalizzazione di Hartley</b> per la DLT, la ristima adattiva di k durante RANSAC, il blending dei panorami (Szeliski § 8.4), le proiezioni cilindriche/sferiche per panorami a 360°.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="sec" id="l9-guida"><h2>Guida allo studio</h2><span>3 ore in quattro blocchi</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Prima di iniziare</h3>
+    <div class="meta">15 minuti</div>
+    <p>Ripassa da L8 il descrittore SIFT (4×4×8 = 128) e il problema della corrispondenza; da L2 la proiezione prospettica (perché serve dividere per Z); da L6 interpolazione e blending multi-banda con la piramide laplaciana. Serve anche un minimo di algebra lineare: sistemi omogenei Ah = 0, rango, SVD.</p>
+  </div>
+  <div class="two">
+    <div class="card">
+      <h3>1 · Matching</h3>
+      <div class="meta">Slide 2–18 · circa 30 minuti</div>
+      <p>Obiettivo: saper costruire e filtrare le corrispondenze.</p>
+      <ul>
+        <li>Spiega perché il NN da solo sbaglia nei due esempi delle slide 7–8 e come il ratio test li gestisce.</li>
+        <li>Disegna il compromesso precision/recall al variare di τ (slide 15).</li>
+        <li>Distingui ratio test e mutual NN: cosa elimina ciascuno?</li>
+        <li>Verifica: quale metrica per ORB e perché è veloce?</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>2 · Omografie</h3>
+      <div class="meta">Slide 19–27 + cap. 38 e 41 · circa 1 ora</div>
+      <p>Obiettivo: il blocco teorico più chiesto.</p>
+      <ul>
+        <li>Rifai a mano il conto della scheda 24 con un'altra H.</li>
+        <li>Ricava H = KRK<sup>−1</sup> e l'omografia del piano (schede 21 e 23) su un foglio bianco.</li>
+        <li>Scrivi la gerarchia delle trasformazioni con gdl e invarianti (scheda 25).</li>
+        <li>Correggi su OneNote la slide 22 (tre punti, non due) e la slide 32 (omografia non rigida).</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>3 · DLT e outlier</h3>
+      <div class="meta">Slide 28–35 · circa 45 minuti</div>
+      <p>Obiettivo: stimare H e capire perché serve la robustezza.</p>
+      <ul>
+        <li>Scrivi le due righe di A per una coppia e conta: perché 4 coppie (scheda 29).</li>
+        <li>Spiega perché la soluzione è l'ultimo vettore singolare destro.</li>
+        <li>Spiega con l'esempio 1D (slide 34) perché un solo outlier rovina i minimi quadrati.</li>
+        <li>Facoltativo: implementa la DLT in numpy e confrontala con <code>cv2.findHomography</code> senza RANSAC.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>4 · RANSAC e pipeline</h3>
+      <div class="meta">Slide 36–53 · circa 45 minuti</div>
+      <p>Obiettivo: saper descrivere RANSAC e calcolarne le iterazioni.</p>
+      <ul>
+        <li>Ricava k = log(1 − p)/log(1 − w<sup>n</sup>) e calcola k per n = 4, p = 0.99, w = 0.5 (risultato 72).</li>
+        <li>Correggi la definizione di p della slide 41 e il verso di H nella slide 49.</li>
+        <li>Racconta la pipeline completa, dalle foto al panorama, nominando ogni passo e il suo scopo.</li>
+        <li>Verifica: perché tre punti allineati nel campione rendono la DLT degenere?</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Formulario minimo</h3>
+    <div class="meta">Da saper scrivere a memoria</div>
+    <span class="f">ratio test: ‖d<sub>i</sub> − e<sub>j1</sub>‖ / ‖d<sub>i</sub> − e<sub>j2</sub>‖ &lt; τ,   τ ≈ 0.7–0.8</span>
+    <span class="f">q̃ = H p̃,   q = (q̃<sub>1</sub>/q̃<sub>3</sub>, q̃<sub>2</sub>/q̃<sub>3</sub>),   H ≡ λH,   8 gdl → 4 coppie</span>
+    <span class="f">rotazione pura: H = K R K<sup>−1</sup>;   piano Z = 0: H = K [c<sub>1</sub> c<sub>2</sub> t]</span>
+    <span class="f">DLT: [x y 1 0 0 0 −x′x −x′y −x′] h = 0,   [0 0 0 x y 1 −y′x −y′y −y′] h = 0,   h = argmin<sub>‖h‖=1</sub> ‖Ah‖</span>
+    <span class="f">errore: d(q, Hp)²  oppure  d(q, Hp)² + d(p, H<sup>−1</sup>q)²,   inlier se sotto t (≈ 3–5 px)</span>
+    <span class="f">k = ⌈log(1 − p) / log(1 − w<sup>n</sup>)⌉,   n = 4, p = 0.99: w = 0.5 → 72, w = 0.8 → 9</span>
+  </div>
+
+  <div class="card">
+    <h3>Domande tipo orale</h3>
+    <div class="meta">Prova a rispondere, poi apri per la traccia</div>
+    <div class="qa">
+      <details><summary>Descrivi la pipeline per costruire un panorama da due foto.</summary><p>Keypoint e descrittori (SIFT), matching NN con ratio test, RANSAC con DLT su campioni di 4 coppie per stimare H robustamente, ristima su tutti gli inlier, warping inverso di B nel riferimento di A con interpolazione bilineare, blending (multi-banda) della zona di sovrapposizione (slide 6, 48–49).</p></details>
+      <details><summary>Cos'è il ratio test di Lowe e perché funziona meglio di una soglia sulla distanza?</summary><p>Si accetta il match solo se d<sub>1</sub>/d<sub>2</sub> &lt; τ. Il secondo vicino stima la densità di match falsi in quella zona: un match vero è molto più vicino del secondo, uno falso (occlusione, pattern ripetuto) ha primo e secondo a distanze simili. Una soglia assoluta non tiene conto di quanto è distintivo il descrittore (slide 13–15, Lowe § 7.1).</p></details>
+      <details><summary>Che cos'è un'omografia e quali proprietà geometriche conserva?</summary><p>Trasformazione proiettiva del piano, matrice 3×3 non singolare in coordinate omogenee, definita a meno di scala (8 gdl). Conserva la collinearità (rette in rette: l ↦ H<sup>−⊤</sup>l); non conserva lunghezze, angoli, parallelismo (slide 22, 25; § 41.2).</p></details>
+      <details><summary>In quali casi due immagini sono legate da un'omografia? Dimostralo per la rotazione pura.</summary><p>Scena planare (qualunque moto della camera) o camera che ruota attorno al centro ottico (qualunque scena). Rotazione: λ<sub>1</sub>p̃ = KX, λ<sub>2</sub>p̃′ = KRX ⇒ p̃′ ∝ KRK<sup>−1</sup>p̃, la profondità sparisce. Con traslazione e scena 3D compare la parallasse (slide 21, 27; § 41.2.1).</p></details>
+      <details><summary>Perché H ha 8 gradi di libertà e quante corrispondenze servono?</summary><p>9 entrate, ma H e λH danno la stessa mappa: 8. Ogni coppia dà 2 equazioni (x′ e y′): servono 4 coppie, con nessuna terna allineata (slide 25–26).</p></details>
+      <details><summary>Spiega la DLT.</summary><p>Si moltiplicano le equazioni x′ = h<sub>1</sub><sup>⊤</sup>p̃/h<sub>3</sub><sup>⊤</sup>p̃, y′ = h<sub>2</sub><sup>⊤</sup>p̃/h<sub>3</sub><sup>⊤</sup>p̃ per il denominatore: due equazioni lineari omogenee in h per coppia. Si impila A (2N × 9), si risolve min ‖Ah‖ con ‖h‖ = 1: ultimo vettore singolare destro di A. Errore algebrico, conviene normalizzare i punti e poi rifinire sull'errore geometrico (§ 41.3.1).</p></details>
+      <details><summary>Perché i minimi quadrati non sono robusti agli outlier?</summary><p>Si minimizza ∑r<sub>i</sub>²: l'influenza di un punto cresce con il suo residuo senza limiti, quindi un solo punto lontano può spostare la stima a piacere (breakdown point 0). Esempio della retta: pendenza da 2.00 a 0.72 con un solo outlier (slide 33–34).</p></details>
+      <details><summary>Descrivi RANSAC e i suoi parametri.</summary><p>Ripeti: estrai il campione minimo (4 coppie), stima H con la DLT, conta gli inlier con errore di trasferimento &lt; t, tieni il modello con più inlier; alla fine ristima su tutti gli inlier. Parametri: soglia t (rumore atteso, 3–5 px), numero di iterazioni da k = log(1 − p)/log(1 − w<sup>n</sup>) (slide 38–42).</p></details>
+      <details><summary>Ricava il numero di iterazioni di RANSAC.</summary><p>Un campione è tutto di inlier con probabilità w<sup>n</sup>; k campioni falliscono tutti con probabilità (1 − w<sup>n</sup>)<sup>k</sup>; si impone che sia 1 − p, dove p è la confidenza di estrarre almeno un campione pulito: k = log(1 − p)/log(1 − w<sup>n</sup>), arrotondato per eccesso. Non dipende dal numero di dati, esplode con n se w è basso (slide 41).</p></details>
+      <details><summary>Perché RANSAC usa il campione minimo invece di più punti?</summary><p>La probabilità che il campione sia pulito è w<sup>n</sup>: con n minimo è massima e servono meno iterazioni. La precisione si recupera nella ristima finale su tutti gli inlier.</p></details>
+      <details><summary>Warping diretto e inverso: differenze?</summary><p>Diretto: ogni pixel di input viene mandato nell'output e arrotondato, restano buchi e aliasing. Inverso: per ogni pixel di output si calcola da dove viene con la mappa output → input e si interpola (bilineare). Serve la mappa nel verso giusto: H<sup>−1</sup> se H va dall'immagine sorgente all'output (slide 49, § 38.5).</p></details>
+      <details><summary>Quando la pipeline fallisce e cosa offrono i matcher appresi?</summary><p>Cambi di vista estremi, poche texture, pattern ripetitivi, immagini buie; oltre alle violazioni del modello (scena 3D con traslazione) e alle configurazioni degeneri. SuperGlue e LightGlue usano attenzione self e cross per sfruttare il contesto di tutti i keypoint e producono un assegnamento parziale; LightGlue è più veloce grazie a profondità adattiva e pruning (slide 44–46, 51).</p></details>
+    </div>
+  </div>
+</div>

@@ -20,14 +20,14 @@ Dispense, appunti, esercizi e codice della laurea magistrale in Informatica (per
 | Corso | OneNote | File |
 |---|---|---|
 | [Competitive Programming and Contests](anno-2/cpc/) | [OneNote](https://unipiit-my.sharepoint.com/:o:/g/personal/g_marsili9_studenti_unipi_it/IgBQwzA16eXPS5GmyUG30z6iAYssE8WwtjVav2-btQStrlw) | - |
-| [Computer Vision](anno-2/computer-vision/) | [OneNote](https://unipiit-my.sharepoint.com/:o:/g/personal/g_marsili9_studenti_unipi_it/IgDWol7jc4l5RIA-8VteYMszAfTN1MWETf97Qt0gV5EWWfs) | sì |
+| [Computer Vision](anno-2/computer-vision/) | [OneNote](https://unipiit-my.sharepoint.com/:o:/g/personal/g_marsili9_studenti_unipi_it/IgDWol7jc4l5RIA-8VteYMszAfTN1MWETf97Qt0gV5EWWfs) | sì · [sito](https://gabriele-marsili.github.io/appunti-magistrale-ai/anno-2/computer-vision/sito/) |
 | [Human Language Technologies](anno-2/hlt/) | [OneNote](https://unipiit-my.sharepoint.com/:o:/g/personal/g_marsili9_studenti_unipi_it/IgDTs8cMB1yxRYqt2NVd0y-eAbrxvZ3nTBRsGSIOv4DfUYA) | sì · [sito](https://gabriele-marsili.github.io/appunti-magistrale-ai/anno-2/hlt/sito/) |
 | [Peer-to-Peer and Blockchain](anno-2/p2p-blockchain/) | [OneNote](https://unipiit-my.sharepoint.com/:o:/g/personal/g_marsili9_studenti_unipi_it/IgCVcTz0IOEwR5442r42F1_SAfPjCk1AaSp-BPLFD75U0mA) | sì |
 
 ## Note
 
 - Appunti personali, scritti per studiare: possono contenere errori. Segnalazioni benvenute tramite issue.
-- Slide, libri e testi d'esame dei docenti non sono inclusi per rispetto del diritto d'autore: si trovano sulle pagine ufficiali dei corsi.
+- Slide, libri e testi d'esame dei docenti non sono inclusi per rispetto del diritto d'autore: si trovano sulle pagine ufficiali dei corsi. Fa eccezione il sito di Computer Vision, che contiene le slide del corso.
 - I notebook OneNote sono in sola lettura.
 
 Gabriele Marsili · [@WhoIsMars](https://github.com/WhoIsMars)

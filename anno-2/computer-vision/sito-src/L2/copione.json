@@ -1,0 +1,565 @@
+{
+ "L": "L2",
+ "segs": [
+  {
+   "a": "In una frase: una foto è il risultato di",
+   "t": "Un'auto a guida autonoma vede un pedone: è alto, o è soltanto vicino? Per rispondere bisogna sapere come una scena diventa una griglia di numeri. Alla fine di questa lezione saprai scrivere quel percorso, dalla luce sul materiale ai tre numeri del colore, e saprai dire dove butta via informazione."
+  },
+  {
+   "a": "Prodotto scalare fra vettori unitari: n ",
+   "t": "Prima di partire servono pochi attrezzi: il prodotto scalare fra vettori unitari, che è il coseno dell'angolo fra loro, i triangoli simili, e un po' di algebra lineare, con inversa, trasposta, autovalori e nucleo. E l'idea della prima lezione: la visione è un problema inverso, risale dall'immagine alla scena."
+  },
+  {
+   "a": "Video Reflectance Models Shree Nayar. Gu",
+   "t": "I video di Shree Nayar sono un complemento, utili da vedere prima per farti un'intuizione oppure dopo per ripassare. Coprono riflettanza, pinhole e prospettiva, lenti e colore. Per la camera come sistema lineare basta il capitolo 7 del libro."
+  },
+  {
+   "a": "1. Il quadro: modello diretto e tre perd",
+   "t": "Sezione uno, il quadro generale. Il pedone è alto o vicino? La macchia scura sull'asfalto è un'ombra o una pozzanghera? Sono domande sulla scena, ma la macchina ha solo pixel. Per rispondere devi sapere come la scena è diventata pixel."
+  },
+  {
+   "a": "L'idea. Una foto è l'output di una funzi",
+   "t": "Pensa alla foto come all'uscita di una funzione: in ingresso la scena, in uscita una matrice di numeri. Per invertirla devi saperla scrivere, e sapere dove non è iniettiva, cioè dove scene diverse danno la stessa immagine. Lì nessun algoritmo le distingue senza informazioni in più: altre viste, conoscenze a priori, modelli appresi."
+  },
+  {
+   "a": "La catena (slide 5): scena → ottica (for",
+   "t": "La catena è: scena, ottica, cioè foro o lente, sensore, e infine l'ISP, il processore d'immagine del telefono. Il sensore somma la luce su ogni pixel. L'ISP ricostruisce i colori, il cosiddetto demosaicing, bilancia il bianco e applica la gamma."
+  },
+  {
+   "a": "geometrica : la prospettiva confonde dim",
+   "t": "Lungo la catena incontrerai tre perdite. Geometrica: la prospettiva confonde dimensione e profondità. Lineare: la camera mescola la scena con una matrice, e invertirla è instabile. Spettrale: il colore riduce uno spettro a tre numeri e mescola materiale e luce. Geometrica, lineare, spettrale: sono lo scheletro della lezione."
+  },
+  {
+   "a": "Un'ipotesi regge tutto: la linearità del",
+   "t": "Tutto si regge su un'ipotesi: la luce è lineare. Lampada da sola zero virgola tre, finestra da sola zero virgola cinque, insieme zero virgola otto. Ma vale solo per il dato grezzo, il raw. In un JPEG la gamma rompe la somma: zero virgola tre e zero virgola cinque diventano circa zero virgola cinquantotto e zero virgola settantatré, ma zero virgola otto diventa zero virgola novanta, non uno virgola trentuno."
+  },
+  {
+   "a": "Il punto Prima di invertire la formazion",
+   "t": "Da portare a casa: prima di invertire la formazione dell'immagine bisogna scriverla. Ogni stadio perde informazione, e la linearità della luce raw rende tutto trattabile."
+  },
+  {
+   "a": "2. Luce e superfici: BRDF e Lambert",
+   "t": "Sezione due, luce e superfici. Un pixel misura la luce che lascia un punto verso la camera. Dipende da quanta luce arriva, da dove, da come è orientata la superficie e dal materiale. Ci serve una formula."
+  },
+  {
+   "a": "L'idea (slide 7). In un bagno buio un so",
+   "t": "Un esempio delle slide del prof: in un bagno buio, un raggio laser sul lavandino tinge di rosa tutta la stanza. Una superficie opaca sparpaglia ogni raggio in molte direzioni. Il modo in cui lo fa è la firma del materiale: la BRDF, cioè funzione di distribuzione della riflettanza bidirezionale."
+  },
+  {
+   "a": "ℓ out = F(ℓ in , n, p, q, λ)",
+   "t": "Nella formula che vedi, la luce uscente dipende dalla luce entrante, dalla normale n, dalla direzione p verso la sorgente, dalla direzione q verso la camera e dalla lunghezza d'onda lambda. Bidirezionale vuol dire proprio questo: dipende da due direzioni, p e q. Tieni a mente questi simboli, tornano per tutta la lezione."
+  },
+  {
+   "a": "Il caso più semplice è la superficie lam",
+   "t": "Il caso più semplice è la superficie lambertiana, perfettamente opaca, come carta, gesso o intonaco. La formula di Lambert: luce uscente uguale ad albedo, per luce entrante, per il prodotto scalare fra n e p."
+  },
+  {
+   "a": "a è l'albedo , un numero fra 0 e 1 che d",
+   "t": "L'albedo a è un numero fra 0 e 1, la frazione di luce rimandata. Il prodotto scalare fra n e p è il coseno dell'angolo theta fra normale e luce. E nota bene: q non compare. Quindi la superficie ha la stessa luminosità da qualunque punto la guardi."
+  },
+  {
+   "a": "Perché il coseno? Un fascio inclinato si",
+   "t": "Perché il coseno? Pensa a una torcia. Puntata dritta fa una macchia piccola e luminosa. Inclinata, lo stesso fascio si spalma su un'area più grande, di un fattore uno su coseno di theta, e ogni punto riceve meno luce. Se il prodotto scalare è negativo, la luce sta dietro la superficie, e si prende zero."
+  },
+  {
+   "a": "A sinistra: inclinata di 60°, la stessa ",
+   "t": "Guarda la figura. A sinistra, in blu, la luce scende perpendicolare e copre l'area 1. In rosso lo stesso fascio arriva a 60 gradi e copre una barra lunga il doppio: coseno di 60 gradi fa un mezzo, ogni punto riceve metà luce. A destra la sfera: la luce arriva dall'alto a sinistra, freccia arancione, e il grigio sfuma dal chiaro fino al nero in basso a destra, dove la luce sta dietro."
+  },
+  {
+   "a": "Esempio. a = 0.6, luce 1 a θ = 60°: ℓ ou",
+   "t": "Un conto: albedo zero virgola sei, luce 1 a 60 gradi, risultato zero virgola tre. Con luce perpendicolare il massimo, zero virgola sei; con luce radente, zero. Siccome la sfumatura dipende dalla normale, puoi provare a risalire alla forma: si chiama shape from shading, forma dall'ombreggiatura."
+  },
+  {
+   "a": "Il punto La BRDF descrive il materiale. ",
+   "t": "Da portare a casa: la BRDF descrive il materiale. Una superficie lambertiana dipende da albedo, luce e angolo fra normale e luce, non dal punto di vista."
+  },
+  {
+   "a": "3. Riflessi: il modello di Phong",
+   "t": "Sezione tre, i riflessi. Sul cofano di un'auto c'è un punto bianco che si sposta quando ti muovi. Lambert non lo prevede, perché nella sua formula q non compare."
+  },
+  {
+   "a": "L'idea. Plastica, metallo, ceramica smal",
+   "t": "Plastica, metallo e ceramica smaltata hanno anche un riflesso brillante, da specchio: in inglese highlight. Phong lo modella sommando tre termini, e può sommarli proprio grazie alla linearità."
+  },
+  {
+   "a": "ℓ out = k a + a · ℓ in (n · p) + k s (r ",
+   "t": "Nella formula che vedi: un termine ambientale costante, k con pedice a, che approssima la luce rimbalzata dalla stanza. Poi il termine diffuso di Lambert. Poi lo speculare: k con pedice s, per il prodotto scalare fra r e q elevato alla alfa, per la luce entrante."
+  },
+  {
+   "a": "r = 2 (n · p) n − p",
+   "t": "r è la direzione dello specchio perfetto: p ribaltato rispetto alla normale. La formula dice: due volte il prodotto scalare fra n e p, per n, meno p. Prendi la componente di p lungo la normale, la raddoppi, togli p."
+  },
+  {
+   "a": "r · q vale 1 se guardi esattamente \"nell",
+   "t": "Il prodotto scalare fra r e q vale 1 se guardi esattamente nello specchio, e cala se ti sposti. k con pedice s regola la forza del riflesso, alfa, la lucentezza, quanto è stretto: un numero minore di 1 elevato a una potenza grande crolla subito."
+  },
+  {
+   "a": "Dalla slide 16. Scendendo k s  cresce (0",
+   "t": "Guarda la griglia di nove sfere. Scendendo k con pedice s cresce, da zero virgola due a uno, e il riflesso passa da appena accennato a una macchia bianca piena. Verso destra cresce alfa, da 5 a 20 a 80, e il riflesso si stringe da chiazza larga a puntino. Due manopole indipendenti: forza e strettezza."
+  },
+  {
+   "a": "Esempio svolto. In 2D con n = (0, 1) e l",
+   "t": "Esempio svolto in due dimensioni. Normale verso l'alto, luce a 60 gradi, quindi il prodotto scalare fra n e p vale un mezzo, e r esce simmetrico dall'altra parte, a 60 gradi. Albedo zero virgola sei, ambiente zero virgola zero cinque, k con pedice s zero virgola quattro, alfa 20."
+  },
+  {
+   "a": "camera lungo r: r · q = 1, ℓ out = 0.05 ",
+   "t": "Camera lungo r: zero virgola zero cinque, più zero virgola tre di Lambert, più zero virgola quattro di riflesso, totale zero virgola settantacinque. Camera lungo la normale: il prodotto scalare vale un mezzo, e un mezzo alla ventesima è circa un milionesimo. Il riflesso sparisce, resta zero virgola trentacinque."
+  },
+  {
+   "a": "L'esempio disegnato: muovendo la camera ",
+   "t": "Nella figura, a destra, sposti la camera da meno 90 a più 90 gradi. La linea punteggiata, ambiente più Lambert, è piatta a zero virgola trentacinque. La curva blu, alfa 20, resta piatta e fa un picco stretto a 60 gradi, fino a zero virgola settantacinque. La curva azzurra tratteggiata, alfa 5, ha lo stesso picco ma molto più largo."
+  },
+  {
+   "a": "Perché importa? Lo stesso punto ha valor",
+   "t": "Perché importa? Lo stesso punto ha valori diversi da due punti di vista, e questo disturba il confronto fra immagini: stereo, tracking, e il matching, cioè la ricerca di corrispondenze, che vedrai in L8. Phong è empirico, ma cattura l'essenziale."
+  },
+  {
+   "a": "Il punto Phong = ambiente + diffuso + sp",
+   "t": "Da portare a casa: Phong è ambiente più diffuso più speculare, e lo speculare dipende dalla vista. Gli highlight si spostano con l'osservatore."
+  },
+  {
+   "a": "4. La prima ambiguità: materiale, luce, ",
+   "t": "Sezione quattro, la prima ambiguità. Una foto di un dolce dorato su Instagram: è cotto bene, o la vetrina ha luci calde? Dalla foto da sola non lo sai."
+  },
+  {
+   "a": "L'idea. La prima ambiguità: materiale co",
+   "t": "Nella formula di Lambert ci sono tre incognite moltiplicate: albedo, luce e coseno. Un pixel scuro può essere un materiale scuro, una zona poco illuminata o una superficie inclinata. È come sapere che un prodotto fa 12 senza conoscere i fattori."
+  },
+  {
+   "a": "Dalla slide 19. Stessi oggetti, tre luci",
+   "t": "Guarda la figura: lo stesso banco di carne con tre luci. A sinistra 3000 kelvin, tutto giallastro. Al centro 4000 kelvin, più neutro e pallido. A destra la lampada per alimenti, carne rosata e invitante. Oggetti identici, pixel molto diversi: per questo i negozi scelgono le luci con cura."
+  },
+  {
+   "a": "Esempio. Tre pixel che valgono 0.3: (a =",
+   "t": "Tre pixel che valgono tutti zero virgola tre. Albedo zero virgola tre con luce piena. Albedo zero virgola sei con luce dimezzata. Albedo zero virgola sei con luce piena ma inclinata di 60 gradi. Tre mondi, stesso numero."
+  },
+  {
+   "a": "Il punto Geometria, luce e materiale si ",
+   "t": "Da portare a casa: geometria, luce e materiale si moltiplicano e dal pixel non si separano. La stessa struttura tornerà nel colore."
+  },
+  {
+   "a": "5. Perché serve una camera: il pinhole",
+   "t": "Sezione cinque, perché serve una camera. Un muro bianco davanti a una finestra riceve la luce di tutta la stanza. Perché non ci vediamo sopra l'immagine della finestra? Perché ogni punto del muro riceve luce da tutte le direzioni, e la somma."
+  },
+  {
+   "a": "ℓ out = ∫ p a · ℓ in (p) · (n · p) dp",
+   "t": "Nella formula che vedi, la luce uscente è un integrale, cioè una somma continua, su tutte le direzioni p della semisfera: albedo per la luce da p per il coseno fra n e p."
+  },
+  {
+   "a": "L'integrale corre sulle direzioni p dell",
+   "t": "Il risultato è un numero per punto, quasi uguale per punti vicini: da dove arriva cosa è stato mediato via. Attenzione: le slide del prof, e il libro, scrivono il coseno del prodotto scalare fra n e p. È un refuso, perché il prodotto scalare è già il coseno."
+  },
+  {
+   "a": "L'idea. Formare un'immagine vuol dire im",
+   "t": "Allora formare un'immagine vuol dire impedire l'integrazione: ogni punto deve ricevere luce da una sola direzione. Basta una barriera con un piccolo foro davanti al muro. Ora ogni punto del muro riceve luce da un solo punto della scena: corrispondenza uno a uno."
+  },
+  {
+   "a": "Dalla slide 23. (a) Senza barriera ogni ",
+   "t": "Guarda la figura. Nel pannello a, senza barriera, le frecce verdi della chioma e marroni del tronco arrivano tutte negli stessi punti del muro: solo miscela. Nel pannello b c'è la barriera nera con il foro: le frecce si incrociano nel foro, e sul muro compare l'albero capovolto, chioma in basso e tronco in alto."
+  },
+  {
+   "a": "L'immagine (slide 24) è capovolta , scur",
+   "t": "L'immagine è capovolta, scura perché passa poca luce, e un po' sfocata perché il foro non è un punto. Le macchie rotonde di sole sotto un albero sono proprio immagini pinhole del sole. Con tre punti, verde, rosso e blu: senza foro il muro è un grigio uniforme, con il foro tre punti diversi ricevono i tre colori."
+  },
+  {
+   "a": "Il punto Una camera organizza i raggi: u",
+   "t": "Da portare a casa: una camera organizza i raggi, uno per punto immagine. Il pinhole ideale realizza la proiezione prospettica."
+  },
+  {
+   "a": "6. Il compromesso e la lente",
+   "t": "Sezione sei, il compromesso e la lente. Col pinhole, un foro piccolo dà un'immagine nitida ma buia. Se lo allarghi, ogni punto della scena passa per tutta l'apertura e si spalma su una macchia: luminosa ma sfocata."
+  },
+  {
+   "a": "L'idea. La lente rompe il compromesso : ",
+   "t": "La lente rompe il compromesso: raccoglie i raggi di un punto su tutta l'apertura e li fa riconvergere in un solo punto. Tanta luce, e ogni punto resta un punto."
+  },
+  {
+   "a": "Dalla slide 26. Foro piccolo (nitido ma ",
+   "t": "Nella figura con il cane: a sinistra il foro piccolo, cono arancione sottile, immagine nitida ma scura. Al centro il foro grande, cono largo, immagine chiara ma sfocata. A destra la lente, l'ellisse bianca: il fascio largo riconverge in un pixel, immagine luminosa e nitida."
+  },
+  {
+   "a": "La matematica. Il libro (cap. 6) ricava ",
+   "t": "La condizione di fuoco per una lente sottile, nella formula che vedi: uno su a più uno su b uguale a uno su f. a è la distanza dell'oggetto, b quella del piano nitido, f la focale."
+  },
+  {
+   "a": "a è la distanza dell'oggetto dalla lente",
+   "t": "Un punto all'infinito va a fuoco a distanza f. E il raggio per il centro della lente non devia, quindi la geometria resta quella del pinhole. Per questo il corso usa il modello pinhole anche con gli obiettivi."
+  },
+  {
+   "a": "f = 1, oggetto a a = 3: b = 1.5 e i ragg",
+   "t": "Nella figura f vale 1 e il punto rosso sta a 3, quindi b viene uno e mezzo: i raggi rossi si incontrano esattamente sul sensore, la barra nera. Il punto verde, più lontano, ha raggi tratteggiati che si incrociano prima del sensore e poi si riaprono: sul sensore diventano il disco di confusione."
+  },
+  {
+   "a": "Esempio. Obiettivo da 50 mm, soggetto a ",
+   "t": "Esempio: obiettivo da 50 millimetri, soggetto a 2 metri. Uno su b fa uno su 50 meno uno su 2000, e b viene circa 51 virgola 3 millimetri: il sensore sta un millimetro e tre decimi più indietro rispetto al fuoco all'infinito."
+  },
+  {
+   "a": "Ma la lente mette a fuoco una sola dista",
+   "t": "Il prezzo: si mette a fuoco una sola distanza. L'intervallo ancora nitido è la profondità di campo, circa due N C U al quadrato su f al quadrato, con N il numero f, C il cerchio accettabile e U la distanza di fuoco. Con 50 millimetri a 2 metri: a f 2 virgola 8 circa 27 centimetri, a f 8 circa 77."
+  },
+  {
+   "a": "Il punto La lente dà luce e nitidezza in",
+   "t": "Da portare a casa: la lente dà luce e nitidezza insieme, ma solo ai punti a fuoco. La geometria resta quella del pinhole."
+  },
+  {
+   "a": "7. La proiezione prospettica",
+   "t": "Sezione sette, la proiezione prospettica. Dato un punto 3D, dove cade sull'immagine? La realtà aumentata lo calcola a ogni fotogramma."
+  },
+  {
+   "a": "Il setup (slide 28–30). Origine nel foro",
+   "t": "Origine nel foro, il centro ottico. Asse Z lungo l'asse ottico, verso la scena; X e Y orizzontale e verticale. Il piano immagine reale sta dietro il foro a distanza f, capovolto. Per evitare i segni meno usiamo un piano virtuale davanti al foro, sempre a distanza f: non esiste, è solo comodo."
+  },
+  {
+   "a": "L'idea: triangoli simili (slide 31). Di ",
+   "t": "L'idea sono i triangoli simili. Visto di lato, P, il foro e il piede di P sull'asse formano un triangolo con cateti Z e Y. Il foro e il punto immagine sul piano virtuale ne formano uno con cateti f e y. Stessi angoli, quindi y sta a Y come f sta a Z."
+  },
+  {
+   "a": "Triangolo grande (cateti Z = 4, Y = 2) e",
+   "t": "Nella figura, P blu ha Y uguale a 2 e Z uguale a 4. Il triangolo piccolo arancione ha cateto f uguale a 1. La retta nera da P passa per il foro e taglia il piano virtuale arancione a y uguale a zero virgola cinque. Proseguendo colpisce il piano reale grigio a meno zero virgola cinque: stesso punto, capovolto."
+  },
+  {
+   "a": "x = f · X / Z y = f · Y / Z",
+   "t": "Ecco la formula più importante della lezione: x uguale a f per X diviso Z, y uguale a f per Y diviso Z. x e y sono sul piano immagine, in millimetri; X, Y, Z il punto nel sistema della camera. Tutta la prospettiva sta nella divisione per Z, che rende la mappa non lineare."
+  },
+  {
+   "a": "Esempio. Spigolo di un tavolo in (0.4, −",
+   "t": "Esempio con un telefono, focale 4 millimetri. Lo spigolo di un tavolo sta 40 centimetri a destra, 20 in basso, 2 metri avanti. x fa 4 per zero virgola quattro diviso 2, cioè zero virgola otto millimetri, e y meno zero virgola quattro."
+  },
+  {
+   "a": "Il punto Prospettiva: (x, y) = f (X, Y) ",
+   "t": "Da portare a casa: le coordinate immagine sono f per X e f per Y diviso Z, dai triangoli simili. La divisione per Z genera tutti gli effetti prospettici."
+  },
+  {
+   "a": "8. Tre conseguenze della prospettiva",
+   "t": "Sezione otto: tre conseguenze della divisione per Z. Prima: lontano vuol dire piccolo. Una persona di un metro e ottanta a 10 metri, con focale 50 millimetri, occupa 9 millimetri sul sensore; a 20 metri, quattro e mezzo. La dimensione scala come uno su Z."
+  },
+  {
+   "a": "2. Le rette parallele convergono in un p",
+   "t": "Seconda: le rette parallele convergono in un punto di fuga. Attenzione: nelle slide del prof la giustificazione è sbagliata, dice che x tende a zero, vero solo per rette parallele all'asse ottico. Il ragionamento giusto: una retta è un punto P zero più t volte una direzione d. Mandi t all'infinito e, se d Z non è zero, contano solo i termini con t."
+  },
+  {
+   "a": "x → f · d X / d Z y → f · d Y / d Z",
+   "t": "Nella formula che vedi, x tende a f per d X diviso d Z, e y a f per d Y diviso d Z. Il punto di partenza è sparito."
+  },
+  {
+   "a": "Il limite non dipende da P 0 : ogni fami",
+   "t": "Ecco il cuore: il limite dipende solo dalla direzione, quindi tutte le parallele finiscono nello stesso punto. Binari lungo l'asse, direzione zero, zero, uno: fuggono nel centro. Rette a 45 gradi, direzione uno, zero, uno: fuggono in f, zero. Se d Z è zero, le rette sono parallele al piano immagine e restano parallele."
+  },
+  {
+   "a": "Rette sul suolo con f = 1: binari (blu) ",
+   "t": "Nella figura, con f uguale a 1, le due rette blu, i binari, si incontrano nell'origine. Le tre rette rosse partono da punti diversi ma finiscono tutte nel punto rosso, a x uguale a 1. Entrambi i punti stanno sull'orizzonte punteggiato. Le rette verdi tratteggiate restano orizzontali e parallele: nessun punto di fuga."
+  },
+  {
+   "a": "3. Dimensione e profondità sono confuse ",
+   "t": "Terza conseguenza, la più importante: conta solo il rapporto fra X e Z. Un oggetto k volte più grande e k volte più lontano dà la stessa immagine. Tutto un raggio per il foro finisce nello stesso pixel: la proiezione è una mappa molti a uno."
+  },
+  {
+   "a": "Sinistra: B, alto e lontano il doppio di",
+   "t": "Nel pannello di sinistra, A è la barra blu, alta 1 virgola 5 a profondità 3; B la rossa, alta 3 a profondità 6. La retta rossa dalla cima di B passa per la cima di A e taglia il piano virtuale a zero virgola cinque: stesso punto. A destra, in ortografica, le due barre restano distinte, a 1 virgola 5 e a 3."
+  },
+  {
+   "a": "Esempio. Auto di 4 m a 20 m e modellino ",
+   "t": "Esempio: un'auto di 4 metri a 20 metri e un modellino di 40 centimetri a 2 metri danno foto identiche. Per separarli servono altre viste, prior o modelli appresi, e feature, cioè descrittori, invarianti alla scala, che vedrai in L6 e L8."
+  },
+  {
+   "a": "Il punto Lontano = piccolo; le parallele",
+   "t": "Da portare a casa: lontano è piccolo, le parallele fuggono in un punto che dipende solo dalla direzione, e da una sola immagine dimensione e profondità non si separano."
+  },
+  {
+   "a": "9. Dai millimetri ai pixel",
+   "t": "Sezione nove, dai millimetri ai pixel. Il sensore dà indici di pixel, n ed m, con origine in un angolo, e ogni libreria ha la sua convenzione."
+  },
+  {
+   "a": "n = ± a x + n 0 m = ± a y + m 0",
+   "t": "Serve una scala più una traslazione. Nella formula: n uguale a più o meno a per x, più n zero; m uguale a più o meno a per y, più m zero. Con pixel da 5 micron, a vale 200 pixel per millimetro. n zero, m zero è il punto principale, il pixel dove cade l'asse ottico."
+  },
+  {
+   "a": "a converte unità fisiche in pixel (pixel",
+   "t": "Il segno è più se asse camera e asse pixel hanno lo stesso verso, meno se opposto. Attenzione: le slide del prof hanno due segni meno, ma con la loro figura il secondo è più, come nel libro. All'esame dichiara sempre i versi degli assi."
+  },
+  {
+   "a": "Esempio. Convenzione OpenCV (x, n a dest",
+   "t": "Esempio con la convenzione OpenCV, segni tutti più. Sensore 6000 per 4000 da 5 micron, punto principale 3000, 2000, focale 50 millimetri, punto a mezzo metro, un metro, 10 metri. x fa 2 virgola 5 millimetri e y 5. Quindi n fa 500 più 3000, cioè 3500, ed m fa 1000 più 2000, cioè 3000."
+  },
+  {
+   "a": "Catena completa (slide 36): (X, Y, Z) → ",
+   "t": "La catena completa va dal punto 3D ai millimetri ai pixel. Il libro la scrive come un prodotto per la matrice degli intrinseci K, in coordinate omogenee: la ritroverai nella parte di geometria."
+  },
+  {
+   "a": "Il punto Pixel = scala a più punto princ",
+   "t": "Da portare a casa: pixel uguale a scala per coordinata più punto principale. I segni dipendono dai versi degli assi: dichiarali sempre."
+  },
+  {
+   "a": "10. La proiezione ortografica",
+   "t": "Sezione dieci, la proiezione ortografica. La prospettiva nasce dal fatto che tutti i raggi passano per un punto. E se accettassimo solo i raggi perpendicolari al piano immagine?"
+  },
+  {
+   "a": "L'idea. Ogni punto arriva sull'immagine ",
+   "t": "Ogni punto arriverebbe lungo una retta parallela all'asse ottico, e nella formula x è k per X, y è k per Y. Z è sparito: la dimensione non dipende dalla distanza, e non ci sono punti di fuga."
+  },
+  {
+   "a": "con k scala fissa. Z è sparito: la dimen",
+   "t": "Si realizza con un fascio di cannucce parallele dipinte di nero dentro: passano solo i raggi allineati, quelli inclinati vengono assorbiti. Nel libro k vale 1 e l'immagine non è capovolta."
+  },
+  {
+   "a": "Dalla slide 40. (a) Il fascio di cannucc",
+   "t": "Nella figura: in a il fascio di cannucce nere tenuto in mano, in b la scena, una mano aperta davanti a un cespuglio, in c il fascio su un foglio bianco con la macchia chiara dell'immagine sotto. Non capovolta, stessa scala a ogni distanza."
+  },
+  {
+   "a": "Esempio. Un teleobiettivo su oggetti lon",
+   "t": "Un teleobiettivo su oggetti lontani è quasi ortografico: la prospettiva debole usa k uguale a f diviso la profondità media. Focale 400 millimetri, auto a 200 metri: k vale due millesimi e l'auto occupa 8 millimetri. Muso e coda hanno scale diverse solo del 2 per cento."
+  },
+  {
+   "a": "Il messaggio della slide 41: nessuna del",
+   "t": "Nessuna delle due proiezioni è quella giusta: la prospettica tiene un indizio di profondità ma lo confonde con la dimensione, l'ortografica toglie la confusione buttando via la profondità. Da portare a casa: ogni geometria sceglie quale informazione tenere."
+  },
+  {
+   "a": "11. La camera come sistema lineare",
+   "t": "Sezione undici, la camera come sistema lineare. Foro largo, spigolo di un muro, oggetto che fa ombra: nelle slide c'è perfino la corner camera, che vede chi cammina dietro l'angolo. Serve un linguaggio unico."
+  },
+  {
+   "a": "L'idea. Per la linearità della luce, ogn",
+   "t": "Grazie alla linearità della luce, ogni pixel misura una somma pesata delle intensità della scena. Tante somme pesate di tante incognite: matrice per vettore."
+  },
+  {
+   "a": "La matematica (slide 44–45). Il libro us",
+   "t": "Il libro usa un mondo piatto: la scena è una riga di N valori nel vettore elle w, world, i pixel M valori nel vettore elle s, sensor. La formula: elle s uguale ad A per elle w. La riga i di A dice cosa vede il pixel i, la colonna j dove finisce la luce del punto j."
+  },
+  {
+   "a": "Pinhole ideale : ogni pixel vede un punt",
+   "t": "Quattro camere, con 13 punti come nel libro. Pinhole ideale: A è l'identità, ed è per questo che i dati grezzi somigliano già a un'immagine. Foro largo: due uni consecutivi per riga, una media mobile, cioè un blur, ponte con la convoluzione di L3. Edge camera: A triangolare piena di uni, una somma cumulativa. Pinspeck: tutti uni meno il foro largo, un segnale piccolo su un fondo grande."
+  },
+  {
+   "a": "Stessa scena, quattro camere. Pinhole: m",
+   "t": "Guarda la figura. In alto le matrici, nero uguale 1: la diagonale del pinhole, la banda doppia del foro largo, il triangolo nero della edge, e la pinspeck tutta nera tranne una banda bianca. In basso le misure: il pinhole riproduce la scena, il foro largo la liscia, la edge dà una scala che scende, irriconoscibile, la pinspeck barre fra circa 5 e 6 con una piccola ondulazione."
+  },
+  {
+   "a": "Esempio a 3 pixel. Scena (1, 0, 2), foro",
+   "t": "Esempio a 3 pixel: scena uno, zero, due, foro largo. Ottieni uno, due, due: il punto buio in mezzo è sparito, il blur lo ha riempito."
+  },
+  {
+   "a": "Il punto Ogni camera è ℓ s = A ℓ w . Più",
+   "t": "Da portare a casa: ogni camera è elle s uguale ad A per elle w. Più A si allontana dall'identità, meno la misura somiglia alla scena."
+  },
+  {
+   "a": "12. Invertire: rumore e inversa regolari",
+   "t": "Sezione dodici, invertire: da saper rifare all'esame. Se A è invertibile basterebbe l'inversa. Ma c'è sempre un rumore eta, e l'inversa restituisce la scena più l'inversa applicata al rumore. Se A schiaccia quasi a zero una direzione, l'inversa la moltiplica per un numero enorme, e con lei il rumore. Il problema è mal posto."
+  },
+  {
+   "a": "Esempio a due pixel. Blur forte: A = [[1",
+   "t": "Due pixel, blur forte: 1 sulla diagonale, zero virgola nove fuori. La media, direzione uno, uno, ha autovalore 1 virgola 9: ben misurata. La differenza, direzione uno, meno uno, ha autovalore zero virgola uno: misurata quasi niente."
+  },
+  {
+   "a": "Esempio a due pixel. Blur forte: A = [[1",
+   "t": "Scena uno, uno. Con un rumore di cinque centesimi lungo la differenza misuri 1 virgola 95 e 1 virgola 85. L'inversa amplifica quella direzione di 10 volte e restituisce 1 virgola 5 e zero virgola 5. Cinque centesimi di errore sulle misure diventano mezzo punto sulla scena."
+  },
+  {
+   "a": "L'idea. Invece di chiedere \"la scena che",
+   "t": "L'idea: non chiediamo più la scena che spiega esattamente le misure, ma una che le spieghi bene e sia plausibile."
+  },
+  {
+   "a": "E(ℓ w ) = ‖ℓ s − A ℓ w ‖² + λ ‖ℓ w ‖²",
+   "t": "Nella formula che vedi, il primo termine è la norma al quadrato di elle s meno A elle w: la fedeltà ai dati. Il secondo, lambda per la norma al quadrato di elle w, è il regolarizzatore, che penalizza le scene esplose. Con lambda verso zero torni ai minimi quadrati, con lambda enorme la scena va a zero."
+  },
+  {
+   "a": "Derivazione (slide 52, da saper rifare).",
+   "t": "La derivazione. Il gradiente della norma di b meno A x al quadrato è meno due A trasposta per b meno A x; il gradiente di x trasposto x è due x. Poni il gradiente di E uguale a zero, dividi per due e riordina: A trasposta A più lambda I, per elle w, uguale ad A trasposta elle s."
+  },
+  {
+   "a": "ℓ w = (A T A + λI) −1 A T ℓ s = B ℓ s",
+   "t": "Inverti: elle w è l'inversa di A trasposta A più lambda I, per A trasposta, per elle s. Tutta questa matrice si chiama B, l'inversa regolarizzata."
+  },
+  {
+   "a": "B è l' inversa regolarizzata (slide 53).",
+   "t": "E è convessa, quindi il minimo è globale. E A trasposta A più lambda I è sempre invertibile: i suoi autovalori sono quelli di A trasposta A, non negativi, spostati in su di lambda. È la regolarizzazione di Tikhonov, la ridge regression del machine learning."
+  },
+  {
+   "a": "Cosa fa B. Lungo una direzione che A mol",
+   "t": "Lungo una direzione che A moltiplica per sigma, l'inversa moltiplica per uno su sigma, B per sigma diviso sigma al quadrato più lambda. Sigma grande: come l'inversa. Sigma piccolo: circa sigma su lambda, quasi zero. B spegne la direzione mal misurata invece di esplodere."
+  },
+  {
+   "a": "Cosa fa B. Lungo una direzione che A mol",
+   "t": "Nell'esempio, con lambda zero virgola uno: lungo la media B moltiplica per zero virgola cinquantuno, contro zero virgola cinquantatré; lungo la differenza per zero virgola novantuno, contro 10. La stima è circa 1 virgola zero due e zero virgola novantatré. Il prezzo è un piccolo bias: senza rumore, B dà zero virgola novantasette invece di 1."
+  },
+  {
+   "a": "Sinistra: A −1  sposta la stima lungo u ",
+   "t": "Nella figura a sinistra: il punto nero è la scena vera, il grigio in alto la misura. Il rosso, l'inversa, è scivolato lungo la diagonale della differenza fino a uno e mezzo, zero e mezzo. Il verde, B, è quasi sopra il nero. A destra, in scala logaritmica: la retta rossa uno su sigma vale 10 a sigma zero virgola uno, la curva verde di B lì vale zero virgola novantuno e per sigma grande si sovrappone alla rossa."
+  },
+  {
+   "a": "Ora il foro largo del libro, con N = 13 ",
+   "t": "Ora il foro largo con 13 pixel, rumore di cinque centesimi e lambda zero virgola uno. In numpy B si ottiene risolvendo un sistema lineare, senza invertire esplicitamente."
+  },
+  {
+   "a": "In alto A, A −1  (scacchiera di ±1) e B ",
+   "t": "In alto: A con la banda di due uni, l'inversa che è una scacchiera rossa e blu di più uno e meno uno, e B con la stessa alternanza che sbiadisce lontano dalla diagonale. In basso: la linea rossa dell'inversa zigzaga intorno alla scena nera, errore zero virgola quarantasei; la blu di B è più liscia, errore zero virgola venti."
+  },
+  {
+   "a": "Perché una scacchiera (slide 47 e 54)? A",
+   "t": "Perché la scacchiera? A è identità più U, con U nilpotente, uni solo sopra la diagonale. L'inversa è identità meno U più U al quadrato, e così via, con segni alterni. L'alternanza è la frequenza più alta, quella che il blur attenua di più e l'inversa deve riamplificare. Nota: nelle slide del prof la didascalia di questa figura è un copia incolla sbagliato."
+  },
+  {
+   "a": "Come scegliere λ (stesso caso, media su ",
+   "t": "Come scegliere lambda? Nella figura, media su 400 prove: il rumore amplificato, in blu, cala; il bias, in rosso, cresce. L'errore totale, nero, parte da zero virgola quarantanove dell'inversa e ha un minimo di circa zero virgola diciotto, il punto verde, intorno a lambda zero virgola quattordici, vicino al nostro zero virgola uno."
+  },
+  {
+   "a": "In Fourier ( L3 ) B diventa H* / (|H|² +",
+   "t": "Un'anticipazione: nella L3, passando a Fourier, la stessa inversa regolarizzata diventa il filtro di Wiener. È una deconvoluzione, cioè la stessa idea vista in frequenza."
+  },
+  {
+   "a": "Il punto A −1 amplifica il rumore lungo ",
+   "t": "Da portare a casa: l'inversa amplifica il rumore lungo le direzioni misurate male. B le spegne, un po' di bias in cambio di molta stabilità."
+  },
+  {
+   "a": "13. Il colore: spettri e primari",
+   "t": "Sezione tredici, il colore. La luce non è un numero ma uno spettro: un'intensità per ogni lunghezza d'onda. Occhio e camera ne tengono tre numeri. Cosa perdiamo?"
+  },
+  {
+   "a": "L'idea. Il visibile va da circa 400 nm (",
+   "t": "Il visibile va da circa 400 nanometri, blu violetto, a 700, rosso: da 400 a 500 blu, da 500 a 600 verde, da 600 a 700 rosso. Lo spettro ha infinite dimensioni, o N se campionato. RGB ne è una proiezione su tre."
+  },
+  {
+   "a": "In alto le tre bande del visibile. In ba",
+   "t": "Nella figura, in alto l'arcobaleno diviso in tre bande. In basso a sinistra gli additivi degli schermi, una banda ciascuno, e rosso più verde più blu fa bianco. A destra i sottrattivi della stampa: ciano è bianco meno rosso, magenta bianco meno verde, giallo bianco meno blu. La banda tolta è quella tratteggiata."
+  },
+  {
+   "a": "Esempio. Lo schermo fa il giallo accende",
+   "t": "Lo schermo fa il giallo accendendo rosso e verde: lo spettro ha due picchi e quasi niente a 580 nanometri. Eppure lo vediamo come il giallo di un limone. Lo spiega la sezione quindici."
+  },
+  {
+   "a": "Il punto Il colore fisico è uno spettro;",
+   "t": "Da portare a casa: il colore fisico è uno spettro, e i tre numeri RGB ne sono una compressione con perdita."
+  },
+  {
+   "a": "14. Riflettanza e color constancy",
+   "t": "Sezione quattordici, riflettanza e color constancy, cioè costanza del colore. Sotto i lampioni arancioni il bilanciamento del bianco sbaglia, e una camicia bianca esce arancione. Perché è difficile?"
+  },
+  {
+   "a": "L'idea. Lambert lunghezza d'onda per lun",
+   "t": "Applica Lambert a ogni lunghezza d'onda. L'albedo diventa uno spettro di riflettanza, s di lambda, fra zero e uno. Alla camera arriva r di lambda, uguale a k per la luce entrante di lambda per s di lambda."
+  },
+  {
+   "a": "con ℓ in (λ) spettro dell'illuminante, s",
+   "t": "La luce entrante è lo spettro dell'illuminante, s il colore vero del materiale, k il fattore geometrico. Di nuovo un prodotto di due incognite: da r non separi materiale e luce senza ipotesi."
+  },
+  {
+   "a": "Esempio (bande B, G, R). Oggetto rossast",
+   "t": "In tre bande, blu, verde, rosso: un oggetto rossastro, zero virgola due, zero virgola due, zero virgola sei, in luce bianca, dà zero virgola due, zero virgola due, zero virgola sei. Un oggetto grigio, zero virgola tre ovunque, in luce rossastra, zero virgola sessantasette, zero virgola sessantasette, due, dà lo stesso segnale."
+  },
+  {
+   "a": "Due coppie (materiale, luce) diverse, st",
+   "t": "La figura mostra proprio questi conti: in alto riflettanza rossastra per luce bianca, in basso riflettanza grigia per luce con la barra rossa alta 2. Le due colonne di destra, sul fondo giallino, sono identiche: guardando solo il segnale non sai quale scena c'era."
+  },
+  {
+   "a": "Stimare s scontando la luce è la color c",
+   "t": "Stimare il colore vero scontando la luce è la color constancy: il cervello la fa da solo, le camere col bilanciamento del bianco. Il grey world assume che la media della scena sia grigia: è un prior, come lambda. Medie zero virgola quattro, zero virgola cinque, zero virgola otto: moltiplichi per uno virgola venticinque, uno e zero virgola seicentoventicinque, e diventano tutte zero virgola cinque."
+  },
+  {
+   "a": "Anche noi usiamo prior: nella scacchiera",
+   "t": "Anche noi usiamo prior. Nella figura a sinistra, la scacchiera di Adelson: il quadrato A e il quadrato B, nell'ombra del cilindro verde, hanno pixel identici, ma B ti sembra più chiaro perché il cervello sconta l'ombra."
+  },
+  {
+   "a": "Dalle slide 63 e 64. A e B hanno pixel i",
+   "t": "A destra il famoso vestito: chi assume luce calda la sconta e lo vede blu e nero, chi assume luce fredda lo vede bianco e oro. L'immagine al centro è la stessa. Il vestito vero è blu e nero."
+  },
+  {
+   "a": "Il punto Il pixel è materiale × luce, no",
+   "t": "Da portare a casa: il pixel è materiale per luce, non il colore della superficie. La color constancy è mal posta e si risolve con i prior."
+  },
+  {
+   "a": "15. L'occhio, la tricromia e i metameri",
+   "t": "Sezione quindici, l'occhio. Perché bastano tre primari per gli schermi? E perché un vestito comprato in negozio a casa sembra di un altro colore?"
+  },
+  {
+   "a": "L'idea. La retina ha tre tipi di coni, L",
+   "t": "La retina ha tre tipi di coni, L, M ed S, per onde lunghe, medie e corte, con picchi intorno a 570, 540 e 440 nanometri. Ogni cono somma lo spettro pesato dalla sua curva: un'operazione lineare."
+  },
+  {
+   "a": "(L, M, S) T = C eye · t",
+   "t": "Campiona lo spettro in N valori nel vettore t, metti le tre curve come righe della matrice C eye, 3 per N. Nella formula che vedi, le tre risposte sono C eye per t. È di nuovo matrice per vettore, ma larghissima: tre misure di N incognite. Questa è la tricromia, e per questo bastano tre primari."
+  },
+  {
+   "a": "La matematica. Rango-nullità: se C eye h",
+   "t": "Rango nullità: se C eye ha rango 3, il nucleo ha dimensione N meno 3. Se v sta nel nucleo, t e t più v danno la stessa risposta. Due spettri diversi che vediamo identici si chiamano metameri."
+  },
+  {
+   "a": "A sinistra curve schematiche dei coni (g",
+   "t": "Nella figura a sinistra le curve schematiche dei coni: blu S verso 450, verde M verso 540, rossa L verso 565. A destra la linea nera è uno spettro piatto, la curva viola oscilla fra quasi zero e oltre zero virgola nove: è lo spettro piatto più un vettore del nucleo. La scritta conferma: stesse L, M, S per entrambi."
+  },
+  {
+   "a": "Esempio. Campioni ogni 10 nm fra 400 e 7",
+   "t": "Campioni ogni 10 nanometri fra 400 e 700: N vale 31, nucleo di dimensione 28. Quasi tutta l'informazione spettrale ci è invisibile; l'unico vincolo è che lo spettro resti non negativo. Ecco il giallo dello schermo: rosso più verde e il giallo del limone sono metameri."
+  },
+  {
+   "a": "Una camera ha curve diverse dai coni, qu",
+   "t": "Una camera ha curve diverse dai coni, quindi un altro nucleo: due vestiti uguali a occhio possono uscire diversi in foto. Per vedere come l'occhio, la sua matrice dovrebbe essere una 3 per 3 invertibile per C eye. Le camere iperspettrali, con molte bande, distinguono i metameri."
+  },
+  {
+   "a": "Il punto L'occhio è una mappa lineare 3 ",
+   "t": "Da portare a casa: l'occhio è una mappa lineare da N a 3 numeri, con un nucleo di dimensione N meno 3. Spettri diversi appaiono uguali."
+  },
+  {
+   "a": "16. Luminanza e crominanza",
+   "t": "Sezione sedici, luminanza e crominanza. Il JPEG butta via tre quarti dei dati di colore, e non te ne accorgi. Come fa?"
+  },
+  {
+   "a": "L'idea (slide 68–69). Vediamo il dettagl",
+   "t": "Vediamo il dettaglio molto meglio nella luminanza, quanto è chiaro, che nella crominanza, che colore è. La luminanza è fatta soprattutto di verde, e i coni S del blu sono radi."
+  },
+  {
+   "a": "Dalla slide 69. Un canale sfocato alla v",
+   "t": "Guarda le tre foto. Al centro, verde sfocato: volti, capelli e ringhiera impastati. A destra, blu sfocato: sembra quasi perfetta. A sinistra, rosso sfocato: noti qualcosa nei capelli ricci e nella ringhiera."
+  },
+  {
+   "a": "Esempio. Y ≈ 0.30 R + 0.59 G + 0.11 B: u",
+   "t": "La luminanza è circa zero virgola trenta di rosso, zero virgola cinquantanove di verde e zero virgola undici di blu: lo stesso errore pesa circa cinque volte meno sul blu che sul verde. Il JPEG salva le due crominanze a metà risoluzione per lato, un quarto dei campioni, e la differenza quasi non si vede."
+  },
+  {
+   "a": "Il punto Il dettaglio sta nella luminanz",
+   "t": "Da portare a casa: il dettaglio sta nella luminanza, mentre il colore si può campionare in modo molto più grossolano."
+  },
+  {
+   "a": "Modello diretto: scena → ottica → sensor",
+   "t": "Fine dei contenuti. Il riassunto in dieci righe della dispensa è perfetto per il ripasso veloce. Ora mettiti alla prova."
+  },
+  {
+   "a": "Perché una superficie lambertiana appare",
+   "t": "Prima domanda. Perché una superficie lambertiana appare ugualmente luminosa da ogni punto di vista, mentre un highlight si sposta quando ti muovi? Metti in pausa e prova a rispondere."
+  },
+  {
+   "a": "Perché una superficie lambertiana appare",
+   "t": "In Lambert la vista q non compare. Nel termine speculare di Phong c'è il prodotto scalare fra r e q alla alfa, grande solo dove q è vicina a r. Se muovi la camera, si sposta il punto in cui r e q sono allineati, e con lui il riflesso."
+  },
+  {
+   "a": "Perché una superficie lambertiana appare",
+   "t": "Seconda domanda. Dove fuggono le rette con direzione uno, zero, due, se la focale è 50 millimetri? E quelle con direzione uno, uno, zero? Metti in pausa e prova a rispondere."
+  },
+  {
+   "a": "Perché una superficie lambertiana appare",
+   "t": "Il punto di fuga è f per d X su d Z, f per d Y su d Z: 50 per un mezzo, cioè 25 millimetri, e zero, da qualunque punto partano. Le seconde hanno d Z uguale a zero: restano parallele, nessun punto di fuga."
+  },
+  {
+   "a": "Perché una superficie lambertiana appare",
+   "t": "Terza domanda. Ricava l'inversa regolarizzata nel caso scalare, con A uguale ad a, e commenta a uguale a 2 e a uguale a zero virgola zero uno, con lambda zero virgola zero uno. Metti in pausa e prova a rispondere."
+  },
+  {
+   "a": "Perché una superficie lambertiana appare",
+   "t": "E è s meno a w al quadrato, più lambda w al quadrato. Derivi, poni a zero e trovi w uguale ad a s diviso a al quadrato più lambda. Con a uguale a 2 il fattore è circa zero virgola quattrocentonovantanove, praticamente uno su a. Con a uguale a zero virgola zero uno è circa zero virgola novantanove invece di 100: niente rumore amplificato, ma una stima distorta."
+  },
+  {
+   "a": "Perché una superficie lambertiana appare",
+   "t": "Quarta domanda. Lo spettro è campionato in 61 valori. Quanto è grande lo spazio dei metameri, e perché una camera RGB può distinguere due metameri dell'occhio? Metti in pausa e prova a rispondere."
+  },
+  {
+   "a": "Perché una superficie lambertiana appare",
+   "t": "C eye è 3 per 61 di rango 3, quindi il nucleo ha dimensione 58. La camera ha un'altra matrice con un altro nucleo, e in generale non annulla i vettori che l'occhio non vede, salvo se è una 3 per 3 invertibile per C eye."
+  },
+  {
+   "a": "Visionbook cap. 5 Imaging : BRDF, Lamber",
+   "t": "Per proseguire, sul libro: capitolo 5 per luce e proiezioni, capitolo 6 per le lenti, capitolo 7 tutto per la camera lineare, capitolo 8 per il colore, e il 39 per un anticipo sulle coordinate omogenee. Poi ripassa con le schede, che correggono gli errori delle slide."
+  },
+  {
+   "a": "Percorso dettagliato nella sezione \"Stud",
+   "t": "Ricapitoliamo. Una foto è l'uscita di una catena, scena, ottica, sensore, ISP, e la visione la inverte. La luce di una superficie è un prodotto di materiale, luce e geometria: Lambert non dipende dalla vista, Phong sì. La prospettiva divide per Z e confonde dimensione e profondità. Ogni camera è una matrice A, da invertire con l'inversa regolarizzata. E il colore schiaccia uno spettro in tre numeri, mescolando materiale e luce."
+  }
+ ]
+}

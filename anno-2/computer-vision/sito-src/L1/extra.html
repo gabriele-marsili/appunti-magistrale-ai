@@ -1,0 +1,108 @@
+
+<div class="sec" id="l1-libro"><h2>Studia dal libro</h2><span>visionbook, capitoli 1, 2, 3 (e un assaggio del 40)</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Cosa leggere, in ordine</h3>
+    <div class="meta">Circa 3 ore in tutto; il cap. 2 è quello che conta di più per capire</div>
+    <ol>
+      <li><a href="https://visionbook.mit.edu/taxonomy.html"><b>Cap. 1 · The Challenge of Vision</b></a> (lettura indicata dalle slide). Leggi bene § 1.2 (Vision: input e output del problema), § 1.3.2 (Helmholtz, percezione come inferenza), § 1.3.6 (i livelli di Marr), § 1.3.7–1.3.8 (storia e visione basata sull'apprendimento). Si può scorrere: § 1.3.1 (Greci, Alhazen, Keplero), § 1.3.3 (Gestalt: utile ma tornerà con la segmentazione), § 1.3.4 (Gibson), § 1.3.5 (neuroscienze: retina, LGN, V1, campi recettivi; leggilo se vuoi capire da dove vengono i filtri di L5).</li>
+      <li><a href="https://visionbook.mit.edu/simplesystem.html"><b>Cap. 2 · A Simple Vision System</b></a> (facoltativo per le slide, ma consigliato). Leggilo tutto: è corto ed è l'esempio concreto di "problema inverso reso ben posto dai prior". Si appoggia su gradienti (L5) e minimi quadrati.</li>
+      <li><a href="https://visionbook.mit.edu/visionscience.html"><b>Cap. 3 · Looking at Images</b></a>. Senza formule, da leggere con calma guardando le figure. Per il corso contano § 3.2 (pixel e contesto), § 3.6 (orizzontale o verticale), § 3.7 (motion blur), § 3.8 (coincidenze e principio di continuità), § 3.11 (la caverna di Platone: l'immagine è una proiezione povera della scena). Il resto (§ 3.4 pittura, § 3.5 ombre degli alberi, § 3.10 gocce di pioggia) è bello ma facoltativo.</li>
+      <li>Solo § 40.2.1 del <a href="https://visionbook.mit.edu/3d_scene_understanding_stereo.html"><b>cap. 40 · Stereo Vision</b></a>: la barca della slide 35. Il resto del capitolo verrà con lo stereo.</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h3>Le idee centrali, spiegate come nel libro</h3>
+    <div class="meta">Sono le cose da saper raccontare a parole</div>
+    <p><b>1 · Vedere non è misurare la luce.</b> L'ingresso è la luce ambiente (la funzione plenottica, di cui l'osservatore vede solo un pezzo, con buona parte della scena occlusa); l'uscita desiderata sono proprietà della scena: superfici, materiali, oggetti. L'illusione di Adelson (slide 26) mostra che il sistema visivo "sbaglia la misura" per dare la risposta giusta sulla scena (cap. 1, § 1.2).</p>
+    <p><b>2 · Percezione come inferenza.</b> Per Helmholtz vediamo la scena che più probabilmente avrebbe prodotto le sensazioni ricevute: in termini moderni, un'inferenza bayesiana con un prior sul mondo. È la chiave per leggere le slide 21–29 (pixel senza contesto, la scarpa scambiata per telefono, il punto cieco) (cap. 1, § 1.3.2).</p>
+    <p><b>3 · I livelli di Marr.</b> Teoria computazionale (cosa si calcola e perché), rappresentazione e algoritmo, implementazione. La visione come catena di rappresentazioni: immagine, primal sketch, sketch 2.5D, modello 3D. La critica del libro: Marr non prevedeva che le rappresentazioni sarebbero state apprese (cap. 1, § 1.3.6).</p>
+    <p><b>4 · Un sistema completo nel mondo a blocchi.</b> Proiezione ortografica con camera inclinata: x = X, y = cos(θ)Y − sin(θ)Z. Y e Z si mescolano, quindi il problema è mal posto. Si estraggono i bordi con il gradiente, si classificano (contatto con il terreno, occlusione, verticali, orizzontali) e ogni ipotesi sul mondo diventa un'equazione lineare su Y(x, y): Y = 0 sul terreno e sui bordi di contatto, ∂Y/∂y = 1/cos(θ) sui bordi verticali, derivata nulla lungo i bordi orizzontali, derivate seconde nulle sulle facce piane. Il sistema sovradeterminato A Y = b si risolve ai minimi quadrati, Y = (AᵀA)⁻¹Aᵀb (A è sparsa). Poi Z viene dall'equazione di proiezione e la scena si può ri-renderizzare da altri punti di vista per verificarla (cap. 2, § 2.3–2.6).</p>
+    <p><b>5 · Proprietà non accidentali e vista generica.</b> Una retta 3D si proietta in una retta, segmenti che si toccano nel 3D si toccano nell'immagine, curve lisce restano lisce. Il contrario non è garantito, ma se il punto di vista è "generico" (non allineato per caso) si può assumere: un segmento verticale nell'immagine viene da un segmento verticale nel mondo. Un cubo allineato esattamente con la camera rompe l'ipotesi (cap. 2, § 2.6.4). Il cap. 3, § 3.8 mostra che nelle foto vere le coincidenze accadono eccome: per questo i sistemi a regole fisse sono fragili.</p>
+    <p><b>6 · Generalizzazione.</b> Anche il sistema a blocchi viene provato fuori dalle sue ipotesi (oggetti impilati, occlusioni): funziona abbastanza, ma senza garanzie. E non capisce gli oggetti: non sa contarli né immaginare le parti nascoste. Da qui la necessità di riconoscimento e apprendimento (cap. 2, § 2.7–2.8), cioè il discorso delle slide 17–18.</p>
+  </div>
+
+  <div class="card">
+    <h3>Differenze fra slide e libro</h3>
+    <ul>
+      <li>Le slide usano "Ch.1" e "Ch.2": nel libro sono <i>The Challenge of Vision</i> (pagina <code>taxonomy.html</code>) e <i>A Simple Vision System</i>.</li>
+      <li>Molte figure delle slide 21–28 sono del cap. 3; la scacchiera di Adelson è la Figura 1.2 del cap. 1; la barca della slide 35 è la Figura 40.2.</li>
+      <li>Le slide parlano di "prior" in modo generico; il libro li rende concreti in due modi: come inferenza inconscia (Helmholtz, cap. 1) e come vincoli scritti in equazioni (cap. 2). Conviene avere in testa entrambe le versioni.</li>
+      <li>Il libro usa la proiezione <b>ortografica</b> nel cap. 2 solo per semplicità; la proiezione prospettica (quella vera delle camere) arriva in L2.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Cosa il libro aggiunge e le slide omettono</h3>
+    <ul>
+      <li>Il modo in cui un sistema classico <b>usa davvero</b> i prior (cap. 2): senza di esso "servono prior" resta uno slogan.</li>
+      <li>I tre modi di programmare un sistema visivo (regole a mano, derivazione da un modello del mondo, apprendimento dai dati) e i cicli di entusiasmo per le reti neurali (cap. 1, § 1.3.8).</li>
+      <li>Le leggi di raggruppamento della Gestalt (prossimità, somiglianza, chiusura, buona continuazione, destino comune), che tornano con segmentazione e grouping (cap. 1, § 1.3.3).</li>
+      <li>Campi recettivi e cellule orientate di Hubel e Wiesel (cap. 1, § 1.3.5): l'origine biologica dei filtri orientati di L5 e dei primi layer delle CNN.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="sec" id="l1-guida"><h2>Guida allo studio</h2><span>circa 2 ore e mezza più la lettura del libro</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Prima di iniziare</h3>
+    <div class="meta">10 minuti</div>
+    <p>È una lezione di inquadramento: poche formule, molti concetti che torneranno. L'obiettivo è saper spiegare <b>perché la visione è difficile</b> e <b>come si rende risolvibile</b>, con esempi.</p>
+  </div>
+  <div class="two">
+    <div class="card">
+      <h3>1 · Cos'è la visione e perché è difficile</h3>
+      <div class="meta">Slide 2–19 · circa 45 minuti</div>
+      <ul>
+        <li>Scrivi con parole tue la differenza grafica / visione (slide 11) e la definizione di problema mal posto (slide 12).</li>
+        <li>Per ognuna delle cinque difficoltà (luce, punto di vista, occlusione, scala, variazione intra-classe) trova un esempio tuo.</li>
+        <li>Verifica: sai spiegare con l'equazione y = cos(θ)Y − sin(θ)Z perché una sola immagine non basta?</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>2 · Percezione umana</h3>
+      <div class="meta">Slide 20–29 · circa 30 minuti</div>
+      <ul>
+        <li>Fai il test del punto cieco (slide 25) e guarda l'illusione di Adelson coprendo tutto tranne i quadrati A e B.</li>
+        <li>Per ogni figura scrivi quale prior sta usando il cervello.</li>
+        <li>Verifica: sai dire cosa significa "percezione come inferenza inconscia"?</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>3 · Temi unificanti</h3>
+      <div class="meta">Slide 30–37 · circa 40 minuti</div>
+      <ul>
+        <li>Collega ogni tema a una parte del programma (slide 47–50).</li>
+        <li>Rifai il conto della barca (slide 35) con il teorema dei seni.</li>
+        <li>Verifica: perché invarianza e discriminatività sono in tensione?</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>4 · Stato dell'arte e organizzazione</h3>
+      <div class="meta">Slide 38–61 · circa 20 minuti</div>
+      <ul>
+        <li>Per ogni sistema (SAM 2, Depth Anything, DINOv3, D4RT) di' a quale tema e a quale livello (basso, medio, alto) appartiene.</li>
+        <li>Segnati: esame solo orale, laboratori non valutati, visionbook come libro di riferimento.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Domande tipo orale</h3>
+    <div class="meta">Prova a rispondere, poi apri per la traccia</div>
+    <div class="qa">
+      <details><summary>Che cos'è la computer vision e in cosa differisce da image processing e computer graphics?</summary><p>Estrarre significato, struttura e decisioni da dati visivi. L'image processing va da segnale a segnale; la grafica va da scena a immagine (problema diretto); la visione va da immagine a scena (problema inverso) (slide 4, 11).</p></details>
+      <details><summary>Perché la visione è un problema mal posto? Fai un esempio.</summary><p>Manca una soluzione unica e stabile: la proiezione 3D → 2D perde la profondità, quindi infinite scene danno la stessa immagine (stessa silhouette, stesso ombreggiamento con forma, materiale e luce diversi). Nel mondo a blocchi: y = cos(θ)Y − sin(θ)Z mescola altezza e profondità. Servono prior (slide 12, cap. 2).</p></details>
+      <details><summary>Elenca le principali difficoltà della visione e per ognuna di' come si affronta.</summary><p>Illuminazione (separare luce da riflettanza, normalizzazioni, invarianza appresa); punto di vista (invarianza, geometria); occlusione (contesto, prior, più viste); scala (multiscala, piramidi); variazione intra-classe (rappresentazioni apprese) (slide 13–16).</p></details>
+      <details><summary>Cosa ci insegna l'illusione di Adelson?</summary><p>A e B hanno lo stesso grigio ma li vediamo diversi: il sistema visivo stima la riflettanza scontando l'ombra. La visione non è fotometria: il suo output sono proprietà della scena (slide 26, cap. 1 § 1.2.2).</p></details>
+      <details><summary>Che cos'è un prior? Dai esempi nella percezione umana e in un sistema artificiale.</summary><p>Un'ipotesi sul mondo che rende risolvibile il problema. Umani: riempimento del punto cieco, oggetti più probabili nel contesto (la scarpa-telefono), orizzonte orizzontale. Sistema a blocchi: terreno a Y = 0, facce piane, bordi verticali o orizzontali. Sistemi moderni: prior appresi dai dati (Depth Anything) (slide 23–29, 42).</p></details>
+      <details><summary>Quali sono i livelli di analisi di Marr?</summary><p>Teoria computazionale, rappresentazione e algoritmo, implementazione. E la catena immagine → primal sketch → sketch 2.5D → modello 3D (cap. 1 § 1.3.6).</p></details>
+      <details><summary>Quali sono i quattro temi unificanti della computer vision?</summary><p>Corrispondenza, vincoli geometrici, apprendimento di rappresentazioni, coerenza temporale, con esempi: panorami e stereo, epipolare e omografia, SIFT contro feature apprese, tracking (slide 31–37).</p></details>
+      <details><summary>Cos'è la triangolazione e perché rende ben posto il problema?</summary><p>Con due camere calibrate i due raggi dal centro di proiezione attraverso i punti corrispondenti si intersecano in un solo punto 3D. Una vista dà un raggio (profondità ignota), due viste lo fissano. Esempio della barca: d = t sin α sin β / sin(α + β) (slide 35, cap. 40 § 40.2.1).</p></details>
+      <details><summary>Cosa rende buona una rappresentazione? Differenza fra approccio classico e moderno.</summary><p>Invariante ai disturbi, discriminativa per ciò che conta. Classico: progettata a mano (SIFT); moderno: appresa dai dati (CNN, ViT, self-supervised come DINOv3) (slide 36, 43).</p></details>
+      <details><summary>Sistemi classici contro appresi: pro e contro rispetto a robustezza e generalizzazione.</summary><p>Gli appresi sono in genere più robusti a grandi variazioni ma sono black box: falliscono in modi difficili da prevedere (esempi avversari, distribution shift, contesti nuovi). I classici hanno limiti chiari perché le ipotesi sono esplicite (slide 17–18, cap. 2 § 2.7).</p></details>
+    </div>
+  </div>
+</div>

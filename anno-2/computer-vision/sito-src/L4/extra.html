@@ -1,0 +1,223 @@
+
+<div class="sec" id="l4-libro"><h2>Studia dal libro</h2><span>Torralba, Isola, Freeman · cap. 15, 16, 19 · circa 2 ore</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Cosa leggere, in ordine</h3>
+    <div class="meta">Il lab non ha slide: il libro è la teoria da cui vengono i notebook</div>
+    <ol>
+      <li><a href="https://visionbook.mit.edu/linear_image_filtering.html">Cap. 15 Linear Image Filtering</a>: § 15.3 (sistemi lineari e invarianti alla traslazione), § 15.4 tutto (definizione, proprietà, esempi, bordi, convoluzione circolare), § 15.5 e 15.5.1 (correlazione, template matching, correlazione normalizzata), § 15.6 (risposta all'impulso, esempio acustico). Il notebook <code>15lif</code> prende il nome da qui.</li>
+      <li><a href="https://visionbook.mit.edu/image_processing_fourier.html">Cap. 16 Fourier Analysis</a>: § 16.4–16.5 (onde discrete, esponenziali complesse, DFT e inversa, forma matriciale), § 16.6 (trasformate di impulso, coseno, box), § 16.7 (linearità, Parseval, teorema di convoluzione, dual convolution, traslazione), § 16.10 (funzione di trasferimento, filtri passa-basso/banda/alto).</li>
+      <li><a href="https://visionbook.mit.edu/temporal_filters_v2.html">Cap. 19 Temporal Filters</a>: solo § 19.4 fino a 19.4.2 (causalità, filtri ricorsivi IIR, derivata temporale). Serve per leggere l'audio come segnale nel tempo.</li>
+    </ol>
+    <p><b>Si può saltare</b> per questo lab: § 16.3 (serie di Fourier storiche), § 16.8 (famiglia di trasformate, già vista in L3), § 16.9 (fase e ampiezza nelle immagini, torna in L7), § 16.10.2 (sensibilità al contrasto), § 19.2–19.3 e i filtri spazio-temporali di § 19.4.1–19.4.2 (moto, tornano con il flusso ottico).</p>
+  </div>
+  <div class="two">
+    <div class="card">
+      <h3>1 · Da due richieste alla convoluzione</h3>
+      <div class="meta">§ 15.3–15.4</div>
+      <p>Un sistema lineare qualunque è una matrice: ogni uscita pesa tutti gli ingressi. Chiedere anche l'invarianza alla traslazione obbliga il peso a dipendere solo dalla distanza, h[n, k] = h[n − k], e la matrice diventa di Toeplitz. È la convoluzione, e il vettore h è la risposta all'impulso: basta misurare come il sistema risponde a δ per sapere tutto (§ 15.6, la stanza del ristorante).</p>
+    </div>
+    <div class="card">
+      <h3>2 · Correlazione, ribaltamento, template</h3>
+      <div class="meta">§ 15.5</div>
+      <p>La correlazione è la convoluzione senza ribaltamento: coincide per kernel a simmetria centrale, cambia segno per quelli antisimmetrici, perde commutatività e associatività. Misura la somiglianza fra kernel e finestra, quindi serve al template matching, ma va normalizzata (template a media zero, divisione per la σ locale) perché altrimenti vince la zona più luminosa.</p>
+    </div>
+    <div class="card">
+      <h3>3 · La DFT come cambio di base</h3>
+      <div class="meta">§ 16.4–16.5</div>
+      <p>Le N esponenziali complesse e<sub>u</sub>[n] = e<sup>2πj un/N</sup> sono ortogonali (prodotto scalare N·δ), quindi ogni segnale di N campioni si scrive in modo unico come loro combinazione. La DFT calcola i coefficienti; l'inversa ha il fattore 1/N. L'indice u conta i cicli nella finestra: da qui Δf = f<sub>s</sub>/N e il limite f<sub>s</sub>/2.</p>
+    </div>
+    <div class="card">
+      <h3>4 · Teorema di convoluzione e funzione di trasferimento</h3>
+      <div class="meta">§ 16.7.4, 16.10</div>
+      <p>La convoluzione circolare diventa un prodotto punto per punto delle DFT. Per un filtro, H = DFT(h) dice guadagno e sfasamento di ogni frequenza: filtrare in frequenza (scheda 6) e convolvere (scheda 10) sono la stessa operazione vista da due lati, e il tipo di filtro si legge da |H|.</p>
+    </div>
+    <div class="card">
+      <h3>5 · Box ↔ sinc, e il leakage</h3>
+      <div class="meta">§ 16.6.3, 16.7.5</div>
+      <p>La DFT di un box è la sinc discreta sin(πu(2L+1)/N)/sin(πu/N). Letto in un verso spiega i lobi del filtro box (scheda 11); nell'altro, con la dual convolution (prodotto nel tempo = convoluzione in frequenza), spiega il leakage: osservare una sinusoide per un tempo finito la moltiplica per un box e allarga ogni riga in una sinc (scheda 5).</p>
+    </div>
+    <div class="card">
+      <h3>6 · Il tempo è diverso: causalità</h3>
+      <div class="meta">§ 19.4</div>
+      <p>Un filtro causale (h[t] = 0 per t &lt; 0) usa solo il passato: è l'unico applicabile in tempo reale. Un kernel centrato si rende causale spostandolo, al costo di un ritardo. I filtri ricorsivi ℓ<sub>out</sub>[t] = ℓ<sub>in</sub>[t] + αℓ<sub>out</sub>[t−1] hanno risposta all'impulso α<sup>t</sup>, infinita, e sono stabili solo per |α| &lt; 1.</p>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Notazione: libro, notebook e slide</h3>
+    <div class="meta">Per non confondersi passando da una fonte all'altra</div>
+    <ul>
+      <li><b>Convoluzione</b>: il libro usa ∘ (∘<sub>N</sub> per quella circolare), le slide della L3 e questi appunti ∗. <b>Correlazione</b>: ⋆ ovunque.</li>
+      <li><b>Segnali</b>: il libro chiama ℓ l'immagine o il segnale e h il kernel; il notebook <code>15lif</code> usa proprio <code>l</code> e <code>h</code>. La DFT nel libro è una lettera calligrafica (L[u]), numpy la chiama <code>X</code>.</li>
+      <li><b>Indici 2D</b>: nel libro ℓ[n, m] ha n sull'asse orizzontale (larghezza N) e m su quello verticale; numpy e il notebook usano [riga, colonna]. Il (10, 10) del notebook è riga 10, colonna 10.</li>
+      <li><b>Frequenza</b>: il libro usa l'indice u (cicli nella finestra) o w = 2πu/N in radianti per campione (DTFT); numpy dà cicli per campione con <code>rfftfreq(N)</code> o Hz con <code>d=1/SR</code>.</li>
+      <li><b>Finestra della correlazione</b>: nel libro centrata (k da −N a N), nel notebook agganciata all'angolo in alto a sinistra. Stessi valori, indici spostati.</li>
+      <li><b>Normalizzazione della DFT</b>: libro e numpy hanno la stessa convenzione (1/N solo nell'inversa).</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Cosa c'è nel libro e non nei notebook</h3>
+    <div class="meta">Serve a capire, e all'orale fa la differenza</div>
+    <ul>
+      <li>La <b>derivazione</b> della convoluzione da linearità più invarianza alla traslazione (i notebook la usano e basta).</li>
+      <li>Le <b>quattro condizioni al bordo</b> e il confronto che dà il mirror come la migliore (fig. 15.10); i notebook usano solo lo zero padding.</li>
+      <li>Il fatto che il teorema di convoluzione valga per la convoluzione <b>circolare</b>, da cui lo zero-padding a N + M − 1 per ottenere quella lineare via FFT.</li>
+      <li>Il <b>leakage</b> spiegato con box, sinc e dual convolution, e perché una finestra liscia lo riduce.</li>
+      <li>La <b>causalità</b> e i filtri IIR per i segnali nel tempo.</li>
+      <li>La <b>risposta all'impulso di una stanza</b> (§ 15.6): l'esempio perfetto di sistema LTI audio.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="sec" id="l4-guida"><h2>Guida allo studio</h2><span>3–4 ore, con i notebook aperti</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Prima di iniziare</h3>
+    <div class="meta">15 minuti</div>
+    <p>Leggi prima i paragrafi indicati in <b>Studia dal libro</b> (sopra). Ripassa dalla L3 la DFT (bin, frequenza del bin, simmetria hermitiana per segnali reali), il teorema di convoluzione e l'esempio di convoluzione 1D con il ribaltamento del kernel. Tieni i notebook aperti ed eseguili cella per cella mentre leggi le schede: il lab si impara modificando il codice, non leggendolo.</p>
+  </div>
+  <div class="two">
+    <div class="card">
+      <h3>1 · demo.ipynb</h3>
+      <div class="meta">Schede 1–12 · circa 1 ora e mezza</div>
+      <p>Obiettivo: leggere uno spettro e collegare ogni kernel alla sua risposta in frequenza.</p>
+      <ul>
+        <li>Rifai a mano i numeri della scheda 4: 22051 bin, 0.5 Hz/bin, 11025 Hz, bin di A3.</li>
+        <li>Correggi il segno della derivata (scheda 10) e riesegui: il fronte di salita deve dare +0.5.</li>
+        <li>Disegna a mano |sin(2πf)| e 2|sin(πf)| fra 0 e 0.5: centrale contro differenza in avanti.</li>
+        <li>Verifica: sai spiegare perché il box non fa ringing ma la maschera ideale sì?</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>2 · classification.ipynb</h3>
+      <div class="meta">Schede 13–20 · circa 1 ora</div>
+      <p>Obiettivo: usare lo spettro come descrittore e capire perché la valutazione conta quanto le feature.</p>
+      <ul>
+        <li>Scrivi la formula di centroide, rolloff e ZCR, e cosa misura ciascuna.</li>
+        <li>Applica le due correzioni della scheda 15 e confronta le accuratezze.</li>
+        <li>Verifica: sai spiegare il salto da 88% a 32% con lo speaker escluso?</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>3 · 15lif.ipynb</h3>
+      <div class="meta">Schede 21–27 · circa 45 minuti</div>
+      <p>Obiettivo: padroneggiare gli indici di convoluzione e cross-correlazione.</p>
+      <ul>
+        <li>Rifai a mano [1, 2, 3, 4] ∗ [−1, −2, −3] e la cross-correlazione.</li>
+        <li>Verifica con un impulso che la convoluzione restituisce il kernel e la correlazione il kernel ribaltato.</li>
+        <li>Verifica: perché il template matching usa la cross-correlazione e perché va normalizzato?</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>4 · Collegamenti</h3>
+      <div class="meta">30 minuti</div>
+      <p>Il lab è il ponte fra la teoria della L3 e i filtri per immagini:</p>
+      <ul>
+        <li>box, gaussiana e derivate tornano in L5 in 2D, con le stesse risposte in frequenza;</li>
+        <li>Nyquist, ripiegamento e prefiltro sono il cuore della L6;</li>
+        <li>il template matching è la versione ingenua dei detector: scala (L6) e descrittori (L7) risolvono i suoi limiti.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Cosa devi sapere</h3>
+    <div class="meta">La lista minima per l'orale</div>
+    <ul>
+      <li><b>rfft/rfftfreq</b>: numero di bin N/2 + 1, Δf = f<sub>s</sub>/N, ultimo bin = f<sub>s</sub>/2, perché basta metà spettro per un segnale reale.</li>
+      <li><b>Normalizzazione</b>: la FFT di numpy non è normalizzata, una sinusoide di ampiezza A dà un picco ≈ A·N/2; <code>irfft</code> divide per N e la coppia è un'identità.</li>
+      <li><b>Leakage</b>: frequenze che non cadono su un bin si spalmano sui vicini, perché la DFT assume il segnale periodico.</li>
+      <li><b>Filtro in frequenza</b> = moltiplicazione dello spettro = convoluzione (circolare) nel tempo. Maschere ideali → sinc → ringing.</li>
+      <li><b>Risposta in frequenza</b> di box (sinc con lobi e segni alterni), gaussiana (gaussiana, monotona), differenza centrale (|sin 2πf|, passa-banda) e in avanti (2|sin πf|, passa-alto).</li>
+      <li><b>Convoluzione contro cross-correlazione</b>: ribaltamento, stesso risultato per kernel simmetrici, segno opposto per antisimmetrici; modalità full/same/valid.</li>
+      <li><b>Template matching normalizzato</b>: media zero del template, divisione per la std locale, NCC.</li>
+      <li><b>Dal libro</b>: convoluzione come unico operatore lineare e invariante alla traslazione, risposta all'impulso, quattro condizioni al bordo, convoluzione circolare e teorema di convoluzione, causalità dei filtri nel tempo.</li>
+      <li><b>Valutazione</b>: split casuale contro leave-one-group-out, data leakage nello scaler, shortcut.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Domande tipo orale</h3>
+    <div class="meta">Prova a rispondere, poi apri per la traccia</div>
+    <div class="qa">
+      <details><summary>Un segnale di 2 s campionato a 22050 Hz: quanti valori restituisce rfft, qual è la risoluzione, qual è la frequenza massima?</summary><p>N = 44100, quindi N/2 + 1 = 22051 valori; Δf = f<sub>s</sub>/N = 0.5 Hz (= 1/durata); massima f<sub>s</sub>/2 = 11025 Hz. Per una risoluzione migliore serve un segnale più lungo.</p></details>
+      <details><summary>Perché per un segnale reale basta metà dello spettro?</summary><p>Simmetria hermitiana: X[N−k] = X[k]<sup>*</sup>. Le frequenze negative sono il complesso coniugato delle positive, quindi non portano informazione nuova.</p></details>
+      <details><summary>Tre sinusoidi con la stessa ampiezza danno picchi FFT di altezza diversa. Perché?</summary><p>Spectral leakage: solo 220 Hz cade esattamente su un bin (il 440); 261.63 Hz cade al bin 523.26, a 0.26 bin dal più vicino. La finestra finita moltiplica la sinusoide per un box, quindi ogni riga diventa una sinc discreta campionata dai bin: fuori centro il picco scende a |sin(π·0.26)/(π·0.26)| ≈ 0.89 (6070 contro 6810) e i bin vicini raccolgono i lobi laterali.</p></details>
+      <details><summary>Come si implementa un filtro in frequenza? A cosa corrisponde nel tempo?</summary><p>rfft, moltiplicazione per una maschera H(f), irfft con <code>n=len(x)</code>. Per il teorema di convoluzione equivale a convolvere (circolarmente) con h = IDFT(H). Una maschera 0/1 corrisponde a una sinc: ringing sui fronti.</p></details>
+      <details><summary>Qual è la risposta in frequenza della differenza centrale [−1, 0, 1]/2? È un passa-alto?</summary><p>|H(f)| = |sin(2πf)|: zero in DC e a Nyquist, massimo a 0.25 cicli/campione. È un passa-banda: approssima la derivata solo alle basse frequenze. La differenza in avanti [1, −1] ha 2|sin(πf)| ed è un passa-alto.</p></details>
+      <details><summary>Il box ha lobi laterali: che artefatti produce? Produce ringing?</summary><p>Non ringing: un kernel non negativo fa una media pesata, l'uscita resta fra minimo e massimo dell'ingresso. I lobi fanno passare alte frequenze, alcune con segno invertito (inversione di contrasto su trame fini). Il ringing viene da un taglio netto in frequenza, cioè da un kernel con lobi negativi come la sinc.</p></details>
+      <details><summary>Perché np.convolve con [−1, 0, 1] dà un picco negativo su un fronte di salita?</summary><p>La convoluzione ribalta il kernel: si ottiene (x[n−1] − x[n+1])/2, cioè meno la derivata. Serve [1, 0, −1] con la convoluzione, oppure [−1, 0, 1] con la cross-correlazione.</p></details>
+      <details><summary>Differenza fra convoluzione e cross-correlazione? Quale si usa per il template matching e perché?</summary><p>La convoluzione ribalta il kernel, la cross-correlazione no. Per il matching serve la cross-correlazione: è il prodotto scalare fra pattern e finestra, massimo quando si somigliano. Con un impulso la convoluzione restituisce il kernel, la correlazione il kernel ribaltato.</p></details>
+      <details><summary>Perché la cross-correlazione pura è un cattivo detector e come si normalizza?</summary><p>Cresce con la luminosità: una regione bianca uniforme dà lo stesso valore del pattern. Si rende il template a media zero (le regioni costanti danno 0) e si divide per la std locale (indipendenza dal contrasto). Dividendo anche per il numero di pixel si ottiene la NCC in [−1, 1].</p></details>
+      <details><summary>Perché la convoluzione è l'operatore giusto per filtrare segnali e immagini?</summary><p>Perché è l'unico operatore lineare e invariante alla traslazione (libro, § 15.3): la linearità fa di ogni uscita una combinazione pesata degli ingressi, l'invarianza obbliga i pesi a dipendere solo dalla distanza n − k. Il kernel coincide con la risposta all'impulso, quindi misurarla identifica il sistema (§ 15.6, esempio della stanza).</p></details>
+      <details><summary>Il teorema di convoluzione vale per np.convolve? Come si ottiene la stessa uscita con la FFT?</summary><p>Il teorema vale per la convoluzione circolare (libro § 16.7.4): con N = len(x) il prodotto delle DFT dà la convoluzione con estensione periodica, diversa ai bordi da quella di np.convolve. Allungando entrambi con zeri a N ≥ len(x) + len(h) − 1 il giro cade sugli zeri e si ottiene esattamente la convoluzione full.</p></details>
+      <details><summary>Il filtro del notebook (rfft, maschera, irfft) si può usare in tempo reale su un microfono?</summary><p>No, così com'è: ha bisogno dell'intero segnale, cioè anche del futuro, ed è non causale. In tempo reale servono filtri causali (h[t] = 0 per t &lt; 0, libro § 19.4), eventualmente kernel centrati spostati in avanti al prezzo di un ritardo, oppure filtri ricorsivi come ℓ<sub>out</sub>[t] = ℓ<sub>in</sub>[t] + αℓ<sub>out</sub>[t−1], stabili per |α| &lt; 1.</p></details>
+      <details><summary>Cosa misurano centroide spettrale, rolloff e zero-crossing rate?</summary><p>Tutti la "brillantezza": il baricentro dello spettro, la frequenza sotto cui sta l'85% dell'energia, la frequenza dei cambi di segno (≈ 2f/f<sub>s</sub> per una sinusoide). Sono molto correlati fra loro.</p></details>
+      <details><summary>Il k-NN sullo spettro fa 88% sullo split casuale e 32% con lo speaker escluso. Perché?</summary><p>Lo spettro dell'intera clip codifica anche voce, volume, microfono. Nello split casuale i vicini sono dello stesso speaker e il classificatore sfrutta questi indizi (shortcut); con lo speaker escluso restano solo le informazioni sulla parola, che lo spettro globale descrive male.</p></details>
+      <details><summary>Come renderesti le feature più robuste a un nuovo speaker?</summary><p>Log dello spettro e sottrazione della media (toglie il guadagno); energie in bande larghe log-spaziate (robuste all'altezza della voce); spettri su pezzi consecutivi del parlato senza silenzio (conservano l'ordine dei suoni). Si arriva a circa 61%.</p></details>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Il ringing: box contro maschera ideale</h3>
+    <div class="meta">Lo stesso impulso rettangolare della scheda 9, senza rumore</div>
+    <figure><img src="{{IMG:img/ringing.png}}" alt="A sinistra l'impulso filtrato col box: rampe lineari, mai sopra 1 né sotto 0. A destra filtrato con la maschera ideale f minore o uguale a 0.1: oscillazioni sopra 1 fino a 1.11 e sotto zero ai lati"><figcaption>Il box dà rampe monotone; la maschera ideale di <code>freq_filter</code> sovraelonga dell'11% e oscilla ai lati: questo è il ringing (Gibbs).</figcaption></figure>
+    <pre>x = np.zeros(60); x[20:40] = 1
+xb = np.convolve(x, np.ones(7) / 7, 'same')                  # rampa, max 1.0
+X = np.fft.rfft(x); f = np.fft.rfftfreq(60)
+y = np.fft.irfft(X * (f &lt;= 0.1), n=60)                     # max 1.11, min -0.08</pre>
+  </div>
+
+  <div class="card">
+    <h3>Correzioni verificate</h3>
+    <div class="meta">Eseguite sul dataset FSDD completo</div>
+    <pre># demo.ipynb, cella 28: derivata con il segno giusto
+deriv = np.array([1, 0, -1]) / 2.0          # con np.convolve
+# oppure: np.correlate(x, np.array([-1, 0, 1]) / 2.0, mode='same')
+
+# classification.ipynb: ZCR sulla clip vera, rolloff sull'energia
+zcrs = np.array([zero_crossing_rate(a[:8000]) for a in raw_clips])   # raw_clips = senza padding
+cumulative = np.cumsum(mag**2)              # dentro spectral_rolloff
+
+# classification.ipynb, celle 19-20: scaler stimato solo sul training
+model = make_pipeline(StandardScaler(), KNeighborsClassifier(n_neighbors=5))</pre>
+    <p>Con ZCR e rolloff corretti il k-NN a 3 feature passa da 49.7% a 57.5% (split casuale) e da 28.7% a 37.5% (speaker escluso). La correzione dello scaler cambia i numeri di pochi decimi: è una questione di metodo, non di risultato.</p>
+  </div>
+
+  <div class="card">
+    <h3>Una soluzione dell'esercizio sugli speaker</h3>
+    <div class="meta">61.3% leave-one-speaker-out, 90.3% split casuale · solo numpy</div>
+    <pre>edges = np.unique(np.round(np.geomspace(60, 4000, 31)).astype(int))   # bande log
+
+def feat(a, npieces=4):
+    e = np.abs(a); idx = np.where(e &gt; 0.05 * e.max())[0]
+    a = a[idx[0]:idx[-1] + 1]                    # via il silenzio
+    out = []
+    for piece in np.array_split(a, npieces):     # ordine temporale
+        P = np.abs(np.fft.rfft(piece * np.hanning(len(piece))))**2
+        f = np.fft.rfftfreq(len(piece), d=1/8000)
+        b = [P[(f &gt;= lo) &amp; (f &lt; hi)].mean() if ((f &gt;= lo) &amp; (f &lt; hi)).any() else 0
+             for lo, hi in zip(edges[:-1], edges[1:])]
+        out.append(np.log(np.array(b) + 1e-10))
+    out = np.concatenate(out)
+    return out - out.mean()                      # via il guadagno
+
+F = np.array([feat(a) for a in raw_clips])       # clip senza padding
+evaluate(F, "band energies")</pre>
+    <p>Ogni riga applica un hint: il log più la sottrazione della media tolgono il guadagno, le bande larghe rendono robusti all'altezza della voce, i pezzi conservano l'ordine dei suoni. La finestra di Hann riduce il leakage di ogni pezzo. Lo speaker più difficile resta george, al 50%.</p>
+  </div>
+
+  <div class="card">
+    <h3>Esercizi per modificare i notebook</h3>
+    <div class="meta">In ordine di difficoltà</div>
+    <ol>
+      <li><b>Risoluzione</b>: accorcia l'accordo a 0.05 s e ricalcola lo spettro. Con Δf = 20 Hz i picchi di A3 e C4 (42 Hz di distanza) si separano a fatica.</li>
+      <li><b>Leakage</b>: porta C4 a 261.5 Hz (esattamente su un bin) e confronta altezza e larghezza del picco. Poi moltiplica il segnale per <code>np.hanning(len(chord))</code> prima della FFT e guarda le code.</li>
+      <li><b>Aliasing</b>: aggiungi una sinusoide a 15000 Hz con SR = 22050. Dove compare nello spettro? (Risposta: 22050 − 15000 = 7050 Hz. Anticipa la L6.)</li>
+      <li><b>Ringing</b>: applica <code>freq_filter</code> passa-basso all'impulso rettangolare della scheda 9 e confronta con box e gaussiana. Poi sostituisci la maschera 0/1 con una gaussiana in frequenza e verifica che il ringing sparisce.</li>
+      <li><b>Teorema di convoluzione</b>: calcola <code>np.convolve(x, gauss, 'full')</code> e confrontalo con <code>irfft(rfft(x, n) * rfft(gauss, n), n)</code> con n = len(x) + len(gauss) − 1. Coincidono; con n = len(x) no (convoluzione circolare).</li>
+      <li><b>Derivate</b>: confronta la risposta in frequenza di [1, −1], [−1, 0, 1]/2 e della derivata di una gaussiana (L5).</li>
+      <li><b>15lif</b>: aggiungi il padding circolare e un'uscita centrata a <code>crosscorr2d_zeropad</code>; poi aggiungi rumore all'immagine e osserva quando il template matching normalizzato inizia a dare falsi positivi.</li>
+    </ol>
+  </div>
+</div>

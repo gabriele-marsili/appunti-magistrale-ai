@@ -1,0 +1,569 @@
+{
+ "L": "L3",
+ "segs": [
+  {
+   "a": "In una frase: le operazioni sulle immagi",
+   "t": "Partiamo da un problema concreto. Il telefono sfoca lo sfondo di un ritratto, rende nitida una foto mossa, e un'auto a guida autonoma cerca i bordi della corsia. Alla fine di questa lezione vedrai che sono tutte la stessa operazione, la convoluzione. Saprai calcolarla a mano, leggerla in frequenza con Fourier, e capire perché un filtro sfoca meglio di un altro."
+  },
+  {
+   "a": "In una frase: le operazioni sulle immagi",
+   "t": "L'idea in due frasi. Ogni operazione lineare e uguale in ogni punto è una convoluzione con un piccolo kernel, cioè una piccola griglia di pesi. E Fourier riscrive l'immagine come somma di onde, in cui ogni convoluzione diventa una moltiplicazione, frequenza per frequenza."
+  },
+  {
+   "a": "Prima di iniziare",
+   "t": "Prima di iniziare: è la lezione più matematica della prima parte, e la base di filtri, aliasing e CNN, cioè reti neurali convoluzionali. Serve solo la triennale. Il cambio di base e il prodotto scalare. La serie geometrica. E i numeri complessi con la formula di Eulero: e alla j theta è coseno di theta più j per seno di theta, e moltiplicare per quel numero ruota di theta."
+  },
+  {
+   "a": "Prodotto matrice-vettore e cambio di bas",
+   "t": "Ripassa anche il modello di formazione dell'immagine di L2: lì il foro finito del pinhole produceva una sfocatura, e oggi scoprirai che quella sfocatura è proprio una convoluzione."
+  },
+  {
+   "a": "Notazione delle slide, che seguo: ℓ[n, m",
+   "t": "Sulla notazione: elle con le parentesi quadre è l'immagine discreta, con le tonde il segnale continuo. h è il kernel, l'asterisco la convoluzione, la elle maiuscola la trasformata. Il libro dice LTI dove le slide dicono LSI: è la stessa cosa."
+  },
+  {
+   "a": "Guarda prima questi video",
+   "t": "Nella pagina trovi alcuni video di 3Blue1Brown e di Shree Nayar. Sono un complemento: guardali prima, per l'intuizione, o dopo, per ripassare. Il più utile è quello di 3Blue1Brown sulla convoluzione."
+  },
+  {
+   "a": "1. Le immagini come segnali",
+   "t": "Sezione uno: le immagini come segnali. Per parlare di sfocatura, nitidezza e bordi con un solo linguaggio, pensa l'immagine come un segnale: una funzione che a ogni posizione associa un numero. Prendi una riga della foto e disegna l'intensità in funzione della colonna."
+  },
+  {
+   "a": "Una riga di un'immagine è un segnale 1D.",
+   "t": "Guarda la figura. A sinistra il cameraman, con la riga 300 in rosso. A destra quella riga come grafico. Il cappotto scuro è un tratto quasi piatto, intorno a 20. Fra le colonne 200 e 330 ci sono salti netti su e giù: le gambe chiare del treppiede. Da 330 in poi l'erba, alta intorno a 150, oscilla rapidamente. Zone uniformi, tratti piatti; bordi, salti; texture, oscillazioni."
+  },
+  {
+   "a": "La matematica. Un'immagine è una funzion",
+   "t": "In formule, l'immagine è la scena continua campionata su una griglia, con passo delta T. Torneranno due grandezze: il valore DC, cioè la media dei campioni, e l'energia, la somma dei quadrati."
+  },
+  {
+   "a": "Lo stesso segnale si può guardare in due",
+   "t": "Lo stesso segnale si guarda in due modi. Nello spazio è una lista di valori, uno per pixel. In frequenza è una ricetta di onde: tanta onda lenta, un po' di onda veloce. Come un accordo, descritto dalla forma d'onda o dall'elenco delle note. Stessa informazione, ma certe domande diventano facili."
+  },
+  {
+   "a": "Attenzione alla slide 7 La slide chiama ",
+   "t": "Attenzione: nelle slide l'aliasing è chiamato rumore ad alta frequenza. È il contrario: è alta frequenza che, campionata troppo rado, ricompare travestita da bassa frequenza. Lo vedrai in L6."
+  },
+  {
+   "a": "Il punto Un'immagine è un segnale: un nu",
+   "t": "Da portare a casa: un'immagine è un segnale, e la puoi descrivere pixel per pixel oppure onda per onda, senza perdere nulla."
+  },
+  {
+   "a": "2. Sistemi lineari e invarianti per tras",
+   "t": "Sezione due: i sistemi LSI. Per togliere rumore sostituisci ogni pixel con la media dei vicini; per trovare i contorni fai la differenza fra il vicino destro e il sinistro. Operazioni diverse, con due cose in comune."
+  },
+  {
+   "a": "l'output è una somma pesata dei valori i",
+   "t": "Primo: l'output è una somma pesata dell'input, quindi è lineare. Secondo: la regola è la stessa ovunque, e se sposti la foto di 3 pixel il risultato si sposta di 3 pixel. È l'invarianza per traslazione. Insieme danno un sistema LSI, linear shift invariant, cioè lineare e invariante per traslazione."
+  },
+  {
+   "a": "Sinistra: la sfocatura dà la stessa form",
+   "t": "Guarda la figura. In grigio l'input, un rettangolino, in posizione 12 in alto e 35 in basso. A sinistra in blu la sfocatura: esce sempre la stessa campana con picco 1, solo spostata. A destra in rosso la vignettatura, lineare ma non invariante: lo stesso oggetto esce con picco zero virgola ottantatré in posizione 12 e zero virgola quarantacinque in posizione 35."
+  },
+  {
+   "a": "La matematica. Sia T il sistema, che pre",
+   "t": "In formule, lineare vuol dire che sommare prima o dopo è uguale; invariante vuol dire che spostare prima o dopo è uguale."
+  },
+  {
+   "a": "LSI : blur, sharpening, derivate discret",
+   "t": "Per classificare un'operazione verifica le due proprietà separatamente. Blur, nitidezza, derivate e qualunque kernel fisso sono LSI. Soglia, gamma, quadrato e ReLU non sono lineari: raddoppiare l'input non raddoppia l'output. Rotazione, ritaglio, ridimensionamento e vignettatura sono lineari ma non invarianti, perché c'è un punto speciale, come il centro di rotazione."
+  },
+  {
+   "a": "Il punto LSI = somma pesata (lineare) + ",
+   "t": "Da portare a casa: LSI vuol dire somma pesata più stessa regola ovunque. Quasi tutto il filtraggio classico è LSI; soglie, ReLU e geometria no."
+  },
+  {
+   "a": "3. Dalla matrice piena alla convoluzione",
+   "t": "Sezione tre: dalla matrice alla convoluzione. Quanti numeri servono per descrivere un sistema lineare su una foto da un megapixel? E quanti, se è anche invariante?"
+  },
+  {
+   "a": "ℓ out [n] = ∑ k h[n, k] · ℓ in [k] cioè ",
+   "t": "Lineare vuol dire matrice. Nella formula che vedi, l'output in n è la somma su k di un peso h di n e k per l'input in k: in breve, matrice per vettore. Servono N al quadrato pesi: con un milione di pixel, mille miliardi. È un layer fully connected, completamente connesso."
+  },
+  {
+   "a": "ℓ out [n] = ∑ k h[n − k] · ℓ in [k] = (h",
+   "t": "Ora l'invarianza. Se ogni posizione è trattata allo stesso modo, il peso può dipendere solo dalla distanza fra input e output, n meno k. Il peso diventa h di n meno k, e la formula diventa la somma su k di h di n meno k per l'input in k. Questa è la convoluzione discreta."
+  },
+  {
+   "a": "Questa è la convoluzione discreta (slide",
+   "t": "Simbolo per simbolo: n è l'output che calcoli, k scorre sull'input, h di n meno k è il peso per un input a distanza n meno k. Ogni riga della matrice è la precedente spostata di un posto: è una matrice di Toeplitz."
+  },
+  {
+   "a": "A sinistra un sistema lineare generico: ",
+   "t": "Guarda la figura. A sinistra un sistema lineare generico su 12 campioni: 144 pesi diversi, un mosaico a caso. A destra il kernel un quarto per 1, 2, 1: 2 sulla diagonale, 1 accanto, zero fuori dalla banda. Ogni riga è la precedente spostata a destra di un posto."
+  },
+  {
+   "a": "25 posti nella matrice, 3 numeri distint",
+   "t": "Con 5 campioni: 25 posti, 3 numeri distinti. Ecco l'idea delle CNN: un layer convoluzionale è un layer denso con pesi condivisi, la stessa h in ogni riga, e locali, zero lontano dalla diagonale."
+  },
+  {
+   "a": "Attenzione alla slide 30 La slide dice c",
+   "t": "Attenzione: nelle slide c'è scritto che le righe sono copie spostate di h. Sono le colonne; le righe sono copie di h ribaltato. La matrice scritta è comunque giusta."
+  },
+  {
+   "a": "Il punto Lineare = matrice; invariante =",
+   "t": "Da portare a casa: lineare vuol dire matrice, invariante vuol dire stessa riga spostata. Da N al quadrato pesi passi ai pochi numeri del kernel."
+  },
+  {
+   "a": "4. Il kernel è la risposta all'impulso",
+   "t": "Sezione quattro: il kernel è la risposta all'impulso. Hai una scatola nera LSI, per esempio un obiettivo. Come scopri il suo kernel?"
+  },
+  {
+   "a": "La matematica. Cosa succede se in input ",
+   "t": "Le dai un solo punto acceso: l'impulso delta, 1 in zero e zero altrove. Nella somma sopravvive solo k uguale a zero, e l'output è h. Il kernel è ciò che esce da un impulso: la risposta all'impulso."
+  },
+  {
+   "a": "Per invarianza, δ[n − k] produce h[n − k",
+   "t": "Ora il passo decisivo. Ogni segnale è una somma di impulsi spostati e pesati. Per invarianza ogni impulso spostato dà una copia spostata di h; per linearità i pesi restano davanti e le risposte si sommano. Il risultato è la convoluzione: un sistema è LSI se e solo se è una convoluzione."
+  },
+  {
+   "a": "La convoluzione passo per passo: l'input",
+   "t": "Guarda la figura: input 3, 1, 2, kernel 2, 1. In alto, tre impulsi: blu alto 3, verde alto 1, arancio alto 2. Al centro ognuno diventa una copia del kernel: blu 6 e 3, verde 2 e 1, arancio 4 e 2, ciascuna spostata. In basso a destra si sommano, e i colori nelle barre dicono da dove viene ogni pezzo: 6, poi 3 più 2, poi 1 più 4, poi 2. Output 6, 5, 5, 2."
+  },
+  {
+   "a": "Esempi reali. In una stanza un battito d",
+   "t": "Esempi reali: un battito di mani in una stanza è quasi un impulso, e l'eco è la risposta all'impulso della stanza. In un obiettivo, l'immagine di una stella è la PSF, point spread function, che hai visto in L2."
+  },
+  {
+   "a": "Il punto h = T[δ]: il kernel è ciò che e",
+   "t": "Da portare a casa: il kernel è ciò che esce da un impulso, e l'output è una somma di copie spostate e scalate del kernel."
+  },
+  {
+   "a": "5. Calcolare una convoluzione a mano",
+   "t": "Sezione cinque: la convoluzione a mano. All'esame va calcolata in fretta e senza sbagliare segni, quindi serve una ricetta."
+  },
+  {
+   "a": "L'idea. Per ottenere l'output in n: riba",
+   "t": "Ribalta, sposta, moltiplica, somma. Ribalti il kernel, lo metti sulla posizione n, moltiplichi con l'input sotto e sommi. Il ribaltamento viene dal meno in h di n meno k: quando k cresce, l'indice del kernel scende."
+  },
+  {
+   "a": "Kernel di differenza h[0] = 1, h[1] = −1",
+   "t": "Guarda la figura. Kernel di differenza: h di zero vale 1, h di 1 vale meno 1. Nel primo pannello, blu l'originale, rosso il ribaltato. Poi l'input a gradino, 0, 0, 0, 4, 4, 4, in grigio, e il kernel ribaltato in rosso. Per n uguale a 2 copre due zeri: zero. Per n uguale a 3 copre zero e 4: fa 4. Per n uguale a 4 copre due 4: zero."
+  },
+  {
+   "a": "Esempio 1: derivata. Input x = [0, 0, 0,",
+   "t": "Output completo: 0, 0, 0, 4, 0, 0, meno 4. Zero sul piatto, 4 sul salto: una derivata discreta. Il meno 4 finale è un effetto di bordo, perché oltre la fine abbiamo messo zeri. Pesi a somma zero azzerano le zone costanti: è la firma dei rilevatori di bordi."
+  },
+  {
+   "a": "Esempio 2: blur. Stesso input, kernel di",
+   "t": "Secondo esempio, il blur con un quarto per 1, 2, 1. È simmetrico, quindi il ribaltamento non conta: sinistro, più due volte il centrale, più il destro, diviso 4. In posizione 2 fa 1, in 3 fa 3, in 4 fa 4."
+  },
+  {
+   "a": "I due esempi a confronto: la media trasf",
+   "t": "Guarda la figura: al centro in blu il blur, 0, 0, 1, 3, 4, 3, una rampa al posto del salto. A destra in rosso la differenza, un picco a 4 e il meno 4 finale. Pesi a somma 1 lasciano uguali le zone costanti. Il 3 finale del blur e il meno 4 sono effetti di bordo."
+  },
+  {
+   "a": "La slide 16 fa lo stesso con f = [1, 2, ",
+   "t": "Nelle slide c'è un esempio analogo, con 1, 2, 3, 4 e il kernel 1, 0, meno 1, svolto nella scheda. Rifallo da solo: è un ottimo esercizio da esame."
+  },
+  {
+   "a": "Segnale di N campioni, kernel di k . La ",
+   "t": "Quanto è lungo l'output? Con N campioni e un kernel di k, la versione full ha N più k meno 1 campioni, qui 7. La same ne tiene N. La valid tiene solo quelli in cui il kernel sta tutto dentro, N meno k più 1."
+  },
+  {
+   "a": "Stessa ricetta, ma il kernel si ribalta ",
+   "t": "In 2D è uguale, ma il kernel si ribalta in verticale e in orizzontale. Esempio: righe 0, 0, 9, 9, e box 3 per 3 con pesi un nono."
+  },
+  {
+   "a": "La finestra 3×3 scorre sull'immagine. In",
+   "t": "Guarda la figura. La finestra rossa, centrata in colonna 1, copre tre volte 0, 0, 9: 27 diviso 9, cioè 3. Quella blu, in colonna 2, copre tre volte 0, 9, 9: 54 diviso 9, cioè 6. L'output è 0, 3, 6, 9: il bordo netto diventa una rampa."
+  },
+  {
+   "a": "Box : media uniforme, (1/9) in ogni case",
+   "t": "Tre kernel comuni. Il box, media uniforme. La gaussiana, una campana: più sigma è grande, più sfoca; si tronca a circa 3 sigma e si normalizza a somma 1, e sfoca in modo più naturale del box. Il Sobel, una derivata orizzontale con un po' di levigatura verticale, che riprendi in L5."
+  },
+  {
+   "a": "Il punto Ribalta, sposta, moltiplica, so",
+   "t": "Da portare a casa: ribalta, sposta, moltiplica, somma. Somma dei pesi 1, un blur; somma zero, un rilevatore di bordi."
+  },
+  {
+   "a": "6. Proprietà della convoluzione e filtri",
+   "t": "Sezione sei: proprietà e filtri separabili. Tre filtri di fila, o una gaussiana 31 per 31 su foto da 12 megapixel: si può risparmiare? Sì, perché la convoluzione si riordina e si raggruppa come un prodotto."
+  },
+  {
+   "a": "Commutativa : h ∗ ℓ = ℓ ∗ h. Non c'è dif",
+   "t": "Commutativa: kernel e segnale si scambiano. Associativa: due filtri in cascata sono un unico filtro, con kernel la convoluzione dei due; due blur 5 per 5 fanno un 9 per 9. Distributiva sulla somma. E l'impulso è l'elemento neutro, mentre un impulso spostato trasla l'immagine."
+  },
+  {
+   "a": "Un kernel 2D è separabile se è il prodot",
+   "t": "Un kernel 2D è separabile se è colonna per riga, cioè ha rango 1. Allora filtri prima le righe con il kernel riga, poi le colonne con il kernel colonna."
+  },
+  {
+   "a": "Ogni casella del kernel 2D è il prodotto",
+   "t": "Guarda la figura. In alto, colonna 1, 2, 1 per riga 1, 2, 1: ogni casella è il prodotto della sua riga per la sua colonna, quindi 1 agli angoli, 2 sui lati, 4 al centro. È il binomiale, diviso 16. In basso, colonna 1, 2, 1 per riga meno 1, 0, 1: il Sobel, negativo a sinistra, zero al centro, positivo a destra."
+  },
+  {
+   "a": "Esempio di costo. Costo per pixel con ke",
+   "t": "Il costo per pixel scende da k al quadrato a 2 k: per k uguale a 9, da 81 a 18; per la gaussiana 31 per 31, da 961 a 62, quindici volte meno. Sono separabili gaussiana, box e Sobel."
+  },
+  {
+   "a": "Le depthwise separable convolutions dell",
+   "t": "Le depthwise separable convolutions delle CNN, come in MobileNet, fanno qualcosa di simile sui canali: un filtro per canale, poi un 1 per 1 che li mescola."
+  },
+  {
+   "a": "Il punto La convoluzione si riordina e s",
+   "t": "Da portare a casa: la convoluzione si riordina come un prodotto, e un kernel di rango 1 si spezza in due passate 1D, costo 2 k invece di k al quadrato."
+  },
+  {
+   "a": "7. Bordi, correlazione e caso continuo",
+   "t": "Sezione sette: bordi, correlazione, caso continuo. Vicino al bordo il kernel chiede pixel che non esistono, e qualcosa va inventato."
+  },
+  {
+   "a": "Lo stesso segnale (blu) esteso in quattr",
+   "t": "Guarda la figura: in blu il segnale 3, 5, 2, 6, 4, in arancio i pixel inventati. Zero padding: zeri, con salti bruschi. Replicate: si ripete il bordo, 3 a sinistra e 4 a destra. Reflect: lo specchio, a sinistra rileggi 3, 5, 2. Circular: la fine si attacca all'inizio, e a sinistra ricompaiono 4 e 6."
+  },
+  {
+   "a": "Zero padding : fuori è 0. Un blur scuris",
+   "t": "Con lo zero un blur scurisce i bordi, perché media con degli zeri. Lo specchio, secondo il libro, sbaglia meno. Il circolare è quello implicito nella DFT, e lo ritroverai nella sezione tredici."
+  },
+  {
+   "a": "La cross-correlazione è la stessa somma ",
+   "t": "La correlazione è la stessa somma senza ribaltare. Con un impulso in input e kernel 1, 2, 3, la convoluzione restituisce 1, 2, 3, la correlazione 3, 2, 1. Per kernel simmetrici coincidono."
+  },
+  {
+   "a": "Il \"conv2d\" di PyTorch è in realtà una c",
+   "t": "Il conv2d di PyTorch è in realtà una correlazione, ma i pesi sono appresi e non importa. La correlazione non è associativa, ma serve per il template matching: risponde al massimo dove l'immagine somiglia al kernel."
+  },
+  {
+   "a": "Con segnali continui la somma diventa un",
+   "t": "Nel continuo la somma diventa un integrale, e l'impulso diventa la delta di Dirac, zero tranne nell'origine, con area 1. Da non confondere con la delta discreta, che vale 1 in zero. Servirà in L6."
+  },
+  {
+   "a": "Il punto Ai bordi si inventano pixel: lo",
+   "t": "Da portare a casa: ai bordi lo specchio sbaglia meno, lo zero scurisce, il circolare è quello della DFT. La correlazione è una convoluzione senza ribaltare."
+  },
+  {
+   "a": "8. Perché Fourier: cercare la base giust",
+   "t": "Sezione otto: perché Fourier. Sai cosa fa una convoluzione pixel per pixel, ma non perché il box sfoca peggio della gaussiana. Serve un punto di vista in cui l'effetto di un filtro si legga a colpo d'occhio."
+  },
+  {
+   "a": "L'idea. Abbiamo visto che un sistema LSI",
+   "t": "Un sistema LSI è una matrice speciale. Per capire una matrice si cerca la base in cui è diagonale, dove moltiplica ogni coordinata per un numero. La sorpresa: un'unica base diagonalizza tutte le convoluzioni. È la base delle onde, e passarci è la trasformata di Fourier, un cambio di base invertibile."
+  },
+  {
+   "a": "In quella base i fatti della slide 37 di",
+   "t": "In quella base è evidente che il blur toglie le alte frequenze, che i bordi sono alta frequenza, che il rumore è sparso ovunque mentre le foto stanno in basso, e che JPEG butta le frequenze che non vedi."
+  },
+  {
+   "a": "Il punto Fourier è un cambio di base. La",
+   "t": "Da portare a casa: Fourier è un cambio di base in cui ogni filtro moltiplica ogni frequenza per un numero."
+  },
+  {
+   "a": "9. Le onde discrete",
+   "t": "Sezione nove: le onde discrete. Un'onda ha ampiezza, quanto è alta; frequenza, quanto è fitta; e fase, dove cadono le creste. Su N campioni le frequenze utili sono poche, perché un'onda troppo fitta non si distingue da una lenta."
+  },
+  {
+   "a": "c k [n] = cos(2π k n / N), s k [n] = sin",
+   "t": "Nella formula, l'onda di frequenza k è il coseno o il seno di 2 pi greco k n fratto N: k conta le oscillazioni complete negli N campioni."
+  },
+  {
+   "a": "k = 0: il coseno vale sempre 1. È il seg",
+   "t": "Tre fatti. Con k zero il coseno vale sempre 1: la DC. Con k uguale a N mezzi vale più 1, meno 1, più 1: l'onda più veloce possibile, la frequenza di Nyquist. E k e N meno k danno lo stesso coseno, perché a ogni campione differiscono di un giro intero."
+  },
+  {
+   "a": "N = 8. A sinistra la DC, al centro Nyqui",
+   "t": "Guarda la figura, con N uguale a 8. A sinistra la DC, punti verdi tutti a 1. Al centro Nyquist, punti rossi che alternano. A destra in blu l'onda continua con k uguale a 1, lenta, e in arancio quella con k uguale a 7, fittissima. Diversissime, ma i punti neri dei campioni coincidono. Oltre N mezzi si rivedono le frequenze sotto: è il germe dell'aliasing di L6."
+  },
+  {
+   "a": "In 2D un'onda ha due frequenze, u lungo ",
+   "t": "In 2D un'onda ha due frequenze, u e v, e appare come strisce: più fitte se u e v crescono, con orientazione data dal loro rapporto."
+  },
+  {
+   "a": "Attenzione alla slide 41 Le uguaglianze ",
+   "t": "Attenzione: nelle slide l'uguaglianza fra k e N meno k vale solo con fase nulla. Con fase theta, N meno k equivale a k con fase meno theta."
+  },
+  {
+   "a": "Il punto Su N campioni esistono solo le ",
+   "t": "Da portare a casa: su N campioni esistono solo le frequenze da zero a N mezzi; quelle sopra sono copie."
+  },
+  {
+   "a": "10. Esponenziali complessi: le onde che ",
+   "t": "Sezione dieci: gli esponenziali complessi. Un coseno filtrato esce in generale spostato, cioè come miscela di coseno e seno. Né i coseni né i seni da soli sono autovettori del filtro: serve un oggetto che li tenga insieme."
+  },
+  {
+   "a": "e u [n] = exp(2πj u n / N) = cos(2π u n ",
+   "t": "È l'esponenziale complesso, e alla 2 pi greco j u n fratto N: per Eulero, coseno più j seno. È un punto che gira sulla circonferenza unitaria, avanzando a ogni campione di un angolo fisso. Il coseno è la sua ombra sull'asse reale, il seno sull'asse immaginario."
+  },
+  {
+   "a": "e 1 [n] con N = 8: un giro completo in 8",
+   "t": "Guarda la figura. A sinistra il punto, con N uguale a 8: parte da destra e a ogni passo ruota di 45 gradi in senso antiorario. A destra le ombre: in blu la parte reale, da 1 scende a meno 1 in n uguale a 4, un coseno; in rosso la parte immaginaria, da zero sale a 1 in n uguale a 2, un seno."
+  },
+  {
+   "a": "y[n] = ∑ k h[k] e jω(n − k) = e jωn · ∑ ",
+   "t": "Il conto chiave: dai al sistema l'onda e alla j omega n. Spezzi l'esponenziale di n meno k in due fattori; quello con n non dipende da k ed esce dalla somma. Ciò che resta, H di omega, dipende solo dal kernel e dalla frequenza."
+  },
+  {
+   "a": "A parole: l'onda esce identica, moltipli",
+   "t": "Quindi l'onda esce identica, moltiplicata per il numero complesso H di omega. Il modulo dice quanto si amplifica, la fase quanto si sposta. Gli esponenziali complessi sono autovettori di ogni convoluzione, e H è l'autovalore: la risposta in frequenza, o funzione di trasferimento."
+  },
+  {
+   "a": "Stesso filtro (media di 5 campioni) su d",
+   "t": "Guarda la figura: una media su 5 campioni. A sinistra un coseno di 3 cicli, in grigio, esce in blu ancora coseno, più basso, circa zero virgola sessantanove volte, e spostato di 2 campioni. A destra un'onda quadra esce con le rampe al posto dei salti: cambia forma, non è un autovettore."
+  },
+  {
+   "a": "Esempio a mano. Il kernel di differenza ",
+   "t": "Esempio: il kernel di differenza ha H uguale a 1 meno e alla meno j omega. Con omega zero, segnale costante, H vale zero: le costanti spariscono. Con omega uguale a pi greco, segnale alternato, H vale 2: l'alternanza raddoppia. È un passa alto."
+  },
+  {
+   "a": "Il punto Un'onda complessa e jωn attrave",
+   "t": "Da portare a casa: un esponenziale complesso attraversa ogni convoluzione restando sé stesso, moltiplicato per H. Per questo Fourier usa gli esponenziali."
+  },
+  {
+   "a": "11. La DFT: misurare quanto di ogni onda",
+   "t": "Sezione undici: la DFT, trasformata di Fourier discreta. Data la base di onde, come misuri quanto di ciascuna c'è nel segnale?"
+  },
+  {
+   "a": "L'idea. In una base ortogonale la coordi",
+   "t": "Con un prodotto scalare. Moltiplichi segnale e onda di prova campione per campione e sommi. Se l'onda c'è, salgono e scendono insieme, i prodotti sono positivi e la somma è grande; se non c'è, si cancellano."
+  },
+  {
+   "a": "Il segnale contiene la frequenza 2 (ampi",
+   "t": "Guarda la figura. In alto il segnale: frequenza 2 con ampiezza 1, più frequenza 5 con ampiezza zero virgola cinque. In verde l'onda di prova 2: il prodotto ha barre positive e somma 8, cioè N mezzi. In rosso l'onda 3, che non c'è: barre rosse positive e grigie negative si compensano, somma zero."
+  },
+  {
+   "a": "⟨e u , e u′ ⟩ = ∑ n=0 N−1 e 2πj(u − u′)n",
+   "t": "Perché si cancella esattamente? Il prodotto scalare fra due onde è una serie geometrica. Se le frequenze sono uguali ogni termine vale 1 e la somma è N. Se sono diverse, la ragione alla N fa un numero intero di giri e vale 1, e la somma è zero. Le onde sono ortogonali, con norma al quadrato N: da qui l'uno su N dell'inversa."
+  },
+  {
+   "a": "ℒ[u] = ∑ n=0 N−1 ℓ[n] · e −2πj u n / N ℓ",
+   "t": "La formula: il coefficiente in u è la somma su n del segnale per e alla meno 2 pi greco j u n fratto N. Il meno viene dal coniugato. L'inversa ha il segno più e il fattore uno su N. Il modulo del coefficiente dice quanto c'è di quell'onda, la fase dove sono le creste."
+  },
+  {
+   "a": "Con N = 4 l'angolo base è 90°, quindi e ",
+   "t": "Esempio con N uguale a 4: l'angolo è 90 gradi e le potenze sono 1, meno j, meno 1, j. Nella matrice di Fourier la riga zero è costante, la riga 2 alterna, è Nyquist, e le righe 1 e 3 girano nei due versi."
+  },
+  {
+   "a": "ℒ[0] = 1 + 2 + 3 + 4 = 10. Sempre: la co",
+   "t": "Trasformiamo 1, 2, 3, 4. Il coefficiente zero è la somma, 10: la DC è sempre N volte la media. Il coefficiente 1 è meno 2 più 2 j. Il 2 è 1 meno 2 più 3 meno 4, meno 2, piccolo perché la rampa alterna poco. Il 3 è meno 2 meno 2 j, il coniugato dell'1."
+  },
+  {
+   "a": "Verifica con l'inversa nel primo campion",
+   "t": "Verifica: sommi i quattro coefficienti, fa 4, diviso 4 torna il primo campione, 1. E il coniugato non è un caso: per un segnale reale il coefficiente in N meno u è il coniugato di quello in u, quindi metà spettro è ridondante."
+  },
+  {
+   "a": "Attenzione alla slide 51 La slide scrive",
+   "t": "Attenzione: nelle slide l'inversa della matrice di Fourier è la coniugata, ma manca il fattore uno su N."
+  },
+  {
+   "a": "La DFT è un prodotto per una matrice N×N",
+   "t": "La DFT come prodotto matrice vettore costa N al quadrato. La FFT, fast Fourier transform, non è un'altra trasformata: calcola lo stesso prodotto in N log N."
+  },
+  {
+   "a": "Il punto ℒ[u] = prodotto scalare fra il ",
+   "t": "Da portare a casa: ogni coefficiente è un prodotto scalare con un'onda, e per ortogonalità misura una sola frequenza; l'inversa risomma le onde con uno su N."
+  },
+  {
+   "a": "12. Sommare onde: serie di Fourier e spe",
+   "t": "Sezione dodici: spettri. Cosa vuol dire che un segnale è una somma di onde? Parti dalla media e aggiungi onde sempre più fitte."
+  },
+  {
+   "a": "Ricostruzione parziale con la DFT invers",
+   "t": "Guarda la figura: un segnale di 16 campioni a forma di collina, in grigio, e in blu la ricostruzione. Con la sola DC è una retta alla media. Con la frequenza 1 compare una gobba. Fino a 2 la collina è quasi giusta, fino a 5 mancano solo dettagli. Con tutte le 9 frequenze indipendenti, da 0 a 8, passa per ogni punto: la DFT non perde informazione."
+  },
+  {
+   "a": "È la versione discreta della serie di Fo",
+   "t": "È la versione discreta della serie di Fourier. Con un salto netto, come un'onda quadra, troncare la serie lascia un'oscillazione di circa il 9 per cento vicino al salto, che non sparisce aggiungendo termini: è il fenomeno di Gibbs, parente del ringing."
+  },
+  {
+   "a": "Attenzione alla slide 35 La formula dei ",
+   "t": "Attenzione: nelle slide la formula dei coefficienti ha uno su T, ma serve due su T, e in generale servono anche coseni e termine costante."
+  },
+  {
+   "a": "Ogni ℒ[u, v] è complesso, quindi si scri",
+   "t": "Ogni coefficiente ha un'ampiezza, quanto c'è, e una fase, dove sono le creste. Lo spettro si disegna con il logaritmo di uno più l'ampiezza e con la DC al centro. Al centro le basse frequenze, in periferia le alte."
+  },
+  {
+   "a": "Impulso ↔ costante : ℱ{δ} = 1. Nella som",
+   "t": "Coppie da sapere. L'impulso contiene tutte le frequenze con la stessa ampiezza; un'immagine uniforme ha solo la DC. Un coseno dà due punti simmetrici. Una traslazione cambia solo la fase. E il box ha come trasformata una sinc, con lobi di segno alterno."
+  },
+  {
+   "a": "Coppia coseno ↔ due punti (DFT 64×64, DC",
+   "t": "Guarda la figura. Strisce verticali con u uguale a 4: due punti sull'asse orizzontale, vicini al centro. Strisce orizzontali più fitte, v uguale a 12: due punti sull'asse verticale, più lontani. Strisce diagonali: due punti in diagonale. Più fitte le strisce, più lontani i punti, e la retta fra i punti è perpendicolare alle strisce."
+  },
+  {
+   "a": "Attenzione alla slide 57 La trasformata ",
+   "t": "Attenzione: nelle slide la trasformata del seno ha un segno sbagliato e manca il fattore N per M."
+  },
+  {
+   "a": "Regioni lisce = bassa frequenza; un bord",
+   "t": "In una foto vera: zone lisce in bassa frequenza, bordi su un'ampia banda perpendicolare al bordo, texture periodiche come picchi isolati. L'ampiezza decade circa come uno sulla frequenza. La croce luminosa sugli assi non viene dalla scena: la DFT tratta l'immagine come periodica, e il salto fra bordo destro e sinistro è un bordo."
+  },
+  {
+   "a": "Dalla slide 59. Negli ibridi si riconosc",
+   "t": "Ampiezza o fase, cosa conta? Guarda la figura: astronauta e cameraman, poi gli ibridi. Ampiezza dell'astronauta e fase del cameraman: vedi il cameraman. Ampiezza del cameraman e fase dell'astronauta: vedi l'astronauta. Riconosci sempre chi ha dato la fase, perché la posizione dei bordi sta lì. Per una texture periodica invece conta l'ampiezza."
+  },
+  {
+   "a": "Attenzione alla slide 60 La didascalia d",
+   "t": "Attenzione: nelle slide la didascalia del secondo esperimento descrive uno scambio fra immagini, ma la figura fa altro, con fase casuale. Vedi la scheda."
+  },
+  {
+   "a": "Il punto Lo spettro si legge così: centr",
+   "t": "Da portare a casa: centro lento, periferia fitta, due punti sono un'onda; l'ampiezza dice quanto, la fase dove. E nelle foto la struttura sta nella fase."
+  },
+  {
+   "a": "13. Il teorema di convoluzione",
+   "t": "Sezione tredici: il teorema di convoluzione. Un'immagine 4000 per 3000 con un kernel 101 per 101 costa circa cento miliardi di moltiplicazioni, e un kernel è difficile da capire a occhio. Fourier risolve entrambe le cose."
+  },
+  {
+   "a": "ℱ{h ∗ ℓ}[u] = H[u] · ℒ[u]",
+   "t": "Metti insieme i pezzi: ogni onda passa moltiplicata per H di u, ogni segnale è una somma di onde, e per linearità ogni coefficiente viene moltiplicato per H di u. Quindi la trasformata della convoluzione è il prodotto, punto per punto, delle trasformate."
+  },
+  {
+   "a": "La convoluzione nello spazio è un prodot",
+   "t": "Convoluzione nello spazio, prodotto in frequenza. H, la DFT del kernel, è la funzione di trasferimento: kernel e H sono due descrizioni dello stesso sistema."
+  },
+  {
+   "a": "Sopra, nello spazio: gradino rumoroso ∗ ",
+   "t": "Guarda la figura. In alto: un gradino rumoroso, convoluto con una gaussiana con sigma 2, diventa un gradino morbido e pulito. In basso, in frequenza: lo spettro del segnale ha un picco al centro e un tappeto di rumore. La gaussiana, in arancio, vale 1 vicino alla DC e zero lontano. Nel prodotto il picco resta e il tappeto sparisce."
+  },
+  {
+   "a": "Riprendiamo ℓ = [1, 2, 3, 4], con ℒ = [1",
+   "t": "Con i numeri. Il segnale 1, 2, 3, 4 ha DFT 10, meno 2 più 2 j, meno 2, meno 2 meno 2 j. Il kernel di differenza circolare 1, meno 1, 0, 0 ha DFT 0, 1 più j, 2, 1 meno j."
+  },
+  {
+   "a": "Y[0] = 10 · 0 = 0 Y[1] = (−2 + 2j)(1 + j",
+   "t": "Moltiplica punto per punto: zero, poi meno 4, perché j al quadrato è meno 1, poi meno 4, poi meno 4."
+  },
+  {
+   "a": "Antitrasformando : y[0] = (0 − 4 − 4 − 4",
+   "t": "Antitrasformi: meno 3, 1, 1, 1, identico al conto nello spazio. Leggi anche H: in zero vale zero, la DC sparisce, e infatti la somma dell'output è zero; a Nyquist vale 2, l'alternanza raddoppia. È il passa alto."
+  },
+  {
+   "a": "Perché −3 e non 1? La convoluzione linea",
+   "t": "Perché meno 3 e non 1? La convoluzione lineare di 1, 2, 3, 4 con 1, meno 1 è 1, 1, 1, 1, meno 4, lunga 5. Ma la DFT lavora su 4 campioni e tratta i segnali come periodici."
+  },
+  {
+   "a": "Il campione in posizione 4 (rosso) non h",
+   "t": "Guarda la figura. A sinistra il risultato lineare, con il meno 4 in rosso in posizione 4, fuori dai 4 campioni. A destra, nella versione circolare, quel meno 4 rientra in posizione zero e si somma all'1: fa meno 3. È il wrap around."
+  },
+  {
+   "a": "Il teorema vale esattamente per la convo",
+   "t": "Il teorema vale esattamente per la convoluzione circolare. Per la lineare allunghi con zeri fino ad almeno N più k meno 1 campioni: zero padding. La FFT conviene per kernel grandi; per i 3 per 3 delle CNN si fa la convoluzione diretta."
+  },
+  {
+   "a": "Box h = ⅓[1, 1, 1]: H(ω) = ⅓(e jω + 1 + ",
+   "t": "Box contro binomiale, entrambi centrati, quindi H reale. Il box, un terzo per 1, 1, 1, ha H uguale a uno più due coseno di omega, diviso 3: 1 alla DC, zero a due terzi di pi greco, meno un terzo a Nyquist. Le alte passano ancora, invertite. Il binomiale, un quarto per 1, 2, 1, ha H uguale a coseno al quadrato di omega mezzi: scende monotono fino a zero a Nyquist."
+  },
+  {
+   "a": "Le risposte in frequenza calcolate sopra",
+   "t": "Guarda la figura. La curva blu, il binomiale, è una campana da 1 a zero, sempre positiva. Quella arancio, il box, attraversa lo zero a due terzi di pi greco e finisce a meno un terzo: quel tratto sotto l'asse è alta frequenza che passa invertita. Il tratteggio rosso, la differenza, vale zero al centro e 2 agli estremi. Ecco perché per sfocare si preferisce la gaussiana al box."
+  },
+  {
+   "a": "La differenza (tratteggio) ha |H| = 0 in",
+   "t": "Una regola per tutti: H in zero è la somma dei pesi. Per questo un blur deve sommare a 1, per non cambiare la luminosità media."
+  },
+  {
+   "a": "Il punto ℱ{h ∗ ℓ} = H · ℒ: convolvere = ",
+   "t": "Da portare a casa: convolvere è moltiplicare gli spettri, esatto per la convoluzione circolare; per la lineare serve zero padding. E H in zero è la somma dei pesi."
+  },
+  {
+   "a": "14. Filtrare in frequenza",
+   "t": "Sezione quattordici: filtrare in frequenza. Invece di scegliere i pesi del kernel scegli direttamente H, quanto far passare di ogni frequenza. Trasformi, moltiplichi, antitrasformi."
+  },
+  {
+   "a": "Passa-basso : H ≈ 1 vicino alla DC, ≈ 0 ",
+   "t": "Il passa basso vale 1 vicino alla DC e zero lontano: sfoca. Il passa alto è uno meno il passa basso, cioè l'immagine meno la sua versione sfocata: restano i bordi. Il passa banda tiene un anello di frequenze intermedie, utile per le texture, come i filtri di Gabor, e per le piramidi di L6."
+  },
+  {
+   "a": "Si moltiplica la DFT per una gaussiana H",
+   "t": "Guarda la figura. Il cameraman, poi il suo spettro: energia al centro, una croce lungo gli assi dovuta ai bordi dell'immagine, righe inclinate perpendicolari alle gambe del treppiede. Il passa basso gaussiano dà un'immagine sfocata; il passa alto lascia solo i contorni su un fondo grigio."
+  },
+  {
+   "a": "Esempio del libro (§ 16.10.1). In una fo",
+   "t": "Esempio del libro: in una foto di un edificio le colonne si ripetono ogni 14 pixel, e lo spettro ha picchi isolati. Azzerandoli, le colonne spariscono e il resto resta. Difficilissimo nello spazio, banale in frequenza."
+  },
+  {
+   "a": "Un limite netto: un filtro lineare può s",
+   "t": "Un limite: un filtro lineare scala e sfasa le frequenze presenti, ma non ne crea di nuove. Un dettaglio perso con il blur non torna con un altro filtro LSI."
+  },
+  {
+   "a": "Il punto Filtrare = scegliere H. Passa-b",
+   "t": "Da portare a casa: filtrare è scegliere H. Passa basso sfoca, passa alto tiene i bordi, passa banda isola le texture. Nessun filtro lineare inventa frequenze."
+  },
+  {
+   "a": "15. Due applicazioni: JPEG e CNN",
+   "t": "Sezione quindici: JPEG e CNN. Una foto da 12 megapixel non compressa occupa 36 megabyte; il telefono la salva in 3."
+  },
+  {
+   "a": "L'idea. Le foto concentrano l'energia in",
+   "t": "Le foto hanno l'energia in bassa frequenza e l'occhio vede poco i dettagli fini. JPEG applica a blocchi 8 per 8 la DCT, trasformata discreta del coseno, quantizza grossolanamente i coefficienti alti, molti diventano zero, e comprime. A compressione forte compaiono blocchi e ringing."
+  },
+  {
+   "a": "Un layer convoluzionale è un insieme di ",
+   "t": "Un layer convoluzionale è un insieme di filtri LSI con pesi condivisi e locali; nei primi layer somigliano a passa banda orientati, tipo Gabor. Due convoluzioni di fila sono una sola, quindi senza nonlinearità una CNN collasserebbe in un unico filtro: lo impedisce la ReLU, che crea frequenze nuove."
+  },
+  {
+   "a": "Un layer convoluzionale è un insieme di ",
+   "t": "Il campo recettivo: due 3 per 3 vedono quanto un 5 per 5, con 18 pesi invece di 25, e un campo più ampio coglie struttura più globale. Le convoluzioni dilatate, se progettate male, danno artefatti tipo aliasing."
+  },
+  {
+   "a": "Il limite di Fourier, con cui il libro c",
+   "t": "Il limite di Fourier: lo spettro dice quali frequenze ci sono, ma non dove. Per localizzare in spazio e frequenza servono piramidi, in L6, e banchi di filtri, in L7."
+  },
+  {
+   "a": "Il punto JPEG scarta le alte frequenze c",
+   "t": "Da portare a casa: JPEG scarta le alte frequenze invisibili, e una CNN è una pila di filtri LSI separati da nonlinearità."
+  },
+  {
+   "a": "Verifica di aver capito",
+   "t": "Verifica di aver capito. Per ogni domanda, metti in pausa, prova a rispondere, poi ascolta la spiegazione."
+  },
+  {
+   "a": "La rotazione attorno al centro è un sist",
+   "t": "Prima domanda: la rotazione attorno al centro è LSI? E sottrarre la media globale? Metti in pausa e prova a rispondere."
+  },
+  {
+   "a": "La rotazione attorno al centro è un sist",
+   "t": "La rotazione è lineare ma non invariante: il centro è fisso, quindi non è una convoluzione. Sottrarre la media è lineare e, su segnali circolari, invariante: è la convoluzione con l'impulso meno un kernel costante uno su N, che azzera la DC."
+  },
+  {
+   "a": "La rotazione attorno al centro è un sist",
+   "t": "Seconda domanda: convoluzione full di 2, 0, 1 con 1, 3. Quanto è lunga? Metti in pausa e prova a rispondere."
+  },
+  {
+   "a": "La rotazione attorno al centro è un sist",
+   "t": "Lunga 3 più 2 meno 1, cioè 4. I valori: 2 per 1, 2; poi 2 per 3 più zero, 6; poi zero più 1, 1; poi 1 per 3, 3. Risultato 2, 6, 1, 3."
+  },
+  {
+   "a": "La rotazione attorno al centro è un sist",
+   "t": "Terza domanda: DFT di 1, 1, 1, 1 e di 1, meno 1, 1, meno 1. Perché? Metti in pausa e prova a rispondere."
+  },
+  {
+   "a": "La rotazione attorno al centro è un sist",
+   "t": "La prima è 4, 0, 0, 0: costante, solo DC. La seconda è 0, 0, 4, 0: è l'onda di Nyquist, la riga 2 della matrice, e per ortogonalità le altre righe danno zero."
+  },
+  {
+   "a": "La rotazione attorno al centro è un sist",
+   "t": "Quarta domanda: perché Fourier usa gli esponenziali complessi e non seni e coseni? Metti in pausa e prova a rispondere."
+  },
+  {
+   "a": "La rotazione attorno al centro è un sist",
+   "t": "Perché sono autovettori di ogni convoluzione: escono moltiplicati per H. Un coseno filtrato esce spostato, miscela di coseno e seno. E l'ortogonalità si dimostra con una sola serie geometrica."
+  },
+  {
+   "a": "La rotazione attorno al centro è un sist",
+   "t": "Quinta domanda: segnale di 100 campioni, kernel di 11, FFT di lunghezza 100. Cosa va storto? Metti in pausa e prova a rispondere."
+  },
+  {
+   "a": "La rotazione attorno al centro è un sist",
+   "t": "La FFT fa la convoluzione circolare: i 10 campioni in eccesso rientrano all'inizio. Si corregge con zero padding ad almeno 110, poi si ritaglia."
+  },
+  {
+   "a": "La rotazione attorno al centro è un sist",
+   "t": "Sesta domanda: un terzo per 1, 1, 1 o un quarto per 1, 2, 1, quale preferisci guardando H? Metti in pausa e prova a rispondere."
+  },
+  {
+   "a": "La rotazione attorno al centro è un sist",
+   "t": "Il binomiale: scende monotono fino a zero a Nyquist. Il box diventa negativo dopo due terzi di pi greco e lascia passare alte frequenze invertite."
+  },
+  {
+   "a": "Come proseguire",
+   "t": "Come proseguire: capitoli 15 e 16 del Visionbook. In L4 rifai tutto in numpy, in L5 blur e derivate diventano strumenti, in L6 si spiega l'aliasing. Poi ripassa con le schede e i riquadri di attenzione."
+  },
+  {
+   "a": "Visionbook cap. 15, Linear Image Filteri",
+   "t": "Ricapitoliamo. Lineare più invariante vuol dire convoluzione, e il kernel è la risposta all'impulso. A mano: ribalta, sposta, moltiplica, somma, e la somma dei pesi distingue blur e bordi. Gli esponenziali complessi sono autovettori di ogni convoluzione, e la DFT misura quanto ce n'è di ciascuno. Il teorema di convoluzione trasforma la convoluzione in un prodotto. E filtrare è scegliere H."
+  }
+ ]
+}

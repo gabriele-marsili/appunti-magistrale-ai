@@ -1,0 +1,164 @@
+
+<div class="sec" id="l5-libro"><h2>Studia dal libro</h2><span>visionbook, capitoli 17 e 18: circa 2 ore e mezza di lettura</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Cosa leggere, in ordine</h3>
+    <div class="meta">Torralba, Isola, Freeman, <i>Foundations of Computer Vision</i>, gratis online</div>
+    <ol>
+      <li><a href="https://visionbook.mit.edu/blurring_2.html" target="_blank">Cap. 17, Blur Filters</a>: § 17.1 (a cosa serve il blur), § 17.2 con 17.2.1–17.2.2 (box, guadagno DC, separabilità, limiti), § 17.3 con 17.3.1–17.3.3 (gaussiana: discretizzazione, proprietà nel continuo, limiti nel discreto), § 17.4 con 17.4.1–17.4.2 (binomiali, tabella b<sub>0</sub>…b<sub>8</sub>, versione 2D), § 17.5. Copre le slide 3–24. Capitolo breve: circa 45 minuti.</li>
+      <li><a href="https://visionbook.mit.edu/derivatives.html" target="_blank">Cap. 18, Image Derivatives</a>: § 18.2 (d<sub>0</sub>, d<sub>1</sub>, Roberts), § 18.3–18.4 (rappresentazione col gradiente, pseudo-inversa, editing), § 18.5–18.7 (derivate di gaussiana, ordini alti, Sobel), § 18.8 (gradiente e derivate direzionali), § 18.9 (laplaciano e LoG), § 18.10 (modello del sistema visivo), § 18.11 (sharpening). Copre le slide 25–68.</li>
+    </ol>
+    <p><b>Si può leggere in fretta</b>: § 17.1 e § 18.1 (introduzioni), § 18.10 (basta l'idea del filtro h e della CSF), § 18.12 Retinex (non è nelle slide, ma è un bell'esempio d'uso delle derivate: leggilo per capire, non per memorizzare), § 18.13.</p>
+    <p><b>Nel libro ma non nelle slide</b>, e utile per capire: il guadagno DC ricavato con l'ingresso costante e l'immagine integrale (§ 17.2), gli esempi numerici di non monotonia del box (§ 17.2.2) e di rottura della gaussiana discreta (§ 17.3.3), la DFT dei binomiali (§ 17.4.1), l'operatore di Roberts (§ 18.2), la formula esatta con i polinomi di Hermite (§ 18.6), Retinex (§ 18.12). <b>Nelle slide ma non nel libro</b>: il confronto numerico box/gaussiana/binomiale delle slide 21–22, equazione del calore e teorema del limite centrale come motivazioni (nel libro sono solo citati), la risposta in frequenza dello sharpening.</p>
+  </div>
+  <div class="two">
+    <div class="card">
+      <h3>1 · Perché il box non basta</h3>
+      <p>Il guadagno DC è la somma dei coefficienti (risposta a un'immagine costante). Il box [1, 1, 1] lascia passare intatta l'onda più veloce [1, −1, 1, −1, …] ma azzera un'onda più lenta di periodo 3: l'attenuazione non cresce con la frequenza, la risposta è a sinc con lobi laterali. In più box ∗ box = triangolo, quindi due blur di seguito non sono un blur della stessa famiglia. Un box pari annullerebbe la frequenza più alta, ma sposta di mezzo pixel (§ 17.2.2).</p>
+    </div>
+    <div class="card">
+      <h3>2 · Gaussiana: perfetta nel continuo, approssimata nel discreto</h3>
+      <p>Nel continuo è separabile e radiale (unica con entrambe), la trasformata è una gaussiana monotona, le varianze si sommano, per σ → 0 diventa l'impulso. Campionata e troncata a ±3σ (bordo all'1% del centro) perde tutto questo in modo approssimato: con σ² = 1/2 e 5 campioni, g<sub>5</sub> ∗ g<sub>5</sub> non è la gaussiana campionata con σ² = 1, e g<sub>5</sub> non annulla [1, −1, 1, −1, …] (§ 17.3.1–17.3.3).</p>
+    </div>
+    <div class="card">
+      <h3>3 · Binomiali: la gaussiana "giusta" sulla griglia</h3>
+      <p>b<sub>n</sub> = [1, 1] convoluto n volte: interi, somma 2<sup>n</sup>, varianza n/4, b<sub>n</sub> ∗ b<sub>m</sub> = b<sub>n+m</sub> esatto. La DFT è B<sub>2</sub>[u] = 2 + 2cos(2πu/N) e B<sub>2n</sub> = B<sub>2</sub><sup>n</sup>: monotona e nulla alla frequenza più alta, per ogni n ≥ 1, perché ogni b<sub>n</sub> contiene il fattore [1, 1]. Da qui [1, 2, 1]/4 come kernel di riferimento per togliere rumore e sottocampionare (§ 17.4–17.5).</p>
+    </div>
+    <div class="card">
+      <h3>4 · Dalla derivata discreta alla derivata di gaussiana</h3>
+      <p>d<sub>0</sub> ha DFT exp(−πju/N)·2j sin(πu/N): buon modulo, mezzo campione di ritardo. d<sub>1</sub> ha j sin(2πu/N): nessun ritardo, ma zero alla frequenza più alta. Derivare amplifica il rumore (varianza 2σ² con d<sub>0</sub>), quindi si sfoca; poiché derivata e convoluzione commutano, basta convolvere con g<sub>x</sub> = −(x/σ²)g. Gli ordini superiori sono Hermite × gaussiana, tutti separabili; Sobel è la versione binomiale, con DFT D<sub>1</sub>[u]B<sub>2</sub>[v] (§ 18.2, 18.5–18.7).</p>
+    </div>
+    <div class="card">
+      <h3>5 · Il gradiente come rappresentazione</h3>
+      <p>Scritta la derivata come matrice, con zero padding si inverte esattamente (somma cumulativa); con differenze "valid" si usa la pseudo-inversa e si ricostruisce il segnale a media zero. In 2D si codifica r = [D<sub>x</sub>; D<sub>y</sub>]ℓ, si modifica r (es. si azzerano i gradienti di una scritta) e si decodifica con la pseudo-inversa calcolata in Fourier: l'integrazione riempie la zona dai bordi (§ 18.3–18.4).</p>
+    </div>
+    <div class="card">
+      <h3>6 · Retinex (solo nel libro)</h3>
+      <p>Modello: ℓ(x, y) = r(x, y) · l(x, y), riflettanza per illuminazione. Col logaritmo il prodotto diventa somma, e lo stesso vale per le derivate: ∂log ℓ/∂x = ∂log r/∂x + ∂log l/∂x. Ipotesi: l'illuminazione varia lentamente, la riflettanza cambia a salti. Quindi le derivate sopra una soglia T si attribuiscono alla riflettanza, quelle piccole all'illuminazione; si integrano le due parti (come in § 18.3–18.4) e si esponenzia. È la separazione illuminazione/riflettanza citata fra le applicazioni nella slide 26 (§ 18.12).</p>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Differenze di notazione fra slide e libro</h3>
+    <ul>
+      <li><b>Convoluzione</b>: slide ∗ (a volte ∘ nelle figure), libro ∘.</li>
+      <li><b>Frequenza</b>: le slide usano ω in [0, π] (o "normalized frequency × π"); il libro usa la DFT con indice u su N campioni. Si passa con ω = 2πu/N: per esempio 2 + 2cos(2πu/N) = 4cos²(ω/2). Per la frequenza continua il libro scrive w.</li>
+      <li><b>Derivate di gaussiana</b>: slide g′<sub>σ</sub>, g″<sub>σ</sub>, ∂<sub>xx</sub>g; libro g<sub>x</sub>, g<sub>x²</sub>, g<sub>x<sup>n</sup>y<sup>m</sup></sub>.</li>
+      <li><b>Hermite</b>: slide H<sub>n</sub>(x/σ) "a meno di un fattore"; libro (−1/(σ√2))<sup>n</sup> H<sub>n</sub>(x/(σ√2)) con gli Hermite dei fisici (H<sub>2</sub> = 4x² − 2). Equivale a (−1/σ)<sup>n</sup> He<sub>n</sub>(x/σ) con gli Hermite dei probabilisti (He<sub>2</sub> = u² − 1).</li>
+      <li><b>Sobel</b>: il libro scrive Sobel<sub>x</sub> con prima riga (1 0 −1), il prodotto [1, 0, −1] ∘ [1, 2, 1]<sup>T</sup>; la slide 46 scrive la matrice con il segno opposto (forma da correlazione).</li>
+      <li><b>LoG</b>: libro ((x² + y² − 2σ²)/σ⁴)g, slide e appunti ((x² + y²)/σ⁴ − 2/σ²)g: stessa cosa.</li>
+      <li><b>Binomiali</b>: stessa notazione b<sub>n</sub>; il 2D 3×3 nel libro è b<sub>2,2</sub>, nelle slide B<sub>n</sub>(x, y).</li>
+    </ul>
+  </div>
+</div>
+
+<div class="sec" id="l5-guida"><h2>Guida allo studio</h2><span>3–4 ore in quattro blocchi</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Prima di iniziare</h3>
+    <div class="meta">15 minuti</div>
+    <p>Leggi prima la sezione Studia dal libro qui sopra e tieni aperti i capitoli 17 e 18 mentre studi le schede. Ripassa il teorema di convoluzione e la DFT di un kernel corto (L3, L4): per quasi ogni filtro della lezione si chiede la trasformata di un vettore di 2–5 tap. Tieni a portata di mano la regola "convoluzione nello spazio = prodotto in frequenza".</p>
+  </div>
+  <div class="two">
+    <div class="card">
+      <h3>1 · Filtri di blur</h3>
+      <div class="meta">Slide 3–24 · circa 1 ora</div>
+      <p>Obiettivo: confrontare box, gaussiana e binomiale su kernel, frequenza e composizione.</p>
+      <ul>
+        <li>Correggi subito su OneNote la normalizzazione della gaussiana 2D (slide 11 e 12): 1/(2πσ²).</li>
+        <li>Ricava a mano la risposta del box (nucleo di Dirichlet) e quella del binomiale, cos<sup>n</sup>(ω/2): spiegano da sole perché uno ha i lobi e l'altro no.</li>
+        <li>Rifai il conto di varianza di b<sub>n</sub> (n/4) e della composizione di gaussiane (varianze che si sommano).</li>
+        <li>Verifica: perché [1, 2, 1] annulla la scacchiera e [1, 1, 1] no?</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>2 · Derivate discrete e inversione</h3>
+      <div class="meta">Slide 25–37 · circa 45 minuti</div>
+      <p>Obiettivo: saper confrontare d<sub>0</sub> e d<sub>1</sub> e spiegare perché il gradiente è "quasi" invertibile.</p>
+      <ul>
+        <li>Calcola D<sub>0</sub>(ω) e D<sub>1</sub>(ω) e disegnali accanto a |ω| (slide 29).</li>
+        <li>Rifai l'esempio della slide 36 con il segno corretto: r = [0, 1, 0, −2].</li>
+        <li>Verifica: cosa si perde con il padding valid, e perché proprio quello?</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>3 · Derivate di gaussiana, Sobel, laplaciano</h3>
+      <div class="meta">Slide 38–58 · circa 1 ora e mezza</div>
+      <p>Obiettivo: il blocco più chiesto. Formule da saper ricavare e confronti da saper argomentare.</p>
+      <ul>
+        <li>Deriva a mano g′<sub>σ</sub>, g″<sub>σ</sub> e ∇²g<sub>σ</sub>; controlla il valore −1/π al centro del LoG con σ = 1.</li>
+        <li>Scrivi Sobel come prodotto esterno e spiega la differenza di segno fra kernel e maschera (slide 46).</li>
+        <li>Mostra che due convoluzioni bastano per la derivata in ogni direzione (slide 47).</li>
+        <li>Verifica: perché il laplaciano è nullo su una rampa e la derivata no? Dove cadono gli zero-crossing?</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>4 · Sistema visivo e sharpening</h3>
+      <div class="meta">Slide 59–72 · circa 45 minuti</div>
+      <p>Obiettivo: saper collegare i filtri alla percezione e al miglioramento di immagini.</p>
+      <ul>
+        <li>Spiega a voce la carta di Campbell-Robson e la curva di h = −∇²g<sub>σ</sub> + λg<sub>σ</sub>.</li>
+        <li>Scrivi la risposta in frequenza dello sharpening, 2 − ĝ<sub>σ</sub>(ω), e calcola il kernel 3×3 della slide 66.</li>
+        <li>Verifica: perché lo sharpening ripetuto alla fine peggiora l'immagine?</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Formulario minimo</h3>
+    <div class="meta">Da saper scrivere a memoria</div>
+    <span class="f">g(x, y; σ) = 1/(2πσ²) · exp(−(x² + y²)/2σ²)     G(ω) = exp(−ω²σ²/2)</span>
+    <span class="f">g<sub>σ1</sub> ∗ g<sub>σ2</sub> = g<sub>σ3</sub>,  σ<sub>3</sub>² = σ<sub>1</sub>² + σ<sub>2</sub>²     heat: ∂u/∂t = ∇²u, t = σ²/2</span>
+    <span class="f">b<sub>n</sub>: somma 2<sup>n</sup>, σ² = n/4, |H| = cos<sup>n</sup>(ω/2), b<sub>n</sub> ∗ b<sub>m</sub> = b<sub>n+m</sub></span>
+    <span class="f">d<sub>0</sub> = [1, −1]: |D<sub>0</sub>| = 2|sin(ω/2)|     d<sub>1</sub> = ½[1, 0, −1]: |D<sub>1</sub>| = |sin ω|</span>
+    <span class="f">g′<sub>σ</sub> = −(x/σ²) g<sub>σ</sub>     g″<sub>σ</sub> = (x²/σ⁴ − 1/σ²) g<sub>σ</sub>     ∇²g<sub>σ</sub> = ((x² + y²)/σ⁴ − 2/σ²) g<sub>σ</sub></span>
+    <span class="f">Sobel S<sub>x</sub> = [1, 2, 1]<sup>T</sup> [1, 0, −1]     ∇²<sub>5</sub> = [[0, 1, 0], [1, −4, 1], [0, 1, 0]]</span>
+    <span class="f">∂ℓ/∂t = cos θ ∂ℓ/∂x + sin θ ∂ℓ/∂y     sharpening: h = 2δ − g<sub>σ</sub></span>
+  </div>
+
+  <div class="card">
+    <h3>Errori delle slide da correggere su OneNote</h3>
+    <div class="meta">Dettagli nelle schede</div>
+    <ul>
+      <li><b>Slide 11–12</b>: gaussiana 2D con 1/√(2πσ²) invece di 1/(2πσ²).</li>
+      <li><b>Slide 36</b>: r = D<sub>0</sub>ℓ vale [0, 1, 0, −2], non [0, −1, 0, 2] (il risultato ℓ̂ invece è giusto). Lo stesso errore è nel libro, § 18.3.</li>
+      <li><b>Slide 21–22</b>: "binomial n = 16" sono 16 applicazioni di [1, 2, 1]/4, cioè b<sub>32</sub> (σ ≈ 2.83), non b<sub>16</sub>.</li>
+      <li><b>Slide 46</b>: la matrice di Sobel è l'opposto del prodotto scritto a sinistra (è la maschera di correlazione).</li>
+      <li><b>Slide 30</b>: d<sub>0</sub><sup>x</sup> colonna, incoerente con S<sub>x</sub> della slide 46.</li>
+      <li>Minori: slide 7 (il guadagno DC è la somma, non la media), slide 63 (lettere delle sottofigure), slide 72 ("scale-invariant filters").</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Domande tipo orale</h3>
+    <div class="meta">Prova a rispondere, poi apri per la traccia</div>
+    <div class="qa">
+      <details><summary>Confronta box, gaussiana e binomiale.</summary><p>Box: economico, ma risposta sinc con lobi laterali (ringing, non annulla bene le alte frequenze) e non componibile. Gaussiana: risposta gaussiana liscia e monotona, separabile, varianze che si sommano, ma troncata e campionata perde le proprietà esatte. Binomiale: interi, composizione esatta b<sub>n</sub> ∗ b<sub>m</sub> = b<sub>n+m</sub>, σ² = n/4, risposta cos<sup>n</sup>(ω/2) monotona (slide 10, 15, 17, 19).</p></details>
+      <details><summary>Dimostra che la gaussiana è separabile e di' quanto si risparmia.</summary><p>exp(−(a² + b²)/2σ²) = exp(−a²/2σ²)·exp(−b²/2σ²), il primo fattore esce dalla somma interna: g ∗ ℓ = g<sup>x</sup> ∗ (g<sup>y</sup> ∗ ℓ). Da K² a 2K moltiplicazioni per pixel (slide 14).</p></details>
+      <details><summary>Cosa succede componendo due gaussiane? E due box?</summary><p>Due gaussiane danno una gaussiana con σ² = σ<sub>1</sub>² + σ<sub>2</sub>² (prodotto delle trasformate). Due box danno un triangolo, non un box (slide 10, 15).</p></details>
+      <details><summary>Che legame c'è fra gaussiana ed equazione del calore?</summary><p>g<sub>σ</sub> è la soluzione di ∂u/∂t = ∇²u con impulso iniziale, al tempo t = σ²/2. Sfocare di più = diffondere più a lungo. Base dello scale-space in L6 (slide 16).</p></details>
+      <details><summary>Confronta d<sub>0</sub> e d<sub>1</sub>, anche in frequenza.</summary><p>d<sub>0</sub> = [1, −1]: modulo 2|sin(ω/2)|, più vicino a |ω|, ma fase lineare = shift di mezzo pixel. d<sub>1</sub> = ½[1, 0, −1]: j sin ω, nessuno shift, ma si annulla a ω = π. Entrambi buoni solo a bassa frequenza (slide 27–29).</p></details>
+      <details><summary>Si può ricostruire un'immagine dal suo gradiente?</summary><p>Con zero padding sì: D<sub>0</sub> è invertibile, l'inversa è la somma cumulativa. Con padding valid no: N−1 equazioni per N incognite, si usa la pseudo-inversa e si perde la media (slide 34–36). In 2D si risolve un'equazione di Poisson; è la base dell'editing nel dominio del gradiente (slide 37).</p></details>
+      <details><summary>Perché le derivate amplificano il rumore e come si rimedia?</summary><p>La derivata ha guadagno |ω|, il rumore bianco ha energia a tutte le frequenze. Con d<sub>0</sub> la varianza passa da σ² a 2σ². Si sfoca: e siccome derivata e convoluzione commutano, basta convolvere con la derivata della gaussiana (slide 39–41).</p></details>
+      <details><summary>Scrivi g′<sub>σ</sub> e g″<sub>σ</sub>. Che ruolo ha σ?</summary><p>g′ = −(x/σ²)g, g″ = (x²/σ⁴ − 1/σ²)g. σ è la scala: grande = variazioni grossolane e poco rumore, piccolo = dettaglio fine e più rumore. Le derivate non sono invarianti alla scala (slide 41–44).</p></details>
+      <details><summary>Cos'è l'operatore di Sobel e perché funziona meglio di d<sub>1</sub>?</summary><p>Prodotto esterno di un binomiale [1, 2, 1] (smoothing ortogonale) e di [1, 0, −1] (derivata): approssima una derivata di gaussiana. Riduce il rumore e dà un modulo del gradiente più invariante alla rotazione, al prezzo di un po' di blur (slide 46, 48, 49).</p></details>
+      <details><summary>Come si ottiene la derivata in una direzione qualunque?</summary><p>∂ℓ/∂t = cos θ ∂ℓ/∂x + sin θ ∂ℓ/∂y = ∇ℓ · t. Bastano due convoluzioni; il massimo è lungo il gradiente e vale |∇ℓ|, perpendicolare al bordo (slide 47, 50).</p></details>
+      <details><summary>Laplaciano e LoG: definizione, kernel discreto, proprietà.</summary><p>∇²ℓ = ℓ<sub>xx</sub> + ℓ<sub>yy</sub>, invariante alla rotazione, nullo sulle rampe; kernel a 5 punti [[0,1,0],[1,−4,1],[0,1,0]], separabile per somma di [1, −2, 1]. LoG = ∇²g<sub>σ</sub>, passa-banda; i bordi sono zero-crossing, dove la derivata prima è massima (slide 51–57).</p></details>
+      <details><summary>Che c'entra il LoG con la percezione umana?</summary><p>h = −∇²g<sub>σ</sub> + λg<sub>σ</sub> ha risposta con picco a frequenze intermedie, come la funzione di sensibilità al contrasto (Campbell-Robson). Lo stesso filtro riproduce le diagonali illusorie di Vasarely (slide 61–63).</p></details>
+      <details><summary>Come funziona lo sharpening e che risposta in frequenza ha?</summary><p>ℓ + (ℓ − g<sub>σ</sub> ∗ ℓ), cioè h = 2δ − g<sub>σ</sub>, risposta 2 − ĝ<sub>σ</sub>(ω): 1 in DC, fino a 2 alle alte frequenze. Ripetuto amplifica rumore e ringing (slide 65–68).</p></details>
+      <details><summary>Cos'è Retinex e cosa c'entrano le derivate?</summary><p>Modello ℓ = r · l (riflettanza per illuminazione). Col logaritmo diventa una somma, anche per le derivate. Le derivate grandi (sopra una soglia) si attribuiscono alla riflettanza, quelle piccole all'illuminazione, che varia lentamente; si reintegra e si esponenzia. Dal libro, § 18.12: nelle slide è solo citato fra le applicazioni (slide 26).</p></details>
+      <details><summary>Perché la gaussiana discreta non conserva le proprietà della continua? Fai un esempio.</summary><p>Campionarla e troncarla rompe somma 1, composizione e annullamento delle alte frequenze. Esempio del libro: con σ² = 1/2 e 5 campioni, g<sub>5</sub> ∗ g<sub>5</sub> non coincide con la gaussiana campionata con σ² = 1 e g<sub>5</sub> non annulla [1, −1, 1, −1, …]. I binomiali invece compongono esattamente e annullano quella frequenza (slide 17, 19; libro § 17.3.3).</p></details>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Esercizi veloci</h3>
+    <div class="meta">Carta e penna, o numpy</div>
+    <ol>
+      <li>Calcola b<sub>2</sub> ∗ b<sub>2</sub> e verifica che è b<sub>4</sub> = [1 4 6 4 1]/16 con varianza 1.</li>
+      <li>Convolvi [0, 0, 1, 1, 1, 1, 0, 0] con d<sub>0</sub>, d<sub>1</sub> e [1, −2, 1]: dove sono i picchi e dove gli zero-crossing?</li>
+      <li>Calcola <code>np.linalg.pinv</code> della D<sub>0</sub> 4×5 della slide 35, applicala a D<sub>0</sub>ℓ per un ℓ a caso e verifica che ottieni ℓ − media(ℓ).</li>
+      <li>Applica Sobel e il laplaciano a 5 punti a un disco bianco (come nella slide 48) e guarda modulo e angolo del gradiente.</li>
+      <li>Implementa ℓ + α(ℓ − g<sub>σ</sub> ∗ ℓ) e osserva l'effetto di α e σ su un'immagine con rumore.</li>
+    </ol>
+  </div>
+</div>

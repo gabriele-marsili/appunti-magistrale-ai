@@ -1,0 +1,153 @@
+<div class="sec" id="l7-libro"><h2>Studia dal libro</h2><span>visionbook, cap. 16, 22 e 24 · circa 2 ore e mezza</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Cosa leggere, in ordine</h3>
+    <div class="meta">Torralba, Isola, Freeman, <i>Foundations of Computer Vision</i>, gratis su visionbook.mit.edu</div>
+    <ol>
+      <li><b><a href="https://visionbook.mit.edu/image_processing_fourier.html">Cap. 16, Fourier Analysis</a></b>, per <code>demo.ipynb</code>. Leggi § 16.4.1 (onde 2D), § 16.5 (DFT 2D, inversa, visualizzazione, fig. 16.8), § 16.6.2–16.6.3 (onde e box), § 16.7 tutto (linearità, separabilità, Parseval, convoluzione, traslazione, modulazione), § 16.9 (modulo e fase, spettro delle immagini naturali), § 16.10 con l'esempio delle colonne del MIT. Puoi saltare § 16.3 (serie di Fourier, storia) e § 16.8 (famiglia di trasformate: già vista nella L3).</li>
+      <li><b><a href="https://visionbook.mit.edu/spatial_filter_sets.html">Cap. 22, Filter Banks</a></b>, per <code>filter_bank.ipynb</code>. Leggi § 22.1, § 22.2 (Gabor), § 22.2.2 (ampiezza locale, il modello "cellula complessa"), § 22.2.4 (banchi di Gabor), § 22.3.1 (teorema di steering, derivate gaussiane). Salta in prima lettura § 22.2.1 (trasformata di Hilbert, formale), § 22.3.2 (coppie in quadratura orientabili, coefficienti numerici) e § 22.4 (moto, riguarda il video).</li>
+      <li><b><a href="https://visionbook.mit.edu/convolutional_neural_nets.html">Cap. 24, Convolutional Neural Nets</a></b>, solo come ponte: § 24.1, § 24.2 (layer convoluzionale, multicanale, stride), § 24.3.1–24.3.2 (pooling e pooling globale), § 24.4–24.5 (la CNN più semplice e i filtri che impara, fig. 24.19), § 24.7 (campo recettivo). Il resto verrà con le lezioni sulle reti.</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h3>Le idee centrali, come le spiega il libro</h3>
+    <div class="meta">Da saper ricostruire senza guardare</div>
+    <ol>
+      <li><b>Un'immagine è una somma di onde 2D.</b> La DFT 2D (eq. 16.2) proietta l'immagine sugli esponenziali complessi e<sup>2πj(un/N + vm/M)</sup>, che sono ortogonali e separabili. Un coseno reale è la somma di due esponenziali coniugati: per questo dà due impulsi simmetrici, e la loro posizione (u, v) dice frequenza (distanza dall'origine) e orientazione (direzione, perpendicolare alle strisce).</li>
+      <li><b>Modulo e fase fanno cose diverse.</b> Una traslazione cambia solo la fase (rampa lineare, § 16.7.6), quindi la posizione delle strutture è nella fase. Lo scambio di fase fra due immagini (fig. 16.14) mostra che per le immagini naturali la fase porta la struttura; per le texture periodiche anche il modulo è decisivo (fig. 16.15). Il modulo delle immagini naturali decade come a/(u<sup>2</sup>+v<sup>2</sup>)<sup>b</sup>, ed è il motivo per cui la compressione con pochi coefficienti funziona.</li>
+      <li><b>Filtrare = moltiplicare lo spettro</b> (§ 16.7.4, § 16.10), con due avvertenze: la convoluzione corrispondente è circolare (bordi periodici), e una maschera con bordi netti corrisponde a un kernel oscillante (ringing). Un disturbo concentrato in frequenza (colonne del MIT, onde del notebook) si toglie azzerando pochi coefficienti.</li>
+      <li><b>Il Fourier è troppo globale, il pixel troppo locale</b> (§ 16.11). I filtri localizzati sono il compromesso: il Gabor (§ 22.2) è una gaussiana per un'onda, localizzato sia nello spazio sia in frequenza; un banco di Gabor copre il piano delle frequenze con filtri a diverse orientazioni e scale.</li>
+      <li><b>La non linearità rende utili i banchi.</b> Filtri in quadratura, quadrato e somma danno l'ampiezza locale (§ 22.2.2): invariante al segno del contrasto e liscia, quindi sottocampionabile. Il libro la descrive come una rete a due strati: è l'antenato diretto di convoluzione + ReLU + pooling.</li>
+      <li><b>Steerability</b> (§ 22.3.1): le derivate gaussiane di ordine n in qualunque direzione sono combinazioni lineari di n + 1 filtri di base (2 per le prime, 3 per le seconde). Linearmente le orientazioni sono ridondanti; dopo una non linearità non più, ed è per questo che nel notebook aggiungere diagonali o orientazioni di Gabor aiuta.</li>
+    </ol>
+  </div>
+
+  <div class="two">
+    <div class="card">
+      <h3>Notazione: libro e notebook</h3>
+      <ul>
+        <li>Il libro indicizza l'immagine ℓ[n, m] e la trasformata ℒ[u, v] con u, v interi (numero di periodi); il notebook usa f[y, x] e frequenze in <b>cicli/pixel</b> f<sub>x</sub> = k<sub>x</sub>/W (da <code>fftfreq</code>). Stessa cosa, divisa per la dimensione.</li>
+        <li>La DFT del libro (eq. 16.2) non è normalizzata, come <code>np.fft.fft2</code>; l'inversa ha 1/NM. Nella tabella delle trasformate (§ 16.6.2) il coseno è scritto con fattore ½: con la convenzione dell'eq. 16.2 ogni picco vale NM/2, come verifica il notebook.</li>
+        <li>Il libro scrive la convoluzione con ∘, le slide del corso con ∗. Il Gabor del libro usa frequenze angolari (u<sub>0</sub>, v<sub>0</sub>) in rad/pixel; il notebook lunghezza d'onda λ e angolo θ: u<sub>0</sub> = 2π cos θ/λ.</li>
+        <li>Nelle CNN (§ 24.2) "convoluzione" vuol dire cross-correlazione; <code>fftconvolve</code> del notebook è una vera convoluzione. Con |·| non cambia nulla.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Cosa il libro aggiunge al lab</h3>
+      <ul>
+        <li>La <b>dimostrazione</b> che tenere i coefficienti più grandi è l'approssimazione ottima ai minimi quadrati (ortonormalità, § 16.5.3).</li>
+        <li>La <b>curva di sensibilità al contrasto</b> dell'occhio (§ 16.10.2, Campbell-Robson): anche il sistema visivo si comporta come un passa-banda.</li>
+        <li>Le <b>coppie in quadratura</b> e l'ampiezza locale: spiegano perché l'"energia di Gabor" della challenge funziona con metà delle feature.</li>
+        <li>I filtri <b>steerable</b> e l'energia orientata (fig. 22.13–22.14): come stimare l'orientazione locale in ogni pixel.</li>
+        <li>Nel cap. 24, i filtri che una CNN minima <b>impara da sola</b> (fig. 24.19) somigliano a derivate gaussiane: i banchi fatti a mano non erano una scelta arbitraria.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="sec" id="l7-guida"><h2>Guida allo studio</h2><span>4–5 ore, con i notebook aperti</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Prima di iniziare</h3>
+    <div class="meta">15 minuti</div>
+    <p>Ripassa dalla L3 il teorema di convoluzione e la convoluzione circolare, dalla L4 l'uso di <code>rfft</code>/<code>fftfreq</code> e il leakage, dalla L5 gaussiana, Sobel e laplaciano. Esegui i notebook cella per cella mentre leggi le schede: il lab si impara cambiando i numeri e guardando cosa succede nello spettro.</p>
+  </div>
+  <div class="two">
+    <div class="card">
+      <h3>1 · demo.ipynb, lo spettro</h3>
+      <div class="meta">Schede 1–6 · circa 1 ora</div>
+      <p>Obiettivo: guardare uno spettro 2D e dire cosa c'è nell'immagine.</p>
+      <ul>
+        <li>Prevedi a mano dove cadono i picchi di (k<sub>x</sub>, k<sub>y</sub>) = (5, −20) e poi verifica.</li>
+        <li>Ricava il valore HW/2 dei picchi dalla formula di Eulero.</li>
+        <li>Verifica: sai spiegare la croce sugli assi dello spettro del cameraman?</li>
+        <li>Verifica: perché filtrare con la FFT equivale a <code>boundary="wrap"</code>?</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>2 · demo.ipynb, i filtri</h3>
+      <div class="meta">Schede 7–13 · circa 1 ora e un quarto</div>
+      <p>Obiettivo: scegliere il filtro giusto guardando dove sta il segnale e dove sta il disturbo.</p>
+      <ul>
+        <li>Calcola 1/(2πσ) per σ = 2 e confrontalo con il cutoff 0.08.</li>
+        <li>Rifai il conto dell'11% (scheda 11) e del 4% (scheda 12).</li>
+        <li>Risolvi l'esercizio della foto corrotta senza guardare la soluzione.</li>
+        <li>Verifica: perché la compressione al 5% tiene il 99% dell'energia?</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>3 · filter_bank.ipynb</h3>
+      <div class="meta">Schede 14–29 · circa 1 ora e mezza (le celle girano in pochi secondi l'una)</div>
+      <p>Obiettivo: capire cosa fa ciascun ingrediente della pipeline filtro → ρ → pooling → lineare.</p>
+      <ul>
+        <li>Scrivi l'argomento "senza ρ non si batte il pixel" in due righe (scheda 14).</li>
+        <li>Costruisci a mano la tabella: filtri, feature, accuratezza, per ogni esperimento.</li>
+        <li>Verifica: perché pool 2 batte pool 1 e pool 4? Perché la radice aiuta?</li>
+        <li>Verifica: cosa manca a questo modello per diventare una CNN?</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>4 · Libro e collegamenti</h3>
+      <div class="meta">Circa 1 ora, dopo i notebook</div>
+      <ul>
+        <li>Leggi i paragrafi indicati sopra, in quell'ordine.</li>
+        <li>Collega: maschera ideale → ringing (L4, L5); prefiltro e pooling → aliasing (L6); piramide laplaciana → banco passa-banda isotropo, Gabor → banco orientato (L6, cap. 22–23).</li>
+        <li>Rivedi il notebook di blending della L6 alla luce di "decomponi in bande, agisci, ricomponi".</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Cosa devi sapere</h3>
+    <div class="meta">La lista minima per l'orale</div>
+    <ul>
+      <li><b>Spettro 2D</b>: ordine della FFT e <code>fftshift</code>, DC = media × HW, Parseval, onda → due picchi coniugati perpendicolari alle strisce, frequenze non intere → leakage.</li>
+      <li><b>Traslazione</b> = rampa di fase, modulo invariato (solo per shift circolare). La fase porta la posizione.</li>
+      <li><b>Bordi</b>: fill, wrap, symm; la FFT implica wrap.</li>
+      <li><b>Passa-basso</b> ideale (ringing, 9%) contro gaussiano (exp(−2π²σ²f²), σ<sub>f</sub> = 1/(2πσ)); passa-alto = complementare, media zero.</li>
+      <li><b>Notch</b>: due buchi sui picchi coniugati, MSE 10<sup>−6</sup> contro 5·10<sup>−3</sup> del passa-basso.</li>
+      <li><b>Compressione</b>: coefficienti più grandi = miglior approssimazione L2; PSNR; perché JPEG usa blocchi.</li>
+      <li><b>Banco di filtri</b>: pipeline, numero di feature, perché serve ρ, abs contro square, pool (invarianza contro posizione), power 0.5, più orientazioni e più scale, filtri casuali, energia di Gabor.</li>
+      <li><b>Gabor</b>: gaussiana × onda, parametri σ, θ, λ, fase; coppie in quadratura; legame con V1 e con il primo strato delle CNN.</li>
+      <li><b>Metodo</b>: scelte sulla validazione, test una volta sola alla fine, riallenando su train + validazione.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Domande tipo orale</h3>
+    <div class="meta">Prova a rispondere, poi apri per la traccia</div>
+    <div class="qa">
+      <details><summary>Dove sono i picchi dello spettro di cos(2π(k<sub>x</sub>x/W + k<sub>y</sub>y/H)) e quanto valgono?</summary><p>In ±(k<sub>y</sub>, k<sub>x</sub>), cioè a frequenza ±(k<sub>x</sub>/W, k<sub>y</sub>/H) cicli/pixel, ciascuno di modulo HW/2 con la DFT non normalizzata. Il coseno è la somma di due esponenziali coniugati con coefficiente ½. La direzione dei picchi è perpendicolare alle strisce.</p></details>
+      <details><summary>Cosa succede allo spettro se trasli l'immagine? E se la ruoti?</summary><p>Traslazione: il modulo resta uguale, la fase si somma una rampa −2π(f<sub>x</sub>d<sub>x</sub> + f<sub>y</sub>d<sub>y</sub>). Vale esatto per lo shift circolare; con uno spostamento vero i bordi cambiano un po' anche il modulo. Rotazione: lo spettro ruota dello stesso angolo (onde ruotate hanno picchi ruotati), a parte gli effetti del bordo, che restano lungo gli assi.</p></details>
+      <details><summary>Perché lo spettro di una foto ha una croce lungo gli assi?</summary><p>La DFT tratta l'immagine come periodica: i bordi opposti non combaciano e il salto equivale a un bordo verticale e uno orizzontale lungo tutto il lato, che danno energia sugli assi. Si attenua con una finestra (per esempio Hann) o con padding simmetrico.</p></details>
+      <details><summary>Che condizione al bordo usa il filtraggio via FFT? Come la eviti?</summary><p>Periodica (wrap): il teorema di convoluzione della DFT vale per la convoluzione circolare. Si fa padding (zeri o simmetrico) almeno della metà del kernel, si filtra, si ritaglia.</p></details>
+      <details><summary>Passa-basso ideale contro gaussiano: cosa cambia e perché?</summary><p>L'ideale taglia netto: nello spazio è un kernel oscillante con lobi negativi (sinc, o l'analogo radiale), che dà ringing, overshoot del 9% su un gradino. La gaussiana ha trasformata gaussiana, positiva: media pesata, nessuna oscillazione. Con σ = 2 la gaussiana in frequenza ha σ<sub>f</sub> = 1/(2πσ) ≈ 0.08, la stessa larghezza del cutoff del notebook.</p></details>
+      <details><summary>Un'immagine ha righe diagonali sovrapposte. Come le togli e perché non basta sfocare?</summary><p>Le righe sono un'onda: due picchi isolati nello spettro. Si trovano (massimo fuori dal centro) e si azzerano con un notch su entrambi i coniugati. Il passa-basso le attenua solo quanto vale la maschera a quella frequenza (11% di residuo nel notebook) e intanto sfoca tutta l'immagine: MSE 5·10<sup>−3</sup> contro 10<sup>−6</sup>.</p></details>
+      <details><summary>Perché si può comprimere un'immagine tenendo pochi coefficienti di Fourier? Perché JPEG non lo fa sull'immagine intera?</summary><p>Lo spettro delle immagini naturali decade con la frequenza: con l'1% dei coefficienti si tiene il 97% dell'energia, e per l'ortonormalità tenere i più grandi è l'approssimazione ai minimi quadrati migliore. Ma ogni coefficiente è un'onda globale: l'errore si sparge ovunque (ringing, onde). JPEG usa la DCT su blocchi 8 × 8, così gli errori restano locali.</p></details>
+      <details><summary>In un banco di filtri seguito da un classificatore lineare, perché serve una non linearità?</summary><p>Convoluzione e pooling medio sono lineari: le feature sono A x e il classificatore w<sup>T</sup>A x è ancora lineare nei pixel. Senza ρ non si fa meglio del classificatore sui pixel (0.8127 contro 0.8128 con 5488 feature).</p></details>
+      <details><summary>abs, square, rectify: quale scegli e perché?</summary><p>abs e rectify vanno uguali (0.864); abs rende la feature indipendente dalla polarità del bordo. rectify tiene una polarità sola, quindi conviene aggiungere anche i filtri con segno opposto (0.850 contro 0.836 sulla baseline). square gonfia i valori grandi e fa peggio (0.847), l'effetto opposto della radice.</p></details>
+      <details><summary>Cosa si guadagna e cosa si perde con il pooling? Come sceglieresti la dimensione?</summary><p>Si guadagnano tolleranza a piccoli spostamenti, meno feature, meno rumore; si perde la posizione. Si sceglie sulla validazione: qui pool 2 (0.881) è il migliore; pool 28 lascia un numero per filtro e crolla al 52%. Il pooling medio è anche un sottocampionamento con prefiltro box: rischio di aliasing (L6).</p></details>
+      <details><summary>Perché elevare le feature alla 0.5 aiuta un classificatore lineare?</summary><p>Le risposte hanno una coda lunga: pochi valori enormi dominano il prodotto scalare. La radice comprime la dinamica, avvicinando la feature a "c'è struttura qui" invece di "quanto è contrastata": una forma di invarianza al contrasto. +0.8 punti.</p></details>
+      <details><summary>Cos'è un filtro di Gabor? Perché usarne coppie pari e dispari?</summary><p>Una gaussiana moltiplicata per un'onda: localizzato nello spazio (σ) e in frequenza (λ, θ), un passa-banda orientato. Pari (coseno) risponde alle linee, dispari (seno) ai bordi; insieme sono una coppia in quadratura e √(pari² + dispari²) è l'ampiezza locale, indipendente dalla fase: il modello della cellula complessa di V1. Nel notebook dà 0.892 con metà delle feature.</p></details>
+      <details><summary>Le derivate gaussiane Gx e Gy bastano per tutte le orientazioni?</summary><p>Linearmente sì (steerability: la derivata in direzione θ è cos θ Gx + sin θ Gy). Ma dopo |·| e pooling il classificatore non può ricostruire |cos θ Gx + sin θ Gy| da |Gx| e |Gy|, quindi orientazioni esplicite aggiungono informazione: le diagonali valgono +2.2 punti, passare da 2 a 8 orientazioni di Gabor +2.8.</p></details>
+      <details><summary>Filtri casuali contro filtri progettati: cosa mostra il notebook?</summary><p>Con abbastanza filtri i casuali si avvicinano ai progettati (34 casuali 0.892 contro Gabor 0.895): gran parte del lavoro la fanno ρ, pooling e classificatore. I progettati sono interpretabili e più efficienti a parità di feature.</p></details>
+      <details><summary>Cosa manca a un banco di filtri fisso rispetto a una CNN?</summary><p>Filtri appresi per il compito e più strati: filtri applicati alle risposte di altri filtri, con campo recettivo che cresce. Gli errori rimasti (camicia contro T-shirt, cappotto, pullover) riguardano parti come colletti e bottoni, che un solo strato di bordi più pooling non rappresenta.</p></details>
+      <details><summary>Perché si sceglie sulla validazione e si misura sul test una volta sola?</summary><p>Ogni scelta fatta guardando un insieme lo rende ottimistico: la validazione "usata" sovrastima (90.6%), il test mai visto dà la stima onesta (89.9%). Prima del test si riallena su train + validazione per usare tutti i dati.</p></details>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Esercizi per modificare i notebook</h3>
+    <div class="meta">In ordine di difficoltà</div>
+    <ol>
+      <li><b>Scambio di fase</b> (fig. 16.14 del libro): prendi <code>data.camera()</code> e <code>data.coffee()</code> in grigio 256 × 256, ricostruisci con il modulo della prima e la fase della seconda. Cosa vedi?</li>
+      <li><b>Croce sugli assi</b>: moltiplica l'immagine per <code>np.outer(np.hanning(H), np.hanning(W))</code> prima della FFT e confronta lo spettro. La croce sparisce.</li>
+      <li><b>Bordi</b>: rifai il passa-basso gaussiano via FFT dopo <code>np.pad(image, 16, mode="symmetric")</code> e ritaglia: le fasce ai bordi della scheda 7 spariscono.</li>
+      <li><b>Notch più largo</b>: nella scheda 11 prova <code>width</code> = 0.5, 1, 3, 10 bin e misura l'MSE. Da che punto il notch inizia a togliere immagine?</li>
+      <li><b>Compressione</b>: invece dei coefficienti più grandi tieni quelli a frequenza più bassa (disco centrale) con lo stesso numero di coefficienti. Quale PSNR è migliore e perché?</li>
+      <li><b>Energia di Gabor</b> (scheda 27): implementala in <code>evaluate_custom</code> e confronta con le due fasi separate, a parità di numero di orientazioni.</li>
+      <li><b>Secondo strato</b>: dopo |Gabor| senza pooling, applica di nuovo un piccolo banco (per esempio box e Sobel) e poi pool e power. Migliora? È il primo passo verso una CNN a due strati.</li>
+    </ol>
+  </div>
+</div>

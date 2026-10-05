@@ -1,0 +1,33 @@
+# Libri da integrare negli appunti
+
+Le slide del corso NON bastano come materiale di studio: sono riassunti spesso imprecisi di un libro. Ogni lezione del sito va costruita sul libro, con le slide come indice di cosa chiede l'esame.
+
+## Libro principale: Torralba, Isola, Freeman, Foundations of Computer Vision (MIT Press 2024)
+Gratis online: https://visionbook.mit.edu/ (solo HTML, un capitolo per pagina; leggi con WebFetch, una pagina per capitolo, chiedendo il contenuto sezione per sezione con formule e figure descritte). Quasi tutte le figure delle slide ("Source: visionbook") vengono da qui.
+
+Corrispondenza lezioni -> capitoli (aggiornala quando aggiungi una lezione):
+| Lezione | Argomento | Capitoli visionbook |
+|---|---|---|
+| L1 | Introduzione | 1 The Challenge of Vision (taxonomy.html), 2 A Simple Vision System (simplesystem.html), 3 Looking at Images (visionscience.html) |
+| L2 | Image formation, camere, colore | 5 Imaging (imaging.html), 6 Lenses (lenses.html), 7 Cameras as Linear Systems (camera_as_linsys.html), 8 Color (color.html); proiezione prospettica anche in 39 (imaging_geometry.html) |
+| L3 | Segnali, convoluzione, Fourier | 15 Linear Image Filtering (linear_image_filtering.html), 16 Fourier Analysis (image_processing_fourier.html) |
+| L4 | Lab FFT e convoluzione 1D | 15, 16; 19 Temporal Filters (temporal_filters_v2.html) per i segnali nel tempo |
+| L5 | Blur e gradienti | 17 Blur Filters (blurring_2.html), 18 Image Derivatives (derivatives.html) |
+| L6 | Aliasing e piramidi | 20 Sampling and Aliasing (sampling_and_aliasing.html), 21 Downsampling and Upsampling (upsamplig_downsampling_2.html), 23 Image Pyramids (pyramids_new_notation.html) |
+| L7 | Lab Fourier su immagini e banchi di filtri | 16, 22 Filter Banks (spatial_filter_sets.html), 24 CNN (convolutional_neural_nets.html) per il legame filtri fissi -> CNN |
+| L8 | Keypoint detection | visionbook non ha un capitolo dedicato: fonte principale Szeliski 2a ed. cap. 7 Feature detection and matching (Springer pp. 333–399), § 7.1 Points and patches: 7.1.1 Feature detectors (Harris, ANMS, ripetibilità, scala, orientazione), 7.1.2 Feature descriptors (SIFT), 7.1.3 Feature matching (lezione successiva); indice dei sottoparagrafi non verificato online (szeliski.org non raggiungibile), § 7.1 confermato dalla slide 83. Più Lowe 2004. Dal visionbook: 18.8–18.9 (derivatives.html, gradiente e LoG), 23.4–23.5 (pyramids_new_notation.html), 41.3 (homography.html, DLT e RANSAC per i panorami) |
+| L9 | Matching, omografie, RANSAC, panorami | 41 Homographies (homography.html, tutto: 41.2 rotazione e piano, 41.3.1 DLT, 41.3.2 RANSAC, 41.3.3 stitching; refuso nell'esempio di 41.3.2: w = 0.18 è la frazione di outlier, con w = 0.82 k = 3), 38 Representing Images and Geometry (homogeneous_coordinates.html, 38.2–38.5: coordinate omogenee, gerarchia delle trasformazioni, rette, warping), 39 (imaging_geometry.html, 39.3–39.5 solo per K, R, t). Ratio test, blending e stitching non coperti dal visionbook: Szeliski 2a ed. § 7.1.3 Feature matching, cap. 8 Image alignment and stitching (§ 8.1 Pairwise alignment con RANSAC, § 8.2 Image stitching, § 8.4 Compositing; sottoparagrafi non verificati), Lowe 2004 § 7.1, Hartley-Zisserman cap. 4 per la DLT normalizzata |
+Indice completo: https://visionbook.mit.edu/ (Parti IV-VI filtri e campionamento, VII architetture, XI geometria, XII moto, XIII riconoscimento).
+
+## Secondario: Szeliski, Computer Vision: Algorithms and Applications, 2a ed. (2022)
+Per argomenti che il visionbook non copre o copre poco: feature/keypoint (cap. 7 Feature detection and matching: Harris, scale-space DoG, SIFT, matching), allineamento, stereo. PDF gratuito da https://szeliski.org/Book/ (dietro un form): se Octech lo salva in CV/materiale usalo da lì; altrimenti usa le conoscenze standard e indica i paragrafi del libro da leggere, senza inventare numeri di pagina.
+
+## Deep learning: Prince, Understanding Deep Learning (CV/materiale/UnderstandingDeepLearning_Prince_v5.0.3.pdf)
+Per le lezioni su reti, CNN, trasformer, generativi.
+
+## Come integrare (regole)
+- Riquadro nuovo `<div class="box b"><b>Dal libro · cap. N, § titolo</b>…</div>` nelle schede dove la slide è troppo sintetica, ambigua o sbagliata: la spiegazione del libro riscritta con parole tue (derivazione, intuizione, esempio), più il link alla pagina del capitolo. Non in ogni scheda: dove serve davvero per capire.
+- In extra.html, PRIMA della guida allo studio, una sezione `<div class="sec" id="l<n>-libro"><h2>Studia dal libro</h2>…` con: capitoli e paragrafi da leggere in ordine (con link), cosa saltare, le 3-6 idee o derivazioni centrali spiegate bene come nel libro, differenze di notazione tra slide e libro, argomenti del libro che le slide omettono ma che servono a capire.
+- Usa il libro anche per verificare le slide: se la slide contraddice il libro, riquadro Attenzione con la versione del libro.
+- Copyright: parafrasi e spiegazioni tue; citazioni testuali solo brevi (una frase) e virgolettate. Mai copiare paragrafi o figure del libro.
+- Se WebFetch non raggiunge il sito, dillo nel messaggio finale e lascia la lezione in "da_arricchire".

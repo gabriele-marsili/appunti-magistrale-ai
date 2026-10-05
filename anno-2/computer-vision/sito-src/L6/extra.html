@@ -1,0 +1,196 @@
+
+<div class="sec" id="l6-libro"><h2>Studia dal libro</h2><span>visionbook, capitoli 20, 21 e 23: circa 2 ore e mezza di lettura</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Cosa leggere, in ordine</h3>
+    <div class="meta">Torralba, Isola, Freeman, <i>Foundations of Computer Vision</i>, gratis online</div>
+    <ol>
+      <li><a href="https://visionbook.mit.edu/sampling_and_aliasing.html" target="_blank">Cap. 20, Sampling and Aliasing</a>: § 20.2 (l'esempio del coseno, da rifare), § 20.3.1–20.3.2 (treno di delta e repliche spettrali: il cuore della lezione), § 20.4 (ricostruzione ideale con sinc e kernel locali), § 20.5 (filtro anti-aliasing). Copre le slide 3–18 e 24.</li>
+      <li><a href="https://visionbook.mit.edu/upsamplig_downsampling_2.html" target="_blank">Cap. 21, Downsampling and Upsampling</a>: § 21.2 (attacco adversarial), § 21.3 tutto (decimazione, DFT della decimazione, forma matriciale, filtri anti-aliasing, downsampling), § 21.4.3–21.4.5 (espansione con zeri e filtri di interpolazione: servono per la laplaciana). Copre le slide 17, 19–29.</li>
+      <li><a href="https://visionbook.mit.edu/pyramids_new_notation.html" target="_blank">Cap. 23, Image Pyramids</a>: § 23.1–23.2 (motivazione), § 23.4 (gaussiana), § 23.5 e 23.5.1 (laplaciana e blending), § 23.7 (riassunto in forma matriciale). Copre le slide 31–58.</li>
+      <li>Per lo scale-space (slide 34–36): <a href="https://visionbook.mit.edu/blurring_2.html" target="_blank">cap. 17</a>, § 17.3.2 (proprietà della gaussiana, varianze che si sommano, equazione del calore) e § 17.4.1 (binomiali). L'avevi già in L5.</li>
+    </ol>
+    <p><b>Si può leggere in fretta</b>: § 20.1 e § 21.1 (introduzioni), § 20.6 (basta l'idea di aliasing temporale e rolling shutter), § 21.4.1–21.4.2 (nearest e bilineare li conosci), § 23.3 sui QMF e § 23.6 sulla steerable pyramid (non sono nelle slide; leggili per la cultura, vedi sotto).</p>
+    <p><b>Nel libro ma non nelle slide</b>, e utile per capire: la dimostrazione del teorema via treno di delta (§ 20.3), la formula di ricostruzione con le sinc (§ 20.4.1), la formula esatta della DFT decimata con le k × k copie (§ 21.3.2), il guadagno 2 (1D) / 4 (2D) dell'upsampling (§ 23.5), il confronto sovracompleto / critically sampled con le wavelet (§ 23.3, 23.8), la <b>steerable pyramid</b> (§ 23.6), l'idea che l'aliasing possa servire alla super-risoluzione (§ 20.7). <b>Nelle slide ma non in questi capitoli</b>: scale-space continuo e assiomi, ottave, coarse-to-fine (flow, template matching, allineamento), CNN e FPN.</p>
+  </div>
+  <div class="two">
+    <div class="card">
+      <h3>1 · Il teorema in una figura</h3>
+      <p>Campionare = moltiplicare per un pettine di delta di passo T<sub>s</sub>. La trasformata del pettine è un pettine di passo 2π/T<sub>s</sub>; il prodotto diventa convoluzione, quindi lo spettro si <b>copia</b> ogni 2π/T<sub>s</sub>. Le copie non si toccano se 2π/T<sub>s</sub> &gt; 2w<sub>max</sub>: allora un passa-basso ideale isola la copia centrale e, nel tempo, ricostruisce sommando sinc centrate sui campioni. Se si toccano, le code si sommano alla banda centrale e nessun filtro le separa più (§ 20.3–20.4).</p>
+    </div>
+    <div class="card">
+      <h3>2 · Decimare nel discreto</h3>
+      <p>Stessa storia con la DFT: decimare di k = moltiplicare per un treno δ<sub>k</sub> e tenere un campione ogni k. La DFT del risultato è la media di k × k copie di L spostate di N/k: L<sub>↓k</sub>[u, v] = (1/k²) ∑<sub>s,r</sub> L[u − sN/k, v − rM/k]. In 1D con k = 2: ogni coefficiente è la somma di una frequenza bassa e della sua gemella a distanza N/2. Il prefiltro serve a rendere nulla la gemella prima di sommare (§ 21.3.2–21.3.3).</p>
+    </div>
+    <div class="card">
+      <h3>3 · Scegliere il prefiltro</h3>
+      <p>Ideale (sinc): taglio perfetto, ringing. Sinc con finestra di Hamming: supporto finito, ringing ridotto ma aloni. Binomiale: guadagno monotono senza ondulazioni, metà ampiezza alla nuova Nyquist per k = 2; lascia passare un po' di aliasing ma niente ringing. In visione si sceglie il binomiale, e con lo stesso b<sub>4</sub> si costruisce tutta la piramide (§ 21.3.4, 23.4).</p>
+    </div>
+    <div class="card">
+      <h3>4 · Laplaciana: costruire, invertire, fondere</h3>
+      <p>g<sub>k+1</sub> = D B g<sub>k</sub>; l<sub>k</sub> = g<sub>k</sub> − F g<sub>k+1</sub> con F = B U (zeri + blur con guadagno 2 per asse); inversione g<sub>k</sub> = l<sub>k</sub> + F g<sub>k+1</sub>, esatta per <b>qualunque</b> filtro purché lo stesso. Ogni l<sub>k</sub> è una banda isotropa; la rappresentazione è sovracompleta (4/3). Blending: fondi le bande con la piramide gaussiana della maschera (un livello in più per il residuo) e ricostruisci (§ 23.5, 23.5.1).</p>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Oltre le slide: steerable pyramid (§ 23.6)</h3>
+    <p>La laplaciana divide l'immagine per scala ma non per orientazione. La <b>steerable pyramid</b> aggiunge filtri passa-banda <b>orientati</b> (ad esempio 4 orientazioni per scala), progettati in modo che la somma dei quadrati delle loro risposte "copra" esattamente il piano delle frequenze: così la trasformazione è auto-invertibile (la sintesi usa gli stessi filtri dell'analisi), ha aliasing trascurabile ed è molto sovracompleta. È il ponte con i banchi di filtri di L7 e con i descrittori orientati come SIFT.</p>
+  </div>
+  <div class="card">
+    <h3>Differenze di notazione fra slide e libro</h3>
+    <ul>
+      <li><b>Segnale</b>: libro ℓ (anche ℓ<sub>in</sub>, ℓ<sub>out</sub>), slide a volte l o f. DFT: libro ℒ[u, v] (anche L), slide uguale nelle figure prese dal libro.</li>
+      <li><b>Frequenza</b>: libro w in radianti e periodo di campionamento T<sub>s</sub> (condizione T<sub>s</sub> &lt; π/w<sub>max</sub>); slide mescolano ω<sub>s</sub> = 2π/T<sub>s</sub> e f<sub>s</sub> in Hz, e alla slide 11 scrivono "ω<sub>f</sub> = f<sub>s</sub>/2" per la frequenza di Nyquist (mescola le due unità).</li>
+      <li><b>Convoluzione</b>: libro ∘, slide ∘ alla slide 43 e ∗ altrove (anche in questi appunti).</li>
+      <li><b>Decimazione e downsampling</b>: il libro distingue la <b>decimazione</b> (solo tenere un campione ogni k) dal <b>downsampling</b> (prefiltro + decimazione); le slide usano downsampling per entrambi.</li>
+      <li><b>U</b>: nel cap. 23 (e nelle slide 49–51) U<sub>k</sub> è solo l'inserimento di zeri, e il blur sta in B<sub>k</sub>; nel cap. 21 la matrice U<sub>2</sub> indica già l'upsampling completo (zeri + interpolazione lineare), mentre il solo inserimento di zeri si chiama espansione (E<sub>2</sub>, ℓ<sub>↑k</sub>).</li>
+      <li><b>Indici delle piramidi</b>: entrambi g<sub>0</sub> = ℓ e residuo g<sub>N</sub>; la slide 51 scrive "ultimo livello (g<sub>k+1</sub>)", da leggere come g<sub>N</sub>. Le slide 39–40 scrivono I<sub>l</sub>, le slide 44–51 g<sub>k</sub>.</li>
+      <li><b>Fattore di scala</b>: piramide gaussiana del libro e delle slide a fattore 2; l'esempio degli uccelli del libro (§ 23.2) usa invece un fattore 3/4 per livello.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="sec" id="guida"><h2>Guida allo studio</h2><span>3–4 ore in quattro blocchi</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Prima di iniziare</h3>
+    <div class="meta">15 minuti</div>
+    <p>Ripassa il teorema di convoluzione (L3) e la gaussiana con le sue derivate (L5). Tutta la lezione si appoggia su queste due cose.</p>
+  </div>
+  <div class="two">
+    <div class="card">
+      <h3>1 · Aliasing</h3>
+      <div class="meta">Slide 3–18 · circa 1 ora</div>
+      <p>Obiettivo: saper spiegare perché sottocampionare crea strutture false.</p>
+      <ul>
+        <li>Rifai a mano il conto della slide 7, poi prova con f<sub>0</sub> = 0.6 f<sub>s</sub> (→ 0.4 f<sub>s</sub>) e f<sub>0</sub> = 1.3 f<sub>s</sub> (→ 0.3 f<sub>s</sub>).</li>
+        <li>Sotto la slide 9 disegna lo spettro campionato: repliche separate e repliche sovrapposte.</li>
+        <li>Leggi § 20.2–20.4 del libro e rifai l'esempio cos(18πt) con T<sub>s</sub> = 1/11 (riquadro della slide 8).</li>
+        <li>Verifica: sai dire in una frase perché l'aliasing è peggio della semplice perdita di informazione?</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>2 · Downsampling e prefiltro</h3>
+      <div class="meta">Slide 19–29 · circa 45 minuti</div>
+      <p>Obiettivo: collegare treno di impulsi, repliche spettrali e prefiltro.</p>
+      <ul>
+        <li>Spiega a voce la slide 23 (Clothing DFT) senza guardare gli appunti, scrivendo la formula delle k × k copie (§ 21.3.2).</li>
+        <li>Sotto la slide 26 riscrivi con parole tue il compromesso ideale / Hamming / binomiale.</li>
+        <li>Verifica: perché le fotocamere hanno un filtro ottico anti-aliasing?</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>3 · Scale-space e piramidi</h3>
+      <div class="meta">Slide 30–51 · circa 1 ora e mezza</div>
+      <p>Obiettivo: costruire e invertire piramide gaussiana e laplaciana, con le formule.</p>
+      <ul>
+        <li>Correggi subito su OneNote le formule delle slide 35 e 36.</li>
+        <li>Ricava il 4/3 (slide 40) e il fatto che b<sub>4</sub> ha σ = 1 (slide 43).</li>
+        <li>Scrivi a memoria costruzione e inversione della laplaciana (slide 49 e 51): sono 4 righe. Poi leggi § 23.4–23.5.1 del libro.</li>
+        <li>Verifica: perché la ricostruzione è esatta anche se il blur non è un passa-basso ideale?</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>4 · Applicazioni e notebook</h3>
+      <div class="meta">Slide 52–64 + notebook · circa 1 ora</div>
+      <p>Per ogni applicazione (flow, template matching, blending, FPN) sappi dire:</p>
+      <ul>
+        <li>cosa si fa al livello grossolano e cosa si passa al livello fine;</li>
+        <li>qual è il guadagno e qual è il rischio.</li>
+      </ul>
+      <p>Poi fai il notebook seguendo la sezione qui sotto.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Domande tipo orale</h3>
+    <div class="meta">Prova a rispondere, poi apri per la traccia</div>
+    <div class="qa">
+      <details><summary>Enuncia il teorema del campionamento e spiega cos'è l'aliasing.</summary><p>f<sub>s</sub> &gt; 2f<sub>max</sub>. Campionare replica lo spettro ogni f<sub>s</sub>; se le repliche si sovrappongono, le alte frequenze si ripiegano nelle basse e non si possono più separare (slide 9, 11, 23).</p></details>
+      <details><summary>Una sinusoide a 70 Hz campionata a 100 Hz: che frequenza si vede?</summary><p>|70 − 100| = 30 Hz.</p></details>
+      <details><summary>Perché prima di sottocampionare si sfoca? Con quale filtro, e perché non con il passa-basso ideale?</summary><p>Per togliere le frequenze sopra la nuova Nyquist. Gaussiana o binomiale; l'ideale (sinc) produce ringing (slide 24, 26).</p></details>
+      <details><summary>Quanta memoria occupa una piramide gaussiana completa?</summary><p>4/3 dell'originale: serie geometrica di ragione 1/4 (slide 40).</p></details>
+      <details><summary>Perché la gaussiana è il kernel dello scale-space?</summary><p>Unica a soddisfare gli assiomi: LSI, simmetria rotazionale, composizione (le varianze si sommano), nessuna struttura nuova. È la soluzione dell'equazione del calore (slide 35–36).</p></details>
+      <details><summary>Costruisci e inverti la piramide laplaciana. È sovracompleta?</summary><p>l<sub>k</sub> = g<sub>k</sub> − F<sub>k</sub>g<sub>k+1</sub>; g<sub>k</sub> = l<sub>k</sub> + F<sub>k</sub>g<sub>k+1</sub>. Sì, circa 4/3 dei campioni (slide 49, 51).</p></details>
+      <details><summary>Spiega il multi-band blending e perché è meglio di una maschera sfocata.</summary><p>Ogni banda è fusa con una transizione proporzionale alla sua scala: niente gradino di colore e niente doppi bordi (slide 57–58).</p></details>
+      <details><summary>Che legame c'è fra piramidi e CNN? Cos'è FPN?</summary><p>Stride e pooling formano una piramide appresa, che può fare aliasing. FPN aggiunge un percorso top-down con connessioni laterali, come la ricostruzione laplaciana (slide 16, 59–60).</p></details>
+      <details><summary>Dimostra il teorema del campionamento usando il treno di delta.</summary><p>ℓ<sub>δ</sub> = ℓ · δ<sub>T<sub>s</sub></sub>; la trasformata del pettine è un pettine di passo 2π/T<sub>s</sub>; prodotto → convoluzione, quindi copie di L ogni 2π/T<sub>s</sub>. Non si sovrappongono se 2π/T<sub>s</sub> &gt; 2w<sub>max</sub>; allora il passa-basso ideale (sinc) ricostruisce: ℓ̃(t) = ∑ ℓ[n] sinc((t − nT<sub>s</sub>)/T<sub>s</sub>) (libro § 20.3–20.4).</p></details>
+      <details><summary>Cosa succede alla DFT quando decimi di 2? E quando inserisci zeri?</summary><p>Decimare: ogni coefficiente diventa la media di 2 (1D) o 4 (2D) coefficienti dell'originale distanti N/2: aliasing se l'originale ha energia sopra N/4. Inserire zeri: lo spettro si replica, servono un passa-basso per togliere le copie e un guadagno 2 per asse per ripristinare la media (libro § 21.3.2–21.3.3, 21.4.3, 23.5).</p></details>
+      <details><summary>Differenza fra decimazione e downsampling? Fra rappresentazione sovracompleta e critically sampled?</summary><p>Decimazione = tenere un campione ogni k; downsampling = prefiltro + decimazione. Critically sampled: tanti coefficienti quanti pixel (wavelet/QMF); sovracompleta: di più (laplaciana 4/3, steerable molto di più), più robusta se modifichi le bande (libro § 21.3.5, 23.3, 23.8).</p></details>
+      <details><summary>Cosa ha di rischioso la ricerca coarse-to-fine?</summary><p>Un errore al livello grossolano non si recupera; oggetti piccoli possono sparire nei livelli alti (slide 53, 55).</p></details>
+    </div>
+  </div>
+</div>
+
+<div class="sec" id="notebook"><h2>Notebook 06-image-blending</h2><span>la "orapple": metà mela e metà arancia</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Cosa fa ogni cella</h3>
+    <ul>
+      <li><b>Cella 4</b>, <code>laplacian_pyramid</code>: costruisce gaussiana e laplaciana con h = b<sub>4</sub> × b<sub>4</sub> (5×5). Per scendere: blur + <code>[::2, ::2]</code>. Per risalire: inserisce zeri + blur con guadagno 4.</li>
+      <li><b>Cella 5</b>, <code>img_from_pyramid</code>: ricostruisce l'immagine (slide 51).</li>
+      <li><b>Cella 6</b>, <code>blend</code>: piramide della maschera, fusione banda per banda, ricostruzione (slide 58).</li>
+      <li><b>Cella 7</b>: taglio netto a metà per confronto. La variabile si chiama <code>mask</code> ma è il metodo ingenuo della slide 57.</li>
+    </ul>
+    <p>Mentre lo leggi, collega ogni riga a una slide: <code>[::2, ::2]</code> è D<sub>k</sub> (slide 44); inserire zeri è U<sub>k</sub> e <code>4*h</code> è B<sub>k</sub> con il guadagno (slide 49); <code>reco = upsampled + L[i]</code> è l'inversione (slide 51).</p>
+  </div>
+
+  <div class="card">
+    <h3>Due bug da conoscere</h3>
+    <div class="meta">Verificati eseguendo il notebook. Spiegano i risultati strani che vedrai.</div>
+    <div class="box w"><b>Bug 1 · Laplaciani in uint8 (cella 4)</b>
+      <p>Le immagini sono uint8, quindi <code>gaussian_pyramid[-2] - upsampled</code> va in overflow sui valori negativi (−3 diventa 253). Circa un terzo dei pixel del primo livello è sporcato così: per questo i laplaciani plottati sembrano rumore bianco e nero invece di bordi su fondo grigio.</p>
+      <p>La ricostruzione della cella 5 viene comunque esatta, ma per caso: l'aritmetica uint8 è modulo 256 e l'overflow della sottrazione si annulla con quello della somma.</p>
+    </div>
+    <div class="box w"><b>Bug 2 · La maschera non si sfoca (cella 6)</b>
+      <p>La maschera è uint8 con valori 0/1. Il blur produce valori fra 0 e 1 che, riscritti in uint8, vengono troncati a 0. La maschera resta binaria a ogni livello, quindi la transizione morbida, cioè il punto del metodo, non avviene.</p>
+      <p>In più, all'ultimo livello (4×4) la maschera diventa tutta 0: la base di colore viene interamente dall'arancia. Per questo nel risultato del notebook la metà mela ha colori spostati verso l'arancione.</p>
+    </div>
+    <figure><img src="{{IMG:blend.png}}" alt="Tre versioni della orapple: taglio netto, risultato del notebook con colori della mela spostati verso l'arancione, versione corretta con transizione pulita"><figcaption>Taglio netto, notebook originale e versione corretta in float.</figcaption></figure>
+    <figure><img src="{{IMG:lap.png}}" alt="Sopra i laplaciani del notebook, rumorosi in bianco e nero; sotto quelli in float, grigi con i contorni della mela"><figcaption>Sopra i laplaciani in uint8 del notebook, sotto quelli corretti in float: grigio = zero, i contorni della mela emergono livello per livello.</figcaption></figure>
+  </div>
+
+  <div class="card">
+    <h3>Correzione minima</h3>
+    <div class="meta">Tutto in float, bordi simmetrici invece dello zero-padding (evita il bordo scuro)</div>
+    <pre>h = np.outer([1,4,6,4,1], [1,4,6,4,1]) / 256
+
+def blur(x, k):
+    return np.stack([convolve2d(x[..., c], k, mode='same', boundary='symm')
+                     for c in range(x.shape[2])], -1)
+
+def pyramids(img, levels):
+    g = [img.astype(np.float64)]; l = []
+    for _ in range(levels):
+        g.append(blur(g[-1], h)[::2, ::2])
+        up = np.zeros_like(g[-2]); up[::2, ::2] = g[-1]
+        l.append(g[-2] - blur(up, 4*h))
+    return g, l
+
+def reconstruct(base, l):
+    r = base
+    for li in reversed(l):
+        up = np.zeros_like(li); up[::2, ::2] = r
+        r = blur(up, 4*h) + li
+    return r
+
+# blending (mask con valori 0/1, stessa forma delle immagini)
+gA, lA = pyramids(apple, 7); gB, lB = pyramids(orange, 7)
+gM, _ = pyramids(mask.astype(np.float64), 7)
+lb = [gM[i]*lA[i] + (1-gM[i])*lB[i] for i in range(7)]
+base = gM[-1]*gA[-1] + (1-gM[-1])*gB[-1]
+out = np.clip(reconstruct(base, lb), 0, 255).astype(np.uint8)
+
+# per vedere un laplaciano: plt.imshow(lA[i][..., 0], cmap='gray')</pre>
+  </div>
+
+  <div class="card">
+    <h3>Esercizi sul notebook</h3>
+    <div class="meta">In ordine di difficoltà</div>
+    <ol>
+      <li>Cambia il numero di livelli (1, 3, 7) e guarda la cucitura: con 1 livello è quasi un taglio netto, con molti la transizione dei colori si allarga.</li>
+      <li>Usa una maschera circolare invece di quella verticale: il metodo funziona con qualunque forma.</li>
+      <li>Ricostruisci usando un filtro diverso (es. box 3×3) e verifica che l'errore resti 0: è la proprietà della slide 51.</li>
+      <li>Fai un downsample ×4 della mela con e senza blur e confronta: è la slide 25 sul tuo codice.</li>
+    </ol>
+  </div>
+</div>

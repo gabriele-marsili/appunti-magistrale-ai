@@ -1,0 +1,140 @@
+
+<div class="sec" id="l2-libro"><h2>Studia dal libro</h2><span>visionbook capp. 5–8 e 39, circa 3 ore di lettura</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Cosa leggere, in ordine</h3>
+    <div class="meta">Torralba, Isola, Freeman, Foundations of Computer Vision (gratis online)</div>
+    <ol>
+      <li><a href="https://visionbook.mit.edu/imaging.html">Cap. 5 Imaging</a>, tutto (breve): § 5.2 superfici (BRDF, Lambert, Phong) → slide 7–19; § 5.3 pinhole, prospettiva, ortografica, camera a cannucce → slide 20–41.</li>
+      <li><a href="https://visionbook.mit.edu/lenses.html">Cap. 6 Lenses</a>: § 6.1 e § 6.3 con attenzione (regole del ray tracing, profondità di campo); § 6.2 leggi la derivazione una volta, ricordane il risultato 1/a + 1/b = 1/f. Copre ciò che la slide 26 liquida in una riga.</li>
+      <li><a href="https://visionbook.mit.edu/camera_as_linsys.html">Cap. 7 Cameras as Linear Systems</a>, tutto: è corto e corrisponde quasi uno a uno alle slide 42–56. Il § 7.4.3 (corner camera) dà la formula che le slide non mostrano.</li>
+      <li><a href="https://visionbook.mit.edu/color.html">Cap. 8 Color</a>: § 8.2 e § 8.3.1–8.3.3 → slide 57–67; § 8.3.4–8.3.5 (color matching) sono fuori dalle slide ma chiariscono la slide 67; § 8.4 → slide 68–69.</li>
+      <li><a href="https://visionbook.mit.edu/imaging_geometry.html">Cap. 39 Imaging Geometry</a>, solo § 39.2–39.3 (coordinate omogenee, intrinseci) e l'esempio dell'orizzonte in § 39.6. Il resto (estrinseci, calibrazione DLT) torna nella parte di geometria del corso.</li>
+    </ol>
+    <p><b>Cosa saltare</b> per questa lezione: telescopio e Galileo (§ 6.3.3), la derivazione esatta della profondità di campo (basta D ≈ 2NCU²/f²), lo spazio CIE nei dettagli (§ 8.3.6: ricorda solo che le sue funzioni sono tutte positive), calibrazione (§ 39.4–39.7).</p>
+  </div>
+  <div class="card">
+    <h3>Le idee centrali, come le spiega il libro</h3>
+    <ol>
+      <li><b>Un'immagine nasce restringendo i raggi.</b> Una superficie qualsiasi somma la luce di tutte le direzioni e perde l'informazione su da dove arriva. Pinhole (un punto di convergenza) e cannucce (una direzione) sono due modi diversi di scegliere un raggio per punto: il primo dà la prospettiva x = fX/Z, il secondo l'ortografica x = kX.</li>
+      <li><b>La lente non cambia la geometria.</b> Il raggio per il centro di una lente sottile non devia, quindi la proiezione resta quella del pinhole; la lente aggiunge solo la condizione di fuoco 1/a + 1/b = 1/f, e per i punti fuori fuoco un cerchio di confusione (profondità di campo ∝ f-number).</li>
+      <li><b>Ogni camera è una matrice.</b> In flatland l<sub>s</sub> = A l<sub>w</sub>: foro piccolo → A = I; foro largo → due 1 per riga (media mobile); edge camera → triangolare (integrale, inversa = derivata); pinspeck → 1 − A<sub>foro largo</sub> (ombra). Scrivere A<sup>−1</sup> a mano per questi casi mostra subito quale camera è ben condizionata.</li>
+      <li><b>L'inversione si stabilizza con λ.</b> Minimizzare ‖l<sub>s</sub> − A l<sub>w</sub>‖² + λ‖l<sub>w</sub>‖² dà B = (AᵀA + λI)<sup>−1</sup>Aᵀ: meno fedele ai dati, molto meno sensibile al rumore. Con la corner camera (segnale ≈ 1/1000 del fondo) senza questo non si ricostruisce nulla.</li>
+      <li><b>Il colore è una proiezione lineare.</b> r(λ) = k l<sub>in</sub>(λ) s(λ) mescola luce e materiale (color constancy); l'occhio proietta lo spettro con C<sub>eye</sub> (3 × N): nucleo enorme, quindi metameri. Una camera riproduce i colori giusti se C = R C<sub>eye</sub>, e lo schermo li emette con M = (CP)<sup>−1</sup>.</li>
+      <li><b>Risoluzione e colore interagiscono.</b> I coni S sono radi: sfocare B o la crominanza (a, b in Lab) non si vede, sfocare R, G o la luminanza sì. È la base del chroma subsampling.</li>
+    </ol>
+  </div>
+  <div class="two">
+    <div class="card">
+      <h3>Differenze di notazione slide / libro</h3>
+      <ul>
+        <li>Coordinate pixel: libro n = −a x + n<sub>0</sub>, <b>m = +a y + m<sub>0</sub></b>; la slide 35 ha due segni meno (vedi riquadro).</li>
+        <li>Nel cap. 39 il punto principale è (c<sub>x</sub>, c<sub>y</sub>) e a = fN/w ingloba la focale; nel cap. 5 a converte solo metri in pixel.</li>
+        <li>Integrale del muro: il libro (e la slide 21) scrivono cos(n · p); corretto è (n · p).</li>
+        <li>Derivazione di B: il libro scrive il gradiente già diviso per 2 (eq. 7.3), la slide 52 con il 2. Stesso risultato.</li>
+        <li>Coni: il libro ordina L, M, S e chiama t lo spettro; la slide scrive (L, M, S) = C<sub>eye</sub> l(λ).</li>
+        <li>Nel libro i pixel del sensore di flatland sono numerati al contrario, per questo il pinhole ha A = I anche senza piano virtuale.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Nel libro, non nelle slide (ma serve)</h3>
+      <ul>
+        <li>Legge di Snell, formula della lente sottile, punti coniugati, profondità di campo (cap. 6) → riquadro alla slide 26.</li>
+        <li>Coordinate omogenee e matrice di proiezione (cap. 39) → slide 31.</li>
+        <li>Linea dell'orizzonte (cap. 39) → slide 32.</li>
+        <li>Formula della corner camera, eq. 7.6–7.8 → slide 48.</li>
+        <li>Color matching: primari, C = R C<sub>eye</sub>, M = (CP)<sup>−1</sup>, gamut, CIE XYZ (cap. 8) → slide 66.</li>
+        <li>Mosaico dei coni con S radi (fig. 8.9) → slide 65 e 69.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="sec" id="l2-guida"><h2>Guida allo studio</h2><span>3 ore circa in quattro blocchi</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Prima di iniziare</h3>
+    <div class="meta">10 minuti</div>
+    <p>Ripassa due cose di algebra lineare: prodotto scalare fra vettori unitari (= coseno dell'angolo) e gradiente di una forma quadratica (∇‖b − Ax‖² = −2Aᵀ(b − Ax)). Servono per Lambert e per l'inversa regolarizzata.</p>
+    <p>La lezione è in gran parte concettuale: all'orale conta saper raccontare le <b>tre ambiguità</b> (slide 71) e rifare le due derivazioni (proiezione prospettica, inversa regolarizzata).</p>
+  </div>
+  <div class="two">
+    <div class="card">
+      <h3>1 · Luce e superfici</h3>
+      <div class="meta">Slide 6–19 · circa 40 minuti</div>
+      <p>Obiettivo: scrivere a memoria Lambert e Phong e dire cosa controlla ogni parametro.</p>
+      <ul>
+        <li>Ricava r = 2(n·p)n − p con un disegno, poi rifai il conto di α della slide 14 (α = 10 contro α = 100).</li>
+        <li>Spiega perché Lambert non dipende da q e Phong sì.</li>
+        <li>Verifica: una zona scura in un'immagine può avere tre cause diverse. Quali? (slide 18)</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>2 · Pinhole e proiezioni</h3>
+      <div class="meta">Slide 20–41 · circa 50 minuti</div>
+      <p>Obiettivo: dal muro senza immagine fino a x = fX/Z, e i sistemi di coordinate.</p>
+      <ul>
+        <li>Correggi su OneNote la formula della slide 21 (cos(n·p)) e annota il riquadro sul punto di fuga (slide 32) e sui segni (slide 35).</li>
+        <li>Rifai la derivazione con i triangoli simili e ricava il punto di fuga di una retta generica.</li>
+        <li>Verifica: cosa perde la prospettiva e cosa perde l'ortografica?</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>3 · Camere come sistemi lineari</h3>
+      <div class="meta">Slide 42–56 · circa 1 ora</div>
+      <p>Obiettivo: il blocco più "da esame". Modello, mal condizionamento, Tikhonov.</p>
+      <ul>
+        <li>Per pinhole ideale, pinhole grande, edge e pinspeck: disegna a mano A e di' come è fatta la sua inversa.</li>
+        <li>Rifai la derivazione della slide 52 senza guardare, poi il caso scalare B = a/(a² + λ).</li>
+        <li>Verifica: perché A<sup>−1</sup> di un blur è a scacchiera? Perché λI rende la matrice invertibile?</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>4 · Colore</h3>
+      <div class="meta">Slide 57–69 · circa 30 minuti</div>
+      <p>Obiettivo: r = k·l<sub>in</sub>·s, color constancy, tricromia come mappa lineare 3 × N.</p>
+      <ul>
+        <li>Collega metamerismo e nucleo di C<sub>eye</sub>: dim = N − 3.</li>
+        <li>Spiega la slide 69 (perché sfocare G o R si vede e sfocare B no) e ricava C = R C<sub>eye</sub> dal riquadro della slide 66.</li>
+        <li>Verifica: in che senso color constancy e inversione della camera sono lo stesso tipo di problema?</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Esercizi a mano</h3>
+    <div class="meta">Con soluzione, da fare prima dell'orale</div>
+    <ol>
+      <li>Una superficie lambertiana con albedo 0.6 riceve l<sub>in</sub> = 100 con θ = 60°. Quanto vale l<sub>out</sub>? <i>(0.6 · 100 · 0.5 = 30, visto da qualunque direzione.)</i></li>
+      <li>f = 35 mm, un'auto lunga 4.5 m a 30 m, perpendicolare all'asse ottico. Quanto è lunga sul sensore? E a 60 m? <i>(0.035 · 4.5 / 30 = 5.25 mm; a 60 m la metà, 2.625 mm.)</i></li>
+      <li>Retta con direzione d = (1, 0, 2) e f = 1: dov'è il suo punto di fuga? <i>(x = f · d<sub>X</sub>/d<sub>Z</sub> = 0.5, y = 0.)</i></li>
+      <li>A = diag(1, 0.001), λ = 0.01. Scrivi A<sup>−1</sup> e B. <i>(A<sup>−1</sup> = diag(1, 1000). B = diag(σ/(σ² + λ)) = diag(1/1.01, 0.001/0.010001) ≈ diag(0.99, 0.1). La seconda componente non amplifica più il rumore di 1000 volte.)</i></li>
+      <li>Lente sottile con f = 50 mm: a che distanza b dietro la lente va il sensore per mettere a fuoco un soggetto a 1 m? <i>(1/b = 1/50 − 1/1000 = 0.019 mm<sup>−1</sup>, b ≈ 52.6 mm.)</i></li>
+      <li>Camera a foro largo in flatland con 3 pixel: A = [1 1 0; 0 1 1; 0 0 1]. Scrivi A<sup>−1</sup>. <i>([1 −1 1; 0 1 −1; 0 0 1]: scacchiera di ±1, ogni valore è una somma alternata delle misure successive; visionbook § 7.3.)</i></li>
+      <li>Spettro campionato ogni 5 nm fra 400 e 700 nm: quante dimensioni ha lo spazio dei metameri di un dato colore? <i>(N = 61 campioni, nucleo di dimensione 61 − 3 = 58.)</i></li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h3>Domande tipo orale</h3>
+    <div class="meta">Prova a rispondere, poi apri per la traccia</div>
+    <div class="qa">
+      <details><summary>Cos'è la BRDF e da cosa dipende? Scrivi il modello lambertiano.</summary><p>Lega luce uscente e entrante: F(l<sub>in</sub>, n, p, q, λ). Lambert: l<sub>out</sub> = a l<sub>in</sub> (n · p), con a albedo; non dipende da q, quindi la superficie appare uguale da ogni punto di vista (slide 9, 11).</p></details>
+      <details><summary>Scrivi il modello di Phong e spiega il ruolo di k<sub>s</sub> e α.</summary><p>Ambiente + diffuso + speculare: k<sub>a</sub> + a l<sub>in</sub>(n·p) + k<sub>s</sub>(r·q)<sup>α</sup> l<sub>in</sub>. k<sub>s</sub> rende l'highlight più luminoso, α lo rende più stretto. Si possono sommare i termini perché la luce è lineare (slide 13–16).</p></details>
+      <details><summary>Perché non vediamo un'immagine su un muro, e come la forma il pinhole?</summary><p>Ogni punto del muro integra luce da tutte le direzioni e la struttura si media via. Il foro fa arrivare a ogni punto un solo raggio: corrispondenza uno a uno, immagine capovolta, scura e un po' sfocata (slide 21–24).</p></details>
+      <details><summary>Ricava la proiezione prospettica. Perché è non lineare?</summary><p>Triangoli simili fra (Z, Y) e (f, y): y = fY/Z, x = fX/Z. Non lineare per la divisione per Z; il piano virtuale toglie l'inversione (slide 29–31).</p></details>
+      <details><summary>Cos'è l'ambiguità dimensione/profondità? Come si risolve?</summary><p>x dipende solo da X/Z: (X, Z) e (kX, kZ) danno la stessa immagine. Si risolve con stereo, prior sulle dimensioni, profondità appresa; per il riconoscimento serve invarianza alla scala (slide 33, 41).</p></details>
+      <details><summary>Perché rette parallele convergono in un punto di fuga?</summary><p>Per P<sub>0</sub> + t·d, x → f d<sub>X</sub>/d<sub>Z</sub> per t → ∞: dipende solo dalla direzione, quindi tutte le parallele hanno lo stesso punto di fuga. Le parallele all'asse ottico fuggono nel punto principale (slide 32, con la correzione).</p></details>
+      <details><summary>Confronta proiezione prospettica e ortografica.</summary><p>Ortografica x = kX: niente dipendenza da Z, niente ambiguità di scala ma nessuna informazione di profondità. Realizzabile con la camera a cannucce; approssima la prospettiva quando la profondità varia poco rispetto alla distanza (slide 38–41).</p></details>
+      <details><summary>Come si passa da coordinate camera a coordinate pixel?</summary><p>n = ±a x + n<sub>0</sub>, m = ±a y + m<sub>0</sub>: scala a (pixel per unità) e punto principale (n<sub>0</sub>, m<sub>0</sub>); il segno dipende dal verso degli assi (slide 34–35).</p></details>
+      <details><summary>Perché una camera è un sistema lineare? Com'è A per pinhole ideale, pinhole reale, edge e pinspeck?</summary><p>La luce è lineare, quindi l<sub>s</sub> = A l<sub>w</sub>. Pinhole ideale A = I; pinhole reale matrice a banda (blur, convoluzione); edge camera triangolare (somme cumulative); pinspeck tutti uni meno la A del foro largo, cioè la sua "ombra" (slide 43–49; visionbook § 7.4).</p></details>
+      <details><summary>Deriva l'inversa regolarizzata. Perché serve regolarizzare?</summary><p>A mal condizionata: A<sup>−1</sup> amplifica il rumore (scacchiera, alte frequenze). Minimizzi ‖l<sub>s</sub> − A l<sub>w</sub>‖² + λ‖l<sub>w</sub>‖², gradiente zero: (AᵀA + λI) l<sub>w</sub> = Aᵀ l<sub>s</sub>. λI alza gli autovalori di λ e rende la matrice invertibile. Tikhonov/ridge; bias in cambio di varianza (slide 50–55).</p></details>
+      <details><summary>Che legame c'è fra camera sfocata e deconvoluzione?</summary><p>Un blur uniforme è una convoluzione (A di Toeplitz); invertirlo è una deconvoluzione, fatta con l'inversa regolarizzata. In Fourier diventa H* L<sub>s</sub> / (|H|² + λ), come il filtro di Wiener (slide 47, 56, e L3).</p></details>
+      <details><summary>Cos'è il problema della color constancy?</summary><p>r(λ) = k l<sub>in</sub>(λ) s(λ): prodotto di illuminante e riflettanza, entrambi incogniti. Stimare s è mal posto; servono prior (grey world, white balance). Esempi: scacchiera di Adelson, #TheDress (slide 61–64).</p></details>
+      <details><summary>Perché una lente produce la stessa proiezione di un pinhole? Cosa aggiunge?</summary><p>Il raggio per il centro di una lente sottile non devia (facce parallele), quindi il punto immagine sta sulla stessa retta per il centro: x = fX/Z. La lente raccoglie più luce e mette a fuoco solo i punti che soddisfano 1/a + 1/b = 1/f; gli altri danno un cerchio di confusione. Profondità di campo ≈ 2NCU²/f², cresce con l'f-number N = f/A (visionbook cap. 6).</p></details>
+      <details><summary>Come deve essere fatto un sensore per riprodurre i colori come li vede l'occhio?</summary><p>Le sue tre sensibilità devono essere combinazioni lineari di quelle dei coni: C = R C<sub>eye</sub> con R 3 × 3 invertibile. Allora lo schermo con primari P usa M = (CP)<sup>−1</sup> e C<sub>eye</sub> P M C = C<sub>eye</sub>. Altrimenti la camera confonde spettri che l'occhio distingue e viceversa (visionbook § 8.3.4–8.3.5).</p></details>
+      <details><summary>Cos'è il metamerismo e perché è inevitabile?</summary><p>Spettri diversi con la stessa risposta dei coni. La risposta è C<sub>eye</sub> l con C<sub>eye</sub> 3 × N: il nucleo ha dimensione N − 3, quindi c'è un'infinità di spettri indistinguibili. Una camera, con sensibilità diverse, può distinguerne alcuni; l'imaging iperspettrale ne distingue molti di più (slide 65–67).</p></details>
+      <details><summary>Perché il chroma subsampling funziona?</summary><p>Siamo molto più sensibili al dettaglio della luminanza che della crominanza; la luminanza viene soprattutto da G e R, e i coni S sono radi, quindi sfocare G o R si vede e sfocare B quasi no (slide 68–69; visionbook § 8.4).</p></details>
+    </div>
+  </div>
+</div>
