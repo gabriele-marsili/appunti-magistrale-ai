@@ -20,12 +20,12 @@ L'orale comprende la **discussione del progetto** e una **discussione di argomen
 
 ### Com'è in pratica (testimonianze)
 
-- **Durata** circa 50 minuti (Giacomo, 21/08/2026).
+- **Durata** circa 50 minuti (testimonianza di uno studente, agosto 2026).
 - **Prima parte, circa 20 minuti: progetto.** Chiede di mostrare che funziona (demo), commenta la qualità del codice e le scelte implementative, chiede perché una cosa è stata fatta in un certo modo.
 - **Seconda parte: teoria**, di solito 3-4 domande.
 - **Stile delle domande**: ampie, su argomenti grossi. Ti lascia fare un discorso (perché serve un sistema, quali caratteristiche ha) e ti guida con domande successive verso ciò che vuole sentire. Non si fissa sui dettagli minuti, ma alcune definizioni "a elenco" le vuole complete (esempio ricorrente: le **tre proprietà dell'hash crittografico**).
 - **Clima**: descritta come calma e gentile.
-- **Chi ha fatto il progetto Ethereum** in genere non riceve domande su Ethereum/Solidity. Però una volta risultava che potesse chiedere argomenti Ethereum non emersi nella discussione del progetto (es. Proof of Stake). Fabio Piscitelli, 26/06/2026: "Potrebbe chiedertelo se proprio non ne avete parlato durante la discussione del progetto".
+- **Chi ha fatto il progetto Ethereum** in genere non riceve domande su Ethereum/Solidity. Però una volta risultava che potesse chiedere argomenti Ethereum non emersi nella discussione del progetto (es. Proof of Stake). Uno studente, giugno 2026: "Potrebbe chiedertelo se proprio non ne avete parlato durante la discussione del progetto".
 - **Argomenti grossi** secondo chi ha dato l'esame: Bitcoin, Ethereum, strutture dati, metodi crittografici, attacchi. Sulle applicazioni (token, NFT, applicazioni reali) domanda meno, ma senza garanzie.
 
 > [!warning] Nota sulla versione del corso

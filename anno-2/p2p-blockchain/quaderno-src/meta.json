@@ -1,0 +1,352 @@
+{
+ "L01": {
+  "id": "L01",
+  "kind": "teoria",
+  "num": 1,
+  "date": "2026-02-16",
+  "title": "Introduzione al corso",
+  "teacher": "Laura Ricci",
+  "src": "src/pdf/L01 - 2026-02-16 - Introduzione al corso.pdf",
+  "pages": 60
+ },
+ "L02": {
+  "id": "L02",
+  "kind": "teoria",
+  "num": 2,
+  "date": "2026-02-17",
+  "title": "Overlay non strutturati",
+  "teacher": "Laura Ricci",
+  "src": "src/pdf/L02 - 2026-02-17 - Overlay non strutturati.pdf",
+  "pages": 69
+ },
+ "L03": {
+  "id": "L03",
+  "kind": "teoria",
+  "num": 3,
+  "date": "2026-02-19",
+  "title": "Overlay strutturati - DHT",
+  "teacher": "Laura Ricci",
+  "src": "src/pdf/L03 - 2026-02-19 - Overlay strutturati - DHT.pdf",
+  "pages": 62
+ },
+ "L04": {
+  "id": "L04",
+  "kind": "teoria",
+  "num": 4,
+  "date": "2026-02-23",
+  "title": "Kademlia DHT",
+  "teacher": "Laura Ricci",
+  "src": "src/pdf/L04 - 2026-02-23 - Kademlia DHT.pdf",
+  "pages": 73
+ },
+ "L05": {
+  "id": "L05",
+  "kind": "teoria",
+  "num": 5,
+  "date": "2026-02-26",
+  "title": "Strumenti crittografici per DHT e Blockchain",
+  "teacher": "Laura Ricci",
+  "src": "src/pdf/L05 - 2026-02-26 - Strumenti crittografici per DHT e Blockchain.pdf",
+  "pages": 73
+ },
+ "L06": {
+  "id": "L06",
+  "kind": "teoria",
+  "num": 6,
+  "date": "2026-03-02",
+  "title": "Strutture dati per DHT e Blockchain",
+  "teacher": "Laura Ricci",
+  "src": "src/pdf/L06 - 2026-03-02 - Strutture dati per DHT e Blockchain.pdf",
+  "pages": 71
+ },
+ "L07": {
+  "id": "L07",
+  "kind": "teoria",
+  "num": 7,
+  "date": "2026-03-03",
+  "title": "Introduzione alla Blockchain",
+  "teacher": "Laura Ricci",
+  "src": "src/pdf/L07 - 2026-03-03 - Introduzione alla Blockchain.pdf",
+  "pages": 45
+ },
+ "L08": {
+  "id": "L08",
+  "kind": "teoria",
+  "num": 8,
+  "date": "2026-03-05",
+  "title": "Bitcoin - Transazioni e Script",
+  "teacher": "Laura Ricci",
+  "src": "src/pdf/L08 - 2026-03-05 - Bitcoin - Transazioni e Script.pdf",
+  "pages": 76
+ },
+ "L09": {
+  "id": "L09",
+  "kind": "teoria",
+  "num": 9,
+  "date": "2026-03-12",
+  "title": "Bitcoin - Mining",
+  "teacher": "Laura Ricci",
+  "src": "src/pdf/L09 - 2026-03-12 - Bitcoin - Mining.pdf",
+  "pages": 94
+ },
+ "L10": {
+  "id": "L10",
+  "kind": "teoria",
+  "num": 10,
+  "date": "2026-03-19",
+  "title": "Bitcoin - Attacchi e Mining Pool",
+  "teacher": "Laura Ricci",
+  "src": "src/pdf/L10 - 2026-03-19 - Bitcoin - Attacchi e Mining Pool.pdf",
+  "pages": 56
+ },
+ "L11": {
+  "id": "L11",
+  "kind": "teoria",
+  "num": 11,
+  "date": "2026-03-24",
+  "title": "Bitcoin - Multisig, P2SH, SPV",
+  "teacher": "Laura Ricci",
+  "src": "src/pdf/L11 - 2026-03-24 - Bitcoin - Multisig, P2SH, SPV.pdf",
+  "pages": 63
+ },
+ "L12": {
+  "id": "L12",
+  "kind": "teoria",
+  "num": 12,
+  "date": "2026-03-26",
+  "title": "Bitcoin - Lightning Network",
+  "teacher": "Laura Ricci",
+  "src": "src/pdf/L12 - 2026-03-26 - Bitcoin - Lightning Network.pdf",
+  "pages": 92
+ },
+ "L13": {
+  "id": "L13",
+  "kind": "teoria",
+  "num": 13,
+  "date": "2026-03-31",
+  "title": "Bitcoin - Hard e Soft Fork, Taproot",
+  "teacher": "Laura Ricci",
+  "src": "src/pdf/L13 - 2026-03-31 - Bitcoin - Hard e Soft Fork, Taproot.pdf",
+  "pages": 39
+ },
+ "L14": {
+  "id": "L14",
+  "kind": "teoria",
+  "num": 14,
+  "date": "2026-04-09",
+  "title": "Ethereum - Account, Transazioni, Gas",
+  "teacher": "Laura Ricci",
+  "src": "src/pdf/L14 - 2026-04-09 - Ethereum - Account, Transazioni, Gas.pdf",
+  "pages": 68
+ },
+ "L15": {
+  "id": "L15",
+  "kind": "teoria",
+  "num": 15,
+  "date": "2026-04-20",
+  "title": "Token - ERC-20 e ERC-721",
+  "teacher": "Laura Ricci",
+  "src": "src/pdf/L15 - 2026-04-20 - Token - ERC-20 e ERC-721.pdf",
+  "pages": 70
+ },
+ "L16": {
+  "id": "L16",
+  "kind": "teoria",
+  "num": 16,
+  "date": "2026-04-23",
+  "title": "IPFS",
+  "teacher": "Laura Ricci",
+  "src": "src/pdf/L16 - 2026-04-23 - IPFS.pdf",
+  "pages": 56
+ },
+ "L17": {
+  "id": "L17",
+  "kind": "teoria",
+  "num": 17,
+  "date": "2026-04-28",
+  "title": "Ethereum - Proof of Stake",
+  "teacher": "Laura Ricci",
+  "src": "src/pdf/L17 - 2026-04-28 - Ethereum - Proof of Stake.pdf",
+  "pages": 61
+ },
+ "L18": {
+  "id": "L18",
+  "kind": "teoria",
+  "num": 18,
+  "date": "2026-05-04",
+  "title": "Ethereum - Fee e Trie",
+  "teacher": "Laura Ricci",
+  "src": "src/pdf/L18 - 2026-05-04 - Ethereum - Fee e Trie.pdf",
+  "pages": 37
+ },
+ "L19": {
+  "id": "L19",
+  "kind": "seminario",
+  "num": 19,
+  "date": "2026-05-07",
+  "title": "Self-Sovereign Identity e Veramo",
+  "teacher": "Turco",
+  "src": "src/pdf/L19 - 2026-05-07 - Guest - Self-Sovereign Identity e Veramo (Turco).pdf",
+  "pages": 57
+ },
+ "L20": {
+  "id": "L20",
+  "kind": "teoria",
+  "num": 20,
+  "date": "2026-05-12",
+  "title": "Applicazioni reali con Smart Contract",
+  "teacher": "Laura Ricci",
+  "src": "src/pdf/L20 - 2026-05-12 - Applicazioni reali con Smart Contract.pdf",
+  "pages": 80
+ },
+ "L21": {
+  "id": "L21",
+  "kind": "seminario",
+  "num": 21,
+  "date": "2026-05-14",
+  "title": "Interoperabilità blockchain",
+  "teacher": "Tortola",
+  "src": "src/pdf/L21 - 2026-05-14 - Guest - Interoperabilita blockchain (Tortola).pdf",
+  "pages": 55
+ },
+ "L22": {
+  "id": "L22",
+  "kind": "teoria",
+  "num": 22,
+  "date": "2026-05-19",
+  "title": "Ethereum - Soluzioni di scaling (Layer 2)",
+  "teacher": "Laura Ricci",
+  "src": "src/pdf/L22 - 2026-05-19 - Ethereum - Soluzioni di scaling (Layer 2).pdf",
+  "pages": 60
+ },
+ "L23": {
+  "id": "L23",
+  "kind": "seminario",
+  "num": 23,
+  "date": "2026-05-21",
+  "title": "Set Accumulators",
+  "teacher": "Loporchio",
+  "src": "src/pdf/L23 - 2026-05-21 - Guest - Set Accumulators (Loporchio).pdf",
+  "pages": 122
+ },
+ "LAB01": {
+  "id": "LAB01",
+  "kind": "lab",
+  "num": 1,
+  "date": "2026-02-24",
+  "title": null,
+  "teacher": "Damiano Di Francesco Maesa",
+  "src": "src/lab/LAB01/LAB01 - slide.pdf",
+  "pages": 28
+ },
+ "LAB02": {
+  "id": "LAB02",
+  "kind": "lab",
+  "num": 2,
+  "date": "2026-03-10",
+  "title": null,
+  "teacher": "Damiano Di Francesco Maesa",
+  "src": "src/lab/LAB02/LAB02 - slide.pdf",
+  "pages": 12
+ },
+ "LAB03": {
+  "id": "LAB03",
+  "kind": "lab",
+  "num": 3,
+  "date": "2026-03-11",
+  "title": null,
+  "teacher": "Damiano Di Francesco Maesa",
+  "src": "src/lab/LAB03/LAB03 - slide.pdf",
+  "pages": 9
+ },
+ "LAB04": {
+  "id": "LAB04",
+  "kind": "lab",
+  "num": 4,
+  "date": "2026-03-17",
+  "title": null,
+  "teacher": "Damiano Di Francesco Maesa",
+  "src": "src/lab/LAB04/LAB04 - slide.pdf",
+  "pages": 12
+ },
+ "LAB05": {
+  "id": "LAB05",
+  "kind": "lab",
+  "num": 5,
+  "date": "2026-03-30",
+  "title": null,
+  "teacher": "Damiano Di Francesco Maesa",
+  "src": "src/lab/LAB05/LAB05 - slide.pdf",
+  "pages": 45
+ },
+ "LAB06": {
+  "id": "LAB06",
+  "kind": "lab",
+  "num": 6,
+  "date": "2026-04-13",
+  "title": null,
+  "teacher": "Damiano Di Francesco Maesa",
+  "src": "src/lab/LAB06/LAB06 - slide.pdf",
+  "pages": 23
+ },
+ "LAB07": {
+  "id": "LAB07",
+  "kind": "lab",
+  "num": 7,
+  "date": "2026-04-14",
+  "title": null,
+  "teacher": "Damiano Di Francesco Maesa",
+  "src": "src/lab/LAB07/LAB07 - slide.pdf",
+  "pages": 37
+ },
+ "LAB08": {
+  "id": "LAB08",
+  "kind": "lab",
+  "num": 8,
+  "date": "2026-04-21",
+  "title": null,
+  "teacher": "Damiano Di Francesco Maesa",
+  "src": "src/lab/LAB08/LAB08 - slide.pdf",
+  "pages": 16
+ },
+ "LAB09": {
+  "id": "LAB09",
+  "kind": "lab",
+  "num": 9,
+  "date": "2026-04-27",
+  "title": null,
+  "teacher": "Damiano Di Francesco Maesa",
+  "src": "src/lab/LAB09/LAB09 - slide.pdf",
+  "pages": 16
+ },
+ "LAB10": {
+  "id": "LAB10",
+  "kind": "lab",
+  "num": 10,
+  "date": "2026-05-05",
+  "title": null,
+  "teacher": "Damiano Di Francesco Maesa",
+  "src": "src/lab/LAB10/LAB10 - slide.pdf",
+  "pages": 17
+ },
+ "LAB11": {
+  "id": "LAB11",
+  "kind": "lab",
+  "num": 11,
+  "date": "2026-05-11",
+  "title": null,
+  "teacher": "Damiano Di Francesco Maesa",
+  "src": "src/lab/LAB11/LAB11 - slide.pdf",
+  "pages": 11
+ },
+ "LAB12": {
+  "id": "LAB12",
+  "kind": "lab",
+  "num": 12,
+  "date": "2026-05-18",
+  "title": null,
+  "teacher": "Damiano Di Francesco Maesa",
+  "src": "src/lab/LAB12/LAB12 - slide.pdf",
+  "pages": 7
+ }
+}
