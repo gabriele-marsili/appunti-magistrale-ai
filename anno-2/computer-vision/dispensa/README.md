@@ -13,3 +13,4 @@ Una dispensa per lezione, scritta da zero integrando slide e libro (Torralba, Is
 | [L7 · Lab Fourier 2D](L07-lab-fourier-2d.md) | Lab: Fourier Analysis and Filter Banks on Images | 6673 |
 | [L8 · Keypoint detection](L08-keypoint-detection.md) | Keypoint Detection | 6134 |
 | [L9 · Omografie e panorami](L09-omografie-e-panorami.md) | Homographies and Image Panoramas | 7305 |
+| [L10 · Lab panorami](L10-lab-panorami.md) | Lab: Panorama Stitching with OpenCV | 7101 |

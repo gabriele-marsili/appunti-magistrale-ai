@@ -8,7 +8,8 @@ def slug(s):
     s=unicodedata.normalize('NFKD',s).encode('ascii','ignore').decode().lower()
     return re.sub(r'[^a-z0-9]+','-',s).strip('-')[:50]
 idx=[]
-for n in range(1,10):
+LS=sorted(int(d[1:]) for d in os.listdir(SRC) if re.fullmatch(r'L\d+',d) and os.path.exists(os.path.join(SRC,d,'dispensa.html')))
+for n in LS:
     L='L%d'%n; meta={}
     exec(open(os.path.join(SRC,L,'meta.py')).read(), meta)
     html=open(os.path.join(SRC,L,'dispensa.html'), encoding='utf-8').read()

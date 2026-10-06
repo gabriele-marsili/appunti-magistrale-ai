@@ -1,0 +1,324 @@
+<div class="sec" id="l10-dispensa"><h2>Dispensa</h2><span>parti da qui · circa 55 minuti</span></div>
+<div class="disp">
+  <p><b>In una frase:</b> il laboratorio rifà a mano, con OpenCV e NumPy, la pipeline del panorama della <a href="#L9">L9</a> su due foto vere: <mark class="sh sh-y">keypoint SIFT, match con ratio test, omografia stimata con DLT normalizzata dentro RANSAC, warping su una tela abbastanza grande e composizione</mark>; poi lascia fare tutto allo <code>Stitcher</code> di OpenCV su sei foto e mostra, numeri alla mano, cosa si rompe quando si salta un passo.</p>
+
+  <h3>Prima di iniziare</h3>
+  <p>Lezione di laboratorio: niente slide, un notebook (<code>panorama.ipynb</code>) e sei foto della Neva a San Pietroburgo (<code>boat1.jpg</code> … <code>boat6.jpg</code>, 3888 × 2592 pixel ciascuna), scattate ruotando la fotocamera. Ti servono:</p>
+  <ul>
+    <li>dalla <a href="#L8">L8</a>: cos'è un keypoint SIFT (posizione, scala, orientazione) e il suo descrittore di 128 numeri;</li>
+    <li>dalla <a href="#L9">L9</a>: nearest neighbor e ratio test, coordinate omogenee, omografia (3 × 3, 8 gradi di libertà), DLT, RANSAC e la formula delle iterazioni, warping all'indietro e blending;</li>
+    <li>dalla <a href="#L6">L6</a>: interpolazione bilineare e blending con la piramide laplaciana;</li>
+    <li>di Python: NumPy (array, broadcasting, <code>np.linalg.svd</code>) e le basi di OpenCV.</li>
+  </ul>
+  <p>La dispensa segue l'ordine della pipeline. Le schede qui sotto seguono il notebook: 1–6 keypoint e match, 7–10 DLT e RANSAC, 11–14 warping e composizione, 15–17 Stitcher ed esercizi. Tutti i numeri vengono dall'esecuzione del notebook con OpenCV 4.13 (RANSAC non ha un seme fisso: il numero di inlier cambia di qualche unità a ogni esecuzione).</p>
+
+  <h3>Guarda prima questi video</h3>
+  <div class="watch">
+    <a href="https://www.youtube.com/watch?v=IBcsS8_gPzE"><span class="k">Video</span><b>SIFT Descriptor</b><span class="d">Shree Nayar. Ripasso della L8: che cosa c'è nei 128 numeri che <code>detectAndCompute</code> restituisce per ogni keypoint. Per la sezione 2.</span></a>
+    <a href="https://www.youtube.com/watch?v=l_qjO4cM74o"><span class="k">Video</span><b>Computing Homography</b><span class="d">Shree Nayar, First Principles of Computer Vision. Il sistema lineare A h = 0 e la soluzione con la SVD: è esattamente la funzione <code>dlt_homography</code> del notebook (sezione 5).</span></a>
+    <a href="https://www.youtube.com/watch?v=EkYXjmiolBg"><span class="k">Video</span><b>Dealing with Outliers: RANSAC</b><span class="d">Shree Nayar. Perché i minimi quadrati non reggono gli outlier e come RANSAC li ignora. Per le sezioni 6–8.</span></a>
+    <a href="https://www.youtube.com/watch?v=D9rAOAL12SY"><span class="k">Video</span><b>Warping and Blending Images</b><span class="d">Shree Nayar. Warping all'indietro e fusione delle immagini: guardalo prima delle sezioni 9–11.</span></a>
+  </div>
+
+  <h3>1. Il problema: due foto, un panorama</h3>
+  <p><b>Il problema.</b> Hai due foto dello stesso paesaggio, scattate girando la fotocamera verso destra. La seconda ripete buona parte della prima: la guglia dorata della fortezza compare in tutte e due, ma in posizioni diverse. Vuoi un'unica immagine larga, come fa il telefono in modalità "Panorama".</p>
+  <figure><img src="{{IMG:disp2_input.png}}" alt="Due foto affiancate della Neva: a sinistra un veliero, una fila di palazzi e la guglia dorata; a destra la stessa guglia più al centro, l'isola con gli alberi e un ponte lontano"><figcaption>Le due foto di partenza, <code>boat1.jpg</code> (a sinistra) e <code>boat2.jpg</code>. Guglia, alberi e riflessi compaiono in entrambe: è la zona di sovrapposizione da cui si ricava la trasformazione. Nota anche il cielo più scuro della seconda foto: ci tornerà utile nella sezione 11.</figcaption></figure>
+  <p><b>L'idea.</b> È la pipeline della <a href="#L9">L9</a>. In questo laboratorio ogni passo corrisponde a una funzione:</p>
+  <ol>
+    <li><b>keypoint e descrittori</b>: <code>cv2.SIFT_create().detectAndCompute</code>;</li>
+    <li><b>match</b>: <code>cv2.BFMatcher.knnMatch</code> con k = 2, poi il ratio test;</li>
+    <li><b>stima robusta di H</b>: <code>ransac_homography</code>, scritta a mano, che chiama <code>dlt_homography</code> e <code>reprojection_errors</code>;</li>
+    <li><b>tela e warping</b>: <code>cv2.perspectiveTransform</code> sugli angoli, una traslazione T, <code>cv2.warpPerspective</code>;</li>
+    <li><b>composizione</b>: si incolla la prima foto sopra la seconda deformata.</li>
+  </ol>
+  <p>Perché funziona con una sola omografia? Perché <mark class="sh sh-y">la fotocamera ruota attorno al suo centro ottico</mark>, e in quel caso due foto sono legate esattamente da H = K R K<sup>−1</sup>, qualunque sia la profondità della scena (<a href="#L9">L9</a>, sezione 6).</p>
+  <p>Un dettaglio pratico: <mark class="sh sh-p">OpenCV carica le immagini in ordine BGR</mark>, non RGB. Prima di disegnarle con matplotlib il notebook le converte con <code>cv2.cvtColor(img, cv2.COLOR_BGR2RGB)</code>; altrimenti il cielo esce arancione.</p>
+  <div class="box k"><b>Il punto</b><p>Il panorama è una catena di cinque passi: <mark class="sh sh-y">keypoint, match, H robusta, tela e warping, composizione</mark>. Il notebook scrive a mano la parte centrale (DLT e RANSAC) e usa OpenCV per il resto.</p></div>
+
+  <h3>2. Keypoint SIFT con detectAndCompute</h3>
+  <p><b>Il problema.</b> Per sapere dove sta la seconda foto rispetto alla prima servono punti riconoscibili in entrambe, descritti in modo che lo stesso punto abbia lo stesso "codice" nelle due foto anche se ruotato, ingrandito o illuminato diversamente.</p>
+  <p><b>L'idea.</b> È esattamente ciò che fa SIFT (<a href="#L8">L8</a>): trova i blob nello scale-space e descrive l'intorno di ciascuno con istogrammi di gradienti orientati.</p>
+<pre>gray1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
+gray2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
+sift = cv2.SIFT_create()
+kps1, desc1 = sift.detectAndCompute(gray1, None)   # None: nessuna maschera
+kps2, desc2 = sift.detectAndCompute(gray2, None)</pre>
+  <p>Cosa restituisce, per ogni immagine:</p>
+  <ul>
+    <li><code>kps1</code>: una lista di oggetti <mark class="sh sh-b"><code>cv2.KeyPoint</code></mark>, ciascuno con <code>pt</code> (posizione in pixel, x e y non intere), <code>size</code> (diametro della zona, proporzionale alla scala), <code>angle</code> (orientazione dominante in gradi) e <code>response</code> (quanto è forte il blob);</li>
+    <li><code>desc1</code>: una matrice <mark class="sh sh-b">N × 128 di float32</mark>, una riga per keypoint.</li>
+  </ul>
+  <p><b>Esempio svolto.</b> Su queste foto SIFT trova <b>19096</b> keypoint nella prima e <b>12804</b> nella seconda, in circa 3 secondi per immagine. Il primo keypoint della lista, <code>kps1[0]</code>, sta in (2.35, 478.26), ha size 1.97, angolo 22.7° e response 0.0195: un dettaglio minuscolo sul bordo sinistro. La size mediana è 2.6 pixel, ma qualche blob arriva a centinaia di pixel.</p>
+  <figure><img src="{{IMG:disp2_keypoint.png}}" alt="La prima foto con migliaia di cerchietti verdi concentrati su veliero, palazzi, alberi, guglia e pezzi di ghiaccio, quasi nessuno nel cielo e nell'acqua liscia; a destra un ingrandimento della zona della guglia"><figcaption>I 3000 keypoint con la response più alta sulla prima foto (a destra un ingrandimento). Il raggio del cerchio è proporzionale a <code>size</code>. Si concentrano dove c'è struttura: alberature, finestre, alberi, guglia, ghiaccio. Il cielo e l'acqua liscia non ne hanno quasi.</figcaption></figure>
+  <p>Il commento del notebook spiega perché si passa al grigio: <mark class="sh sh-y">il colore dello stesso punto cambia fra due scatti</mark> (luce, ombre, esposizione), la struttura dei gradienti molto meno. In realtà <code>detectAndCompute</code> accetta anche l'immagine a colori e la converte da sola (riquadro Attenzione della scheda 2).</p>
+  <div class="box k"><b>Il punto</b><p><code>detectAndCompute</code> dà una lista di <code>KeyPoint</code> (posizione, scala, orientazione, forza) e una matrice di descrittori N × 128. <mark class="sh sh-g">I keypoint cadono dove c'è struttura</mark>, e sono decine di migliaia su foto da 10 megapixel.</p></div>
+
+  <h3>3. Match con knnMatch e ratio test</h3>
+  <p><b>Il problema.</b> Per ognuno dei 19096 descrittori della prima foto bisogna trovare il suo partner fra i 12804 della seconda, e capire quando il partner non esiste (un punto fuori dalla zona comune, un riflesso, una finestra fra cento uguali).</p>
+  <p><b>L'idea.</b> Si prendono per ogni descrittore i <b>due</b> più vicini nell'altra foto e si tiene il match solo se il primo spicca nettamente sul secondo: è il ratio test di Lowe (<a href="#L9">L9</a>, sezione 3). Se il primo e il secondo sono quasi alla pari, la scelta è una moneta lanciata.</p>
+<pre>bf = cv2.BFMatcher(cv2.NORM_L2)            # forza bruta, distanza euclidea
+knn = bf.knnMatch(desc1, desc2, k=2)       # per ogni riga di desc1: i 2 più vicini in desc2
+
+matches = []
+for m, n in knn:                           # m = primo vicino, n = secondo
+    if m.distance &lt; ratio * n.distance:    # ratio = 0.75
+        matches.append(m)
+
+pts1 = np.float64([kps1[m.queryIdx].pt for m in matches])
+pts2 = np.float64([kps2[m.trainIdx].pt for m in matches])</pre>
+  <ul>
+    <li><mark class="sh sh-b"><code>BFMatcher</code> (brute force) confronta ogni descrittore con tutti quelli dell'altra immagine</mark>: 19096 × 12804 ≈ 245 milioni di distanze, circa 7 secondi. <code>NORM_L2</code> è la distanza euclidea, quella giusta per SIFT.</li>
+    <li>Ogni elemento di <code>knn</code> è una coppia di oggetti <mark class="sh sh-b"><code>DMatch</code></mark>: <code>distance</code> (la distanza fra i descrittori), <code>queryIdx</code> (indice nella prima lista) e <code>trainIdx</code> (indice nella seconda).</li>
+    <li><code>pts1[i]</code> e <code>pts2[i]</code> sono le posizioni in pixel dei due estremi dell'i-esimo match: <mark class="sh sh-y">da qui in poi si lavora solo con queste coppie di coordinate</mark>.</li>
+  </ul>
+  <p><b>Esempio svolto.</b> Il primo match accettato ha <code>distance</code> 163.10, <code>queryIdx</code> 79 e <code>trainIdx</code> 5091: il keypoint 79 della prima foto va con il 5091 della seconda. Per questo <code>pts1[0]</code> = (28.37, 2301.59) non coincide con <code>kps1[0].pt</code>: i match sono indicizzati a parte. Il ratio test con τ = 0.75 tiene <b>3839</b> match su 19096, circa il 20%.</p>
+  <figure><img src="{{IMG:disp2_ratio_hist.png}}" alt="A sinistra due istogrammi del rapporto d1/d2 in scala logaritmica: i match coerenti con l'omografia sono distribuiti fra 0.15 e 1, quelli non coerenti hanno un picco altissimo vicino a 1; a destra il numero di match accettati cresce con la soglia mentre la percentuale di match coerenti scende da circa 95 a 21"><figcaption>A sinistra il rapporto d1/d2 per tutti i 19096 nearest neighbor, divisi in coerenti e non coerenti con l'omografia finale (errore sotto 4 pixel; scala verticale logaritmica). I match sbagliati si ammassano vicino a 1. A destra, alzando τ si tengono più match ma più sporchi: a τ = 0.75 sono 3839, l'85% coerenti.</figcaption></figure>
+  <p>Mediana del rapporto: 0.51 per i match coerenti con H, 0.96 per gli altri. La figura mostra anche il compromesso: con τ = 0.6 restano 2854 match coerenti al 90%, con τ = 0.9 ne restano 6593 ma solo al 57%.</p>
+  <p><b>Cosa va storto senza ratio test.</b> Tenendo tutti i nearest neighbor (cioè τ = 1) i match sono 19096, ma <mark class="sh sh-p">solo 3989, il 21%, sono coerenti con H</mark>. <mark class="sh sh-p">Il nearest neighbor risponde sempre</mark>, anche per i keypoint del veliero e dei palazzi, che nella seconda foto non ci sono proprio.</p>
+  <figure><img src="{{IMG:disp2_match_ratio.png}}" alt="Due coppie di foto con 80 linee di match ciascuna: in alto quasi tutte rosse e incrociate, molte partono dal veliero; in basso quasi tutte verdi, orizzontali e parallele"><figcaption>80 match presi a caso, verdi se coerenti con l'omografia finale, rossi se no. In alto senza ratio test: 13 verdi su 80, le linee rosse partono dal veliero e dai palazzi, che nella seconda foto non esistono. In basso con il ratio test: 72 verdi su 80, quasi tutti paralleli.</figcaption></figure>
+  <div class="box k"><b>Il punto</b><p><code>knnMatch(k=2)</code> dà primo e secondo vicino; il ratio test tiene il match solo se <mark class="sh sh-y">d1 &lt; 0.75 · d2</mark>. Qui porta la quota di match giusti <mark class="sh sh-g">dal 21% all'85%</mark>, che, come si vedrà, è la differenza fra un RANSAC immediato e uno lentissimo.</p></div>
+
+  <h3>4. Normalizzare i punti prima della DLT</h3>
+  <p><b>Il problema.</b> La DLT (<a href="#L9">L9</a>, sezione 7) scrive per ogni coppia (x, y) → (u, v) due righe di una matrice A, con dentro x, y, 1 e i prodotti u·x, u·y. In pixel x e u arrivano a 4000: <mark class="sh sh-p">nella stessa riga convivono 1 e numeri dell'ordine di 4 · 10<sup>6</sup></mark>. Una matrice così è <b>mal condizionata</b>: la SVD tratta male le colonne piccole, e il risultato cambia se sposti l'origine delle coordinate. Il notebook la chiama "not discussed in class"; è la normalizzazione di Hartley (Hartley e Zisserman, cap. 4).</p>
+  <p><b>L'idea.</b> Prima di costruire A si porta ogni insieme di punti in un sistema di riferimento "comodo": <mark class="sh sh-b">centrato nell'origine e con una dispersione dell'ordine di 1</mark>. Si stima H in quel riferimento, poi si torna ai pixel.</p>
+<pre>def normalize_points(pts):
+    mean = pts.mean(axis=0)                 # baricentro (2,)
+    std = pts.std(axis=0).mean()            # dispersione media di x e y
+    s = np.sqrt(2) / std                    # fattore di scala
+    T = np.array([[s, 0, -s * mean[0]],
+                  [0, s, -s * mean[1]],
+                  [0, 0, 1]])               # scala e trasla in una matrice 3x3
+    pts_h = np.column_stack([pts, np.ones(len(pts))])
+    pts_n = (T @ pts_h.T).T
+    return pts_n[:, :2], T</pre>
+  <p><b>La matematica.</b> T è una similitudine: p̃ = T p sposta il baricentro nell'origine e moltiplica tutto per s. In coordinate omogenee è una matrice 3 × 3, quindi si combina con le altre per prodotto. Se H̃ è l'omografia fra i punti normalizzati, cioè ũ ∝ H̃ x̃ con x̃ = T<sub>src</sub> x e ũ = T<sub>dst</sub> u, allora T<sub>dst</sub> u ∝ H̃ T<sub>src</sub> x, e quindi</p>
+  <span class="f"><mark class="sh sh-b">H = T<sub>dst</sub><sup>−1</sup> · H̃ · T<sub>src</sub></mark></span>
+  <p>A parole: normalizza la sorgente, applica H̃, de-normalizza verso la destinazione. È la riga <code>H = np.linalg.inv(T_dst) @ H_n @ T_src</code>.</p>
+  <p><b>Esempio svolto.</b> Sui 3256 inlier di questa coppia:</p>
+  <ul>
+    <li>in pixel le entrate tipiche di A vanno da 1 (colonna dell'1) a 3.8 · 10<sup>6</sup> (colonna u·x); normalizzate stanno fra 0.2 e 4;</li>
+    <li>il <b>numero di condizionamento</b> (rapporto fra il valore singolare più grande e quello che determina la soluzione) passa da <mark class="sh sh-p">1.2 · 10<sup>8</sup></mark> a <mark class="sh sh-g">21</mark>.</li>
+  </ul>
+  <figure><img src="{{IMG:disp2_normalizzazione.png}}" alt="A sinistra un grafico a barre in scala logaritmica: in pixel le colonne x, y, u valgono circa mille e le colonne u per x e u per y alcuni milioni, mentre normalizzate valgono tutte fra 0.2 e 4; a destra l'errore di H in funzione di uno spostamento delle coordinate: senza normalizzazione esplode oltre un milione di pixel, con normalizzazione resta circa 1.2"><figcaption>A sinistra il valore tipico delle colonne di A sui 3256 inlier: in pixel coprono più di sei ordini di grandezza, normalizzate uno solo. A destra un esperimento con 10 coppie rumorose (rumore di 1 pixel): spostando tutte le coordinate di una costante, la DLT senza normalizzazione cede da 10<sup>6</sup> pixel in su (errore medio 7 e poi 216 pixel), quella normalizzata resta sempre a 1.2.</figcaption></figure>
+  <p>Una nota onesta: su queste foto, in doppia precisione, <mark class="sh sh-y">la DLT senza normalizzazione dà quasi lo stesso risultato</mark> (errore mediano 0.391 contro 0.393 pixel sugli inlier). La normalizzazione è una cintura di sicurezza: costa tre righe e <mark class="sh sh-g">rende il risultato indipendente da dove metti l'origine e da quanto sono grandi i numeri</mark>. Con coordinate grandi (tele di panorami lunghi, immagini satellitari) o in precisione singola diventa indispensabile.</p>
+  <p>Un dettaglio: con <code>s = √2 / std</code> ciascuna coordinata ha deviazione standard √2, quindi la distanza media dall'origine viene circa 2.2, non √2 come nella ricetta originale di Hartley. Non cambia nulla: conta che i numeri siano centrati e dell'ordine di 1.</p>
+  <div class="box k"><b>Il punto</b><p><mark class="sh sh-y">Si normalizza per avere una matrice A ben condizionata</mark>: punti centrati e di scala circa 1, stima di H̃, poi H = T<sub>dst</sub><sup>−1</sup> H̃ T<sub>src</sub>. Qui il condizionamento passa da 10<sup>8</sup> a 21.</p></div>
+
+  <h3>5. La DLT con la SVD, e perché H[2,2] = 1</h3>
+  <p><b>Il problema.</b> Ora che i punti sono normalizzati, come si trovano le 9 entrate di H?</p>
+  <p><b>L'idea</b> (ripasso dalla <a href="#L9">L9</a>, sezione 7). L'equazione u = (h<sub>11</sub>x + h<sub>12</sub>y + h<sub>13</sub>) / (h<sub>31</sub>x + h<sub>32</sub>y + h<sub>33</sub>) non è lineare, ma moltiplicando per il denominatore lo diventa. <mark class="sh sh-y">Ogni coppia dà due equazioni lineari nelle 9 incognite</mark>; impilandole si ottiene A h = 0, e la soluzione di norma 1 che rende ‖A h‖ minima è <mark class="sh sh-b">l'ultimo vettore singolare destro di A</mark>.</p>
+<pre>def dlt_homography(src_pts, dst_pts):       # H tale che dst ~ H @ src
+    src_n, T_src = normalize_points(src_pts)
+    dst_n, T_dst = normalize_points(dst_pts)
+    A = []
+    for (x, y), (u, v) in zip(src_n, dst_n):
+        A.append([-x, -y, -1,  0,  0,  0, u*x, u*y, u])
+        A.append([ 0,  0,  0, -x, -y, -1, v*x, v*y, v])
+    A = np.asarray(A)                       # (2N, 9)
+    _, _, Vt = np.linalg.svd(A)
+    H_n = Vt[-1].reshape(3, 3)              # ultima riga di V^T
+    H = np.linalg.inv(T_dst) @ H_n @ T_src  # torna ai pixel
+    H /= H[2, 2]
+    return H</pre>
+  <p>Le righe di A sono quelle della <a href="#L9">L9</a> cambiate di segno: moltiplicare un'equazione "= 0" per −1 non cambia le soluzioni. <mark class="sh sh-g">Con 4 coppie A è 8 × 9 e la soluzione è esatta</mark>; con tutti gli inlier è 6512 × 9 e la SVD dà la soluzione ai minimi quadrati (algebrici).</p>
+  <p><b>Perché <code>H /= H[2, 2]</code>.</b> H è definita <mark class="sh sh-b">a meno di un fattore di scala</mark>: H e λH mandano ogni punto nello stesso punto, perché λ compare sopra e sotto la frazione. La SVD restituisce il rappresentante con ‖h‖ = 1, che ha segno e scala arbitrari. Dividere per h<sub>33</sub> sceglie un rappresentante fisso, quello con <mark class="sh sh-y">h<sub>33</sub> = 1</mark>: così due stime diverse si possono confrontare entrata per entrata, e la terza riga di H applicata a un punto vicino all'origine dà circa 1. <mark class="sh sh-p">Funziona finché h<sub>33</sub> non è vicino a zero</mark>, cioè finché H non manda l'origine della sorgente all'infinito; per due foto di un panorama non succede mai.</p>
+  <p><b>Esempio svolto.</b> L'omografia stimata da img2 a img1 è</p>
+  <span class="f">H ≈ [[0.807, 0.0000644, 1220.4], [−0.0629, 0.936, 62.3], [−0.0000511, 0.0000020, 1]]</span>
+  <p>Si legge così: l'angolo (0, 0) di img2 va in (1220.4, 62.3) di img1 (terza colonna, perché il denominatore vale 1), cioè <mark class="sh sh-y">la seconda foto è spostata di circa 1220 pixel a destra</mark>. Il termine h<sub>31</sub> = −5.1 · 10<sup>−5</sup> sembra trascurabile, ma all'angolo destro x = 3888 il denominatore vale 1 − 0.2 = 0.8: è lui che fa allargare la foto verso destra, cioè la prospettiva.</p>
+  <div class="box w"><b>Attenzione: il try/except non intercetta i campioni degeneri (scheda 8)</b><p>Il commento del notebook dice che con 4 punti allineati la DLT "will fail". Non è così: <mark class="sh sh-p"><code>np.linalg.svd</code> non solleva nessuna eccezione</mark> e restituisce una H assurda (entrate dell'ordine di 10<sup>16</sup>, verificato). Il codice funziona lo stesso perché quella H raccoglie pochissimi inlier e non vince mai.</p></div>
+  <div class="box k"><b>Il punto</b><p>DLT = due righe per coppia, A h = 0, h = ultimo vettore singolare destro, poi de-normalizzazione. <mark class="sh sh-y">H /= H[2, 2] fissa la scala arbitraria</mark> scegliendo il rappresentante con h<sub>33</sub> = 1.</p></div>
+
+  <h3>6. L'errore di riproiezione</h3>
+  <p><b>Il problema.</b> RANSAC deve decidere, per ogni match, se va d'accordo con un'omografia candidata. Serve un numero, in pixel, che dica quanto il match la viola.</p>
+  <p><b>L'idea.</b> Si prende il punto di img2, lo si porta in img1 con H e si misura quanto cade lontano dal punto che il matching aveva proposto. È l'<mark class="sh sh-b">errore di riproiezione</mark> (in un verso solo):</p>
+  <span class="f"><mark class="sh sh-b">e<sub>i</sub> = ‖ π(H [x<sub>i</sub>, y<sub>i</sub>, 1]<sup>⊤</sup>) − (u<sub>i</sub>, v<sub>i</sub>) ‖<sub>2</sub></mark></span>
+  <p>dove (x<sub>i</sub>, y<sub>i</sub>) è il punto in img2, (u<sub>i</sub>, v<sub>i</sub>) il suo partner in img1 e π divide per la terza componente. A differenza dell'errore algebrico ‖A h‖ della DLT, <mark class="sh sh-g">si misura in pixel e ha un significato geometrico</mark>: "quanti pixel di sbaglio".</p>
+<pre>def reprojection_errors(H, src_pts, dst_pts):
+    src_h = np.column_stack([src_pts, np.ones(len(src_pts))])   # (N, 3)
+    pred_h = (H @ src_h.T).T                                    # H applicata a tutti
+    pred = pred_h[:, :2] / pred_h[:, 2:3]                       # de-omogeneizza
+    return np.linalg.norm(pred - dst_pts, axis=1)               # (N,) in pixel</pre>
+  <p>Tutto vettorizzato: un solo prodotto matrice per i 3839 punti, nessun ciclo Python.</p>
+  <figure><img src="{{IMG:disp2_errori.png}}" alt="Istogramma in scala logaritmica degli errori di riproiezione dei 3839 match: una campana verde centrata intorno a 0.4 pixel a sinistra della soglia di 4 pixel, e gruppi rossi sparsi fra 10 e 5000 pixel"><figcaption>Errori di riproiezione dei 3839 match sotto l'omografia finale (asse x logaritmico). Gli inlier formano una campana con mediana 0.39 pixel; gli outlier sono sparsi fino a migliaia di pixel, con mediana 71. Fra le due popolazioni c'è un vuoto, e la soglia di 4 pixel ci cade dentro.</figcaption></figure>
+  <p><b>Esempio svolto.</b> Il 90% degli inlier ha errore sotto 1 pixel: i keypoint SIFT sono localizzati con precisione sub-pixel. Dove stanno gli outlier? <mark class="sh sh-p">Il 78% è nella metà inferiore della foto, sull'acqua</mark>, contro il 5% degli inlier: verosimilmente pezzi di ghiaccio che si spostano con la corrente fra uno scatto e l'altro, e riflessi che cambiano con le increspature. <mark class="sh sh-p">Nessuna omografia può spiegare un oggetto che si muove.</mark></p>
+  <div class="box k"><b>Il punto</b><p>L'errore di riproiezione è la <mark class="sh sh-y">distanza in pixel fra H p<sub>2</sub> e p<sub>1</sub></mark>. Qui separa nettamente gli inlier (mediana 0.39 px) dagli outlier (mediana 71 px).</p></div>
+
+  <h3>7. RANSAC nel notebook</h3>
+  <p><b>Il problema.</b> Il 15% dei 3839 match è sbagliato. Una DLT su tutti verrebbe trascinata dagli outlier (<a href="#L9">L9</a>, sezione 8).</p>
+  <p><b>L'idea</b> (<a href="#L9">L9</a>, sezione 9): campiona 4 match a caso, stima H esatta, conta quanti match hanno errore sotto la soglia, ripeti e tieni il modello con più voti. Alla fine si ristima H su tutti i suoi inlier.</p>
+<pre>def ransac_homography(src_pts, dst_pts, num_iters=3000, threshold=4.0):
+    best_H, best_inliers, best_count = None, None, 0
+    n = len(src_pts)
+    for _ in range(num_iters):
+        idx = np.random.choice(n, 4, replace=False)       # campione minimo
+        try:
+            H = dlt_homography(src_pts[idx], dst_pts[idx])
+        except np.linalg.LinAlgError:
+            continue
+        errs = reprojection_errors(H, src_pts, dst_pts)
+        inliers = errs &lt; threshold
+        count = np.sum(inliers)
+        if count &gt; best_count:                            # nuovo campione migliore
+            best_count, best_inliers, best_H = count, inliers, H
+    H_refined = dlt_homography(src_pts[best_inliers], dst_pts[best_inliers])
+    return H_refined, best_inliers
+
+H, inliers = ransac_homography(pts2, pts1)   # attenzione all'ordine: H va da img2 a img1</pre>
+  <p>Due cose da notare. <mark class="sh sh-p">L'ordine degli argomenti conta</mark>: <code>ransac_homography(pts2, pts1)</code> stima H che porta img2 in img1, perché poi si deformerà img2 nel riferimento di img1. E la ristima finale <mark class="sh sh-g">usa tutti gli inlier</mark>: il campione di 4 serve solo a scoprire chi sono.</p>
+  <p><b>Esempio svolto.</b> Il notebook stampa <code>inliers: 3258 / 3839</code> (3260 alla seconda esecuzione, 3256–3261 nelle mie). Gli inlier sono l'85%, quindi w = 0.85, n = 4, p = 0.99:</p>
+  <span class="f">k = log(1 − 0.99) / log(1 − 0.85<sup>4</sup>) = −4.605 / −0.738 ≈ 6.2 → 7 iterazioni</span>
+  <p><mark class="sh sh-y">Le 3000 iterazioni del notebook sono circa 400 volte più del necessario</mark>: costano qualche secondo e garantiscono il risultato.</p>
+  <figure><img src="{{IMG:disp2_ransac_inlier.png}}" alt="Le due foto affiancate con 60 linee verdi orizzontali fra alberi e guglia e 60 linee rosse, molte sull'acqua e alcune oblique dal veliero"><figcaption>60 inlier (verdi) e 60 outlier (rossi) scelti a caso fra quelli di RANSAC. Gli inlier stanno sulla riva, sugli alberi e sulla guglia; gli outlier soprattutto sull'acqua (ghiaccio e riflessi) e qualcuno sulle alberature del veliero, accoppiate per somiglianza a strutture sottili della seconda foto.</figcaption></figure>
+
+  <h4>Cosa succede con troppi outlier</h4>
+  <p>Senza ratio test gli inlier sono il 21% (sezione 3). La formula dice:</p>
+  <span class="f">k = log(0.01) / log(1 − 0.209<sup>4</sup>) ≈ 2416 iterazioni</span>
+  <p><mark class="sh sh-p">da 7 a 2416</mark>, e ogni iterazione costa cinque volte di più perché i match da controllare sono 19096. E c'è di peggio, come mostra la figura.</p>
+  <figure><img src="{{IMG:disp2_iterazioni.png}}" alt="Probabilità di successo in funzione delle iterazioni, in scala logaritmica: le curve teoriche verde (con ratio test) e rossa (senza) e i punti misurati, sempre più bassi delle curve; con ratio test si arriva a 1 con 20 iterazioni, senza ratio test 3000 iterazioni danno solo 0.6"><figcaption>Linee: probabilità teorica di pescare almeno un campione di 4 inlier, 1 − (1 − w<sup>4</sup>)<sup>k</sup>. Punti: frazione di 30 esecuzioni del codice del notebook che ritrovano H con gli angoli entro 10 pixel da quella di riferimento. Con il ratio test bastano 20 iterazioni; senza, con 3000 iterazioni si riesce solo 18 volte su 30.</figcaption></figure>
+  <p>Perché le misure stanno sotto la teoria? La formula conta i campioni <i>puliti</i>, ma <mark class="sh sh-p">un campione pulito non è per forza un campione buono</mark>. Quattro inlier vicini fra loro, ciascuno con mezzo pixel di rumore, danno una H che va bene vicino a loro e sbaglia di decine di pixel lontano: raccoglie solo una parte degli inlier, e la ristima su quella parte non recupera il resto. Su 300 campioni di 4 inlier puliti, la H stimata ha errore mediano di 5 pixel sugli altri inlier. Per questo le implementazioni serie (anche <code>cv2.findHomography</code>) aggiungono passi di raffinamento locale.</p>
+  <div class="box k"><b>Il punto</b><p>Con l'85% di inlier ne bastano 7 per la teoria e circa 20 in pratica; con il 21% ne servono migliaia e non bastano. <mark class="sh sh-y">Il ratio test, prima di RANSAC, è quello che rende RANSAC veloce</mark>.</p></div>
+
+  <h3>8. La soglia di RANSAC</h3>
+  <p><b>Il problema.</b> La soglia t decide chi è inlier. Il notebook usa 4 pixel. Cosa succede se si sbaglia?</p>
+  <p><b>L'idea.</b> <mark class="sh sh-y">t va scelta guardando il rumore atteso degli inlier</mark>: abbastanza grande da includerli tutti, abbastanza piccola da escludere gli outlier. Nell'istogramma della sezione 6 la soglia giusta cade nel vuoto fra la campana verde e i gruppi rossi.</p>
+  <figure><img src="{{IMG:disp2_soglia.png}}" alt="A sinistra il numero di inlier in funzione della soglia, da 594 a 0.25 pixel fino a 3718 a 128 pixel; a destra lo spostamento massimo degli angoli rispetto all'omografia di riferimento: scende da 9 pixel a 1 pixel fra 0.25 e 8, poi salta a circa 140 pixel da 16 in su"><figcaption>RANSAC (1000 iterazioni) rieseguito con soglie diverse. A sinistra quanti match accetta; a destra di quanti pixel si spostano gli angoli di img2 rispetto all'omografia di riferimento. La zona verde, fra 2 e 8 pixel, è quella buona.</figcaption></figure>
+  <ul>
+    <li><mark class="sh sh-p">Soglia troppo piccola</mark> (0.25 pixel): solo 594 inlier, perché si buttano via inlier veri con un po' di rumore. H si stima con meno dati: angoli sbagliati di 9 pixel.</li>
+    <li><b>Soglia giusta</b> (2–8 pixel): 3169–3282 inlier, angoli entro 1–2 pixel.</li>
+    <li><mark class="sh sh-p">Soglia troppo grande</mark> (16 pixel e oltre): entrano match sbagliati con errori di 10–15 pixel, e la ristima finale con i minimi quadrati se ne lascia tirare. <mark class="sh sh-p">Gli angoli si spostano di circa 140 pixel</mark>: piccolo errore dove ci sono i match, grande dove si estrapola, cioè ai bordi della foto.</li>
+  </ul>
+  <div class="box k"><b>Il punto</b><p><mark class="sh sh-y">t va messa a qualche volta il rumore degli inlier</mark> (qui 2–8 pixel). Troppo piccola butta via dati buoni, troppo grande lascia entrare gli outlier nella ristima e rovina H soprattutto ai bordi.</p></div>
+
+  <h3>9. Dove finisce img2: l'impronta e la bounding box</h3>
+  <p><b>Il problema.</b> Abbiamo H da img2 a img1. Prima di deformare qualcosa bisogna sapere quanto deve essere grande l'immagine finale, la <b>tela</b>: deve contenere img1 e tutta img2 deformata.</p>
+  <p><b>L'idea.</b> Un'omografia manda rette in rette (<a href="#L9">L9</a>, sezione 5), quindi il rettangolo di img2 diventa un quadrilatero, determinato dai suoi 4 angoli. <mark class="sh sh-y">Basta trasformare gli angoli.</mark></p>
+<pre>corners = np.float32([[0, 0], [w2, 0], [w2, h2], [0, h2]]).reshape(-1, 1, 2)
+proj = cv2.perspectiveTransform(corners, H)   # applica H e divide per w</pre>
+  <p><code>cv2.perspectiveTransform</code> fa la stessa cosa di <code>reprojection_errors</code> senza la distanza: omogeneizza, moltiplica per H, divide. Vuole i punti nella forma <mark class="sh sh-p">(N, 1, 2)</mark>, da cui il <code>reshape</code>.</p>
+  <p><b>Esempio svolto.</b> I quattro angoli di img2 finiscono in (1220, 62), (5437, −227), (5402, 2784) e (1214, 2476). Il lato destro è più alto del sinistro (3011 pixel contro 2414): la foto si allarga verso destra, come previsto dalla prospettiva.</p>
+  <figure><img src="{{IMG:disp2_impronta.png}}" alt="La prima foto con un quadrilatero verde che parte a circa un terzo della larghezza ed esce dal bordo destro, con il lato superiore in salita e quello inferiore in discesa"><figcaption>L'impronta di img2 su img1: il contorno verde è il rettangolo di img2 trasformato con H. Dentro c'è la zona che le due foto hanno in comune (il 67.5% di img1); la parte che esce a destra e sopra è ciò che img2 aggiunge.</figcaption></figure>
+  <p><b>La bounding box.</b> Il rettangolo più piccolo che contiene tutto si ottiene da minimi e massimi degli 8 angoli (4 di img1, 4 di img2 trasformati):</p>
+<pre>all_pts = np.vstack([corners_img1, warped_corners_img2])
+xmin, ymin = np.floor(all_pts.min(axis=0)).astype(int)    # (0, -228)
+xmax, ymax = np.ceil(all_pts.max(axis=0)).astype(int)     # (5438, 2784)</pre>
+  <p><mark class="sh sh-p">L'angolo in alto a destra di img2 ha y = −227</mark>: sta sopra il bordo di img1. Un'immagine però ha indici da 0 in su, e quello che finisce a coordinate negative viene tagliato.</p>
+  <p><b>La traslazione T.</b> Si sposta tutto in modo che l'angolo in alto a sinistra della bounding box vada in (0, 0):</p>
+  <span class="f"><mark class="sh sh-b">t<sub>x</sub> = −x<sub>min</sub>,   t<sub>y</sub> = −y<sub>min</sub>,   T = [[1, 0, t<sub>x</sub>], [0, 1, t<sub>y</sub>], [0, 0, 1]]</mark></span>
+  <p>Qui t<sub>x</sub> = 0 (img2 sta tutta a destra, quindi x<sub>min</sub> è lo 0 di img1) e t<sub>y</sub> = 228. La tela è larga x<sub>max</sub> − x<sub>min</sub> = 5438 e alta y<sub>max</sub> − y<sub>min</sub> = 3012 pixel. Siccome gli angoli di img1 sono inclusi, x<sub>min</sub> e y<sub>min</sub> sono sempre ≤ 0, e <mark class="sh sh-g">t<sub>x</sub> e t<sub>y</sub> non sono mai negativi</mark>.</p>
+  <figure><img src="{{IMG:disp2_bbox.png}}" alt="Due schemi: a sinistra il rettangolo blu di img1, il quadrilatero verde di img2 trasformato che sporge sopra lo zero, e la bounding box arancione tratteggiata; a destra lo stesso dopo uno spostamento verso il basso di 228 pixel, con la bounding box che parte da zero"><figcaption>A sinistra le coordinate di img1: l'angolo di img2 in (5437, −227) sta nella fascia rossa, che una tela con origine in (0, 0) taglierebbe. A destra, dopo la traslazione T (t<sub>y</sub> = 228), tutto ha coordinate positive e la tela 5438 × 3012 contiene entrambe le immagini.</figcaption></figure>
+  <div class="box k"><b>Il punto</b><p>Si trasformano i 4 angoli di img2, si prende la <mark class="sh sh-y">bounding box di tutti gli 8 angoli</mark> e la si porta nell'origine con una traslazione T. La tela ha le dimensioni della bounding box.</p></div>
+
+  <h3>10. Il warping: warpPerspective con T · H</h3>
+  <p><b>Il problema.</b> Ora bisogna davvero costruire l'immagine di img2 deformata, pixel per pixel, sulla tela.</p>
+  <p><b>L'idea.</b> Un pixel di img2 deve passare prima per H (va nel riferimento di img1) e poi per T (va nel riferimento della tela). Applicare H e poi T equivale a moltiplicare per una sola matrice:</p>
+  <span class="f"><mark class="sh sh-b">p<sub>tela</sub> ∝ T · H · p<sub>img2</sub></mark></span>
+  <p>L'ordine conta: <mark class="sh sh-y">la matrice più a destra si applica per prima</mark>. <code>H @ T</code> sarebbe sbagliato: trasla img2 <i>prima</i> di trasformarla.</p>
+<pre>warped_img2 = cv2.warpPerspective(img2, T @ H, (pano_w, pano_h))   # dimensione: (larghezza, altezza)</pre>
+  <p>Dentro, <code>warpPerspective</code> fa il <mark class="sh sh-b">warping all'indietro</mark> della <a href="#L9">L9</a> (sezione 11): per ogni pixel della tela calcola con (T H)<sup>−1</sup> da dove viene in img2 e legge img2 lì con l'interpolazione bilineare. <mark class="sh sh-g">Niente buchi</mark>. La matrice che gli passi è quella "in avanti", da img2 alla tela: l'inversa la calcola da solo (a meno che non passi il flag <code>WARP_INVERSE_MAP</code>). I pixel della tela che vengono da fuori img2 restano neri.</p>
+  <p>Attenzione all'ordine delle dimensioni: <mark class="sh sh-p">OpenCV vuole (larghezza, altezza)</mark>, mentre <code>img.shape</code> di NumPy dà (altezza, larghezza, canali).</p>
+  <figure><img src="{{IMG:disp2_warp.png}}" alt="Due tele nere con img2 deformata a destra: in alto la foto è tagliata da un bordo superiore piatto, in basso è intera, con il bordo superiore inclinato e il nero sopra"><figcaption>img2 deformata sulla tela 5438 × 3012. In alto con la sola H: la parte con y &lt; 0 è persa e il bordo superiore della foto è tagliato dritto. In basso con T · H: la foto è intera, e sotto c'è spazio vuoto in più. Il bordo sinistro sta a x ≈ 1220, dove comincia img2 nel riferimento di img1.</figcaption></figure>
+  <div class="box k"><b>Il punto</b><p><code>warpPerspective(img2, T @ H, (w, h))</code> porta img2 sulla tela con il <mark class="sh sh-y">warping all'indietro e l'interpolazione bilineare</mark>. Prima H, poi T: nel prodotto T sta a sinistra.</p></div>
+
+  <h3>11. La composizione e la giunzione visibile</h3>
+  <p><b>Il problema.</b> Sulla tela c'è img2 deformata. Manca img1, che non va deformata: basta spostarla di (t<sub>x</sub>, t<sub>y</sub>).</p>
+<pre>panorama = warped_img2.copy()
+panorama[ty:ty + h1, tx:tx + w1] = img1      # incolla img1, coprendo ciò che c'era</pre>
+  <figure><img src="{{IMG:disp2_panorama.png}}" alt="Il panorama completo: il veliero a sinistra, la guglia al centro, il ponte a destra; nella parte destra il cielo è visibilmente più scuro, con un bordo verticale netto dove finisce la prima foto"><figcaption>Il panorama finale del notebook. L'allineamento è buono (guglia, alberi e riva continuano senza scalini), ma a x = 3888, dove finisce img1, il cielo cambia colore di colpo. Il 10.4% della tela resta nero.</figcaption></figure>
+  <p><b>Cosa va storto: la giunzione.</b> Incollare img1 sopra img2 vuol dire che <mark class="sh sh-y">ogni pixel viene da una sola foto</mark>, e il confine fra le due è una linea netta. Se le foto hanno esposizioni diverse, <mark class="sh sh-p">la giunzione (seam) si vede anche con un allineamento perfetto</mark>. Qui nella zona di sovrapposizione la luminosità media è 114.5 in img1 e 98.2 in img2 (su 255): la seconda foto è circa il 14% più scura, e il cielo lo mostra subito.</p>
+  <p><b>Come si rimedia.</b> Con il <mark class="sh sh-b">feathering</mark> della <a href="#L9">L9</a>: nella zona comune ogni pixel è una media pesata delle due foto, con un peso che cala avvicinandosi al bordo di ciascuna. Il peso si ottiene con la distanza dal bordo (<code>cv2.distanceTransform</code> sulla maschera di ciascuna immagine):</p>
+<pre>d1 = cv2.distanceTransform(mask1, cv2.DIST_L2, 5)   # distanza dal bordo di img1 (0 fuori)
+d2 = cv2.distanceTransform(mask2, cv2.DIST_L2, 5)   # idem per img2 deformata
+w1 = d1 / (d1 + d2 + 1e-9)                          # peso di img1, fra 0 e 1
+pano = canvas1 * w1[..., None] + warped_img2 * (1 - w1[..., None])</pre>
+  <figure><img src="{{IMG:disp2_seam.png}}" alt="Due ritagli della stessa zona di cielo e riva: a sinistra una linea verticale netta separa un cielo più chiaro da uno più scuro, a destra il passaggio è graduale e la linea non si vede"><figcaption>Lo stesso ritaglio intorno a x = 3888. A sinistra la composizione del notebook: il gradino di luminosità è una riga verticale. A destra con il feathering: la differenza di esposizione è spalmata su tutta la zona comune e la giunzione sparisce.</figcaption></figure>
+  <p>Il feathering ha un limite: dove qualcosa si è mosso fra i due scatti (il ghiaccio) <mark class="sh sh-p">la media produce doppie immagini semitrasparenti</mark>. Per questo gli stitcher veri scelgono una cucitura che eviti gli oggetti in movimento e poi fondono con il blending multi-banda (<a href="#L6">L6</a>). Il nero intorno si toglie ritagliando il rettangolo più grande coperto da entrambe (riquadro Attenzione della scheda 13).</p>
+  <div class="box k"><b>Il punto</b><p>La composizione del notebook è un copia-incolla: <mark class="sh sh-p">allineamento giusto ma giunzione visibile</mark>, perché le esposizioni differiscono del 14%. Un blending (feathering o multi-banda) la nasconde.</p></div>
+
+  <h3>12. Lo Stitcher di OpenCV</h3>
+  <p><b>Il problema.</b> Tutto quello che abbiamo scritto vale per due foto. Per sei, con esposizioni diverse e un campo visivo molto largo, serve molto di più. OpenCV lo impacchetta in una classe.</p>
+<pre>stitcher = cv2.Stitcher_create(cv2.Stitcher_PANORAMA)   # oppure cv2.Stitcher_SCANS
+status, pano = stitcher.stitch(imgs)                     # lista di immagini BGR
+if status != cv2.Stitcher_OK:                            # 0 = OK
+    print("errore", status)</pre>
+  <p><code>status</code> vale 0 se tutto va bene; gli errori sono <mark class="sh sh-p">1 (servono più immagini: non ha trovato abbastanza sovrapposizione), 2 (stima delle omografie fallita), 3 (ottimizzazione dei parametri della camera fallita)</mark>. Le due modalità usano modelli diversi:</p>
+  <ul>
+    <li><mark class="sh sh-b"><code>PANORAMA</code></mark>: assume una <b>camera che ruota</b>. Stima rotazioni e focale di ogni foto, le raffina tutte insieme (bundle adjustment), raddrizza l'orizzonte (wave correction), proietta su una <b>sfera</b>, compensa le esposizioni, cerca le cuciture e fonde con il blending multi-banda.</li>
+    <li><mark class="sh sh-b"><code>SCANS</code></mark>: assume un <b>modello affine</b>, pensato per documenti o immagini piatte fotografate spostando la camera (scanner, microscopio). Niente sfera, niente compensazione dell'esposizione, niente wave correction.</li>
+  </ul>
+  <p>Per velocità lo Stitcher non lavora a piena risoluzione: cerca i match su versioni ridotte a <mark class="sh sh-g">0.6 megapixel</mark>, le cuciture a 0.1 megapixel, e solo il risultato finale è a risoluzione originale.</p>
+  <p><b>Esempio svolto.</b> Sulle sei foto, PANORAMA impiega 13.7 secondi e produce un'immagine di <b>10722 × 2663</b> pixel; SCANS 4.2 secondi e 10970 × 2856.</p>
+  <figure><img src="{{IMG:disp2_stitcher.png}}" alt="Due panorami lunghi della Neva da sei foto: in alto con bordi curvi, colori uniformi e nessuna giunzione visibile; in basso con bordi a scalini e fasce verticali di luminosità diversa nel cielo e nell'acqua"><figcaption>Sopra, <code>PANORAMA</code>: proiezione sferica (da qui i bordi curvi), esposizioni compensate, nessuna giunzione visibile. Sotto, <code>SCANS</code>: ogni foto è un rettangolo spostato con un'affine, e si vedono le fasce di esposizione diversa nel cielo e nell'acqua, perché questa modalità non compensa l'esposizione.</figcaption></figure>
+  <p>Il notebook ha anche un'opzione <code>d3</code>, che taglia ogni foto in tre strisce sovrapposte prima di passarle allo Stitcher: più immagini, più coppie con sovrapposizione, più probabilità che la catena di match non si spezzi. Su sole due foto SCANS fallisce con status 1, mentre PANORAMA riesce (4800 × 2543).</p>
+  <div class="box w"><b>Attenzione: se lo stitching fallisce, la cella va in errore (scheda 16)</b><p>In caso di errore <code>main</code> restituisce <code>1</code> invece di un'immagine, e la riga dopo prova a convertirlo in RGB: <mark class="sh sh-p">l'eccezione di OpenCV non dice nulla dello status</mark>. Conviene controllare il valore restituito prima di disegnarlo.</p></div>
+  <div class="box k"><b>Il punto</b><p><code>Stitcher_create(mode).stitch(imgs)</code> fa tutta la pipeline. <mark class="sh sh-y">PANORAMA = camera che ruota, proiezione sferica, esposizione compensata e blending; SCANS = modello affine</mark> per scene piatte.</p></div>
+
+  <h3>13. Panorami larghi: perché il piano non basta</h3>
+  <p><b>Il problema.</b> Il nostro codice di sezioni 9–11 mette tutto nel piano di img1. Che succede se continuiamo ad aggiungere foto nello stesso piano?</p>
+  <p><b>L'idea.</b> Il piano di un'immagine copre meno di 180°: <mark class="sh sh-y">un raggio che forma 90° con l'asse ottico non incontra il piano</mark>, finisce all'infinito. Più una foto è ruotata rispetto al riferimento, più la sua proiezione si allunga. Componendo le omografie fra foto vicine, H<sub>k→1</sub> = H<sub>2→1</sub> H<sub>3→2</sub> ⋯ H<sub>k→k−1</sub>, si porta ogni foto nel piano di img1.</p>
+  <figure><img src="{{IMG:disp2_distorsione.png}}" alt="Due schemi con le impronte delle sei foto: in alto, nel riferimento di boat1, le prime tre sono rettangoli quasi normali e la quarta è un trapezio enorme lungo oltre diecimila pixel; in basso, nel riferimento di boat3, le foto ai lati si allargano progressivamente e la sesta diventa un trapezio gigantesco"><figcaption>Le impronte delle sei foto (dimezzate, 1944 × 1296) portate nel piano di una di esse componendo le omografie fra coppie vicine. In alto nel piano di boat1: boat4 occupa già 14.6 volte l'area originale, boat5 e boat6 non si possono nemmeno disegnare. In basso nel piano di boat3: va meglio a sinistra, ma boat6 diventa 35 volte più grande.</figcaption></figure>
+  <p><b>Esempio svolto.</b> Nel piano di boat1 la terza componente omogenea dei due angoli destri di boat5 vale −0.15 e −0.11: <mark class="sh sh-p">w &lt; 0 vuol dire che quei punti sono "dietro" la camera di boat1</mark>, oltre i 90°. Dividere per w dà coordinate senza senso. Anche dove w è positivo ma piccolo (boat4: 0.17) l'immagine viene stirata enormemente: <mark class="sh sh-p">pochi pixel di boat4 riempiono migliaia di pixel di tela, sfocati e deformati</mark>.</p>
+  <p>Due rimedi, quelli della <a href="#L9">L9</a>: scegliere come riferimento la foto <b>centrale</b> (aiuta, ma non basta per sei foto) e soprattutto <mark class="sh sh-g">proiettare su un cilindro o una sfera</mark>, dove ogni direzione ha lo stesso spazio. È ciò che fa lo Stitcher in modalità PANORAMA, ed è il motivo dei suoi bordi curvi.</p>
+  <div class="box k"><b>Il punto</b><p>Nel piano di una foto le immagini lontane dal riferimento si stirano senza limite e oltre 90° diventano irrappresentabili (w &lt; 0). <mark class="sh sh-y">Per panorami larghi si proietta su un cilindro o una sfera</mark>.</p></div>
+
+  <h3>14. Gli esercizi</h3>
+  <p>Il notebook propone tre esercizi. Ecco come si risolvono e cosa danno su questa coppia di foto.</p>
+
+  <h4>Mutual nearest neighbours</h4>
+  <p><b>L'idea</b> (<a href="#L9">L9</a>, sezione 3): un match (i, j) è <mark class="sh sh-b">mutuo se j è il più vicino a i e i è il più vicino a j</mark>. Serve un secondo matching nel verso opposto:</p>
+<pre>knn12 = bf.knnMatch(desc1, desc2, k=2)
+nn21 = bf.match(desc2, desc1)                      # per ogni j: il più vicino in desc1
+best_back = np.array([m.trainIdx for m in nn21])   # best_back[j] = indice in desc1
+matches = [m for m, n in knn12
+           if m.distance &lt; 0.75 * n.distance       # ratio test
+           and best_back[m.trainIdx] == m.queryIdx] # controllo mutuo</pre>
+  <p><b>Risultato.</b> Il controllo mutuo da solo tiene 6437 match, ma solo il 59% coerenti: <mark class="sh sh-p">da solo è un filtro molto più debole del ratio test</mark>. Sommato al ratio test toglie 101 match, di cui 73 sbagliati, e porta la quota di coerenti dall'84.8% all'86.4%. RANSAC trova 3232 inlier su 3738 e la stessa H (angoli entro 1 pixel).</p>
+
+  <h4>Il modello affine</h4>
+  <p>L'esercizio chiede di provare lo Stitcher con il modello affine, cioè <code>Stitcher_SCANS</code> (sezione 12). A basso livello lo stesso confronto si fa con <code>cv2.estimateAffine2D(pts2, pts1, method=cv2.RANSAC, ransacReprojThreshold=4.0)</code>: un'affine ha 6 gradi di libertà, ultima riga [0, 0, 1], e bastano 3 coppie.</p>
+  <p><b>Risultato.</b> Con la stessa soglia di 4 pixel <mark class="sh sh-p">l'affine trova solo 908 inlier su 3839</mark>, contro 3256 dell'omografia, e i suoi angoli distano fino a 241 pixel da quelli di H. Non può riprodurre il lato destro più alto del sinistro: <mark class="sh sh-y">tutta la prospettiva sta nell'ultima riga di H</mark>, che l'affine fissa a [0, 0, 1].</p>
+
+  <h4>ORB con la distanza di Hamming</h4>
+  <p><b>L'idea.</b> ORB è un detector e descrittore <b>binario</b>: ogni descrittore sono 32 byte, cioè 256 bit, ciascuno il risultato di un confronto di intensità fra due pixel. La distanza giusta è quella di <mark class="sh sh-b">Hamming, il numero di bit diversi</mark> (<a href="#L9">L9</a>, sezione 2): uno XOR e un conteggio, velocissimo.</p>
+<pre>orb = cv2.ORB_create(nfeatures=10000)      # il default è 500
+kps1, desc1 = orb.detectAndCompute(gray1, None)   # desc1: (N, 32) uint8
+bf = cv2.BFMatcher(cv2.NORM_HAMMING)       # non NORM_L2</pre>
+  <p><b>Risultato.</b> Con il default di 500 keypoint si ottengono solo 74 match: <mark class="sh sh-p">su foto da 10 megapixel 500 punti sono pochissimi</mark>. Con 10000 keypoint: 1667 match, 1526 inlier, H con gli angoli entro 3.5 pixel da quella di SIFT. La detection costa 0.12 secondi per foto contro 3.1 di SIFT: <mark class="sh sh-g">circa 25 volte più veloce</mark>. Usare per errore <code>NORM_L2</code> sui byte del descrittore dimezza i match buoni (600 invece di 1667).</p>
+  <figure><img src="{{IMG:disp2_esercizi.png}}" alt="Due grafici a barre: a sinistra i match tenuti da solo ratio test (3839, 84.8 per cento coerenti), solo mutual NN (6437, 59 per cento) e ratio più mutual (3738, 86.4 per cento); a destra gli inlier RANSAC di SIFT più omografia (3256 su 3839), SIFT più affine (908 su 3839) e ORB più omografia (1526 su 1667)"><figcaption>A sinistra i tre filtri sui match: il mutual NN da solo lascia passare molti match sbagliati, aggiunto al ratio test toglie quasi solo outlier. A destra gli inlier di RANSAC con soglia 4 pixel: l'affine non spiega la prospettiva; ORB (10000 keypoint) trova meno match di SIFT, ma con una quota di inlier ancora più alta.</figcaption></figure>
+  <div class="box w"><b>Attenzione: per ORB la norma è NORM_HAMMING (scheda 17)</b><p>Il notebook suggerisce <code>NORM_HAMMING2</code>. Secondo la documentazione di OpenCV <mark class="sh sh-p"><code>NORM_HAMMING2</code> serve solo per ORB con <code>WTA_K</code> = 3 o 4</mark>; con il default <code>WTA_K</code> = 2 la norma giusta è <code>NORM_HAMMING</code>. HAMMING2 qui funziona lo stesso (1561 match), ma misura una distanza diversa da quella per cui il descrittore è fatto.</p></div>
+  <div class="box k"><b>Il punto</b><p>Il mutual NN è un buon complemento al ratio test, non un sostituto. L'affine non basta per un panorama ruotato. ORB con Hamming è molto più veloce di SIFT, ma <mark class="sh sh-y">va usato con molti più keypoint del default e con la norma giusta</mark>.</p></div>
+
+  <h3>Il riassunto in 10 righe</h3>
+  <ol>
+    <li>Pipeline: SIFT (<code>detectAndCompute</code>) → <code>knnMatch(k=2)</code> + ratio test → RANSAC con DLT → bounding box e T → <code>warpPerspective(img2, T @ H)</code> → composizione.</li>
+    <li>SIFT trova 19096 e 12804 keypoint; <code>KeyPoint</code> ha pt, size, angle, response; i descrittori sono N × 128 float32; <code>DMatch</code> ha distance, queryIdx, trainIdx.</li>
+    <li>Il ratio test con τ = 0.75 tiene 3839 match su 19096 e porta i match coerenti con H dal 21% all'85%.</li>
+    <li>La normalizzazione (centro nell'origine, scala circa 1) porta il condizionamento di A da 10<sup>8</sup> a 21; poi H = T<sub>dst</sub><sup>−1</sup> H̃ T<sub>src</sub>.</li>
+    <li>DLT: due righe per coppia, h = ultimo vettore singolare destro di A; H /= H[2, 2] fissa la scala arbitraria.</li>
+    <li>L'errore di riproiezione ‖π(H p<sub>2</sub>) − p<sub>1</sub>‖ separa inlier (mediana 0.39 px) e outlier (mediana 71 px, quasi tutti sull'acqua).</li>
+    <li>Con w = 0.85 RANSAC richiede in teoria 7 iterazioni (il notebook ne fa 3000); con w = 0.21 ne servirebbero 2416, e in pratica non bastano, perché un campione pulito non è sempre buono.</li>
+    <li>La soglia va fra 2 e 8 pixel: più piccola butta inlier, più grande lascia entrare outlier e sposta gli angoli di 140 pixel.</li>
+    <li>La tela è la bounding box degli 8 angoli, traslata con T (qui t<sub>y</sub> = 228, tela 5438 × 3012); <code>warpPerspective</code> fa il warping all'indietro con T · H.</li>
+    <li>Il copia-incolla lascia una giunzione visibile (esposizioni diverse del 14%); servono blending e, per panorami larghi, la proiezione sferica dello Stitcher (PANORAMA; SCANS è affine).</li>
+  </ol>
+
+  <h3>Verifica di aver capito</h3>
+  <div class="qa">
+    <details><summary>1. Perché il notebook chiama ransac_homography(pts2, pts1) e non (pts1, pts2)? Cosa cambierebbe nel resto del codice?</summary><p>La funzione stima H tale che dst ∝ H src: con (pts2, pts1) H porta img2 nel riferimento di img1, ed è img2 che poi si deforma sulla tela, mentre img1 si incolla solo traslata. Con (pts1, pts2) si otterrebbe H<sup>−1</sup>: per deformare img2 bisognerebbe passare a <code>warpPerspective</code> T · H<sup>−1</sup>, e gli angoli da trasformare sarebbero quelli di img2 con H<sup>−1</sup>.</p></details>
+    <details><summary>2. Senza normalizzazione la DLT su questi inlier dà quasi lo stesso risultato. Allora a cosa serve?</summary><p>A rendere A ben condizionata (da 1.2 · 10<sup>8</sup> a 21) e la stima indipendente da dove si mette l'origine e da quanto sono grandi le coordinate. In doppia precisione, con coordinate fino a qualche migliaio, il problema non si vede; con coordinate dell'ordine di 10<sup>6</sup> l'errore senza normalizzazione passa da 1.2 a 7 e poi a 216 pixel, con normalizzazione resta 1.2.</p></details>
+    <details><summary>3. Il 30% dei match è sbagliato. Quante iterazioni servono per p = 0.99? E perché in pratica conviene farne di più?</summary><p>w = 0.7, w<sup>4</sup> = 0.2401, k = log(0.01) / log(0.7599) = −4.605 / −0.2746 ≈ 16.8, quindi 17. Conviene farne di più perché la formula conta i campioni senza outlier, ma un campione di 4 inlier vicini fra loro e rumorosi dà una H imprecisa lontano da loro, che raccoglie solo parte degli inlier.</p></details>
+    <details><summary>4. Gli angoli di img2 trasformati con H sono (1220, 62), (5437, −227), (5402, 2784), (1214, 2476); img1 è 3888 × 2592. Calcola T e la dimensione della tela.</summary><p>Con gli angoli di img1 (0, 0), (3888, 0), (3888, 2592), (0, 2592): x<sub>min</sub> = 0, y<sub>min</sub> = floor(−227.4) = −228, x<sub>max</sub> = ceil(5437.4) = 5438, y<sub>max</sub> = ceil(2783.5) = 2784. Quindi t<sub>x</sub> = 0, t<sub>y</sub> = 228, tela 5438 × 3012, e img1 va incollata in <code>panorama[228:2820, 0:3888]</code>.</p></details>
+    <details><summary>5. Perché si passa T @ H a warpPerspective e non H @ T? E perché non serve passare l'inversa?</summary><p>Un punto di img2 va prima nel riferimento di img1 (H) e poi in quello della tela (T): p<sub>tela</sub> = T (H p), e la matrice applicata per prima sta a destra. H @ T traslerebbe il punto nelle coordinate di img2 prima di trasformarlo. L'inversa non serve perché <code>warpPerspective</code> riceve la mappa ingresso → uscita e la inverte da sola per fare il warping all'indietro.</p></details>
+    <details><summary>6. Il panorama del notebook ha un bordo verticale nel cielo, ma la guglia e la riva sono perfettamente allineate. Da cosa dipende e come si toglie?</summary><p>Non è un errore di H: le due foto hanno esposizioni diverse (luminosità media 114.5 contro 98.2 nella zona comune) e la composizione prende ogni pixel da una sola foto, quindi il confine si vede. Si toglie con un blending: feathering (media pesata con pesi che calano verso i bordi), meglio ancora cucitura ottima e blending multi-banda, più una compensazione dell'esposizione come fa lo Stitcher.</p></details>
+    <details><summary>7. Perché per sei foto lo Stitcher in modalità PANORAMA proietta su una sfera invece di usare il piano di una foto?</summary><p>Il piano di una foto copre meno di 180°: le foto ruotate di molto rispetto al riferimento si stirano senza limite e oltre 90° finiscono dietro la camera (w &lt; 0). Qui nel piano di boat1 boat4 è già 14.6 volte più grande e boat5 non è rappresentabile. Sulla sfera ogni direzione ha lo stesso spazio.</p></details>
+  </div>
+
+  <h3>Come proseguire</h3>
+  <ul>
+    <li>Visionbook, cap. 41 <a href="https://visionbook.mit.edu/homography.html" target="_blank">Homographies</a>: § 41.3.1 (DLT), § 41.3.2 (RANSAC), § 41.3.3 (panorami con più immagini e scelta del riferimento).</li>
+    <li>Visionbook, cap. 38 <a href="https://visionbook.mit.edu/homogeneous_coordinates.html" target="_blank">Representing Images and Geometry</a>: § 38.5 per il warping all'indietro.</li>
+    <li>Hartley e Zisserman, <i>Multiple View Geometry</i>, cap. 4: la DLT normalizzata e perché senza normalizzazione la stima non è invariante.</li>
+    <li>Szeliski, <i>Computer Vision: Algorithms and Applications</i>, 2a ed. (<a href="https://szeliski.org/Book/" target="_blank">szeliski.org/Book</a>), cap. 8: image stitching, proiezioni cilindriche e sferiche, compositing (cuciture, feathering, multi-banda).</li>
+    <li>Documentazione di OpenCV: il tutorial sullo Stitcher citato in testa al notebook e i tutorial Python su feature e ORB.</li>
+  </ul>
+  <p>Ora apri il notebook e ripassa con le schede qui sotto: 1–6 per keypoint e match, 7–10 per DLT e RANSAC, 11–14 per warping e composizione, 15–17 per Stitcher ed esercizi. Prova anche a rifare gli esperimenti di questa dispensa: togliere il ratio test, cambiare la soglia, aggiungere il feathering.</p>
+</div>

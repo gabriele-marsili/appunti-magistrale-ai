@@ -1,0 +1,13 @@
+ID = 'L10'; NUM = 10; SHORT = 'Lab panorami'; DATE = '6 ott'
+H1 = 'Lab: Panorama Stitching with OpenCV'
+EYEBROW = 'Lezione 10 · Antonio Carta · laboratorio, 6 ottobre 2026'
+INTRO = "Laboratorio senza slide: il panorama di due foto costruito a mano con OpenCV (keypoint SIFT, <code>knnMatch</code> e ratio test di Lowe, omografia con DLT normalizzata e RANSAC scritti in NumPy, warping su una tela comune e composizione), poi lo <code>Stitcher</code> di OpenCV su sei foto e gli esercizi (mutual nearest neighbours, modello affine, ORB con distanza di Hamming). È la parte pratica della L8 (keypoint, SIFT) e della L9 (matching, omografie, RANSAC). Una scheda per ogni blocco logico del notebook <code>panorama.ipynb</code> (17 schede), poi studio dal libro, guida allo studio ed esercizi risolti."
+PDF = None
+HOWTO = """<section class="howto" aria-labelledby="howto-h">
+  <h2 id="howto-h">Come usarli con OneNote</h2>
+  <div><b>Lezione di laboratorio</b><p>Non ci sono slide: il materiale è il notebook Jupyter <code>panorama.ipynb</code> della cartella <code>lab/</code>, con le sei foto <code>data/boat1–6.jpg</code> (3888 × 2592 pixel). La teoria è quella della L8 e della L9: le schede la richiamano con il numero di slide invece di ripeterla.</p></div>
+  <div><b>Una scheda = un blocco del notebook</b><p>Non una scheda per cella, ma per blocco logico (per esempio "ratio test" o "ciclo RANSAC"). L'etichetta in grigio indica le celle del notebook del docente, contate dall'alto a partire da 1, markdown incluse (l'ultima, la 26, è vuota). Le figure sono quelle prodotte rieseguendo il notebook con OpenCV 4.13, ridotte di risoluzione; le schede 10 e 14 hanno una figura in più, fatta per capire meglio.</p></div>
+  <div><b>Numeri</b><p>Tutti i numeri citati (keypoint, match, inlier, H) vengono dalla riesecuzione. RANSAC nel notebook non fissa il seme casuale: il numero di inlier cambia di qualche unità da un'esecuzione all'altra (3258 negli output salvati, fra 3259 e 3263 nelle riesecuzioni).</p></div>
+  <div><b>Pulsante Copia</b><p>Copia gli appunti della scheda già formattati, codice compreso. Su OneNote conviene una pagina per sezione, con le schede incollate una sotto l'altra.</p></div>
+  <div><b>Riquadri colorati</b><p><span class="tag w">Attenzione</span> bug o affermazione imprecisa nel notebook, verificata eseguendolo, con la correzione. <span class="tag b">Dal libro</span> la spiegazione del visionbook (o di Szeliski) dove il notebook dà per scontata la teoria. <span class="tag k">Da saper fare</span> conti o spiegazioni da orale. <span class="tag x">Approfondimento</span> oltre il notebook, facoltativo.</p></div>
+</section>"""

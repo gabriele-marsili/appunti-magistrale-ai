@@ -12,7 +12,7 @@ Sito di studio con schede slide per slide, dispensa riscritta da zero per ogni l
 
 ## Sito
 
-Sito statico con le lezioni 1-9 (7 di teoria e 2 laboratori):
+Sito statico con le lezioni 1-10 (7 di teoria e 3 laboratori):
 
 - **Schede:** ogni slide ha la sua scheda, nello stesso ordine del PDF, con riquadri "Dal libro" (Torralba, Isola, Freeman, *Foundations of Computer Vision*) e riquadri "Attenzione" sugli errori verificati nelle slide.
 - **Presentazione:** slide in HD con gli appunti accanto, penna, evidenziatore e sottolineatura.
@@ -27,6 +27,6 @@ Le annotazioni restano salvate nel browser.
 - `sito-src/`: sorgenti del sito. Per ogni lezione: schede (`L<n>/slides.py`), dispensa (`L<n>/dispensa.html`), copione della videolezione (`L<n>/copione.json`) e figure. In `common/` ci sono gli script di build e le istruzioni
 - `dispensa/`: la dispensa in Markdown, con le figure prese da `sito-src/`
 - `Appunti/`: appunti delle lezioni 1-7
-- `Lessons/`: appunti dei laboratori 4 e 7, con sorgenti LaTeX
+- `Lessons/`: appunti dei laboratori 4 e 7, con sorgenti LaTeX (il notebook del laboratorio 10 è spiegato nel sito)
 
 Appunti personali: possono contenere errori. Il sito include le slide del corso (© Antonio Carta, Università di Pisa) per lo studio; i libri non sono inclusi.

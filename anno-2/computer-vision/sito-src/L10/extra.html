@@ -1,0 +1,206 @@
+<div class="sec" id="l10-libro"><h2>Studia dal libro</h2><span>visionbook cap. 41 e 38 (ripasso, circa 45 minuti), Szeliski cap. 8 per lo stitching</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Cosa leggere, in ordine</h3>
+    <div class="meta">Il lab non introduce teoria nuova: rileggi i paragrafi della L9 tenendo aperto il codice</div>
+    <ol>
+      <li><a href="https://visionbook.mit.edu/homography.html" target="_blank">Cap. 41, Homographies</a>: § 41.3.1 (DLT: A di dimensione 2N × 9, soluzione con l'autovettore di A<sup>T</sup>A, quattro corrispondenze) accanto a <code>dlt_homography</code>; § 41.3.2 (RANSAC, formula del numero di iterazioni, campionamento senza reinserimento; occhio al refuso nell'esempio numerico, spiegato nella L9) accanto a <code>ransac_homography</code>; § 41.3.3 (stitching rispetto all'immagine centrale, fig. 41.9) accanto alle schede 11–13.</li>
+      <li><a href="https://visionbook.mit.edu/homogeneous_coordinates.html" target="_blank">Cap. 38, Representing Images and Geometry</a>: § 38.3.5 (concatenare trasformazioni: è il prodotto <code>T @ H</code>), § 38.3.6 (gerarchia e gradi di libertà, per l'esercizio sul modello affine), § 38.5 (backward mapping: è <code>warpPerspective</code>).</li>
+      <li><b>Szeliski, 2a ed.</b>, cap. 7, § 7.1.3 Feature matching (ratio test come NNDR, strategie di matching, ricerca approssimata dei vicini); cap. 8 Image alignment and stitching: § 8.1 (allineamento a coppie, RANSAC), § 8.2 (stitching, modelli di moto, proiezioni cilindriche e sferiche), § 8.3 (bundle adjustment, quello che fa lo Stitcher), § 8.4 (compositing: esposizione, cuciture, feathering, blending). I sottoparagrafi non sono verificati online.</li>
+      <li><b>Lowe 2004</b>, § 7.1: il ratio test e la soglia 0.8. Facoltativo: Hartley e Zisserman, <i>Multiple View Geometry</i>, cap. 4, per la DLT normalizzata.</li>
+    </ol>
+    <p><b>Si può saltare</b>: tutto ciò che nella L9 riguarda i matcher appresi (SuperGlue, LightGlue), che il lab non usa.</p>
+    <p><b>Nel lab ma non nel visionbook</b>: la normalizzazione dei punti, l'errore di riproiezione come criterio di inlier, la costruzione della tela con la bounding box degli angoli proiettati, la composizione e tutta la pipeline dello Stitcher (bundle adjustment, proiezione sferica, cuciture, blending): per questi la fonte è Szeliski cap. 8.</p>
+  </div>
+
+  <div class="card">
+    <h3>Le idee centrali, viste nel codice</h3>
+    <div class="meta">Da saper collegare: riga di codice → concetto della L8 o della L9</div>
+    <p><b>1 · Dalle feature ai match.</b> SIFT dà punti covarianti e descrittori invarianti (L8). Il match è il vicino più prossimo in L2; il ratio test d<sub>1</sub>/d<sub>2</sub> &lt; 0.75 scarta i match non distintivi. Qui da 19096 candidati a 3839 match, l'85% dei quali giusti.</p>
+    <p><b>2 · DLT.</b> Due equazioni lineari per coppia, A h = 0, h = ultimo vettore singolare destro. Normalizzare i punti rende A ben condizionata (numero di condizione da 10<sup>8</sup> a 22 in questo lab) e si torna indietro con H = T<sub>dst</sub><sup>−1</sup>H<sub>n</sub>T<sub>src</sub>.</p>
+    <p><b>3 · RANSAC.</b> Campione minimo di 4, modello, consenso con soglia in pixel sull'errore di riproiezione, tieni il migliore, ristima sugli inlier. k = log(1 − p)/log(1 − w<sup>4</sup>) dà 7 iterazioni con w = 0.85, ma in pratica se ne fanno molte di più perché un campione di soli inlier non garantisce un buon modello.</p>
+    <p><b>4 · Warping.</b> Gli angoli proiettati definiscono la tela; una traslazione T la rende positiva; <code>warpPerspective</code> con T·H fa warping all'indietro con interpolazione bilineare.</p>
+    <p><b>5 · Composizione.</b> Incollare è il minimo: la geometria è giusta ma l'esposizione no. Compensazione del guadagno, feathering, blending multi-banda (L6) e cuciture ottime sono i passi successivi, tutti dentro lo Stitcher.</p>
+  </div>
+
+  <div class="two">
+    <div class="card">
+      <h3>Notazione: L9, libro e notebook</h3>
+      <ul>
+        <li>Nella L9 H va da A a B; nel notebook <code>dlt_homography(src, dst)</code> stima dst ≈ H·src e lo stitching la chiama con <code>(pts2, pts1)</code>: H va da <b>img2 a img1</b>, perché img1 è il riferimento.</li>
+        <li>Le righe di A nel notebook sono quelle del libro con il segno cambiato: stesso nucleo, stessa H.</li>
+        <li>OpenCV usa (x, y) = (colonna, riga) per i punti e <code>(larghezza, altezza)</code> per <code>dsize</code>; NumPy usa <code>shape = (altezza, larghezza, canali)</code>.</li>
+        <li>Nella formula di RANSAC w è la frazione di <b>inlier</b> (L9 e libro); il notebook non la usa: fa un numero fisso di iterazioni.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Cosa il lab aggiunge alla teoria</h3>
+      <ul>
+        <li>Ordini di grandezza veri: 10–20 mila keypoint per foto da 10 megapixel, il 20% che passa il ratio test, 15% di outlier, errore sotto il pixel sugli inlier.</li>
+        <li>Dove nascono gli outlier: acqua, riflessi, texture ripetute; dove si concentrano i keypoint: bordi e angoli, non cielo e acqua liscia.</li>
+        <li>La differenza fra "stimare bene H" e "fare un bel panorama": la seconda richiede la composizione.</li>
+        <li>Cosa c'è in una libreria vera: ORB al posto di SIFT, bundle adjustment, proiezione sferica, esposizione, cuciture, blending.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="sec" id="l10-guida"><h2>Guida allo studio</h2><span>circa 3 ore, con il notebook aperto</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Prima di iniziare</h3>
+    <div class="meta">15 minuti</div>
+    <p>Ripassa dalla L8 la pipeline SIFT (DoG, orientazione, descrittore 4 × 4 × 8) e dalla L9 ratio test, omografia, DLT, RANSAC e warping inverso (slide 14–16, 22–29, 38–41, 49). Esegui il notebook cella per cella mentre leggi le schede: ogni cella con SIFT o RANSAC impiega qualche secondo sulle foto a piena risoluzione. Per esperimenti veloci puoi ridurre le foto con <code>cv2.resize(img, None, fx=0.5, fy=0.5)</code>.</p>
+  </div>
+  <div class="two">
+    <div class="card">
+      <h3>1 · Feature e match</h3>
+      <div class="meta">Schede 1–6 · circa 45 minuti</div>
+      <ul>
+        <li>Stampa <code>len(kps1)</code>, <code>desc1.shape</code>, <code>len(knn)</code>, <code>len(matches)</code> e spiega ogni numero.</li>
+        <li>Rifai la tabella del ratio test (0.6–0.9) e guarda i match che entrano passando da 0.75 a 0.9.</li>
+        <li>Verifica: sai dire cosa sono <code>queryIdx</code> e <code>trainIdx</code> e perché <code>pts1[0]</code> non è <code>kps1[0].pt</code>?</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>2 · DLT e RANSAC</h3>
+      <div class="meta">Schede 7–10 · circa 1 ora</div>
+      <ul>
+        <li>Scrivi a mano le due righe di A per una coppia e confrontale con il codice.</li>
+        <li>Calcola k per w = 0.85 e p = 0.99; poi lancia RANSAC con 7, 50, 3000 iterazioni e confronta gli inlier.</li>
+        <li>Confronta la tua H con <code>cv2.findHomography(pts2, pts1, cv2.RANSAC, 4.0)</code>.</li>
+        <li>Verifica: perché il <code>try/except</code> non serve contro i punti collineari?</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>3 · Warping e composizione</h3>
+      <div class="meta">Schede 11–14 · circa 45 minuti</div>
+      <ul>
+        <li>Proietta a mano un angolo di img2 con H (prodotto e divisione) e confrontalo con <code>perspectiveTransform</code>.</li>
+        <li>Spiega perché serve T e perché si passa T·H e non H·T.</li>
+        <li>Implementa la compensazione del guadagno (esercizio 4 sotto) e guarda sparire la giunzione.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>4 · Stitcher ed esercizi</h3>
+      <div class="meta">Schede 15–17 · circa 45 minuti</div>
+      <ul>
+        <li>Lancia lo Stitcher in modalità PANORAMA e SCANS e descrivi le differenze.</li>
+        <li>Risolvi i tre esercizi del notebook senza guardare le soluzioni sotto.</li>
+        <li>Verifica: quali passi dello Stitcher mancano nella versione a mano?</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Cosa devi sapere</h3>
+    <div class="meta">La lista minima per l'orale</div>
+    <ul>
+      <li><b>OpenCV di base</b>: BGR, <code>imread</code> che restituisce <code>None</code>, KeyPoint (pt, size, angle, response), DMatch (queryIdx, trainIdx, distance), BFMatcher con <code>NORM_L2</code> o <code>NORM_HAMMING</code>.</li>
+      <li><b>Matching</b>: knnMatch con k = 2, ratio test e perché funziona, mutual NN, cosa cambia al variare della soglia.</li>
+      <li><b>DLT normalizzata</b>: righe di A, 2N × 9, SVD, normalizzazione e denormalizzazione, perché 4 coppie.</li>
+      <li><b>RANSAC</b>: i passi, la soglia in pixel, errore di riproiezione, numero di iterazioni e i suoi limiti, ristima finale, campioni degeneri.</li>
+      <li><b>Warping</b>: proiezione degli angoli, bounding box, traslazione e composizione di trasformazioni, warping inverso con interpolazione.</li>
+      <li><b>Composizione</b>: perché si vede la giunzione, rimedi (guadagno, feathering, multi-banda, cuciture).</li>
+      <li><b>Stitcher</b>: cosa fa in più (ORB, bundle adjustment, proiezione sferica, wave correction, esposizione, graph cut, multi-banda) e differenza fra PANORAMA e SCANS.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Domande tipo orale</h3>
+    <div class="meta">Prova a rispondere, poi apri per la traccia</div>
+    <div class="qa">
+      <details><summary>Descrivi la pipeline per unire due foto in un panorama, collegando ogni passo alla teoria.</summary><p>Keypoint e descrittori SIFT (L8); per ogni descrittore i due vicini più prossimi in L2 e ratio test (L9); omografia stimata con DLT dentro RANSAC, soglia in pixel sull'errore di riproiezione e ristima sugli inlier (L9); proiezione degli angoli per dimensionare la tela, traslazione, warping inverso con interpolazione (cap. 38); composizione e blending (L6, Szeliski § 8.4). Nel lab: 3839 match, 3258 inlier, tela 5438 × 3012.</p></details>
+      <details><summary>Perché per queste foto il modello giusto è un'omografia?</summary><p>La camera ruota attorno al centro ottico (quasi) e la scena è lontana: con rotazione pura due immagini sono legate da H = KRK<sup>−1</sup> per tutti i punti, indipendentemente dalla profondità. Se la camera traslasse e la scena avesse profondità diverse ci sarebbe parallasse e nessuna H andrebbe bene per tutti i punti.</p></details>
+      <details><summary>Come funziona il ratio test e perché la soglia è sul rapporto?</summary><p>Si tiene il match se d<sub>1</sub> &lt; r·d<sub>2</sub> (r = 0.75 nel lab, 0.8 in Lowe). La distanza assoluta di un match giusto cambia da punto a punto; il secondo vicino stima la distanza di un match sbagliato in quella zona dello spazio dei descrittori. Rapporto basso = match distintivo. Sulle strutture ripetute d<sub>1</sub> ≈ d<sub>2</sub> e il match è scartato. Più alta la soglia, più match e più outlier (2854 con 0.6, 6593 con 0.9).</p></details>
+      <details><summary>Cos'è il mutual nearest neighbour e cosa aggiunge al ratio test?</summary><p>Si tiene la coppia (i, j) solo se j è il più vicino di i e i è il più vicino di j. Elimina i match molti-a-uno, in cui più punti della prima immagine finiscono sullo stesso punto della seconda (84 casi nel lab). Dopo il ratio test toglie 101 match, quasi tutti outlier: la frazione di inlier sale dall'84.4% all'86.2%.</p></details>
+      <details><summary>Scrivi le equazioni della DLT. Perché servono almeno 4 coppie?</summary><p>Da u = (h<sub>1</sub>·p)/(h<sub>3</sub>·p) e v = (h<sub>2</sub>·p)/(h<sub>3</sub>·p) si moltiplica per il denominatore: due equazioni lineari in h per ogni coppia. A h = 0 con A 2N × 9; h di norma 1 che minimizza ‖Ah‖ = ultimo vettore singolare destro. H ha 9 entrate ma è definita a meno di scala: 8 gradi di libertà, 2 equazioni per coppia, quindi 4 coppie in posizione generale (non tre collineari).</p></details>
+      <details><summary>Perché si normalizzano i punti prima della DLT? Come si torna alla H in pixel?</summary><p>In pixel le colonne di A hanno ordini di grandezza diversissimi (1 contro 10<sup>6</sup>–10<sup>7</sup>): A è mal condizionata e la SVD amplifica gli errori. Si centrano e scalano i punti con T e T′, si stima H<sub>n</sub>, si torna con H = T′<sup>−1</sup>H<sub>n</sub>T. Nel lab il numero di condizione passa da 1.2·10<sup>8</sup> a 22.</p></details>
+      <details><summary>Descrivi RANSAC per l'omografia. Che soglia usi e come misuri l'errore?</summary><p>Ripeti: 4 coppie a caso senza reinserimento, H con la DLT, errore di riproiezione ‖π(H p) − q‖ in pixel per tutte le coppie, inlier sotto soglia (4 px nel lab), tieni il consenso più grande. Alla fine ristima H su tutti gli inlier (e idealmente minimizza l'errore geometrico). La soglia dipende dal rumore di localizzazione dei keypoint e dalla risoluzione.</p></details>
+      <details><summary>Quante iterazioni servono? Bastano davvero?</summary><p>k = log(1 − p)/log(1 − w<sup>n</sup>): con w = 0.85, n = 4, p = 0.99 viene 6.3, quindi 7. Garantisce con probabilità p un campione di soli inlier, non un buon modello: 4 inlier vicini e rumorosi danno una H che sbaglia lontano dal campione. Nel lab con 7 iterazioni la mediana è 2717 inlier (minimo 770), con 50 è 3247. Si usano più iterazioni, aggiornamento adattivo di w e rifinitura locale.</p></details>
+      <details><summary>Cosa succede se i 4 punti campionati sono collineari?</summary><p>A perde rango e la DLT dà una H degenere (nel test: rango 1, entrate da 10<sup>16</sup>); la SVD non solleva errori. Una H degenere ha pochissimi inlier e non vince, ma la soluzione pulita è scartare i campioni degeneri prima di stimare. Il commento del notebook che parla di eccezione è impreciso.</p></details>
+      <details><summary>Come si decide la dimensione del panorama e a cosa serve T?</summary><p>Si proiettano con H i 4 angoli di img2 (un'omografia manda rette in rette, quindi bastano gli angoli) e si prende la bounding box insieme agli angoli di img1. Se il minimo è negativo, T trasla tutto in coordinate positive; img2 si deforma con T·H (prima H, poi T) e img1 con la sola T.</p></details>
+      <details><summary>Cosa fa warpPerspective e perché non lascia buchi?</summary><p>Per ogni pixel della tela calcola con M<sup>−1</sup> da dove viene in img2 e interpola (bilineare di default): backward mapping, § 38.5. Il forward mapping, che sposta i pixel di input, lascerebbe pixel di output non raggiunti. Fuori da img2 mette 0.</p></details>
+      <details><summary>Nel panorama a mano si vede una linea verticale. Perché e come la togli?</summary><p>La geometria è giusta (errore sotto il pixel), ma le foto hanno luminosità diversa: nella zona comune media 114.5 contro 98.2. Rimedi: compensazione del guadagno, feathering con pesi che scendono verso i bordi, blending multi-banda (L6), cucitura ottima dove le immagini concordano. Lo Stitcher usa compensazione a blocchi, graph cut e multi-banda.</p></details>
+      <details><summary>Cosa fa lo Stitcher di OpenCV in più rispetto alla versione a mano?</summary><p>Feature ORB a risoluzione ridotta, matching fra tutte le coppie, stima di K e R per ogni camera, bundle adjustment globale, wave correction, proiezione sferica (evita l'allungamento delle immagini lontane dal riferimento), compensazione dell'esposizione, cucitura con graph cut, blending multi-banda. Su 6 foto: 10722 × 2663 in 11.6 s.</p></details>
+      <details><summary>PANORAMA o SCANS: quando usi l'uno e quando l'altro?</summary><p>PANORAMA: camera che ruota, modello di rotazione e proiezione sferica. SCANS: modello affine (in pratica affine parziale, 4 gradi di libertà) per oggetti piatti ripresi frontalmente, come documenti o scansioni, senza wave correction né compensazione dell'esposizione. Sulle foto del fiume SCANS produce bordi a gradini e bande di luminosità.</p></details>
+      <details><summary>Vuoi usare ORB al posto di SIFT: cosa cambi?</summary><p>Il detector (<code>cv2.ORB_create(nfeatures=...)</code>, di default solo 500 punti) e la distanza: i descrittori ORB sono binari (32 byte = 256 bit), quindi <code>NORM_HAMMING</code> (numero di bit diversi). <code>NORM_HAMMING2</code> solo per WTA_K = 3 o 4. Il resto della pipeline non cambia. Nel lab ORB è 25 volte più veloce; con 5000 punti dà 746 inlier e una H vicina a quella di SIFT.</p></details>
+    </div>
+  </div>
+</div>
+
+<div class="sec" id="l10-esercizi"><h2>Esercizi risolti</h2><span>i tre esercizi della cella 25, più due proposte</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>1 · Mutual nearest neighbours</h3>
+    <div class="meta">Da aggiungere a <code>detect_and_match</code>, dopo il ratio test</div>
+<pre>bf = cv2.BFMatcher(cv2.NORM_L2)
+knn12 = bf.knnMatch(desc1, desc2, k=2)
+best21 = bf.match(desc2, desc1)                 # il più vicino di ogni desc2 in desc1
+back = {m.queryIdx: m.trainIdx for m in best21}
+
+matches = [m for m, n in knn12
+           if m.distance &lt; ratio * n.distance        # ratio test
+           and back[m.trainIdx] == m.queryIdx]       # e mutual NN</pre>
+    <ul>
+      <li>Risultati (verificati): ratio test da solo 3839 match, con mutual NN <b>3738</b>. Con <code>findHomography(..., RANSAC, 4.0)</code>: 3241 inlier su 3839 (84.4%) contro 3222 su 3738 (<b>86.2%</b>). Dei 101 match tolti, il numero di inlier cala solo di 19: il controllo toglie quasi solo outlier.</li>
+      <li>Dei 3839 match, 84 hanno un <code>trainIdx</code> già usato da un altro: sono i match molti-a-uno che il controllo elimina. Fra i 101 tolti, 21 sono "falsi doppioni": SIFT crea più keypoint nello stesso punto con orientazioni diverse, e il vicino reciproco è l'altro keypoint nella stessa posizione.</li>
+      <li>Alternativa più corta senza ratio test: <code>cv2.BFMatcher(cv2.NORM_L2, crossCheck=True).match(desc1, desc2)</code> fa il mutual NN da solo: 6437 match, ma senza ratio test passano molti più outlier. <code>crossCheck=True</code> non si può usare con <code>knnMatch(k=2)</code>, per questo sopra il controllo è fatto a mano.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>2 · Stitcher con il modello affine</h3>
+    <div class="meta">Basta cambiare <code>mode</code> negli <code>args</code> del notebook</div>
+<pre>args = {"d3": False, "mode": "scans", "images": [...]}
+pano = main(**args)          # usa cv2.Stitcher_create(cv2.Stitcher_SCANS)</pre>
+    <ul>
+      <li>Risultato (scheda 17): 10970 × 2856 in 4.2 s contro 10722 × 2663 in 11.6 s di PANORAMA. Le immagini sono incollate con trasformazioni affini, senza curvatura: bordi a gradini, giunzioni e bande di luminosità visibili nel cielo e nell'acqua (in SCANS non c'è compensazione dell'esposizione).</li>
+      <li>Cosa cambia dentro (sorgente di OpenCV 4.x): matcher <code>AffineBestOf2NearestMatcher</code>, stima <code>AffineBasedEstimator</code>, bundle adjustment <code>BundleAdjusterAffinePartial</code> (affine <b>parziale</b>: rotazione, scala uniforme e traslazione, 4 gradi di libertà), warper <code>AffineWarper</code>, niente wave correction, <code>NoExposureCompensator</code>.</li>
+      <li>Perché qui va peggio: una camera che ruota produce trasformazioni proiettive (8 gradi di libertà, i trapezi della scheda 11); un'affine conserva il parallelismo e non le può rappresentare. Il modello affine è giusto per scansioni di superfici piatte riprese frontalmente: i campioni <code>newspaper</code> e <code>budapest</code> di <code>opencv_extra/testdata/stitching</code> che il notebook cita.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>3 · ORB con la distanza di Hamming</h3>
+    <div class="meta">Cambiano due righe di <code>detect_and_match</code></div>
+<pre>orb = cv2.ORB_create(nfeatures=5000)          # default 500
+kps1, desc1 = orb.detectAndCompute(gray1, None)   # desc: N × 32 uint8 (256 bit)
+kps2, desc2 = orb.detectAndCompute(gray2, None)
+bf = cv2.BFMatcher(cv2.NORM_HAMMING)          # non NORM_L2, non NORM_HAMMING2
+knn = bf.knnMatch(desc1, desc2, k=2)          # il resto è identico</pre>
+    <p>Risultati sulle stesse due foto (verificati; inlier con <code>findHomography</code>, soglia 4 px; scarto = massima distanza fra gli angoli di img2 proiettati con questa H e con quella di SIFT):</p>
+<pre>nfeatures  norma       match  inlier  scarto angoli
+500        HAMMING        74      65   17 px
+5000       HAMMING       811     746   11 px
+5000       HAMMING2      742     694    8 px
+5000       L2            311     271   14 px</pre>
+    <ul>
+      <li>Estrazione in 0.2 s per le due foto contro 5.6 s di SIFT: è il motivo per cui lo Stitcher usa ORB.</li>
+      <li>Con il default di 500 punti la H è ancora buona (65 inlier bastano), ma è fragile: pochi punti, concentrati dove la risposta FAST è più alta.</li>
+      <li><code>NORM_L2</code> sui byte non ha senso (tratta 32 byte come numeri, mentre ogni bit è un confronto indipendente): dimezza i match. <code>NORM_HAMMING2</code> conta coppie di bit diverse ed è pensata per <code>WTA_K</code> = 3 o 4: qui funziona per caso, la norma corretta è <code>NORM_HAMMING</code>.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>4 · In più: compensazione del guadagno e feathering</h3>
+    <div class="meta">Per togliere la giunzione della scheda 14 (risolto e verificato)</div>
+<pre>m1 = np.zeros(pano.shape[:2], np.uint8); m1[ty:ty+h1, tx:tx+w1] = 1
+m2 = cv2.warpPerspective(np.ones(img2.shape[:2], np.uint8), T @ H, (pano_w, pano_h))
+both = (m1 &gt; 0) &amp; (m2 &gt; 0)
+gain = canvas1[both].mean() / warped_img2[both].mean()        # 1.16
+d1 = cv2.distanceTransform(m1, cv2.DIST_L2, 5)                 # distanza dal bordo
+d2 = cv2.distanceTransform(m2, cv2.DIST_L2, 5)
+w1 = d1 / (d1 + d2 + 1e-9)                                     # pesi di feathering
+pano = w1[..., None] * canvas1 + (1 - w1[..., None]) * gain * warped_img2
+pano = np.clip(pano, 0, 255).astype(np.uint8)</pre>
+    <p>Qui <code>canvas1</code> è img1 incollata su una tela nera della stessa dimensione e <code>warped_img2</code> è convertita in <code>float32</code>. Risultati verificati: guadagno <b>1.16</b>; la differenza media nella sovrapposizione scende da 16.4 a <b>7.4</b> livelli con il solo guadagno; con il feathering la linea non si vede più. In questo ritaglio non compaiono doppi contorni; dove qualcosa si muove fra gli scatti (acqua, nuvole) la media pesata può creare immagini fantasma, e lì servono una cucitura o il blending multi-banda della L6.</p>
+    <figure><img src="{{IMG:img/l10_feather.jpg}}" alt="Lo stesso ritaglio della scheda 14 dopo compensazione del guadagno e feathering: cielo uniforme, nessuna linea verticale"><figcaption>Lo stesso ritaglio della scheda 14 dopo guadagno e feathering: la giunzione è sparita.</figcaption></figure>
+  </div>
+
+  <div class="card">
+    <h3>5 · Proposta: panorama di tre foto con riferimento centrale</h3>
+    <div class="meta">Collega § 41.3.3 del libro</div>
+    <p>Stima H<sub>12</sub> (img1 → img2) e H<sub>32</sub> (img3 → img2), proietta gli angoli di img1 e img3 nel riferimento di img2, costruisci la tela e deforma entrambe. Confronta con lo stesso panorama costruito con img1 come riferimento (H<sub>31</sub> = H<sub>21</sub>H<sub>32</sub>): l'immagine più lontana si allunga molto di più. È il motivo del riferimento centrale nel libro e della proiezione sferica nello Stitcher.</p>
+  </div>
+</div>
