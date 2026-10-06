@@ -123,6 +123,23 @@
    "oral": 15,
    "summary": "Seconda lezione sulla regressione logistica (J&amp;M §4.7-4.16). Da due a $K$ classi: la softmax trasforma $K$ punteggi (logit) in una distribuzione, una riga della matrice dei pesi $W$ per classe (un prototipo ), la cross-entropy diventa $-\\log \\hat y_c$ e il",
    "pack": null
+  },
+  {
+   "n": 8,
+   "id": "L8",
+   "date": "2026-10-06",
+   "title": "Sequence labelling: PoS tagging e NER",
+   "titleEn": "Sequence Labelling",
+   "teacher": "Andrea Ceni",
+   "kind": "slides",
+   "pages": 84,
+   "reading": "J&M cap. 18, §18.1-18.7",
+   "cards": 84,
+   "corrections": 4,
+   "nbfixes": 0,
+   "oral": 15,
+   "summary": "Lezione sul sequence labelling (J&amp;M cap. 18): assegnare un'etichetta a ogni parola. Prima le parti del discorso : classi aperte e chiuse, tagset UD (17 tag) e Penn Treebank, quanta ambiguità c'è davvero (55-67% dei token), baseline al 92% contro 97%. Poi l",
+   "pack": null
   }
  ],
  "public": true,

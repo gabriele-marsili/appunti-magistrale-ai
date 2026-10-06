@@ -2,7 +2,7 @@
 
 Laurea magistrale in Informatica, percorso AI, Università di Pisa. Secondo anno, a.a. 2026-27 (Gallicchio, Ceni). Libro: Jurafsky & Martin, *Speech and Language Processing*, 3a ed.
 
-Dispensa delle lezioni 1-7 (ogni slide commentata, correzioni, esercizi risolti, domande d'orale) e sito di studio.
+Dispensa delle lezioni 1-8 (ogni slide commentata, correzioni, esercizi risolti, domande d'orale) e sito di studio.
 
 ## Link
 
@@ -12,7 +12,7 @@ Dispensa delle lezioni 1-7 (ogni slide commentata, correzioni, esercizi risolti,
 
 ## Contenuto della cartella
 
-- `dispensa/` (9 file)
+- `dispensa/` (10 file)
 - `sito/` (sito statico: `index.html` più i dati delle lezioni in JSON)
 
 Appunti personali: possono contenere errori. Slide, notebook e libri dei docenti non sono inclusi.

@@ -250,6 +250,22 @@ $$
 
 Misura sulla matrice sommata; ogni documento pesa uguale. Con una sola etichetta per documento $\sum fp = \sum fn$, quindi micro P = micro R = accuracy. Esempio: 268/367 = 0,73.
 
+**Accuracy del tagging** ([L8, slide 81](L08-sequence-labelling-pos-tagging-e-ner.md#p-81))
+
+$$
+\text{accuracy} = \frac{\#\text{token con tag corretto}}{\#\text{token}}
+$$
+
+Misura standard per il PoS tagging.
+
+**Precision, recall, F1 sulle entità** ([L8, slide 81](L08-sequence-labelling-pos-tagging-e-ner.md#p-81))
+
+$$
+P = \frac{\#\text{span corretti}}{\#\text{span predetti}},\quad R = \frac{\#\text{span corretti}}{\#\text{span gold}},\quad F_1 = \frac{2PR}{P + R}
+$$
+
+Uno span è corretto solo con confini e tipo identici al gold; un errore di confine vale un FP e un FN.
+
 ### Parole e vocabolario
 
 **Istanze e tipi** ([L2, slide 8](L02-parole-e-token.md#p-8))
@@ -1008,6 +1024,198 @@ $$
 
 Massimizzare log verosimiglianza + log prior gaussiano a media 0 equivale alla regolarizzazione L2 con $\alpha = 1/(2\sigma^2)$ (Eq. 4.54-4.56).
 
+### Sequence labelling
+
+**Baseline most-frequent-tag** ([L8, slide 20](L08-sequence-labelling-pos-tagging-e-ner.md#p-20))
+
+$$
+\hat t(w) = \operatorname*{argmax}_{t} C(w, t)
+$$
+
+Ogni parola riceve il tag con cui compare più spesso nel training (NN se sconosciuta). Circa 92% sul WSJ, contro ~97% dei tagger supervisionati.
+
+**Numero di tag degli schemi BIO** ([L8, slide 66](L08-sequence-labelling-pos-tagging-e-ner.md#p-66))
+
+$$
+|\text{IO}| = n + 1,\qquad |\text{BIO}| = 2n + 1,\qquad |\text{BIOES}| = 4n + 1
+$$
+
+$n$ = tipi di entità. Con PER, LOC, ORG, GPE: 5, 9, 17.
+
+### Hidden Markov model
+
+**Assunzione di Markov** ([L8, slide 24](L08-sequence-labelling-pos-tagging-e-ner.md#p-24))
+
+$$
+P(q_i = a\mid q_1\dots q_{i-1}) = P(q_i = a\mid q_{i-1})
+$$
+
+Per predire lo stato successivo conta solo lo stato corrente. Sui tag: modello bigram dei tag.
+
+**Matrice di transizione** ([L8, slide 27](L08-sequence-labelling-pos-tagging-e-ner.md#p-27))
+
+$$
+a_{ij} = P(q_t = j\mid q_{t-1} = i),\qquad \sum_{j=1}^{N} a_{ij} = 1\ \ \forall i
+$$
+
+Riga = stato precedente, colonna = stato successivo; ogni riga è una distribuzione.
+
+**Distribuzione iniziale** ([L8, slide 28](L08-sequence-labelling-pos-tagging-e-ner.md#p-28))
+
+$$
+\pi_i = P(q_1 = i),\qquad \sum_{i=1}^{N}\pi_i = 1
+$$
+
+Nei tagger coincide con la riga <s> di $A$: $\pi_j = P(t_1 = j\mid\langle s\rangle)$.
+
+**Probabilità di una sequenza in una catena di Markov** ([L8, slide 29](L08-sequence-labelling-pos-tagging-e-ner.md#p-29))
+
+$$
+P(q_1\dots q_T) = \pi_{q_1}\prod_{t=2}^{T} a_{q_{t-1}q_t}
+$$
+
+Esempio: $P(\text{hot hot hot hot}) = 0{,}1\cdot0{,}6^3 = 0{,}0216$.
+
+**Indipendenza delle osservazioni** ([L8, slide 33](L08-sequence-labelling-pos-tagging-e-ner.md#p-33))
+
+$$
+P(o_i\mid q_1,\dots,q_T,\ o_1,\dots,o_T) = P(o_i\mid q_i)
+$$
+
+Un'osservazione dipende solo dallo stato che l'ha generata. Emissione: $b_i(o_t) = P(o_t\mid q_i)$, $\sum_{w\in V} b_i(w) = 1$.
+
+**Probabilità congiunta HMM** ([L8, slide 34](L08-sequence-labelling-pos-tagging-e-ner.md#p-34))
+
+$$
+P(w_{1:n}, t_{1:n}) = \prod_{i=1}^{n} P(t_i\mid t_{i-1})\,P(w_i\mid t_i),\quad t_0 = \langle s\rangle
+$$
+
+Conseguenza delle due assunzioni: prodotto di transizioni ed emissioni.
+
+**MLE delle transizioni** ([L8, slide 35](L08-sequence-labelling-pos-tagging-e-ner.md#p-35))
+
+$$
+P(t_i\mid t_{i-1}) = \frac{C(t_{i-1}, t_i)}{C(t_{i-1})}
+$$
+
+Esempio WSJ: $P(\text{VB}\mid\text{MD}) = 10471/13124 = 0{,}80$.
+
+**MLE delle emissioni** ([L8, slide 35](L08-sequence-labelling-pos-tagging-e-ner.md#p-35))
+
+$$
+P(w_i\mid t_i) = \frac{C(t_i, w_i)}{C(t_i)}
+$$
+
+Esempio: $P(\textit{will}\mid\text{MD}) = 4046/13124 = 0{,}31$. Non va confusa con la posterior $P(\text{MD}\mid\textit{will})$.
+
+**Obiettivo della decodifica** ([L8, slide 38](L08-sequence-labelling-pos-tagging-e-ner.md#p-38))
+
+$$
+\hat t_{1:n} = \operatorname*{argmax}_{t_1\dots t_n} P(t_1\dots t_n\mid w_1\dots w_n)
+$$
+
+La sequenza di tag più probabile date le parole (Eq. 18.12).
+
+**Decodifica con Bayes** ([L8, slide 39](L08-sequence-labelling-pos-tagging-e-ner.md#p-39))
+
+$$
+\hat t_{1:n} = \operatorname*{argmax}_{t_{1:n}} P(w_{1:n}\mid t_{1:n})\,P(t_{1:n})
+$$
+
+Bayes più eliminazione del denominatore $P(w_{1:n})$, costante rispetto ai tag.
+
+**Tagger HMM bigram** ([L8, slide 42](L08-sequence-labelling-pos-tagging-e-ner.md#p-42))
+
+$$
+\hat t_{1:n} \approx \operatorname*{argmax}_{t_1\dots t_n}\prod_{i=1}^{n} P(w_i\mid t_i)\,P(t_i\mid t_{i-1})
+$$
+
+Emissione $B$ per transizione $A$ (Eq. 18.17), dopo le approssimazioni di indipendenza delle osservazioni e bigram.
+
+### Viterbi
+
+**Cella di Viterbi** ([L8, slide 46](L08-sequence-labelling-pos-tagging-e-ner.md#p-46))
+
+$$
+v_t(j) = \max_{q_1,\dots,q_{t-1}} P(q_1\dots q_{t-1},\ o_1\dots o_t,\ q_t = j\mid\lambda)
+$$
+
+Probabilità del miglior cammino che finisce nello stato $j$ dopo $t$ osservazioni.
+
+**Ricorsione di Viterbi** ([L8, slide 46](L08-sequence-labelling-pos-tagging-e-ner.md#p-46))
+
+$$
+v_t(j) = \max_{i=1}^{N} v_{t-1}(i)\,a_{ij}\,b_j(o_t),\qquad bt_t(j) = \operatorname*{argmax}_{i} v_{t-1}(i)\,a_{ij}
+$$
+
+Cammino precedente × transizione × emissione; il backpointer registra il predecessore migliore.
+
+**Inizializzazione e terminazione** ([L8, slide 47](L08-sequence-labelling-pos-tagging-e-ner.md#p-47))
+
+$$
+v_1(j) = \pi_j\,b_j(o_1);\qquad P^* = \max_{j} v_T(j),\quad q_T^* = \operatorname*{argmax}_j v_T(j)
+$$
+
+Poi il backtrace: $q_{t-1}^* = bt_t(q_t^*)$.
+
+**Viterbi in log-spazio** ([L8, slide 47](L08-sequence-labelling-pos-tagging-e-ner.md#p-47))
+
+$$
+\log v_t(j) = \max_i\big[\log v_{t-1}(i) + \log a_{ij}\big] + \log b_j(o_t)
+$$
+
+Evita l'underflow; il max non cambia perché il log è monotono.
+
+**Complessità** ([L8, slide 53](L08-sequence-labelling-pos-tagging-e-ner.md#p-53))
+
+$$
+\text{forza bruta: } O(N^T)\qquad \text{Viterbi: } O(T\,N^2)\ \text{tempo},\ O(T\,N)\ \text{memoria}
+$$
+
+$N$ = tag, $T$ (o $L$) = lunghezza. 45 tag, 20 parole: $20\cdot45^2 = 40.500$ contro $45^{20}\approx1{,}2\cdot10^{33}$.
+
+### Conditional random field
+
+**CRF** ([L8, slide 72](L08-sequence-labelling-pos-tagging-e-ner.md#p-72))
+
+$$
+P(Y\mid X) = \frac{1}{Z(X)}\exp\Big(\sum_{k=1}^{K} w_k F_k(X, Y)\Big)
+$$
+
+Modello log-lineare su sequenze intere: una softmax sulle sequenze di tag.
+
+**Normalizzatore del CRF** ([L8, slide 72](L08-sequence-labelling-pos-tagging-e-ner.md#p-72))
+
+$$
+Z(X) = \sum_{Y'\in\mathcal Y}\exp\Big(\sum_{k=1}^{K} w_k F_k(X, Y')\Big)
+$$
+
+Somma su tutte le $N^n$ sequenze; si calcola con forward-backward, non per enumerazione.
+
+**Feature globali come somma di locali** ([L8, slide 73](L08-sequence-labelling-pos-tagging-e-ner.md#p-73))
+
+$$
+F_k(X, Y) = \sum_{i=1}^{n} f_k(y_{i-1}, y_i, X, i)
+$$
+
+Nel CRF lineare la feature locale vede solo $y_i$, $y_{i-1}$, tutto $X$ e la posizione $i$. $F_k$ conta quante volte scatta $f_k$.
+
+**Decodifica CRF** ([L8, slide 79](L08-sequence-labelling-pos-tagging-e-ner.md#p-79))
+
+$$
+\hat Y = \operatorname*{argmax}_{Y\in\mathcal Y}\sum_{i=1}^{n}\sum_{k=1}^{K} w_k\,f_k(y_{i-1}, y_i, X, i)
+$$
+
+Exp e $Z(X)$ spariscono dall'argmax.
+
+**Viterbi per il CRF** ([L8, slide 80](L08-sequence-labelling-pos-tagging-e-ner.md#p-80))
+
+$$
+v_t(j) = \max_{i=1}^{N}\Big[v_{t-1}(i) + \sum_{k=1}^{K} w_k\,f_k(y_{t-1} = i, y_t = j, X, t)\Big]
+$$
+
+Come per l'HMM, ma con somme di pesi al posto di prodotti di probabilità (log-spazio).
+
 ## Correzioni alle slide
 
 - **L2, slide 35** (Training su un corpus piccolo: inizio): n e non è «più frequente di ogni altra coppia»: è un pareggio. [Dettagli](L02-parole-e-token.md#p-35)
@@ -1017,6 +1225,10 @@ Massimizzare log verosimiglianza + log prior gaussiano a media 0 equivale alla r
 - **L4, slide 18** (Conteggi bigram: sparsità): Gli zeri sono la metà delle celle, non la maggioranza. [Dettagli](L04-modelli-linguistici-n-gram.md#p-18)
 - **L4, slide 19** (Probabilità bigram): Cella food → chinese: 0,00091, non 0,00092. [Dettagli](L04-modelli-linguistici-n-gram.md#p-19)
 - **L7, slide 9** (Softmax di un vettore: un esempio): La somma degli esponenziali è 33,23, non 33,24. [Dettagli](L07-regressione-logistica-multinomiale-e-valutazione.md#p-9)
+- **L8, slide 5** (Il compito di tagging): Janet è PROPN, non NOUN. [Dettagli](L08-sequence-labelling-pos-tagging-e-ner.md#p-5)
+- **L8, slide 12** (Il tagset Penn Treebank): La tabella mostra 33 tag, non 36: manca l'ultima riga. [Dettagli](L08-sequence-labelling-pos-tagging-e-ner.md#p-12)
+- **L8, slide 57** (Il backtrace di Viterbi): Due valori della figura sono sbagliati. [Dettagli](L08-sequence-labelling-pos-tagging-e-ner.md#p-57)
+- **L8, slide 65** (BIO tagging: un esempio): La tabella non è il BIO della frase sopra. [Dettagli](L08-sequence-labelling-pos-tagging-e-ner.md#p-65)
 
 ## Bug trovati nei notebook del corso
 
@@ -1751,5 +1963,97 @@ Traccia: (1) una parola presente in una sola recensione positiva sembra perfetta
 <details><summary>In che senso la regolarizzazione è un prior?</summary>
 
 Traccia: (1) prior $P(\theta)$: credenza sui pesi prima dei dati, piccoli e vicini a 0; (2) stima MAP: massimizzare $\prod P(y\mid x)\prod_j P(\theta_j)$, in log $\sum\log P(y\mid x) + \sum\log P(\theta_j)$; (3) prior gaussiano a media 0: $\log P(\theta_j) = -\theta_j^2/(2\sigma^2) + c$, cioè L2 con $\alpha = 1/(2\sigma^2)$ (il libro pone $2\sigma^2 = 1$); (4) prior di Laplace: $-|\theta_j|/s + c$, cioè L1; più appuntito in 0, quindi più pesi nulli; (5) prior più stretto = regolarizzazione più forte.
+
+</details>
+
+### L8 · Sequence labelling: PoS tagging e NER
+
+<details><summary>Che cos'è il sequence labelling? Confronta PoS tagging e NER.</summary>
+
+Traccia: (1) data $x_1\dots x_n$, produrre $y_1\dots y_n$ della stessa lunghezza, un'etichetta per parola; le etichette non sono indipendenti; (2) PoS tagging: ogni parola ha esattamente un tag, è un problema di disambiguazione (*book* nome/verbo); (3) NER: l'unità è uno span di lunghezza ignota, quindi c'è anche segmentazione, oltre all'ambiguità di tipo (*Washington*); (4) il BIO riduce la NER a etichettatura per parola, così gli stessi modelli (HMM, CRF, neurali) servono per entrambi; (5) valutazione: accuracy per il PoS, P/R/F1 sulle entità per la NER.
+
+</details>
+
+<details><summary>Come si definiscono le parti del discorso? Classi aperte e chiuse, UD e Penn Treebank.</summary>
+
+Traccia: (1) per comportamento grammaticale, non per significato: distribuzione (*very young* sì, *very cat* no) e morfologia (*happy → happiness*); il significato è solo una tendenza; (2) classi chiuse: function word corte, frequenti, ambigue (ADP, AUX, DET, PRON...); aperte: nomi, verbi, aggettivi, avverbi, interiezioni, nuovi membri di continuo (parole sconosciute); (3) UD: 17 tag (6 aperti, 8 chiusi, 3 altri), universali per 100+ lingue, distinzioni fini come feature morfologiche; (4) Penn: 36 tag di parola (45 con la punteggiatura), specifici dell'inglese, es. VB/VBD/VBG/VBN/VBP/VBZ contro un solo VERB.
+
+</details>
+
+<details><summary>Quanto è difficile il PoS tagging? Ambiguità, baseline e stato dell'arte.</summary>
+
+Traccia: (1) l'85-86% dei tipi ha un solo tag, ma il 14-15% ambiguo copre il 55-67% dei token, perché sono le parole frequenti (*back* ha sei tag); (2) baseline most-frequent-tag: ogni parola col suo tag più frequente, NN per le sconosciute: circa 92% sul WSJ; (3) tagger supervisionati (HMM, CRF, BERT) circa 97%, pari all'accordo umano; (4) quindi solo 5 punti fra baseline e tetto: confrontare sempre con la baseline; (5) i numeri valgono nel dominio: su testi storici o social si perdono 15-40 punti.
+
+</details>
+
+<details><summary>Definisci un hidden Markov model e le sue due assunzioni.</summary>
+
+Traccia: (1) catena di Markov: stati $Q$, matrice $A$ con righe che sommano a 1, iniziale $\pi$; ipotesi di Markov $P(q_i\mid q_{1:i-1}) = P(q_i\mid q_{i-1})$; un bigram LM è una catena sulle parole; (2) HMM: gli stati (tag) sono nascosti, si osservano le parole; si aggiungono le emissioni $B$, $b_i(o_t) = P(o_t\mid q_i)$; (3) assunzione 1: Markov sugli stati; assunzione 2: indipendenza delle osservazioni, $o_i$ dipende solo da $q_i$; (4) conseguenza: $P(w, t) = \prod_i P(t_i\mid t_{i-1})P(w_i\mid t_i)$, due famiglie di parametri, transizioni ed emissioni.
+
+</details>
+
+<details><summary>Come si stimano le matrici A e B di un tagger HMM? Che differenza c'è fra P(will|MD) e P(MD|will)?</summary>
+
+Traccia: (1) per massima verosimiglianza, contando su un corpus annotato: $P(t_i\mid t_{i-1}) = C(t_{i-1},t_i)/C(t_{i-1})$, $P(w_i\mid t_i) = C(t_i,w_i)/C(t_i)$; (2) esempio WSJ: $P(\text{VB}\mid\text{MD}) = 10471/13124 = 0{,}80$, $P(\textit{will}\mid\text{MD}) = 4046/13124 = 0{,}31$; (3) $P(\textit{will}\mid\text{MD})$ è un'emissione: "se genero un modale, quanto spesso è *will*"; $P(\text{MD}\mid\textit{will})$ è la posterior, "quanto spesso *will* è un modale" (quella che userebbe la baseline); (4) senza smoothing coppie mai viste hanno probabilità zero: servono smoothing e gestione delle parole sconosciute.
+
+</details>
+
+<details><summary>Deriva la formula di decodifica di un tagger HMM bigram.</summary>
+
+Traccia: (1) obiettivo $\hat t = \operatorname{argmax}_t P(t_{1:n}\mid w_{1:n})$; (2) Bayes: $P(w\mid t)P(t)/P(w)$; (3) $P(w)$ è costante rispetto ai tag, si elimina; (4) indipendenza delle osservazioni: $P(w_{1:n}\mid t_{1:n})\approx\prod P(w_i\mid t_i)$; (5) Markov/bigram: $P(t_{1:n})\approx\prod P(t_i\mid t_{i-1})$; (6) risultato $\operatorname{argmax}\prod_i P(w_i\mid t_i)P(t_i\mid t_{i-1})$: emissioni $B$ per transizioni $A$; (7) è la stessa struttura di Naive Bayes (verosimiglianza per prior) con una sequenza come classe; il max su $N^n$ sequenze si fa con Viterbi.
+
+</details>
+
+<details><summary>Descrivi l'algoritmo di Viterbi e la sua complessità.</summary>
+
+Traccia: (1) reticolo $N\times T$; $v_t(j)$ = probabilità del miglior cammino che finisce nello stato $j$ al tempo $t$; (2) inizializzazione $v_1(j) = \pi_j b_j(o_1)$; ricorsione $v_t(j) = \max_i v_{t-1}(i)a_{ij}b_j(o_t)$ con backpointer = argmax; terminazione $\max_j v_T(j)$; backtrace; (3) correttezza: due cammini che arrivano nello stesso stato hanno lo stesso futuro (Markov), quindi basta tenere il migliore (principio di ottimalità); (4) costo $O(N^2T)$ contro $O(N^T)$ della forza bruta: 45 tag e 20 parole, 40.500 operazioni contro $10^{33}$ cammini; memoria $O(NT)$; (5) in pratica in log-spazio contro l'underflow.
+
+</details>
+
+<details><summary>In che senso Viterbi somiglia alla distanza di edit minima?</summary>
+
+Traccia: (1) entrambi sono programmazione dinamica su una tabella 2D riempita colonna per colonna (o cella per cella) da sottoproblemi già risolti; (2) distanza di edit: $D[i,j] = \min$ su tre predecessori (cancellazione, inserimento, sostituzione) di costo precedente + costo dell'operazione; Viterbi: $v_t(j) = \max$ su $N$ predecessori di probabilità precedente × transizione × emissione (in log: somma); (3) entrambi salvano backpointer e ricostruiscono la soluzione col backtrace (allineamento contro sequenza di tag); (4) entrambi evitano l'enumerazione esponenziale (allineamenti o sequenze) grazie alla sottostruttura ottima.
+
+</details>
+
+<details><summary>Perché non basta scegliere per ogni parola il tag con l'emissione più alta? Usa l'esempio The fans watch the race.</summary>
+
+Traccia: (1) solo $B$ dà DT VB NN DT VB: tre errori su cinque; (2) $b_j(w) = P(w\mid j)$ non tiene conto del contesto (e non è nemmeno la posterior); (3) le transizioni penalizzano VB dopo DT ($0{,}1$ contro $0{,}9$) e vietano DT dopo NN ($0$); (4) nel reticolo a *watch* la cella migliore è NN (0,0027) ma ogni cammino da lì muore perché NN→DT = 0: vince VB (0,00135); (5) risultato DT NN VB DT NN con probabilità $1{,}215\cdot10^{-5}$; (6) morale: un tagger greedy sbaglia, Viterbi tiene il miglior cammino per ogni stato e decide solo alla fine.
+
+</details>
+
+<details><summary>Che cos'è il BIO tagging? Quanti tag servono e quali sono le varianti?</summary>
+
+Traccia: (1) B = primo token di uno span, I = token interni, O = fuori; tag tipizzati (B-PER, I-ORG); (2) stessa informazione della notazione a parentesi, ma un'etichetta per parola: la NER diventa sequence labelling; (3) con $n$ tipi: $2n+1$ tag (9 per PER, LOC, ORG, GPE); (4) IO: $n+1$ tag, perde i confini fra entità adiacenti dello stesso tipo; BIOES: $4n+1$, aggiunge E (fine) e S (span di una parola); (5) vincolo: I-X solo dopo B-X o I-X; (6) più tag aumentano il costo di Viterbi in modo quadratico.
+
+</details>
+
+<details><summary>Perché un HMM non basta per la NER? Quali feature usa un CRF?</summary>
+
+Traccia: (1) nella NER dominano le parole sconosciute, per cui $P(w\mid t)$ non è stimata; (2) gli indizi utili sono maiuscole, forma, affissi, parole vicine (*Mr.*, *Inc.*), presenza in un gazetteer: l'HMM può usare solo $P(t\mid t)$ e $P(w\mid t)$ e vede i vicini solo tramite il loro tag; aggiungere indizi a un modello generativo richiede condizionamenti sempre più complessi; (3) il CRF accetta feature arbitrarie: identità della parola e dei vicini, PoS, word shape e short shape (DC10-30 → XXdd-dd, Xd-d), prefissi e suffissi fino a 4, gazetteer, embedding; (4) le feature si generano da template, con cutoff sotto 5 occorrenze.
+
+</details>
+
+<details><summary>Definisci il CRF a catena lineare. Che relazione ha con la regressione logistica multinomiale?</summary>
+
+Traccia: (1) $P(Y\mid X) = \exp(\sum_k w_k F_k(X,Y))/Z(X)$, $Z(X) = \sum_{Y'}\exp(\sum_k w_k F_k(X,Y'))$; (2) le feature globali sono somme di locali: $F_k = \sum_i f_k(y_{i-1}, y_i, X, i)$, quindi $K$ pesi fissi per frasi di ogni lunghezza; (3) lineare: ogni feature locale vede solo $y_i$ e $y_{i-1}$ (ma tutto $X$), il che rende possibili Viterbi e forward-backward; un CRF generale può usare tag lontani, con inferenza più cara; (4) è una regressione logistica multinomiale in cui le classi sono tutte le sequenze di tag: punteggio lineare nelle feature, softmax su $\mathcal Y$; per $n = 1$ coincide con essa.
+
+</details>
+
+<details><summary>Confronta HMM e CRF: generativo contro discriminativo.</summary>
+
+Traccia: (1) HMM: modella la congiunta $P(X,Y) = P(X\mid Y)P(Y)$ e passa da Bayes; parametri = probabilità contate (MLE), trasparente ed economico; (2) CRF: modella direttamente $P(Y\mid X)$, normalizzazione globale sulla sequenza, pesi appresi per gradiente; (3) l'HMM fa assunzioni forti sull'input (ogni parola dipende solo dal suo tag), il CRF non fa assunzioni su $X$ e accetta feature sovrapposte; (4) parallelo esatto con Naive Bayes contro regressione logistica (L6); (5) un HMM equivale a un CRF lineare con template $\langle y_{i-1},y_i\rangle$ e $\langle y_i, x_i\rangle$ e pesi $\log a$, $\log b$; (6) entrambi si decodificano con Viterbi (prodotti per l'HMM, somme di pesi per il CRF); entrambi ~97% sul PoS inglese.
+
+</details>
+
+<details><summary>Come si addestra un CRF e come si trova la sequenza migliore?</summary>
+
+Traccia: (1) training supervisionato come la regressione logistica: massimizzare la log-verosimiglianza condizionata $\sum\log P(Y\mid X)$ con SGD; le attese delle feature sotto il modello si calcolano con forward-backward; regolarizzazione L1/L2 importante (milioni di feature); (2) inferenza: nell'argmax si eliminano exp (monotono) e $Z(X)$ (costante per $X$): resta $\operatorname{argmax}_Y\sum_i\sum_k w_k f_k(y_{i-1},y_i,X,i)$; (3) Viterbi con somme: $v_t(j) = \max_i[v_{t-1}(i) + \sum_k w_k f_k(i, j, X, t)]$, matrice $N\times T$ con backpointer; funziona perché ogni passo dipende da un solo tag precedente.
+
+</details>
+
+<details><summary>Come si valuta un sistema di NER e perché non si usa l'accuracy sui token?</summary>
+
+Traccia: (1) il PoS si valuta con l'accuracy perché ogni token ha un tag; (2) nella NER l'unità è l'entità: uno span predetto è corretto solo se confini e tipo coincidono col gold; precision = corrette/predette, recall = corrette/gold, $F_1$ media armonica; (3) un errore di confine (*Jane* invece di *Jane Villanueva*) costa un FP e un FN; (4) l'accuracy per token è gonfiata dai tanti O (classi sbilanciate) e pesa poco gli errori di confine; (5) disallineamento: si addestra per token, si valuta per entità; (6) per confrontare due sistemi: paired bootstrap sulle $F_1$.
 
 </details>

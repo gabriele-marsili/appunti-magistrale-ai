@@ -11,5 +11,6 @@ Una dispensa per lezione: ogni slide commentata (spiegazione, collegamenti, corr
 | L5 | 01/10 | [Smoothing ed entropia](L05-smoothing-ed-entropia.md) | J&M cap. 3, §3.6-3.8 |
 | L6 | 02/10 | [Regressione logistica](L06-regressione-logistica.md) | J&M cap. 4, §4.1-4.6 (Naive Bayes: Appendice B) |
 | L7 | 02/10 | [Regressione logistica multinomiale e valutazione](L07-regressione-logistica-multinomiale-e-valutazione.md) | J&M cap. 4, §4.7-4.16 |
+| L8 | 06/10 | [Sequence labelling: PoS tagging e NER](L08-sequence-labelling-pos-tagging-e-ner.md) | J&M cap. 18, §18.1-18.7 |
 
 Le slide citate per numero sono quelle del docente (Teams del corso), non incluse qui.
