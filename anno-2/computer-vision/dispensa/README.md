@@ -14,3 +14,5 @@ Una dispensa per lezione, scritta da zero integrando slide e libro (Torralba, Is
 | [L8 · Keypoint detection](L08-keypoint-detection.md) | Keypoint Detection | 6134 |
 | [L9 · Omografie e panorami](L09-omografie-e-panorami.md) | Homographies and Image Panoramas | 7305 |
 | [L10 · Lab panorami](L10-lab-panorami.md) | Lab: Panorama Stitching with OpenCV | 7101 |
+| [L11 · Modello della camera](L11-modello-della-camera.md) | Camera Model and Perspective Geometry | 6134 |
+| [L12 · Calibrazione](L12-calibrazione.md) | Camera Models and Calibration | 7497 |

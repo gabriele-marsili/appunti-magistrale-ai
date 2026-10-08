@@ -1,0 +1,469 @@
+{
+ "L": "L11",
+ "segs": [
+  {
+   "a": "In una frase: con le coordinate omogenee",
+   "t": "Un'auto a guida autonoma vede un pedone in un certo pixel della sua telecamera. A quanti metri è, e in che direzione? Per rispondere devi sapere esattamente come un punto del mondo diventa un pixel. Alla fine di questa lezione saprai scrivere quel viaggio in una sola matrice, e lo calcolerai a mano con numeri veri."
+  },
+  {
+   "a": "In una frase: con le coordinate omogenee",
+   "t": "L'idea in breve: con le coordinate omogenee anche traslazioni e prospettiva diventano prodotti per una matrice. Così la camera si scrive in una riga. Gli estrinseci, R e T, portano il punto dal mondo alla camera. Gli intrinseci, la matrice K, lo proiettano e lo convertono in pixel."
+  },
+  {
+   "a": "Prima di iniziare",
+   "t": "Cosa ti serve. Dalla lezione 2, la camera pinhole, cioè a foro stenopeico: un punto X, Y, Z finisce in f per X su Z, f per Y su Z, con la camera ferma nell'origine. Oggi la liberiamo. Dalla lezione 9, le coordinate omogenee dei panorami. Dalla lezione 6, interpolazione e aliasing. E un po' di algebra lineare: prodotti di matrici, inversa, matrici ortogonali."
+  },
+  {
+   "a": "Guarda prima questi video",
+   "t": "Nella dispensa trovi alcuni video di Cyrill Stachniss e Shree Nayar. Sono un complemento: guardali prima per farti un'intuizione, oppure dopo come ripasso. I due di Nayar seguono quasi passo passo le sezioni dalla 6 alla 10."
+  },
+  {
+   "a": "1. Il problema: dalle foto al mondo 3D",
+   "t": "Partiamo dal problema. L'auto vede il pedone nel pixel 840, 460. Il telefono con la realtà aumentata deve disegnare un divano virtuale sul pavimento mentre ti muovi. È la stessa domanda: che relazione c'è fra un punto 3D e il suo pixel, e come si torna indietro? Tieni a mente quel pixel 840, 460: alla fine lo ritroveremo con i conti."
+  },
+  {
+   "a": "In L2 la relazione l'abbiamo scritta sol",
+   "t": "Nella lezione 2 la proiezione l'avevamo scritta solo nel caso comodo: camera nell'origine, asse ottico lungo Z, misure in metri. Nella realtà le camere sono tante, si muovono, e i pixel si contano dall'angolo in alto a sinistra. E la formula contiene una divisione per Z: non è lineare, quindi è scomoda da comporre e da invertire."
+  },
+  {
+   "a": "La scaletta (slide 6): coordinate omogen",
+   "t": "La strada di oggi: prima le coordinate omogenee. Poi le trasformazioni 2D e il warping, la deformazione di un'immagine, come palestra. Poi gli intrinseci, dalla camera ai pixel, gli estrinseci, dal mondo alla camera, e la matrice completa."
+  },
+  {
+   "a": "Tre modi di vedere un'immagine (slide 5,",
+   "t": "Un passo indietro: cos'è un'immagine? Finora una griglia di valori, comoda per la convoluzione. Per la geometria conviene un insieme di punti, ognuno con il suo valore e la sua posizione esplicita: spostare l'immagine a destra vuol dire aggiungere 1 a ogni x. C'è anche un terzo modo, l'immagine come funzione continua, valutabile anche fra un pixel e l'altro."
+  },
+  {
+   "a": "La stessa immagine 6×6 come griglia, com",
+   "t": "Guarda la figura da sinistra a destra. Prima la griglia 6 per 6, con i valori nelle celle. Poi gli stessi valori come pallini con la loro posizione. Infine i pallini ruotati di 30 gradi: ruotarli è facile, ma le crocette grigie, i pixel della nuova immagine, non coincidono con nessun pallino. I loro valori andranno ricavati: è il warping della sezione 5."
+  },
+  {
+   "a": "Il punto Ci serve una formula unica che ",
+   "t": "Da portare a casa: ci serve un'unica formula che porti un punto 3D del mondo nel suo pixel, per qualunque posizione della camera. Il trucco per scriverla sono le coordinate omogenee."
+  },
+  {
+   "a": "2. Coordinate omogenee",
+   "t": "Sezione 2, le coordinate omogenee. Con le coordinate normali, dette eterogenee o cartesiane, ogni trasformazione ha una forma diversa: rotazione e scala sono prodotti per una matrice, la traslazione è una somma, la proiezione una divisione. Noi vogliamo che tutto sia una matrice, così comporre diventa moltiplicare e invertire diventa calcolare l'inversa."
+  },
+  {
+   "a": "L'idea. Si aggiunge una coordinata in pi",
+   "t": "L'idea è un piccolo patto. Aggiungi una coordinata, e accetti che lo stesso punto abbia infinite scritture, tutte multiple fra loro. In cambio la divisione, l'operazione scomoda, si rimanda all'ultimo momento."
+  },
+  {
+   "a": "(x, y) → [x, y, 1], [x, y, w] → (x/w, y/",
+   "t": "La formula, a parole. Per entrare in omogenee, al punto x, y aggiungi un 1. Per uscire, dividi le prime componenti per l'ultima, w. E il vettore x, y, w è lo stesso punto di lambda x, lambda y, lambda w, per ogni lambda diverso da zero. In 3D è identico: X, Y, Z diventa X, Y, Z, 1."
+  },
+  {
+   "a": "Il punto (2, 1.5) del piano diventa una ",
+   "t": "Ora la figura. A sinistra lo spazio con gli assi x, y e w. La linea tratteggiata rossa parte dall'origine: è il punto 2, 1 virgola 5 del piano, visto in omogenee. Il pallino verde è dove la retta buca il piano azzurro w uguale a 1: è il rappresentante normale. I pallini arancioni sono altri punti della stessa retta. A destra la tabella: dividendo ciascuno per la sua w torni sempre a 2, 1 virgola 5."
+  },
+  {
+   "a": "Esempio. [6, 4, 2] è il punto (3, 2); an",
+   "t": "Ecco l'immagine da tenere in testa: in omogenee un punto del piano è una retta per l'origine. E perché ci interessa? Perché una matrice può produrre il vettore f X, f Y, Z, che è lineare. La divisione per Z non la fa la matrice, la fa la conversione finale. Così la proiezione prospettica diventa lineare."
+  },
+  {
+   "a": "Una cautela (slide 10): in omogenee i pu",
+   "t": "Una trappola: in omogenee i punti non si sommano. Sommando 1, 0, 1 con sé stesso ottieni 2, 0, 2, che diviso 2 è ancora il punto 1, 0, non il punto 2, 0."
+  },
+  {
+   "a": "Il punto Aggiungi un 1, moltiplica per m",
+   "t": "Da portare a casa: aggiungi un 1, moltiplica per matrici, dividi per l'ultima componente solo alla fine. Ogni punto è una retta per l'origine, e i suoi rappresentanti differiscono per un fattore di scala."
+  },
+  {
+   "a": "3. Le trasformazioni 2D come matrici 3×3",
+   "t": "Sezione 3: le trasformazioni del piano come matrici 3 per 3. Ruotare una foto storta, ingrandirla, raddrizzarla. Vogliamo scriverle tutte nella forma p primo uguale M per p, con p uguale x, y, 1."
+  },
+  {
+   "a": "T = [[1, 0, t x ], [0, 1, t y ], [0, 0, ",
+   "t": "La traslazione, che normalmente è una somma. Nella matrice T la parte in alto a sinistra è l'identità, e lo spostamento sta nella terza colonna. Il segreto è l'1 in fondo al vettore: moltiplica la terza colonna e la aggiunge al risultato. Una somma è diventata un prodotto."
+  },
+  {
+   "a": "Scala (slide 16–17). S = [[s x , 0, 0], ",
+   "t": "La scala: una matrice con s con pedice x e s con pedice y sulla diagonale. Se i due fattori sono uguali la scala è uniforme e conserva gli angoli. Se sono diversi è anisotropa, e gli angoli cambiano."
+  },
+  {
+   "a": "R θ = [[cos θ, −sin θ, 0], [sin θ, cos θ",
+   "t": "La rotazione antioraria di theta: nel blocco in alto a sinistra, coseno theta, meno seno theta nella prima riga, seno theta, coseno theta nella seconda. Per ricordarla, pensa che le colonne sono le immagini dei vettori di base. Il vettore 1, 0 ruotato finisce in coseno theta, seno theta: prima colonna. Il vettore 0, 1 finisce in meno seno theta, coseno theta: seconda colonna."
+  },
+  {
+   "a": "Come ricordarla (slide 21): le colonne d",
+   "t": "In più R è ortogonale: la sua inversa è la trasposta, cioè la rotazione di meno theta, e conserva le distanze. Per esempio, con 30 gradi il punto 2, 0 va in circa 1 virgola 73, 1, e la distanza dall'origine resta 2."
+  },
+  {
+   "a": "Una trappola sul verso. Il libro (§ 38.3",
+   "t": "Ora una trappola sul verso. Il libro scrive la matrice con i segni del seno scambiati e la chiama antioraria, ma con y verso l'alto è oraria: con 30 gradi manda 1, 0 sotto l'asse x. Le slide del prof lo segnalano correttamente. Il motivo dell'ambiguità: una rotazione antioraria con y in alto appare oraria con y in basso, come nei pixel."
+  },
+  {
+   "a": "Shear (slide 22). Q = [[1, q x , 0], [q ",
+   "t": "Lo shear, cioè il taglio. Con il solo parametro orizzontale, x primo diventa x più q con pedice x per y: ogni riga scivola di lato in proporzione alla sua altezza, come un mazzo di carte spinto. Il quadrato diventa un parallelogramma. Attenzione: nelle slide c'è scritto che lo shear conserva l'area, ma vale solo se un parametro è zero, perché il determinante è 1 meno q con pedice x per q con pedice y."
+  },
+  {
+   "a": "La stessa casetta (in grigio) sotto ogni",
+   "t": "Guarda le otto casette. In grigio l'originale, il pallino segna dove va l'origine. In alto: la traslazione sposta la casetta senza deformarla, la scala uniforme la ingrandisce, quella anisotropa la allarga e la schiaccia. In basso: la rotazione la inclina a sinistra, lo shear verde la piega, l'affine la deforma ma lascia parallele le pareti opposte. Solo la proiettiva rossa rende non parallele le pareti."
+  },
+  {
+   "a": "In tutte queste matrici il blocco 2×2 in",
+   "t": "Nota che in tutte queste matrici il blocco 2 per 2 in alto a sinistra è la versione in coordinate normali. E solo traslazione e rotazione sono rigide: scala e shear no, anche se nelle slide sono chiamate tutte rigid."
+  },
+  {
+   "a": "Il punto Traslazione, scala, rotazione e",
+   "t": "Da portare a casa: le trasformazioni del piano sono matrici 3 per 3 con ultima riga 0, 0, 1. La traslazione sta nella terza colonna, il resto nel blocco 2 per 2. R è ortogonale ed è antioraria con y in alto."
+  },
+  {
+   "a": "4. Comporre le trasformazioni",
+   "t": "Sezione 4: comporre le trasformazioni. Vuoi ruotare una foto attorno al suo centro, non attorno all'angolo. Fra le matrici viste non c'è, ma possiamo costruirla mettendone in fila alcune."
+  },
+  {
+   "a": "L'idea (slide 24). Qualunque catena di t",
+   "t": "Qualunque catena di trasformazioni è una sola matrice, il prodotto di tutte: un solo prodotto per punto, comunque lunga sia la catena. Due regole. Si legge da destra a sinistra: la prima trasformazione applicata è quella vicina al punto. E l'ordine conta, perché il prodotto di matrici non è commutativo."
+  },
+  {
+   "a": "Esempio di non commutatività. Prendi p =",
+   "t": "Un esempio. Punto 1, 0, traslazione di 2 lungo x, rotazione di 90 gradi. Prima trasli e poi ruoti: 3, 0, poi 0, 3. Prima ruoti e poi trasli: 0, 1, poi 2, 1. Stessi due passi, risultati diversi."
+  },
+  {
+   "a": "R·T contro T·R. Ruotando dopo aver trasl",
+   "t": "Nella figura, a sinistra prima la traslazione arancione, poi la rotazione blu: anche lo spostamento viene ruotato, e la casetta finisce in alto a sinistra, sdraiata. A destra prima la rotazione, poi la traslazione: la casetta blu resta in basso, appoggiata sull'asse x fra 0 e 2."
+  },
+  {
+   "a": "Rotazione attorno a un punto t (slide 25",
+   "t": "La rotazione attorno a un punto t ha tre passi: porta t nell'origine, ruota, riporta t dov'era. Nella formula, letta da destra a sinistra: traslazione di meno t, rotazione, traslazione di t. Con centro 2, 1 e 90 gradi, moltiplicando le tre matrici ottieni prima riga 0, meno 1, 3 e seconda riga 1, 0, meno 1."
+  },
+  {
+   "a": "Il centro (2, 1) resta fermo: [0·2 − 1 +",
+   "t": "Verifichiamo. Il centro 2, 1 resta fermo. Il punto 3, 1, un passo a destra del centro, va in 2, 2, un passo sopra: ha girato di 90 gradi attorno al centro, come deve."
+  },
+  {
+   "a": "I tre passi di T t R θ T −t , da leggere",
+   "t": "Guarda i quattro pannelli. La casetta blu con la stella rossa, il centro, in 2, 1. Poi, in arancione, portata con la stella nell'origine. Poi ruotata di 90 gradi: il tetto punta a sinistra. Infine, in verde, riportata indietro: la stella è tornata in 2, 1, e la casetta le ha girato attorno."
+  },
+  {
+   "a": "Gruppi. Ogni famiglia è chiusa rispetto ",
+   "t": "Ogni famiglia di trasformazioni è chiusa rispetto al prodotto: due rotazioni danno una rotazione, due traslazioni una traslazione. Attenzione: nelle slide c'è scritto che vale per tutte, ma non per lo shear con entrambi i parametri. Componendo uno shear orizzontale e uno verticale compare un 2 sulla diagonale, e la matrice non è più uno shear."
+  },
+  {
+   "a": "Affine e proiettiva (slide 26). Componen",
+   "t": "Componendo tutto si ottiene l'affine: prime due righe libere, ultima ancora 0, 0, 1. Ha 6 gradi di libertà e conserva il parallelismo. Liberando anche l'ultima riga hai la proiettiva, l'omografia: 9 numeri meno la scala, cioè 8 gradi di libertà. Conserva solo le rette, ed è la trasformazione dei panorami della lezione 9."
+  },
+  {
+   "a": "Trasformazioni come convoluzioni (slide ",
+   "t": "Un collegamento con il libro: se l'immagine è una lista di punti, una rotazione calcola ogni coordinata con gli stessi due pesi, come una convoluzione lungo la lista con un kernel, cioè un nucleo, di due elementi. Attenzione: il kernel delle slide corrisponde alla rotazione oraria del libro. Per quella antioraria il seno va col segno meno."
+  },
+  {
+   "a": "Il punto Le catene di trasformazioni div",
+   "t": "Da portare a casa: una catena di trasformazioni è una sola matrice, applicata da destra a sinistra, e l'ordine conta. Per ruotare attorno a t: trasli di meno t, ruoti, trasli di t. Affine con 6 gradi di libertà, parallele conservate; proiettiva con 8, solo rette."
+  },
+  {
+   "a": "5. Deformare un'immagine vera: il warpin",
+   "t": "Sezione 5: il warping. Hai la matrice M e vuoi l'immagine ruotata. Ma i pixel hanno coordinate intere, e M li manda in posizioni non intere. Devi decidere quale valore mettere in ogni pixel della nuova griglia: questo ricampionamento si chiama warping."
+  },
+  {
+   "a": "Prima idea: forward mapping (slide 30–31",
+   "t": "La prima idea è il forward mapping, la mappa in avanti: per ogni pixel sorgente calcoli dove va, arrotondi e scrivi lì il suo valore. Due difetti. Se l'immagine si allarga, alcuni pixel di destinazione non li raggiunge nessuno: buchi. Se si stringe, più pixel cadono nello stesso posto e si sovrascrivono."
+  },
+  {
+   "a": "L'idea giusta: backward mapping (slide 3",
+   "t": "L'idea giusta è girare la domanda: il backward mapping, la mappa all'indietro. Per ogni pixel di destinazione ti chiedi da dove viene. Applichi l'inversa di M, trovi un punto della sorgente, in genere non intero, e leggi il valore interpolando, come nella lezione 6. Ogni pixel riceve esattamente un valore: niente buchi."
+  },
+  {
+   "a": "Dalla slide 33. Lo stesso orologio ruota",
+   "t": "Guarda l'orologio. A sinistra l'originale. Al centro, ruotato e ingrandito col forward mapping: su tutta l'immagine c'è una trama regolare di puntini neri, i pixel mai raggiunti. A destra, col backward mapping, l'immagine è piena e pulita."
+  },
+  {
+   "a": "Quanti buchi? Se la trasformazione ingra",
+   "t": "Quanti buchi? Se ingrandisci di un fattore s, l'area si moltiplica per s al quadrato, ma i pixel sorgente restano gli stessi. Con s uguale 1 virgola 6, ogni pixel sorgente dovrebbe coprirne 2 virgola 56, ma ne riempie al massimo uno. Quindi almeno il 61 per cento dei pixel resta vuoto."
+  },
+  {
+   "a": "Scala 1.6 e rotazione di 20° attorno al ",
+   "t": "La figura conferma il conto. A sinistra una scacchiera con un cerchio nero. Al centro il forward mapping: i pixel rossi, quelli mai raggiunti, sono proprio il 61 per cento, sparsi su tutta l'immagine. A destra il backward con interpolazione bilineare: niente rosso. Nota che la rotazione è antioraria nella matrice ma appare oraria, perché nelle immagini y punta in basso."
+  },
+  {
+   "a": "È ciò che fanno cv2.warpAffine e cv2.war",
+   "t": "In pratica le funzioni warpAffine e warpPerspective di OpenCV fanno esattamente questo: ricevono la matrice M diretta e la invertono internamente, quindi tu passi sempre la trasformazione dalla sorgente alla destinazione."
+  },
+  {
+   "a": "Warping di qualità (slide 34). Il valore",
+   "t": "Sulla qualità: il valore in un punto non intero puoi prenderlo dal pixel più vicino, con effetto a blocchi, oppure con la bilineare o la bicubica. E se rimpicciolisci torna l'aliasing della lezione 6: devi sfocare prima. Il MIP-mapping lo fa in modo efficiente, con una piramide di versioni sempre più piccole da cui leggere al livello giusto."
+  },
+  {
+   "a": "Il punto Il forward mapping lascia buchi",
+   "t": "Da portare a casa: il forward mapping lascia buchi. Il backward parte da ogni pixel di destinazione, applica l'inversa di M e interpola la sorgente. Se rimpicciolisci, prima filtri contro l'aliasing."
+  },
+  {
+   "a": "6. La camera come matrice: la proiezione",
+   "t": "Sezione 6: passiamo al 3D. Con più camere, o una camera che si muove, servono tre sistemi di riferimento. Il mondo, 3D in metri, fisso e condiviso, per esempio con l'origine su un angolo del tavolo. La camera, 3D in metri, con origine nel suo centro. E i pixel, 2D, contati dall'angolo in alto a sinistra."
+  },
+  {
+   "a": "La slide 37 scrive \"camera (2D, meters)\"",
+   "t": "Attenzione: nelle slide qui c'è un errore, le dimensioni di camera e pixel sono scambiate. La camera è 3D, i pixel sono 2D. Dal mondo alla camera si passa con gli estrinseci R e T, che dipendono da dove sta la camera e da come è orientata. Dalla camera ai pixel con gli intrinseci K, che dipendono da ottica e sensore. Sposti il telefono, cambiano R e T. Cambi lo zoom, cambia K."
+  },
+  {
+   "a": "Il riferimento della camera (slide 40–41",
+   "t": "Nel riferimento della camera l'origine è il foro, dove convergono i raggi, e l'asse Z è l'asse ottico, la direzione in cui la camera guarda. Il piano immagine sta a distanza f lungo Z."
+  },
+  {
+   "a": "Dalla slide 40. Il raggio da P passa per",
+   "t": "Nella figura, a destra la scena con il punto P, il pallino azzurro sulla testa del personaggio. Al centro il centro della camera, con gli assi rossi. Il raggio rosso parte da P, passa per il centro e colpisce il piano di proiezione a sinistra in p. Quel piano sta dietro il foro, come il sensore vero, e l'immagine disegnata è capovolta."
+  },
+  {
+   "a": "Un piano virtuale a Z = +f, davanti al f",
+   "t": "Un trucco: immagina un piano virtuale davanti al foro, a più f invece che a meno f. Dà la stessa immagine, ma diritta. Useremo sempre quello."
+  },
+  {
+   "a": "Le equazioni (slide 42). Il triangolo pi",
+   "t": "Le equazioni vengono dai triangoli simili: il triangolo piccolo ha altezza y e base f, quello grande altezza Y e base Z. Quindi y su f è uguale a Y su Z, cioè y uguale f per Y su Z, e lo stesso per x."
+  },
+  {
+   "a": "La pinhole vista di lato ( L2 ). Il ragg",
+   "t": "Ecco la pinhole vista di lato. Il pallino nero è il foro. Il punto verde P a destra è la cima dell'oggetto. Il raggio rosso passa per il foro e taglia il piano virtuale blu in f per Y su Z. Il triangolino azzurro e il grande triangolo verde sono simili. A sinistra il sensore vero, grigio, riceve lo stesso punto, ma sotto l'asse: capovolto."
+  },
+  {
+   "a": "Qui x e y sono in metri sul piano immagi",
+   "t": "Due cose da notare: qui x e y sono in metri, non ancora in pixel. E l'unica parte non lineare è la divisione per Z."
+  },
+  {
+   "a": "In omogenee (slide 43–44). Il punto è P ",
+   "t": "Ora in omogenee. Il punto diventa X, Y, Z, 1, e la proiezione è una matrice 3 per 4: f sulla diagonale nelle prime due righe, un 1 in terza posizione nella terza, e l'ultima colonna di zeri. Il prodotto dà f X, f Y, Z. La matrice ha copiato Z nella terza componente, e dividendo per lei ottieni proprio la proiezione prospettica."
+  },
+  {
+   "a": "La matrice copia Z nella terza component",
+   "t": "La prospettiva è diventata un prodotto matrice per vettore, e il fattore lambda della formula è proprio Z, la profondità. Attenzione: nelle slide la prima componente è scritta con le lettere sbagliate, x F su Z. È un refuso: quella giusta è f per X maiuscola, diviso Z."
+  },
+  {
+   "a": "Esempio. f = 5 mm, punto (0.5, 0.25, 2) ",
+   "t": "Un esempio: focale 5 millimetri, punto a 0 virgola 5, 0 virgola 25, 2 metri. Il prodotto, diviso per 2, dà 1 virgola 25 e 0 virgola 625 millimetri sul piano immagine."
+  },
+  {
+   "a": "La versione riscalata (slide 45). Una ma",
+   "t": "Siccome una matrice omogenea vale a meno di un fattore, puoi anche dividerla per f, come fa il libro: il risultato non cambia. Cambiando l'ultima riga il libro scrive anche la proiezione parallela, dove gli oggetti lontani non rimpiccioliscono. Cambiare modello di camera vuol dire solo cambiare matrice."
+  },
+  {
+   "a": "Il punto Riferimento della camera: origi",
+   "t": "Da portare a casa: origine nel foro, Z lungo l'asse ottico. In omogenee la prospettiva è una matrice 3 per 4 che mette Z nella terza componente, e la divisione per Z la fa la conversione finale."
+  },
+  {
+   "a": "7. Dai metri ai pixel: la matrice degli ",
+   "t": "Sezione 7: dai metri ai pixel, la matrice degli intrinseci K. Il risultato di prima è in metri, con l'origine al centro dell'immagine, ma i pixel si contano dall'angolo in alto a sinistra. Servono due cose: cambiare unità di misura e spostare l'origine."
+  },
+  {
+   "a": "Dalla slide 47. Il sensore (a sinistra) ",
+   "t": "Nella figura, a sinistra il sensore: una griglia di N pixel in orizzontale e M in verticale, larga w, a distanza f dal centro della camera. Al centro il piano virtuale grigio, con gli assi verdi in metri. A destra la casa con il punto P. Il raggio tratteggiato lascia un pallino azzurro su entrambi i piani: i pixel sono la stessa immagine, misurata col righello del sensore."
+  },
+  {
+   "a": "Passo 1: da metri a pixel (slide 48). Se",
+   "t": "Passo 1, da metri a pixel. Se il sensore è largo w e ha N pixel, ogni metro contiene N su w pixel. Moltiplichi la focale per questo fattore e ottieni a, uguale f per N su w: la focale misurata in pixel. Nota che f e w compaiono solo nel rapporto: conta a, non i millimetri."
+  },
+  {
+   "a": "Passo 2: spostare l'origine (slide 49). ",
+   "t": "Passo 2, spostare l'origine. Il punto principale, c con pedice x, c con pedice y, è il pixel in cui l'asse ottico buca il sensore, di solito circa il centro. Aggiungerlo è una traslazione, e in omogenee una traslazione va nella terza colonna. Ecco a cosa servivano le omogenee."
+  },
+  {
+   "a": "Passo 3: pixel non quadrati (slide 50). ",
+   "t": "Passo 3, pixel non quadrati: se sono più alti che larghi, la scala verticale b, uguale f per M su h, è diversa da a. Mettendo tutto insieme ottieni K: a e c con pedice x nella prima riga, b e c con pedice y nella seconda, 0, 0, 1 nella terza."
+  },
+  {
+   "a": "Sono 4 parametri intrinseci : a, b, c x ",
+   "t": "Dopo la divisione, il pixel ha colonna n uguale a per X su Z più c con pedice x, e riga m uguale b per Y su Z più c con pedice y. Gli intrinseci sono 4: a, b e le due coordinate del punto principale. Spesso K si scrive 3 per 3, senza la colonna di zeri: è la stessa cosa."
+  },
+  {
+   "a": "Esempio svolto. f = 5 mm, sensore 6.4 × ",
+   "t": "Facciamo i conti. Focale 5 millimetri, sensore 6 virgola 4 per 3 virgola 6, immagine 1280 per 720. Allora a è 5 per 1280 diviso 6 virgola 4, cioè 1000 pixel, e anche b viene 1000. Il punto principale è 640, 360. Applicando K al punto di prima e dividendo per la profondità 2, arrivi al pixel 890, 485."
+  },
+  {
+   "a": "I passi dell'esempio: scala da millimetr",
+   "t": "La figura mostra i tre passi. Nel primo pannello il piano immagine in millimetri, con il pallino rosso a 1 virgola 25, 0 virgola 625. Nel secondo, moltiplicando per 200 pixel al millimetro, il pallino è a 250, 125 pixel, con l'origine ancora al centro. Nel terzo l'origine passa in alto a sinistra, la croce segna il punto principale 640, 360, e il pallino arriva in 890, 485."
+  },
+  {
+   "a": "Lo stesso cubo con quattro K. Aumentare ",
+   "t": "Ora cosa fa ogni parametro, sullo stesso cubo. In alto a sinistra il caso base, blu. In alto a destra, verde, a e b salgono a 1600: il cubo si ingrandisce, è uno zoom. In basso a sinistra, arancione, b scende a 600: il cubo si schiaccia in verticale. In basso a destra, rosso, c con pedice x passa a 400: il cubo si sposta a sinistra. La scena 3D è sempre la stessa: cambia solo il righello del sensore."
+  },
+  {
+   "a": "Il segno di a e b (slide 52, libro § 39.",
+   "t": "Una sottigliezza: il segno di a e b. Se un asse dei pixel punta al contrario del corrispondente asse della camera, il suo fattore è negativo. Nel riferimento del libro, guardando il sensore, x della camera punta a sinistra e y in alto."
+  },
+  {
+   "a": "Dalla slide 52. Verde: gli assi della ca",
+   "t": "Controlla sulla figura: frecce verdi per la camera, x a sinistra e y in alto, frecce blu per i pixel. Nella convenzione 1, origine in basso a sinistra, n va a destra, opposto a x, e m in alto, concorde con y: solo a è negativo. Nella convenzione 2, origine in alto a sinistra come negli array, anche m è opposto: a e b sono entrambi negativi."
+  },
+  {
+   "a": "OpenCV evita il problema con la camera o",
+   "t": "OpenCV evita il problema orientando la camera con X a destra, Y in basso e Z in avanti: assi concordi, a e b positivi. È la convenzione dei nostri esempi. La regola d'oro: dichiara sempre la convenzione e non mescolarne due."
+  },
+  {
+   "a": "Altri parametri (slide 53). Se righe e c",
+   "t": "Altri parametri. Se righe e colonne del sensore non sono perpendicolari serve un quinto parametro, lo skew, cioè l'inclinazione, quasi sempre circa zero. E le lenti vere hanno la distorsione radiale, che curva le rette: nessuna matrice la riproduce, si corregge a parte nella lezione 12."
+  },
+  {
+   "a": "Dal pixel al raggio (libro § 39.3.2). K ",
+   "t": "E il viaggio inverso? L'inversa di K applicata al pixel dà la direzione del raggio uscente: da un pixel non ricavi la profondità, solo la retta su cui sta il punto. Per esempio, dal pixel 890, 485 ottieni la direzione 0 virgola 25, 0 virgola 125, 1; con il fattore 2 ritrovi il nostro punto. Per il 3D servono due viste, un sensore di profondità o una rete che la stima."
+  },
+  {
+   "a": "Il punto K converte i metri del piano im",
+   "t": "Da portare a casa: K converte i metri del piano immagine in pixel, con a uguale f N su w, e sposta l'origine nell'angolo tramite il punto principale. Dipende solo dalla camera. I segni di a e b dipendono dagli assi."
+  },
+  {
+   "a": "8. Una calibrazione semplice (ma poco af",
+   "t": "Sezione 8: una calibrazione semplice, ma poco affidabile. Calibrare vuol dire trovare i numeri di K. Le schede tecniche raramente danno la focale in pixel, e il telefono ritaglia o ricampiona le foto, quindi conviene misurarla."
+  },
+  {
+   "a": "Dalla slide 55. A sinistra la misura: il",
+   "t": "Nella figura, a sinistra la misura: un telefono davanti a una scacchiera appesa, con un righello fra i due. A destra la foto scattata. Nota che è verticale, più alta che larga: tra poco servirà."
+  },
+  {
+   "a": "Gli ingredienti (slide 56): un oggetto d",
+   "t": "Gli ingredienti sono tre: la larghezza vera della scacchiera, W uguale 20 centimetri; la distanza misurata col righello, Z uguale 31 centimetri; e la larghezza della scacchiera nella foto, L uguale 2002 pixel."
+  },
+  {
+   "a": "La matematica. È la proiezione della sez",
+   "t": "È la proiezione della sezione 7, scritta per una lunghezza: L è a per W su Z. Rigiri la formula e ottieni a uguale Z per L su W, cioè 31 per 2002 diviso 20: 3103 virgola 1 pixel."
+  },
+  {
+   "a": "I triangoli simili della calibrazione: l",
+   "t": "La figura mostra i triangoli simili. A sinistra la camera, a destra la scacchiera verde, a 31 centimetri. Le linee tratteggiate rosse vanno ai suoi bordi. Vicino alla camera il segmento blu dell'immagine, largo 2002 pixel, a distanza a. Stesso angolo, quindi L su a uguale W su Z."
+  },
+  {
+   "a": "La foto è 4032 × 3024, scattata in verti",
+   "t": "Il punto principale. La foto è 4032 per 3024, ma verticale: larga 3024 e alta 4032. Quindi c con pedice x, metà della larghezza, è 1512, e c con pedice y è 2016, come nelle slide e nel libro. Sembrano scambiati solo se leggi i numeri come larghezza per altezza."
+  },
+  {
+   "a": "Nella slide 57 l'elemento centrale è scr",
+   "t": "Attenzione: nelle slide qui c'è un refuso. Il secondo elemento della diagonale di K è scritto 30103 virgola 1, ma è 3103 virgola 1, come il primo. E la scritta bold K è un residuo di formattazione."
+  },
+  {
+   "a": "Quanto è precisa? (slide 58). Dalla sche",
+   "t": "Quanto è precisa? Dalla scheda tecnica dell'iPhone 13 Pro, focale 5 virgola 7 millimetri e sensore largo 7 virgola 6, ricavi a uguale 3024. L'errore è circa il 2 virgola 6 per cento. Non male, ma fragile: dipende da una sola misura col righello, e si assume il punto principale al centro, senza skew né distorsione. Nella lezione 12 si stima K da molte foto."
+  },
+  {
+   "a": "Il punto Con un oggetto di larghezza not",
+   "t": "Da portare a casa: con un oggetto di larghezza nota a distanza nota, a vale Z per L su W. Qui 3103 virgola 1 pixel contro 3024: semplice, ma fragile."
+  },
+  {
+   "a": "9. Dal mondo alla camera: gli estrinseci",
+   "t": "Sezione 9: dal mondo alla camera, gli estrinseci. Finora la camera stava nell'origine. Ma in un'auto con sei camere i punti si misurano in un riferimento del mondo comune, e prima di applicare K vanno riscritti nel riferimento di ciascuna camera."
+  },
+  {
+   "a": "Dalla slide 62 (figura del libro). Verde",
+   "t": "Guarda la figura. In verde, in basso a destra, gli assi del mondo; in rosso, a sinistra, quelli della camera. La freccia T va dall'origine del mondo alla camera. La freccia P con pedice w va dall'origine al punto. La freccia P con pedice C va dalla camera al punto: è P con pedice w meno T, espressa però negli assi rossi della camera."
+  },
+  {
+   "a": "I due parametri (slide 61–62, libro § 39",
+   "t": "I parametri sono due. T è la posizione del centro della camera nel mondo: 3 numeri. R è la rotazione che porta gli assi del mondo su quelli della camera: 3 gradi di libertà. Attenzione: la camera è orientata di R trasposta rispetto al mondo, R fa il viaggio inverso."
+  },
+  {
+   "a": "L'idea (slide 63–65): prima trasla di −T",
+   "t": "L'idea: prima trasli di meno T, così l'origine finisce nel centro della camera, poi ruoti di R, così gli assi coincidono. Nella formula, P con pedice C è R per la differenza fra P con pedice W e T."
+  },
+  {
+   "a": "Come leggere R: le sue righe r 1 , r 2 ,",
+   "t": "Un modo intuitivo per leggere R: le sue righe sono gli assi della camera scritti nel mondo. Quindi la X della camera è il prodotto scalare fra la prima riga e il vettore dalla camera al punto: quanto quel vettore va lungo l'asse X della camera. Il prodotto con la terza riga è la profondità."
+  },
+  {
+   "a": "In omogenee (slide 66–68). Traslazione e",
+   "t": "In omogenee servono due matrici 4 per 4: M con pedice 1, la traslazione di meno T, e M con pedice 2, con R nel blocco in alto a sinistra. Prima si trasla, poi si ruota, quindi M con pedice 2 per M con pedice 1."
+  },
+  {
+   "a": "M 2 M 1 = [[R, −RT], [0 ⊤ , 1]]",
+   "t": "Il prodotto ha una forma compatta: R in alto a sinistra e, nella quarta colonna, meno R per T. Ecco la trappola: non meno T, ma meno R per T. Si trasla prima di ruotare, e la traslazione esce ruotata. È la non commutatività della sezione 4, in 3D."
+  },
+  {
+   "a": "Esempio svolto. Origine del mondo su un ",
+   "t": "Un esempio che ci porterà fino al pixel del pedone. Origine del mondo su un tavolo, Y verso il basso come nella camera. La camera sta in meno 3, 0, meno 4, a 5 metri dal tavolo, girata attorno all'asse verticale per guardare l'origine. R ha righe 0 virgola 8, 0, meno 0 virgola 6; poi 0, 1, 0; poi 0 virgola 6, 0, 0 virgola 8. È una rotazione di circa 37 gradi attorno a Y."
+  },
+  {
+   "a": "La terza riga r 3 = (0.6, 0, 0.8) è l'as",
+   "t": "La terza riga di R è l'asse ottico, e infatti punta dalla camera verso l'origine del mondo. Ora prendiamo nel mondo il punto 0 virgola 8, 0 virgola 5, meno 0 virgola 6."
+  },
+  {
+   "a": "P W − T = (3.8, 0.5, 3.4); X C = 0.8·3.8",
+   "t": "Sottrai T: viene 3 virgola 8, 0 virgola 5, 3 virgola 4. Poi i prodotti con le righe di R: la X della camera viene 1, la Y resta 0 virgola 5, la Z viene 5. Il punto, visto dalla camera, è 1 metro a destra dell'asse ottico, mezzo metro sotto e 5 metri davanti."
+  },
+  {
+   "a": "E −RT = (0, 0, 5): l'origine del mondo, ",
+   "t": "E meno R per T vale 0, 0, 5: è l'origine del mondo vista dalla camera, 5 metri dritta davanti a lei."
+  },
+  {
+   "a": "L'esempio visto dall'alto (a sinistra) e",
+   "t": "La figura mostra l'esempio da due punti di vista. A sinistra, dall'alto: il quadrato rosso è la camera, la freccia rossa Z con pedice C punta verso l'origine verde, X con pedice C in basso a destra. La freccia blu tratteggiata va dalla camera al punto blu, e le linee punteggiate grigie la proiettano sugli assi della camera: 1 metro lungo X, 5 lungo Z."
+  },
+  {
+   "a": "L'esempio visto dall'alto (a sinistra) e",
+   "t": "A destra quello che vede la camera, con la K della sezione 7. Un cubo appoggiato sull'origine del mondo, e l'origine cade esattamente nel punto principale, 640, 360. Il punto blu cade in 840, 460. Ti ricorda qualcosa? È il pixel del pedone da cui siamo partiti."
+  },
+  {
+   "a": "Una notazione che incontrerai. OpenCV e ",
+   "t": "Una notazione che incontrerai: OpenCV e Hartley e Zisserman scrivono R per P con pedice W più t minuscolo, con t uguale meno R per T. Attenzione: t minuscolo non è la posizione della camera. Nell'esempio t è 0, 0, 5, mentre la camera sta in meno 3, 0, meno 4."
+  },
+  {
+   "a": "Il punto Gli estrinseci dicono dove sta ",
+   "t": "Da portare a casa: gli estrinseci dicono dove sta la camera, T, e come è orientata, R. Prima trasli, poi ruoti; in omogenee la quarta colonna è meno R per T. Le righe di R sono gli assi della camera."
+  },
+  {
+   "a": "10. La matrice completa della camera",
+   "t": "Sezione 10, la matrice completa. Abbiamo tutti i pezzi: ora li incolliamo in una matrice sola, dal mondo ai pixel. Prima gli estrinseci, poi gli intrinseci, sempre leggendo da destra a sinistra."
+  },
+  {
+   "a": "La colonna di zeri di K annulla l'ultima",
+   "t": "La colonna di zeri di K annulla l'ultima riga degli estrinseci. Togliendole entrambe resta la forma da ricordare: K, 3 per 3, per la matrice 3 per 4 fatta da R affiancata a meno R per T, per il punto del mondo con l'1 in fondo. Il prodotto è la matrice della camera, P maiuscola: una sola 3 per 4 porta qualunque punto del mondo nel suo pixel."
+  },
+  {
+   "a": "La catena completa con i numeri dell'ese",
+   "t": "La figura riassume la catena. Riquadro verde, il mondo, con il nostro punto. Gli estrinseci lo portano nel riquadro rosso, la camera: 1, 0 virgola 5, 5. K lo porta nel riquadro arancione, in omogenee: 4200, 2300, 5. La divisione per 5 dà il riquadro blu, il pixel 840, 460. La divisione è l'unico passo non lineare, ed è rimandata alla fine."
+  },
+  {
+   "a": "Esempio svolto (verificato con numpy). C",
+   "t": "Facciamo il conto in un colpo solo. La matrice P ha prima riga 1184, 0, meno 88, 3200; seconda riga 216, 1000, 288, 1800; terza riga 0 virgola 6, 0, 0 virgola 8, 5. Applicata al punto, la prima riga dà 4200, la seconda 2300, la terza 5, la profondità. Dividendo, ancora 840, 460."
+  },
+  {
+   "a": "Lo stesso risultato si ottiene a passi: ",
+   "t": "Lo stesso si ottiene a passi: n è 1000 per 1 su 5 più 640, cioè 840, e m è 1000 per mezzo su 5 più 360, cioè 460. E l'origine del mondo finisce nel punto principale, perché la camera la guarda dritta."
+  },
+  {
+   "a": "Quanti parametri (slide 71):",
+   "t": "Quanti parametri? Intrinseci: 4, più lo skew fa 5. Estrinseci: 3 per la rotazione e 3 per la traslazione, 6. Totale 11 gradi di libertà, gli stessi di una matrice 3 per 4 generica: 12 numeri meno la scala, perché P e 2 P danno gli stessi pixel. Nella lezione 12 si stimano queste 11 incognite con la DLT, cioè Direct Linear Transform, la trasformazione lineare diretta, e poi si separano K, R e T."
+  },
+  {
+   "a": "Le trappole (slide 73). Quasi tutti gli ",
+   "t": "Le trappole sono di tre tipi. Confondere i sistemi di riferimento: dichiara sempre in quale sei. Sbagliare l'ordine delle matrici. E sbagliare il verso degli assi: y in alto o in basso, segno di a e b, R contro R trasposta, T maiuscolo contro t minuscolo."
+  },
+  {
+   "a": "import numpy as np K = np.array([[1000, ",
+   "t": "Nel riquadro di codice trovi tutto l'esempio in numpy, in poche righe: costruisci K, R e T, affianchi R e meno R per T, moltiplichi per K, applichi al punto e dividi per la terza componente. Stampa 840, 460. Rifallo cambiando la posizione della camera."
+  },
+  {
+   "a": "Il punto p = K[R | −RT] P W : estrinseci",
+   "t": "Da portare a casa: la matrice della camera è K per R barra meno R T. Prima gli estrinseci, poi gli intrinseci, poi la divisione per la terza componente. È 3 per 4 con 11 gradi di libertà: 5 intrinseci con lo skew e 6 estrinseci."
+  },
+  {
+   "a": "Verifica di aver capito",
+   "t": "Ora verifica di aver capito. Prima domanda: scrivi la matrice che ruota di 90 gradi attorno al punto 1, 1 e applicala a 2, 1. Metti in pausa e prova a rispondere. La matrice ha prima riga 0, meno 1, 2 e seconda riga 1, 0, 0. Applicata a 2, 1 dà 1, 2: il punto era un passo a destra del centro, ora è un passo sopra."
+  },
+  {
+   "a": "Scrivi la matrice che ruota di 90° attor",
+   "t": "Seconda: perché il warping si fa all'indietro? Cosa succede col forward mapping se ingrandisci di 2 volte? Metti in pausa e prova a rispondere. L'area diventa 4 volte più grande, ma ogni pixel sorgente ne riempie al massimo uno: almeno tre quarti restano vuoti. All'indietro parti da ogni pixel di destinazione e interpoli: nessun buco."
+  },
+  {
+   "a": "Scrivi la matrice che ruota di 90° attor",
+   "t": "Terza: focale 4 millimetri, sensore largo 6, immagine 1500 per 1000, pixel quadrati, punto principale al centro. Dove finisce il punto 0 virgola 3, meno 0 virgola 2, 3, nel riferimento della camera? Metti in pausa e prova a rispondere. a e b valgono 1000, il centro è 750, 500. n viene 850, m circa 433 virgola 3."
+  },
+  {
+   "a": "Scrivi la matrice che ruota di 90° attor",
+   "t": "Quarta: la camera sta in 0, 0, meno 10, con R uguale all'identità. Dove sta, nella camera, il punto del mondo 1, 2, 0? E quanto vale t minuscolo? Metti in pausa e prova a rispondere. Il punto è in 1, 2, 10, cioè 10 metri davanti. E t vale 0, 0, 10, che non è la posizione della camera."
+  },
+  {
+   "a": "Scrivi la matrice che ruota di 90° attor",
+   "t": "Quinta: perché la matrice della camera ha 11 gradi di libertà e non 12? Metti in pausa e prova a rispondere. P e lambda P danno gli stessi pixel, perché lambda si semplifica nella divisione. Quindi 11: 5 intrinseci più 6 estrinseci."
+  },
+  {
+   "a": "Scrivi la matrice che ruota di 90° attor",
+   "t": "Ultima: nella calibrazione col righello, perché c con pedice x è 1512 e non 2016? Metti in pausa e prova a rispondere. Perché la foto è verticale, larga 3024: c con pedice x è metà della larghezza, c con pedice y metà dell'altezza."
+  },
+  {
+   "a": "Come proseguire",
+   "t": "Per proseguire, il visionbook: capitolo 38 per omogenee, trasformazioni e warping, attento alla rotazione che chiama antioraria, e capitolo 39 per la camera. Szeliski, capitolo 2, usa una notazione vicina a OpenCV. Poi ripassa con le schede sotto la dispensa: i riquadri Attenzione correggono gli errori delle slide."
+  },
+  {
+   "a": "Ora ripassa con le schede qui sotto, sli",
+   "t": "Chiudiamo. Le coordinate omogenee trasformano traslazioni, rotazioni e perfino la prospettiva in prodotti di matrici, rimandando la divisione alla fine. Una catena di trasformazioni è una sola matrice, letta da destra a sinistra, e l'ordine conta. Per deformare un'immagine si va all'indietro, con l'inversa e l'interpolazione. La camera è una matrice 3 per 4: gli estrinseci portano dal mondo alla camera, gli intrinseci dalla camera ai pixel. E hai visto un punto del mondo arrivare esattamente nel pixel 840, 460."
+  }
+ ]
+}

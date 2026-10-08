@@ -1,0 +1,235 @@
+<div class="sec" id="l12-libro"><h2>Studia dal libro</h2><span>visionbook cap. 39 (§ 39.6–39.8, circa 1 ora), più Zhang 2000 e il tutorial OpenCV per la parte pratica</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Cosa leggere, in ordine</h3>
+    <div class="meta">Torralba, Isola, Freeman, <i>Foundations of Computer Vision</i>, gratis online</div>
+    <ol>
+      <li>Ripasso dal <a href="https://visionbook.mit.edu/imaging_geometry.html" target="_blank">cap. 39, Camera Modeling and Calibration</a>: § 39.3.1 (da metri a pixel, a = fN/w), § 39.4 (estrinseci, M<sub>2</sub>M<sub>1</sub> = [R −RT; 0 1]), § 39.5 (modello completo M = K[R | −RT]). È la L11: rileggilo solo se le slide 3–8 non ti tornano.</li>
+      <li>§ 39.6 <b>A Few Concrete Examples</b>: i quattro esempi (a)–(d) con le matrici, l'orizzonte y = a tanθ e le foto del viale (fig. 39.10–39.13). Copre le slide 7–28. Rifai i prodotti a mano.</li>
+      <li>§ 39.3.3 <b>A Simple, although Unreliable, Calibration Method</b>: la stima di a con la scacchiera a distanza nota. Serve per capire i numeri della slide 23.</li>
+      <li>§ 39.7.1 <b>Direct Linear Transform</b> e § 39.7.2 <b>Recovering Intrinsic and Extrinsic Camera Parameters</b>: il cuore della seconda parte (slide 31–37). Attenzione al segno di T (eq. 39.23) e alla QR fatta su B<sup>−1</sup>.</li>
+      <li>§ 39.7.3 <b>Multiplane Calibration Method</b> e § 39.7.4 <b>Nonlinear Optimization by Minimizing Reprojection Error</b> (eq. 39.24, fig. 39.14): slide 38–45. Sono brevi; il metodo di Zhang vero è nell'articolo (punto 7).</li>
+      <li>§ 39.7.5 <b>A Toy Example</b>: calibrazione di una foto d'ufficio con 12 punti misurati a mano. Da leggere per vedere numeri veri (K, R, T, tilt) e per capire perché servono i pattern stampati.</li>
+      <li><b>Zhang, "A flexible new technique for camera calibration", IEEE TPAMI 22(11), 2000</b>: § 2 (omografia piano–immagine e i due vincoli su K), § 3 (soluzione in forma chiusa e raffinamento con Levenberg-Marquardt, distorsione radiale). È la fonte del metodo che usa <code>calibrateCamera</code>.</li>
+      <li>Tutorial OpenCV <a href="https://docs.opencv.org/4.x/dc/dbb/tutorial_py_calibration.html" target="_blank">Camera Calibration</a> (modello di distorsione, codice del notebook) e la documentazione di <code>calibrateCamera</code> nel modulo calib3d (passi dell'algoritmo, flag).</li>
+    </ol>
+    <p><b>Si può saltare</b>: § 39.1, § 39.2.1 (proiezione parallela, già vista), § 39.3.2 (da pixel a raggi, serve in stereo), § 39.8 (conclusioni). <b>Facoltativo</b>: Hartley e Zisserman cap. 6–7 (modelli di camera, stima di P, DLT normalizzata, scomposizione RQ); Szeliski 2a ed. § 2.1.5 (distorsione) e § 11.1 (calibrazione degli intrinseci).</p>
+  </div>
+
+  <div class="card">
+    <h3>Le idee centrali, come le spiega il libro</h3>
+    <div class="meta">Da saper ricostruire senza slide</div>
+    <p><b>1 · Una camera è un prodotto di tre matrici.</b> Traslare di −T (la camera va nell'origine), ruotare con R (gli assi coincidono), proiettare e passare ai pixel con K. M = K[R | −RT] è 3×4 e definita a meno di scala: 11 gradi di libertà, 5 intrinseci (a, b, skew, c<sub>x</sub>, c<sub>y</sub>) + 6 estrinseci (§ 39.4–39.5).</p>
+    <p><b>2 · Gli esempi si costruiscono e si controllano.</b> T = posizione della camera nel mondo; le righe di R = assi della camera nel mondo; la rotazione applicata per prima sta a destra. Controlli: θ = 0 deve dare l'esempio precedente; l'asse ottico deve puntare dove dice la figura; i punti all'infinito danno l'orizzonte (y → a tanθ). L'orizzonte permette di stimare θ dalla focale o la focale da θ (§ 39.6).</p>
+    <p><b>3 · DLT.</b> Due equazioni lineari per corrispondenza 3D–2D, A (2N × 12) m = 0, m = autovettore di A<sup>⊤</sup>A con autovalore minimo (o ultimo vettore singolare destro di A). Servono almeno 6 punti <b>non complanari</b>; meglio molti e normalizzati. È la stessa costruzione della DLT per l'omografia (§ 39.7.1, cap. 41).</p>
+    <p><b>4 · Da M a K, R, T.</b> M = [B | b] con B = KR, b = −KRT. T = −B<sup>−1</sup>b; K (triangolare superiore) e R (ortonormale) dalla scomposizione di B (QR di B<sup>−1</sup>, oppure RQ di B), con correzione dei segni perché la diagonale di K sia positiva. Sensibile al rumore: serve come inizializzazione (§ 39.7.2).</p>
+    <p><b>5 · L'errore giusto è in pixel.</b> La DLT minimizza un errore algebrico in cui ogni punto pesa con la sua profondità. L'obiettivo vero è ∑‖p<sub>i</sub> − π(K[R | −RT]P<sub>i</sub>)‖², non lineare per la divisione in π e perché π può includere la distorsione. Si minimizza con un metodo iterativo partendo dalla DLT (§ 39.7.4).</p>
+    <p><b>6 · Perché una scacchiera.</b> Punti 3D noti per costruzione, rilevati automaticamente e con precisione sub-pixel. Con un piano la DLT della 3×4 è degenere, quindi Zhang stima un'omografia per vista e da ogni omografia ricava due vincoli su K; molte viste inclinate in modo diverso vincolano K, la distorsione si stima nel raffinamento finale (§ 39.7.3 + Zhang 2000).</p>
+  </div>
+
+  <div class="card">
+    <h3>Differenze di notazione fra slide e libro</h3>
+    <ul>
+      <li><b>Matrice della camera</b>: libro M (3×4); slide P alle slide 3–8 e M dalla 11 in poi. OpenCV non restituisce M ma K, dist, rvecs, tvecs.</li>
+      <li><b>Traslazione</b>: libro e slide T = posizione della camera nel mondo, con −RT nella matrice; OpenCV <code>tvec</code> = −RT, cioè la posizione del <b>pannello</b> nel riferimento della camera. Per avere la posizione della camera: −R<sup>⊤</sup>tvec.</li>
+      <li><b>Intrinseci</b>: libro a, b, c<sub>x</sub>, c<sub>y</sub> (skew solo citato); slide 52 e Zhang α, β, γ, u<sub>0</sub>, v<sub>0</sub>; OpenCV f<sub>x</sub>, f<sub>y</sub>, c<sub>x</sub>, c<sub>y</sub>, skew assente.</li>
+      <li><b>M<sub>2</sub></b>: nel libro è la sola rotazione e M<sub>1</sub> la traslazione; la slide 17 chiama M<sub>2</sub> il loro prodotto.</li>
+      <li><b>Righe di M nella DLT</b>: m<sub>0</sub>, m<sub>1</sub>, m<sub>2</sub> in entrambi; la DLT dell'omografia in L9 usava h<sub>1</sub>, h<sub>2</sub>, h<sub>3</sub>.</li>
+      <li><b>Ottimizzatore</b>: slide "SGD", libro "gradient descent", OpenCV Levenberg-Marquardt (vedi schede 39 e 45).</li>
+      <li><b>Distorsione</b>: il libro la nomina soltanto; le formule (k<sub>1</sub>, k<sub>2</sub>, k<sub>3</sub>, p<sub>1</sub>, p<sub>2</sub>) sono nel tutorial OpenCV e in Szeliski.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Cosa il libro aggiunge e le slide omettono, e viceversa</h3>
+    <ul>
+      <li>Nel libro: la formula esplicita di (d) in coordinate cartesiane e la sua versione con proiezione parallela (eq. 39.21); la scelta tanθ = h/d per l'origine del mondo; l'avvertenza sui punti complanari nella DLT; il consiglio di verificare il codice con dati simulati; il toy example con numeri reali.</li>
+      <li>Nelle slide ma non nel libro: la pipeline OpenCV (findChessboardCorners, cornerSubPix, calibrateCamera, undistort), i controlli di plausibilità, l'errore per immagine, gli errori tipici di acquisizione e l'overfitting di k<sub>3</sub>.</li>
+      <li>In nessuno dei due, ma utile: le formule del metodo di Zhang (vincoli h<sub>1</sub><sup>⊤</sup>K<sup>−⊤</sup>K<sup>−1</sup>h<sub>2</sub> = 0 e h<sub>1</sub><sup>⊤</sup>K<sup>−⊤</sup>K<sup>−1</sup>h<sub>1</sub> = h<sub>2</sub><sup>⊤</sup>K<sup>−⊤</sup>K<sup>−1</sup>h<sub>2</sub>, dal fatto che r<sub>1</sub>, r<sub>2</sub> sono ortonormali), la parametrizzazione di R con il vettore di Rodrigues, la validazione leave-one-out.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="sec" id="l12-notebook"><h2>Notebook camera_calibration_opencv</h2><span>calibrazione di una camera reale con 13 foto di scacchiera (sample di OpenCV)</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Cosa fa ogni blocco di celle</h3>
+    <ul>
+      <li><b>Celle 1–3, setup e dati</b>: import, cartella <code>calibration_data</code>, download delle immagini <code>left01–left14.jpg</code> (manca la 10) dal repository di OpenCV se non ci sono già, e anteprima delle prime quattro. Immagini 640 × 480 in scala di grigi.</li>
+      <li><b>Cella 5, rilevamento degli angoli</b> (slide 48–50): object point <code>objp</code> su una griglia 7 × 6 con passo 1 e Z = 0; per ogni immagine <code>findChessboardCorners</code>, poi <code>cornerSubPix</code> con mezza finestra 11 × 11 e criteri (30 iterazioni, ε = 0.001), disegno degli angoli. Le immagini in cui il pattern non è trovato vengono saltate.</li>
+      <li><b>Celle 6–7</b>: stampa degli angoli dell'ultima immagine e degli object point (0, 0, 0), (1, 0, 0), …: l'ordine riga per riga deve coincidere.</li>
+      <li><b>Celle 9–18, calibrazione</b> (slide 51): <code>calibrateCamera</code> e stampa di <code>ret</code>, K, dist, e della prima coppia rvec/tvec.</li>
+      <li><b>Celle 20–22, undistort</b>: <code>getOptimalNewCameraMatrix</code> con alpha = 1, <code>undistort</code> di left12 e ritaglio alla roi.</li>
+      <li><b>Cella 24, errore di riproiezione</b> (slide 53): <code>projectPoints</code> con i parametri stimati, distanza da ogni angolo rilevato, media su tutti i punti.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Numeri della riesecuzione</h3>
+    <div class="meta">Rieseguito nel cloud con OpenCV 5.0.0 (il prof ha usato 4.13): stessi risultati alla quarta cifra, nessuna differenza di API per le funzioni usate</div>
+    <ul>
+      <li>Pattern (7, 6): <b>4 immagini su 13 scartate</b> (left04, 05, 09, 11), come nell'output salvato.</li>
+      <li><code>ret</code> = <b>0.1559</b> px (RMS), K = [534.16, 0, 341.71; 0, 534.25, 232.05; 0, 0, 1], dist = (k<sub>1</sub>, k<sub>2</sub>, p<sub>1</sub>, p<sub>2</sub>, k<sub>3</sub>) = (−0.2943, 0.1232, 0.0011, −0.0001, 0.0102). Identici al notebook.</li>
+      <li>Cella 24: errore medio <b>0.1375</b> px. Ricalcolando la radice della media dei quadrati sugli stessi residui si ottiene di nuovo 0.1559.</li>
+      <li>RMS per immagine (7, 6): da 0.118 (left02) a 0.207 (left08), uniforme.</li>
+      <li>Controlli della slide 52: f<sub>x</sub>/f<sub>y</sub> = 1.0002; punto principale (341.7, 232.1) contro il centro (319.5, 239.5).</li>
+      <li><code>rvecs[0]</code>, <code>tvecs[0]</code>: su Linux escono diversi da quelli del prof ((−0.32, 0.16, −1.24), (−5.95, 2.43, 16.78) invece di (−0.43, 0.25, −3.09), (3.79, 0.92, 14.86)) perché <code>glob</code> restituisce i file in un altro ordine: la prima immagine usata è left07 invece di left01. La calibrazione non cambia.</li>
+    </ul>
+    <figure><img src="{{IMG:nb_corners.png}}" alt="Tre foto della scacchiera con gli angoli rilevati: left01 con una sottogriglia 7 per 6, left01 con la griglia intera 9 per 6, left04 con la griglia 9 per 6"><figcaption>Con pattern (7, 6) OpenCV trova solo una sottogriglia di 7 colonne su 9 (sinistra); con (9, 6) prende tutti i 54 angoli (centro) e trova anche le immagini che prima scartava, come left04 (destra).</figcaption></figure>
+  </div>
+
+  <div class="card">
+    <h3>Bug e imprecisioni</h3>
+    <div class="meta">Verificati eseguendo il codice</div>
+    <div class="box w"><b>1 · Pattern sbagliato: le scacchiere hanno 9 × 6 angoli interni, non 7 × 6</b>
+      <p>Il notebook copia dal tutorial OpenCV la griglia (7, 6), ma le immagini <code>left*.jpg</code> hanno 10 × 7 quadretti, cioè <b>9 × 6 angoli interni</b>. Con (7, 6) <code>findChessboardCorners</code> fallisce su 4 immagini e sulle altre 9 restituisce una sottogriglia (42 punti invece di 54), che lascia fuori due delle nove colonne di angoli: meno immagini, meno copertura dei bordi, proprio dove la distorsione si misura meglio (slide 44 e 56). Con (9, 6) tutte e 13 le immagini vengono rilevate. Anche (6, 9) funziona: cambia solo l'ordine degli angoli, la calibrazione è identica.</p>
+      <p>Attenzione: l'RMS più basso del notebook (0.156 contro 0.18 con il pattern giusto) non vuol dire calibrazione migliore. È calcolato su meno punti e su viste più "facili". Le deviazioni standard dei parametri (<code>calibrateCameraExtended</code>) dicono il contrario: σ(f<sub>x</sub>) = 0.62 px con (7, 6), 0.41 px con (9, 6) e finestra 7 × 7.</p>
+    </div>
+    <div class="box w"><b>2 · Con il pattern giusto, la finestra 11 × 11 di cornerSubPix sposta gli angoli</b>
+      <p>Passando a (9, 6) senza cambiare altro, l'RMS globale sale a <b>0.409</b> px e left02 ha RMS <b>1.22</b> px contro 0.16–0.46 delle altre. Causa: in left02 il pannello è molto inclinato e l'ultima fila di angoli è vicina al bordo scuro del pannello, con quadretti alti una decina di pixel; la finestra di ricerca (mezza finestra 11, cioè 23 × 23 px) include il bordo e trascina quegli angoli fino a 6 px più in basso. Con <code>winSize=(7, 7)</code> tutte le 13 immagini hanno RMS fra 0.16 e 0.24 e il globale è <b>0.183</b> px. È esattamente il caso "poche immagini con errore molto più alto" della slide 53: lo si vede solo guardando l'errore per immagine.</p>
+      <figure><img src="{{IMG:nb_reproj.png}}" alt="Grafico a barre dell'errore RMS per immagine in tre configurazioni: con pattern 9 per 6 e finestra 11 la barra di left02 arriva a 1.22 pixel, con finestra 7 tutte le barre stanno fra 0.16 e 0.24"><figcaption>RMS di riproiezione per immagine. Blu: il notebook (9 immagini). Arancione: pattern giusto, finestra 11 × 11 (left02 fuori scala). Verde: pattern giusto, finestra 7 × 7.</figcaption></figure>
+    </div>
+    <div class="box w"><b>3 · ret e "Mean reprojection error" sono misure diverse</b>
+      <p>La cella 10 dice "ret is the reprojection error". <code>ret</code> è l'errore <b>RMS</b>: √(media dei quadrati delle distanze) = 0.1559 px. La cella 24 calcola la <b>media delle distanze</b> = 0.1375 px. Per la disuguaglianza fra media quadratica e media aritmetica l'RMS è sempre maggiore o uguale, e i due numeri non vanno confrontati fra loro. (Il tutorial OpenCV originale calcola ancora un'altra cosa, <code>cv.norm(..., NORM_L2)/N</code>, che è RMS/√N: per confrontarsi con <code>ret</code> va usato l'RMS.)</p>
+    </div>
+    <div class="box w"><b>4 · Imprecisioni minori</b>
+      <ul>
+        <li><b>Unità</b>: <code>objp</code> ha passo 1, quindi <code>tvecs</code> sono in <b>lati di quadretto</b>, non in metri: tvecs di left01 = (3.79, 0.92, 14.86) significa pannello a circa 15 quadretti dalla camera. Per avere millimetri: <code>objp *= lato_mm</code>. K e dist non cambiano.</li>
+        <li><b><code>glob</code> non ordinato</b>: l'ordine dei file dipende dal sistema operativo, quindi <code>rvecs[0]</code> non è sempre left01 (vedi sopra). Usare <code>sorted(glob.glob(...))</code> e tenere la lista dei file usati.</li>
+        <li><b><code>plt.imshow(dst)</code> senza conversione BGR → RGB</b>: qui non si vede perché le immagini sono grigie (i tre canali sono identici, verificato), ma con foto a colori rosso e blu verrebbero scambiati. Nella stessa cella <code>x, y, w, h = roi</code> sovrascrive le dimensioni dell'immagine w, h.</li>
+        <li><b>alpha = 1 seguito dal ritaglio</b>: alpha = 1 tiene tutti i pixel originali (bordi neri curvi), e il ritaglio alla roi (14, 24, 609, 431) li butta di nuovo. Funziona, ma il notebook mostra solo l'immagine ritagliata e senza l'originale accanto, quindi non si vede l'effetto della correzione. Nota: con alpha = 0 la nuova matrice ha f<sub>x</sub> = 477 e f<sub>y</sub> = 502, cioè l'immagine corretta viene anche stirata in modo diverso nelle due direzioni.</li>
+        <li>L'undistort è valutato su left12, che è un'immagine di calibrazione: non è un test indipendente.</li>
+      </ul>
+      <figure><img src="{{IMG:nb_undistort.png}}" alt="left12 originale con i bordi della scacchiera curvi, versione corretta con alpha 1 con bordi neri curvi e rettangolo rosso della roi, versione con alpha 0 che riempie tutto il riquadro"><figcaption>left12 prima e dopo la correzione (calibrazione del notebook, k<sub>1</sub> = −0.29: barilotto). Con alpha = 1 compaiono i bordi neri dei pixel "virtuali" e la roi (rosso) è la parte tutta valida; con alpha = 0 l'immagine viene ingrandita fino a non avere pixel vuoti.</figcaption></figure>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Correzione minima</h3>
+    <div class="meta">Pattern giusto, finestra più piccola, file ordinati, errore per immagine, unità esplicite</div>
+    <pre>pattern = (9, 6)          # angoli interni delle immagini left*.jpg
+square = 1.0              # lato del quadretto (mettere i mm reali se noti)
+objp = np.zeros((pattern[0] * pattern[1], 3), np.float32)
+objp[:, :2] = np.mgrid[0:pattern[0], 0:pattern[1]].T.reshape(-1, 2) * square
+
+objpoints, imgpoints, used = [], [], []
+for fname in sorted(glob.glob('calibration_data/*.jpg')):
+    gray = cv.imread(fname, cv.IMREAD_GRAYSCALE)
+    ok, corners = cv.findChessboardCorners(gray, pattern, None)
+    if not ok:
+        print('skip', fname); continue
+    corners = cv.cornerSubPix(gray, corners, (7, 7), (-1, -1), criteria)
+    objpoints.append(objp); imgpoints.append(corners); used.append(fname)
+
+ret, K, dist, rvecs, tvecs, std_in, std_ex, per_view = cv.calibrateCameraExtended(
+    objpoints, imgpoints, gray.shape[::-1], None, None)
+print('RMS globale', ret)
+for f, e in zip(used, per_view.ravel()):
+    print(f, round(e, 3))            # errore RMS per immagine (slide 53)
+
+# media delle distanze, se serve: e NON confrontarla con ret
+res = np.concatenate([np.linalg.norm(i.reshape(-1, 2) - cv.projectPoints(o, r, t, K, dist)[0].reshape(-1, 2), axis=1)
+                      for o, i, r, t in zip(objpoints, imgpoints, rvecs, tvecs)])
+print('media', res.mean(), 'RMS', np.sqrt((res ** 2).mean()))
+
+img = cv.imread('calibration_data/left12.jpg')
+h, w = img.shape[:2]
+newK, roi = cv.getOptimalNewCameraMatrix(K, dist, (w, h), 1, (w, h))
+dst = cv.undistort(img, K, dist, None, newK)
+rx, ry, rw, rh = roi
+plt.imshow(cv.cvtColor(dst[ry:ry + rh, rx:rx + rw], cv.COLOR_BGR2RGB))</pre>
+    <p>Risultato: 13 immagini, RMS 0.183 px, K = [533.0, 0, 342.3; 0, 533.1, 233.9; 0, 0, 1], dist = (−0.285, 0.064, 0.0011, −0.0001, 0.082).</p>
+  </div>
+
+  <div class="card">
+    <h3>Esercizi sul notebook</h3>
+    <div class="meta">In ordine di difficoltà; i risultati indicati sono quelli della riesecuzione</div>
+    <ol>
+      <li>Applica la correzione minima e confronta K e dist con quelli del notebook: f<sub>x</sub> cambia di 1 px, k<sub>3</sub> passa da 0.01 a 0.08. Rimetti la finestra (11, 11) e trova da solo l'immagine cattiva guardando <code>per_view</code>.</li>
+      <li><b>Overfitting di k<sub>3</sub></b> (slide 56): ricalibra con <code>flags=cv.CALIB_FIX_K3</code>. Atteso: RMS praticamente uguale (0.1833 contro 0.1832). Poi calibra su 20 sottoinsiemi casuali di 8 immagini: f<sub>x</sub> resta fra 532 e 534 e k<sub>1</sub> fra −0.30 e −0.26, mentre k<sub>3</sub> va da −0.08 a 0.79. Conclusione: k<sub>3</sub> non è determinato da questi dati.</li>
+      <li><b>Validazione leave-one-out</b>: calibra su 12 immagini, stima la posa della tredicesima con <code>cv.solvePnP</code> e misura l'RMS su quella. Atteso: circa 0.19 px di media, massimo 0.25, sia con sia senza k<sub>3</sub>.</li>
+      <li>Ricava la <b>posizione della camera</b> rispetto al pannello per ogni vista: R = <code>cv.Rodrigues(rvec)[0]</code>, C = −R<sup>⊤</sup>tvec. Collega il risultato al T della lezione (M = K[R | −RT]).</li>
+      <li><b>DLT a mano</b> (slide 32–37): genera punti 3D casuali non complanari, proiettali con una M nota, aggiungi rumore, stima M con la SVD, poi K e R con <code>scipy.linalg.rq</code> e la correzione dei segni, e T = −B<sup>−1</sup>b. Ripeti con tutti i punti su Z = 0 e controlla il rango di A (deve essere 8).</li>
+      <li><b>Verso Zhang</b>: per ogni immagine stima l'omografia fra la griglia (X, Y) e gli angoli rilevati con <code>cv.findHomography</code>; verifica che K<sup>−1</sup>H abbia le prime due colonne (quasi) ortogonali e di uguale norma, con la K stimata. Sono i due vincoli del metodo multipiano.</li>
+    </ol>
+  </div>
+</div>
+
+<div class="sec" id="l12-guida"><h2>Guida allo studio</h2><span>circa 4 ore in quattro blocchi</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Prima di iniziare</h3>
+    <div class="meta">20 minuti</div>
+    <p>Ripassa da L11 il modello M = K[R | −RT] (perché −RT, cosa c'è in K) e le rotazioni elementari attorno agli assi; da L9 la DLT dell'omografia (due equazioni per coppia, SVD), che qui si riusa identica con 12 incognite; da L8 il criterio di Harris (angolo = gradiente forte in due direzioni), che spiega perché si usano gli angoli della scacchiera.</p>
+  </div>
+  <div class="two">
+    <div class="card">
+      <h3>1 · Esempi di matrici</h3>
+      <div class="meta">Slide 7–28 · circa 1 ora e un quarto</div>
+      <p>Obiettivo: saper costruire M da un disegno e controllarla.</p>
+      <ul>
+        <li>Rifai a mano i prodotti di (b), (c), (d) e confrontali con le schede 13, 17–18, 26–28.</li>
+        <li>Ricava x e y di (c), i casi θ = 0 e θ = 90°, e l'orizzonte y → a tanθ.</li>
+        <li>Per (d) spiega perché R = R<sub>x</sub>R<sub>y</sub> e non R<sub>y</sub>R<sub>x</sub> (terza riga = asse ottico).</li>
+        <li>Leggi § 39.6 del libro.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>2 · DLT e scomposizione</h3>
+      <div class="meta">Slide 29–39 · circa 1 ora</div>
+      <p>Obiettivo: scrivere la DLT per la matrice della camera e ricavare K, R, T.</p>
+      <ul>
+        <li>Scrivi le due righe di A per un punto, conta i gradi di libertà, spiega perché servono 6 punti non complanari.</li>
+        <li>Correggi su OneNote le slide 37 (T = −B<sup>−1</sup>b, RQ), 39 e 45 (non SGD).</li>
+        <li>Spiega la differenza fra errore algebrico ed errore di riproiezione. Leggi § 39.7.1–39.7.4.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>3 · Metodo multipiano e pratica</h3>
+      <div class="meta">Slide 40–59 · circa 45 minuti</div>
+      <p>Obiettivo: saper descrivere la calibrazione con scacchiera dall'acquisizione ai controlli.</p>
+      <ul>
+        <li>Spiega perché con un piano si usano le omografie (scheda 41) e cosa vincola ogni vista.</li>
+        <li>Correggi la slide 52 (γ è lo skew).</li>
+        <li>Elenca a memoria la pipeline OpenCV, i controlli di plausibilità e i quattro errori della slide 56.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>4 · Notebook</h3>
+      <div class="meta">circa 1 ora</div>
+      <ul>
+        <li>Esegui il notebook, poi la correzione minima: guarda come cambiano immagini usate, K e RMS per immagine.</li>
+        <li>Fai almeno gli esercizi 2 e 5: il primo mostra l'overfitting della distorsione, il secondo chiude il cerchio con la teoria.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Formule da sapere a memoria</h3>
+    <span class="f">M = K [R | −RT],   P<sub>C</sub> = R(P<sub>W</sub> − T),   a = f N / w  (w larghezza del sensore)</span>
+    <span class="f">(c): x = aX / (sinθ(h − Y) + cosθ Z),   y = a(cosθ(Y − h) + sinθ Z) / (sinθ(h − Y) + cosθ Z),   orizzonte y = a tanθ</span>
+    <span class="f">DLT: P<sub>i</sub><sup>⊤</sup>m<sub>0</sub> − x<sub>i</sub>P<sub>i</sub><sup>⊤</sup>m<sub>2</sub> = 0,   P<sub>i</sub><sup>⊤</sup>m<sub>1</sub> − y<sub>i</sub>P<sub>i</sub><sup>⊤</sup>m<sub>2</sub> = 0,   min ‖Am‖ con ‖m‖ = 1,   11 gdl → 6 punti</span>
+    <span class="f">M = [B | b]:   T = −B<sup>−1</sup>b,   B = KR con RQ (o QR di B<sup>−1</sup>) + segni</span>
+    <span class="f">E = ∑ ‖p<sub>i</sub> − π(K[R | −RT]P<sub>i</sub>)‖²,   π(u, v, w) = (u/w, v/w),   RMS = √(E/N)</span>
+    <span class="f">distorsione: x<sub>d</sub> = x(1 + k<sub>1</sub>r² + k<sub>2</sub>r⁴ + k<sub>3</sub>r⁶) + tangenziale (p<sub>1</sub>, p<sub>2</sub>)</span>
+  </div>
+
+  <div class="card">
+    <h3>Domande tipo orale</h3>
+    <div class="meta">Prova a rispondere, poi apri per la traccia</div>
+    <div class="qa">
+      <details><summary>Scrivi il modello completo della camera e spiega il ruolo di ogni matrice.</summary><p>λp̃ = K[R | −RT]P̃. T è la posizione del centro della camera nel mondo; R ruota gli assi del mondo su quelli della camera; −RT viene dal fatto che prima si trasla e poi si ruota: P<sub>C</sub> = R(P<sub>W</sub> − T). K proietta e converte in pixel (a = fN/w, c<sub>x</sub>, c<sub>y</sub>, eventualmente b e skew). 3×4 a meno di scala: 11 gdl = 5 intrinseci + 6 estrinseci (slide 4, 8; § 39.4–39.5).</p></details>
+      <details><summary>Camera a quota h, inclinata verso il basso di θ: scrivi M e trova la linea dell'orizzonte.</summary><p>M = K · R<sub>x</sub>(θ) · trasl(0, −h, 0) = [a 0 0 0; 0 a cosθ a sinθ −ah cosθ; 0 −sinθ cosθ h sinθ]. y = a(cosθ(Y − h) + sinθZ)/(sinθ(h − Y) + cosθZ); per Z → ∞ y → a tanθ. Per θ = 0 l'orizzonte è al centro (slide 17–21).</p></details>
+      <details><summary>Perché le teste delle persone alte come il fotografo stanno sull'orizzonte? Come si usa per calibrare?</summary><p>Un punto con Y = h dà y = a sinθZ/(cosθZ) = a tanθ per ogni Z: tutti gli occhi a quota h finiscono sulla stessa riga, quella dell'orizzonte. Se si trova l'orizzonte (punto di fuga delle parallele del suolo) e si conosce a, θ = arctan(y<sub>h</sub>/a); se si conosce θ, si ricava a (slide 22–23).</p></details>
+      <details><summary>Nell'esempio (d) perché l'ordine delle rotazioni conta? Come verifichi quale è giusto?</summary><p>Le rotazioni attorno ad assi diversi non commutano: R<sub>x</sub>R<sub>y</sub> e R<sub>y</sub>R<sub>x</sub> differiscono nel segno dei seni. Si controlla la terza riga di R, che è l'asse ottico nel mondo: con R<sub>x</sub>R<sub>y</sub> è (0, −sinθ, −cosθ), verso il basso e verso l'origine del mondo come nella figura; l'altro ordine la fa guardare in alto (slide 26–27).</p></details>
+      <details><summary>Descrivi la DLT per stimare la matrice della camera. Quanti punti servono e con quali condizioni?</summary><p>Da x<sub>i</sub> = m<sub>0</sub><sup>⊤</sup>P<sub>i</sub>/m<sub>2</sub><sup>⊤</sup>P<sub>i</sub> e analoga per y, moltiplicando per il denominatore si ottengono 2 equazioni lineari per punto; si impila A (2N × 12) e si risolve min ‖Am‖ con ‖m‖ = 1: autovettore di A<sup>⊤</sup>A con autovalore minimo / ultimo vettore singolare destro. 11 gdl → 6 punti, non complanari (con un piano A ha rango 8). Conviene normalizzare (slide 32–36, § 39.7.1).</p></details>
+      <details><summary>Dalla matrice M stimata, come ricavi K, R e la posizione della camera?</summary><p>M = [B | b] con B = KR, b = −KRT: T = −B<sup>−1</sup>b. B si scompone in triangolare superiore × ortonormale con la RQ (o QR di B<sup>−1</sup>, come il libro), poi si sistemano i segni in modo che la diagonale di K sia positiva e si normalizza K<sub>33</sub> = 1. Sensibile al rumore: è un'inizializzazione (slide 37, § 39.7.2).</p></details>
+      <details><summary>Perché dopo la DLT serve un'ottimizzazione non lineare? Con quale metodo?</summary><p>La DLT minimizza un errore algebrico in cui ogni punto è pesato dalla sua profondità e non include la distorsione. L'errore che conta è quello di riproiezione in pixel, ∑‖p<sub>i</sub> − π(K[R | −RT]P<sub>i</sub>)‖², non lineare per la divisione e per la distorsione. Si minimizza con un metodo locale (Levenberg-Marquardt in OpenCV, non SGD), inizializzato dalla soluzione lineare (slide 38–39, 45).</p></details>
+      <details><summary>Spiega il metodo di Zhang. Perché non si usa direttamente la DLT della 3×4?</summary><p>I punti della scacchiera sono tutti su Z = 0: la DLT della 3×4 è degenere. Per ogni vista si stima l'omografia H ∝ K[r<sub>1</sub> r<sub>2</sub> t] fra pannello e immagine; poiché r<sub>1</sub> e r<sub>2</sub> sono ortonormali, ogni H dà due vincoli lineari su K<sup>−⊤</sup>K<sup>−1</sup>; con 3 o più viste si ricava K, poi R, t per vista, poi raffinamento con distorsione sull'errore di riproiezione (slide 41, Zhang 2000).</p></details>
+      <details><summary>Come deve essere un buon insieme di immagini di calibrazione, e perché?</summary><p>15–25 immagini, pannello rigido e a fuoco, distanze diverse, inclinazioni in entrambe le direzioni, pannello anche vicino a bordi e angoli dell'immagine. Le inclinazioni rendono osservabile la focale (viste frontali: f e distanza si confondono); i bordi servono a stimare la distorsione, che lì è massima (slide 44, 47, 56).</p></details>
+      <details><summary>Come valuti una calibrazione? Cosa dice ret di calibrateCamera?</summary><p>ret è l'RMS globale di riproiezione in pixel. Va guardato l'RMS per immagine (basso e uniforme, sotto 0.5 px), i controlli di plausibilità (punto principale vicino al centro, f<sub>x</sub> ≈ f<sub>y</sub>, skew ≈ 0), la stabilità di K e dist su sottoinsiemi, l'assenza di curvatura residua dopo l'undistort. Nel notebook con pattern giusto e finestra 11 una sola immagine a 1.22 px rivelava angoli spostati (slide 51–54).</p></details>
+      <details><summary>Cos'è la distorsione della lente e come la modella OpenCV? Quando conviene non stimare k<sub>3</sub>?</summary><p>Radiale: x<sub>d</sub> = x(1 + k<sub>1</sub>r² + k<sub>2</sub>r⁴ + k<sub>3</sub>r⁶), barilotto se k<sub>1</sub> &lt; 0; tangenziale con p<sub>1</sub>, p<sub>2</sub>. Si applica alle coordinate normalizzate prima di K. k<sub>3</sub> va fissato a 0 (CALIB_FIX_K3) se k<sub>1</sub>, k<sub>2</sub> bastano: nel notebook fissarlo non cambia l'RMS, e su sottoinsiemi diversi k<sub>3</sub> oscilla fra −0.08 e 0.79 (slide 56).</p></details>
+      <details><summary>A cosa servono findChessboardCorners e cornerSubPix? Cosa può andare storto?</summary><p>Il primo trova la griglia di angoli interni nell'ordine giusto (pattern_size = angoli interni!), il secondo raffina ogni angolo imponendo che il gradiente nella finestra sia ortogonale a p − q. Errori: pattern_size sbagliato (sottogriglie o immagini scartate), finestra troppo grande rispetto ai quadretti (angoli trascinati verso i bordi), ordine degli angoli invertito (slide 49–50, notebook).</p></details>
+    </div>
+  </div>
+</div>

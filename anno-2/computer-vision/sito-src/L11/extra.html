@@ -1,0 +1,135 @@
+<div class="sec" id="l11-libro"><h2>Studia dal libro</h2><span>visionbook cap. 38 e cap. 39 § 39.1–39.5 (circa 1 ora e mezza)</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Cosa leggere, in ordine</h3>
+    <div class="meta">Torralba, Isola, Freeman, <i>Foundations of Computer Vision</i>, gratis online</div>
+    <ol>
+      <li><a href="https://visionbook.mit.edu/homogeneous_coordinates.html" target="_blank">Cap. 38, Representing Images and Geometry</a>: § 38.1 (tre rappresentazioni dell'immagine), § 38.2 (coordinate omogenee), § 38.3 tutto (38.3.1 traslazione, 38.3.2 scala, 38.3.3 rotazione, 38.3.4 shear, 38.3.5 composizione, 38.3.6 affine e proiettiva, 38.3.7 trasformazioni come convoluzioni), § 38.5 (warping in avanti e all'indietro). Copre le slide 5–34.</li>
+      <li><a href="https://visionbook.mit.edu/imaging_geometry.html" target="_blank">Cap. 39, Camera Modeling and Calibration</a>: § 39.1 (perché servono più riferimenti), § 39.2 e 39.2.1 (proiezione prospettica e parallela come matrici 3×4), § 39.3 tutto (39.3.1 dai metri ai pixel, 39.3.2 dai pixel ai raggi, 39.3.3 la calibrazione col righello, 39.3.4 skew e distorsione), § 39.4 (estrinseci), § 39.5 (modello completo). Copre le slide 35–71.</li>
+      <li>Ripasso, se serve: <a href="https://visionbook.mit.edu/imaging.html" target="_blank">cap. 5, Imaging</a>, per la camera pinhole e le equazioni x = fX/Z (già in L2).</li>
+      <li>Facoltativo: Hartley e Zisserman, <i>Multiple View Geometry</i>, cap. 6 (Camera models: matrice P, centro della camera, notazione [R | t]); Szeliski 2a ed., § 2.1 (Geometric primitives and transformations: trasformazioni 2D e proiezioni 3D → 2D).</li>
+    </ol>
+    <p><b>Si può saltare</b>: § 38.4 (rette e piani in omogenee: utile ma non nelle slide; lo si è usato in L9), § 38.6 (rappresentazioni implicite con reti SIREN: basta l'idea della slide 5), § 38.7. Dal § 39.6 in poi è materiale della L12 (esempi concreti e calibrazione).</p>
+    <p><b>Nel libro ma non nelle slide</b>: la proiezione parallela come matrice (§ 39.2.1), il passaggio pixel → raggio (§ 39.3.2), le proprietà della scala sull'area (determinante), l'approssimazione della rotazione piccola come shear, l'anti-aliasing prima del warping in riduzione (§ 38.5), la forma con K 3×3 e la catena K · R · [I | −T] (§ 39.5).</p>
+  </div>
+
+  <div class="card">
+    <h3>Le idee centrali, come le spiega il libro</h3>
+    <div class="meta">Da saper ricostruire senza slide</div>
+    <p><b>1 · Omogenee: somme e rapporti diventano prodotti.</b> Aggiungendo una componente uguale a 1, la traslazione finisce nella terza colonna della matrice (moltiplicata per 1 e quindi sommata) e la divisione prospettica si rimanda alla conversione finale [x, y, w] → (x/w, y/w). Ogni punto è una retta per l'origine: [x, y, w] ≡ λ[x, y, w] (§ 38.2).</p>
+    <p><b>2 · Le colonne della matrice sono le immagini della base.</b> La rotazione si ricava guardando dove vanno (1, 0) e (0, 1); in omogenee la terza colonna è l'immagine dell'origine, cioè la traslazione. Comporre = moltiplicare, da destra a sinistra; la rotazione attorno a un punto t è T<sub>t</sub>RT<sub>−t</sub> (§ 38.3.3, 38.3.5).</p>
+    <p><b>3 · Gerarchia.</b> Euclidee (3 gdl) ⊂ similitudini (4) ⊂ affini (6, ultima riga [0, 0, 1], conservano il parallelismo) ⊂ proiettive (8, conservano solo le rette). Più gdl, meno invarianti (§ 38.3.5–38.3.6).</p>
+    <p><b>4 · Warping all'indietro.</b> Per ogni pixel di arrivo si calcola M<sup>−1</sup> e si interpola nella sorgente: niente buchi. Se si riduce, prima si sfoca (§ 38.5).</p>
+    <p><b>5 · Proiezione come matrice.</b> [[f, 0, 0, 0], [0, f, 0, 0], [0, 0, 1, 0]][X, Y, Z, 1]<sup>⊤</sup> = [fX, fY, Z]<sup>⊤</sup>: lineare in omogenee, con λ = Z. Poi metri → pixel: a = fN/w, b = fM/h, punto principale (c<sub>x</sub>, c<sub>y</sub>), quindi n = aX/Z + c<sub>x</sub>, m = bY/Z + c<sub>y</sub>. Ogni pixel è un raggio λ(x, y, f) (§ 39.2–39.3).</p>
+    <p><b>6 · Estrinseci e modello completo.</b> T = posizione della camera nel mondo, R = rotazione mondo → camera. P<sub>C</sub> = R(P<sub>W</sub> − T), cioè M<sub>2</sub>M<sub>1</sub> = [[R, −RT], [0<sup>⊤</sup>, 1]]; poi p = K[R | −RT]P<sub>W</sub>, matrice 3×4 con 11 gdl (§ 39.4–39.5).</p>
+  </div>
+
+  <div class="card">
+    <h3>Differenze di notazione fra slide e libro</h3>
+    <ul>
+      <li>Matrice della camera: slide <b>P</b> = K[R | −RT]; libro <b>M</b> (eq. 39.14), mentre P è sempre un punto 3D.</li>
+      <li>Rotazione 2D: le slide usano la forma antioraria [[cos, −sin], [sin, cos]]; il testo del § 38.3.3 scrive [[cos, sin], [−sin, cos]] chiamandola antioraria, ma con y in alto è oraria (la fig. 38.7 usa la forma delle slide). Anche i kernel del § 38.3.7 seguono la forma del testo.</li>
+      <li>Shear: il testo del § 38.3.4 scrive x′ = x + q<sub>y</sub>y, refuso per x′ = x + q<sub>x</sub>y (la matrice è la stessa delle slide).</li>
+      <li>Traslazione composta: nel § 38.3.1 la seconda traslazione si chiama S, come la scala del § 38.3.2.</li>
+      <li>K: nel cap. 39 è prima 3×4 (con colonna di zeri), poi 3×3 nella forma K[R | −RT]; le slide usano entrambe senza segnalarlo.</li>
+      <li>OpenCV e Hartley-Zisserman scrivono [R | t] con t = −RT e assi della camera con y verso il basso (f<sub>x</sub>, f<sub>y</sub> positivi); il libro tiene y verso l'alto e trova a (e b) negativi.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Cosa il libro aggiunge e le slide omettono</h3>
+    <ul>
+      <li>Il passaggio <b>inverso</b> pixel → raggio (§ 39.3.2): da un'immagine sola si recupera solo la direzione, non la profondità.</li>
+      <li>La <b>proiezione parallela</b> come matrice 3×4 e l'idea che cambiando K si cambia modello di camera (§ 39.2.1, 39.5).</li>
+      <li>Il controllo sulle specifiche dell'iPhone 13 Pro (5.7 mm, sensore 7.6 × 5.7 mm) e il giudizio sul metodo col righello: solo un controllo di plausibilità (§ 39.3.3).</li>
+      <li>La costruzione geometrica della camera (prima ruotare gli assi di R<sup>⊤</sup>, poi spostarla di T) e perché per i punti l'ordine si inverte (§ 39.4).</li>
+      <li>Fuori dal visionbook: la notazione [R | t] di OpenCV e Hartley-Zisserman (cap. 6), il vettore di Rodrigues per R (3 gdl), lo skew esplicito in K.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="sec" id="l11-guida"><h2>Guida allo studio</h2><span>3 ore in quattro blocchi</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Prima di iniziare</h3>
+    <div class="meta">15 minuti</div>
+    <p>Ripassa da L2 la camera pinhole e le equazioni x = fX/Z, y = fY/Z; da L9 le coordinate omogenee e l'omografia (H = KRK<sup>−1</sup> usava già K e R senza spiegarli: oggi si chiude il cerchio); da L6 interpolazione e piramidi. Serve l'algebra lineare di base: prodotto di matrici, inversa, matrici ortogonali.</p>
+  </div>
+  <div class="two">
+    <div class="card">
+      <h3>1 · Coordinate omogenee e trasformazioni 2D</h3>
+      <div class="meta">Slide 7–27 + § 38.2–38.3 · circa 1 ora</div>
+      <p>Obiettivo: saper scrivere e comporre le matrici a memoria.</p>
+      <ul>
+        <li>Scrivi T, S, R, Q e ricava R dai vettori della base (scheda 21).</li>
+        <li>Rifai il conto della rotazione attorno a (2, 1) (scheda 25) con un altro centro.</li>
+        <li>Mostra con un esempio che RT ≠ TR (scheda 24).</li>
+        <li>Correggi su OneNote: area dello shear (scheda 22), kernel della slide 27.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>2 · Warping</h3>
+      <div class="meta">Slide 28–34 + § 38.5 · circa 20 minuti</div>
+      <p>Obiettivo: saper spiegare perché il backward mapping è la scelta giusta.</p>
+      <ul>
+        <li>Descrivi la figura dell'orologio: da dove vengono i punti neri?</li>
+        <li>Spiega quando serve il filtro anti-aliasing e cosa fa il MIP-mapping.</li>
+        <li>Collegalo a <code>cv2.warpPerspective</code> di L10.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>3 · Proiezione e intrinseci</h3>
+      <div class="meta">Slide 35–58 + § 39.1–39.3 · circa 50 minuti</div>
+      <p>Obiettivo: costruire K pezzo per pezzo.</p>
+      <ul>
+        <li>Scrivi la proiezione 3×4 e verifica la versione con 1/f.</li>
+        <li>Ricava a = fN/w e spiega perché c<sub>x</sub> sta nella terza colonna.</li>
+        <li>Proietta a mano un punto con a, b, c<sub>x</sub>, c<sub>y</sub> dati (scheda 51).</li>
+        <li>Rifai la calibrazione col righello: 31 × 2002 / 20 = 3103.1 e l'errore del 2.6% (schede 57–58).</li>
+        <li>Correggi la pipeline della slide 37 e il 30103.1 della slide 57.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>4 · Estrinseci e matrice completa</h3>
+      <div class="meta">Slide 59–76 + § 39.4–39.5 · circa 50 minuti</div>
+      <p>Obiettivo: arrivare a p = K[R | −RT]P<sub>W</sub> da un foglio bianco.</p>
+      <ul>
+        <li>Spiega cosa sono T e R (e perché gli assi sono ruotati di R<sup>⊤</sup>).</li>
+        <li>Calcola M<sub>2</sub>M<sub>1</sub> a blocchi e verifica che il centro della camera va nell'origine.</li>
+        <li>Conta i gdl: 5 + 6 = 11 = 12 − 1.</li>
+        <li>Facoltativo: in numpy proietta una griglia di punti 3D con una K e una posa a scelta e disegnali.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Formulario minimo</h3>
+    <div class="meta">Da saper scrivere a memoria</div>
+    <span class="f">[x, y, w] ≡ λ[x, y, w],   [x, y, w] → (x/w, y/w)</span>
+    <span class="f">T = [[1, 0, t<sub>x</sub>], [0, 1, t<sub>y</sub>], [0, 0, 1]],   R = [[cos θ, −sin θ, 0], [sin θ, cos θ, 0], [0, 0, 1]],   Q = [[1, q<sub>x</sub>, 0], [q<sub>y</sub>, 1, 0], [0, 0, 1]]</span>
+    <span class="f">rotazione attorno a t: T<sub>t</sub> R<sub>θ</sub> T<sub>−t</sub> = [[R, (I − R)t], [0, 1]]</span>
+    <span class="f">affine: ultima riga [0, 0, 1], 6 gdl;   proiettiva: 3×3 generica, 8 gdl</span>
+    <span class="f">a = f N / w,   K = [[a, 0, c<sub>x</sub>], [0, b, c<sub>y</sub>], [0, 0, 1]],   n = aX/Z + c<sub>x</sub>,   m = bY/Z + c<sub>y</sub></span>
+    <span class="f">P<sub>C</sub> = R(P<sub>W</sub> − T),   [[R, −RT], [0<sup>⊤</sup>, 1]] = M<sub>2</sub>M<sub>1</sub></span>
+    <span class="f">p = K [R | −RT] P<sub>W</sub>,   3×4 a meno di scala: 11 gdl = 5 + 6</span>
+  </div>
+
+  <div class="card">
+    <h3>Domande tipo orale</h3>
+    <div class="meta">Prova a rispondere, poi apri per la traccia</div>
+    <div class="qa">
+      <details><summary>Cosa sono le coordinate omogenee e perché si usano in visione?</summary><p>Un punto (x, y) diventa [x, y, 1], e ogni multiplo non nullo rappresenta lo stesso punto (una retta per l'origine). Così traslazioni e proiezione prospettica, che in cartesiane sono una somma e un rapporto, diventano prodotti matrice-vettore: tutto si compone moltiplicando matrici e si inverte invertendo, e la divisione si fa una volta sola alla fine (slide 8–11, § 38.2).</p></details>
+      <details><summary>Scrivi la matrice di rotazione 2D e ricavala.</summary><p>R = [[cos θ, −sin θ], [sin θ, cos θ]] (antioraria, y in alto). Le colonne sono le immagini dei vettori di base: (1, 0) → (cos θ, sin θ), (0, 1) → (−sin θ, cos θ). È ortogonale: R<sup>⊤</sup> = R<sup>−1</sup>, det = 1, conserva le distanze. Con y verso il basso (pixel) appare oraria (slide 18–21).</p></details>
+      <details><summary>Come si ruota un'immagine attorno a un punto che non è l'origine?</summary><p>Si compone: T<sub>t</sub>R<sub>θ</sub>T<sub>−t</sub>, cioè trasla il centro nell'origine, ruota, riporta indietro; si legge da destra a sinistra. In forma chiusa [[R, (I − R)t], [0, 1]]. Esempio: 90° attorno a (2, 1) manda (3, 1) in (2, 2) (slide 25, § 38.3.5).</p></details>
+      <details><summary>Differenza fra trasformazione affine e proiettiva?</summary><p>Affine: ultima riga [0, 0, 1], 6 gdl, conserva il parallelismo e i rapporti di lunghezza sulla stessa retta. Proiettiva (omografia): 3×3 qualsiasi invertibile, definita a meno di scala, 8 gdl, conserva solo la collinearità; il denominatore gx + hy + i varia con il punto e le parallele convergono (slide 26, § 38.3.6).</p></details>
+      <details><summary>Forward e backward mapping: come funzionano e quale si usa?</summary><p>Forward: ogni pixel sorgente viene mandato con M nel bersaglio e arrotondato: restano buchi, sovrapposizioni, aliasing. Backward: per ogni pixel bersaglio si calcola M<sup>−1</sup> e si interpola la sorgente (bilineare, bicubica): ogni pixel riceve un valore. Si usa il backward, con sfocatura preventiva se si riduce (slide 29–34, § 38.5).</p></details>
+      <details><summary>Scrivi la proiezione prospettica come matrice e spiega perché è lineare.</summary><p>[[f, 0, 0, 0], [0, f, 0, 0], [0, 0, 1, 0]][X, Y, Z, 1]<sup>⊤</sup> = [fX, fY, Z]<sup>⊤</sup> = λ[x, y, 1]<sup>⊤</sup> con λ = Z. È lineare in omogenee perché la divisione per Z viene spostata nella conversione finale; la matrice si può riscalare (es. con 1/f in basso) senza cambiare la proiezione (slide 43–45, § 39.2).</p></details>
+      <details><summary>Cosa contiene la matrice degli intrinseci K? Spiega ogni parametro.</summary><p>K = [[a, 0, c<sub>x</sub>], [0, b, c<sub>y</sub>], [0, 0, 1]] (più eventuale skew). a = fN/w e b = fM/h: focale in pixel nelle due direzioni (diverse se i pixel non sono quadrati); (c<sub>x</sub>, c<sub>y</sub>): punto principale, dove l'asse ottico tocca il sensore, che sposta l'origine all'angolo dell'immagine. Dipende solo dalla camera. I segni di a, b dipendono dalle convenzioni sugli assi (slide 47–53, § 39.3).</p></details>
+      <details><summary>Descrivi la calibrazione semplice con la scacchiera e i suoi limiti.</summary><p>Scacchiera larga W = 20 cm, frontale, a distanza Z = 31 cm misurata col righello, larga L = 2002 pixel nella foto: L = aW/Z ⇒ a = 31 × 2002/20 = 3103.1. Il valore dalle specifiche è 3024: errore 2.6%. Limiti: un solo parametro, una sola misura di distanza imprecisa (dal centro ottico?), parallelismo assunto, punto principale assunto al centro, nessuna distorsione (slide 54–58, § 39.3.3).</p></details>
+      <details><summary>Cosa sono R e T e come si passa dal mondo alla camera?</summary><p>T è la posizione del centro della camera nel riferimento del mondo, R la rotazione che porta le coordinate dal mondo alla camera (gli assi della camera sono ruotati di R<sup>⊤</sup>). P<sub>C</sub> = R(P<sub>W</sub> − T) = RP<sub>W</sub> − RT: prima si trasla di −T, poi si ruota. In omogenee M<sub>2</sub>M<sub>1</sub> = [[R, −RT], [0<sup>⊤</sup>, 1]] (slide 60–68, § 39.4).</p></details>
+      <details><summary>Scrivi il modello completo della camera e conta i gradi di libertà.</summary><p>p = K[R | −RT]P<sub>W</sub>: 3×3 per 3×4 per 4×1, poi divisione per la terza componente. Prima estrinseci poi intrinseci. Gdl: 5 intrinseci (a, b, c<sub>x</sub>, c<sub>y</sub>, skew) + 6 estrinseci (3 rotazione, 3 traslazione) = 11 = 12 − 1 di una 3×4 a meno di scala (slide 70–71, § 39.5).</p></details>
+      <details><summary>Perché da una sola immagine non si può ricostruire la scena 3D?</summary><p>La proiezione manda in un pixel tutti i punti di un raggio λ(x, y, f): K<sup>−1</sup>p dà solo una direzione, la profondità λ = Z è persa nel fattore di scala omogeneo. Servono altre informazioni: una seconda vista, una dimensione nota (come nella calibrazione semplice) o un prior appreso (§ 39.3.2, slide 4).</p></details>
+      <details><summary>Che legame c'è fra questa lezione e l'omografia dei panorami?</summary><p>Con due camere con lo stesso centro e la sola rotazione R, p̃<sub>2</sub> ∝ KRK<sup>−1</sup>p̃<sub>1</sub>: l'omografia di L9 è costruita con gli intrinseci e la rotazione degli estrinseci. Con una scena planare (Z = 0) K[R | −RT] perde una colonna e diventa una 3×3: di nuovo un'omografia (cap. 41).</p></details>
+    </div>
+  </div>
+</div>
