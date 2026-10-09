@@ -94,6 +94,10 @@ def main():
     tpl = open(os.path.join(SITO, "template.html"), encoding="utf-8").read()
     tpl = tpl.replace("/*MANIFEST*/null/*END*/", "/*MANIFEST*/" + json.dumps(manifest, ensure_ascii=False) + "/*END*/")
     tpl = tpl.replace("/*GROUPS*/null/*END*/", "/*GROUPS*/" + json.dumps(GROUPS, ensure_ascii=False) + "/*END*/")
+    if not PUBLIC and os.path.exists(os.path.join(SITO, "recordings.json")):
+        # link alle registrazioni (pagine Moodle, servono le credenziali Unipi): solo versione privata
+        rec = json.load(open(os.path.join(SITO, "recordings.json"), encoding="utf-8"))
+        tpl = tpl.replace("/*RECORDINGS*/null/*END*/", "/*RECORDINGS*/" + json.dumps(rec, ensure_ascii=False) + "/*END*/")
     if PUBLIC:
         tpl = tpl.replace("/*PUBLIC*/false/*END*/", "/*PUBLIC*/true/*END*/")
         tpl = ('<!doctype html>\n<html lang="it">\n<head>\n<meta charset="utf-8">\n'

@@ -312,6 +312,7 @@ a.sbtn.gbtn{text-decoration:none;color:var(--accent);border-color:color-mix(in s
 const MANIFEST = /*MANIFEST*/null/*END*/;
 const PUBLIC = /*PUBLIC*/false/*END*/;
 const GROUPS = /*GROUPS*/null/*END*/;
+const RECORDINGS = /*RECORDINGS*/null/*END*/ || {};
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
@@ -542,6 +543,7 @@ function showHome() {
 const ICON_CODE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg>`;
 const ICON_COPY = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h10"/></svg>`;
 const ICON_PLAY = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="13" rx="1"/><path d="M8 21h8M12 17v4"/></svg>`;
+const ICON_VIDEO = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10l6-3v10l-6-3"/></svg>`;
 const ICON_IMG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="1"/><path d="M3 16l5-5 5 5 3-3 5 5"/></svg>`;
 const BOXNAME = { attenzione: "Attenzione", sapere: "Da saper fare", approfondimento: "Approfondimento" };
 function boxHTML(b) { return `<div class="box ${esc(b.type)}"><span class="bt">${BOXNAME[b.type] || b.type}${b.title ? `<span>${esc(b.title)}</span>` : ""}</span>${b.html || ""}</div>`; }
@@ -573,7 +575,7 @@ function renderLesson(L) {
   for (const [k, name] of EXTRA_SECTIONS) if (k === "guided" ? (L.guided && L.guided.steps && L.guided.steps.length) : (L[k] && L[k].length)) chips.push(`<a class="chip" href="#${L.id}-${k}" data-sec="${k}">${name}</a>`);
   nav.innerHTML = chips.join("");
   const secStart = {}; L.sections.forEach((s, i) => secStart[s.from] = i);
-  let html = `<header class="lhead"><div class="meta"><span>${L.id}</span><span>${fmtDate(L.date)}</span><span>${esc(L.teacher || "")}</span><span>${L.pages} pagine</span>${L.corrections.length ? `<span style="color:var(--att)">${L.corrections.length} ${L.corrections.length === 1 ? "correzione" : "correzioni"}</span>` : ""}</div><h1>${esc(L.title)}</h1><div class="sum prose">${L.summary || ""}</div><div class="acts">${L._pdf ? `<button class="tbtn on" data-act="present" data-p="1">${ICON_PLAY}Presenta dall'inizio</button>` : ""}${PUBLIC ? pdfLoader(L) : ""}${lessonNeighbors(L.id)}</div>${PUBLIC && !L._pdf ? `<p class="pubnote">Le slide dei docenti non sono incluse in questa versione pubblica. Se hai il PDF della lezione (dalla pagina Moodle del corso), caricalo: resta salvato solo nel tuo browser e attiva miniature, presentazione e annotazioni.</p>` : ""}${L.links.length ? `<div class="linkrow"><span style="color:var(--muted)">Collegamenti:</span>${L.links.filter(k => byId[k.to]).map(k => `<a href="#${k.to}" title="${esc(k.why)}">${k.to}</a>`).join("")}</div>` : ""}</header>`;
+  let html = `<header class="lhead"><div class="meta"><span>${L.id}</span><span>${fmtDate(L.date)}</span><span>${esc(L.teacher || "")}</span><span>${L.pages} pagine</span>${L.corrections.length ? `<span style="color:var(--att)">${L.corrections.length} ${L.corrections.length === 1 ? "correzione" : "correzioni"}</span>` : ""}</div><h1>${esc(L.title)}</h1><div class="sum prose">${L.summary || ""}</div><div class="acts">${L._pdf ? `<button class="tbtn on" data-act="present" data-p="1">${ICON_PLAY}Presenta dall'inizio</button>` : ""}${PUBLIC ? pdfLoader(L) : ""}${(RECORDINGS[L.id] || []).map(r => `<a class="tbtn" href="${esc(r.url)}" target="_blank" rel="noopener" title="Apre la pagina Moodle del corso, che rimanda al video (serve il login Unipi)">${ICON_VIDEO}${esc(r.label)}</a>`).join("")}${lessonNeighbors(L.id)}</div>${PUBLIC && !L._pdf ? `<p class="pubnote">Le slide dei docenti non sono incluse in questa versione pubblica. Se hai il PDF della lezione (dalla pagina Moodle del corso), caricalo: resta salvato solo nel tuo browser e attiva miniature, presentazione e annotazioni.</p>` : ""}${L.links.length ? `<div class="linkrow"><span style="color:var(--muted)">Collegamenti:</span>${L.links.filter(k => byId[k.to]).map(k => `<a href="#${k.to}" title="${esc(k.why)}">${k.to}</a>`).join("")}</div>` : ""}</header>`;
   const stepOf = {};
   if (L.guided && L.guided.steps) L.guided.steps.forEach((st, i) => (st.slides || []).forEach(p => { if (stepOf[p] == null) stepOf[p] = i; }));
   L._stepOf = stepOf;
