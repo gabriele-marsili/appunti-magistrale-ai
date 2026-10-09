@@ -181,6 +181,13 @@ pre.code{background:var(--code-bg);border:1px solid var(--line);border-radius:8p
 .output{background:var(--surface2)}
 .hljs-keyword,.hljs-built_in,.hljs-literal{color:var(--hl-kw)} .hljs-string{color:var(--hl-str)} .hljs-number{color:var(--hl-num)}
 .hljs-comment{color:var(--hl-com);font-style:italic} .hljs-title,.hljs-title.function_{color:var(--hl-fn)} .hljs-type,.hljs-title.class_{color:var(--hl-type)}
+.gstep h3{align-items:center}
+.gnum{font:600 13px var(--f-mono);background:var(--accent);color:var(--accent-ink);border-radius:50%;width:24px;height:24px;display:inline-grid;place-items:center;flex:none}
+.gsl{font:400 12px var(--f-mono);margin-left:auto;display:flex;gap:6px}
+.gsl a{text-decoration:none}
+.gfile{font-size:12px;color:var(--muted);margin-top:10px}
+.grun{border-left:3px solid var(--accent)}
+a.sbtn.gbtn{text-decoration:none;color:var(--accent);border-color:color-mix(in srgb,var(--accent) 50%,var(--line))}
 .figs{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
 .figs img{max-width:min(100%,360px);border:1px solid var(--line);border-radius:6px;background:#fff;cursor:zoom-in}
 
@@ -540,6 +547,7 @@ function showHome() {
 }
 
 /* ---------- lezione ---------- */
+const ICON_CODE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg>`;
 const ICON_COPY = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h10"/></svg>`;
 const ICON_PLAY = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="13" rx="1"/><path d="M8 21h8M12 17v4"/></svg>`;
 const ICON_IMG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="1"/><path d="M3 16l5-5 5 5 3-3 5 5"/></svg>`;
@@ -547,9 +555,9 @@ const BOXNAME = { attenzione: "Attenzione", sapere: "Da saper fare", approfondim
 function boxHTML(b) { return `<div class="box ${esc(b.type)}"><span class="bt">${BOXNAME[b.type] || b.type}${b.title ? `<span>${esc(b.title)}</span>` : ""}</span>${b.html || ""}</div>`; }
 function pnoHTML(s) { return `<span class="pno">p. ${s.p}</span>${s.printed != null && String(s.printed) !== String(s.p) ? `<span class="pno alt">slide ${esc(s.printed)}</span>` : ""}`; }
 function slideNotesHTML(L, s, withBtns = true) {
-  return `<div class="nhead">${pnoHTML(s)}<h3>${esc(s.title)}</h3>${withBtns ? `<div class="nbtns"><button class="sbtn" data-act="copy" data-p="${s.p}" title="Copia gli appunti in HTML (per OneNote)">${ICON_COPY}Copia</button>${L._pdf !== false ? `<button class="sbtn" data-act="copyimg" data-p="${s.p}" title="Copia l'immagine della slide">${ICON_IMG}Slide</button><button class="sbtn" data-act="present" data-p="${s.p}" title="Apri in modalità presentazione">${ICON_PLAY}Presenta</button>` : ""}</div>` : ""}</div><div class="prose">${s.html || ""}${(s.boxes || []).map(boxHTML).join("")}</div>`;
+  return `<div class="nhead">${pnoHTML(s)}<h3>${esc(s.title)}</h3>${withBtns ? `<div class="nbtns">${L._stepOf && L._stepOf[s.p] != null ? `<a class="sbtn gbtn" href="#${L.id}-g${L._stepOf[s.p] + 1}">${ICON_CODE}Codice</a>` : ""}<button class="sbtn" data-act="copy" data-p="${s.p}" title="Copia gli appunti in HTML (per OneNote)">${ICON_COPY}Copia</button>${L._pdf !== false ? `<button class="sbtn" data-act="copyimg" data-p="${s.p}" title="Copia l'immagine della slide">${ICON_IMG}Slide</button><button class="sbtn" data-act="present" data-p="${s.p}" title="Apri in modalità presentazione">${ICON_PLAY}Presenta</button>` : ""}</div>` : ""}</div><div class="prose">${s.html || ""}${(s.boxes || []).map(boxHTML).join("")}</div>`;
 }
-const EXTRA_SECTIONS = [["code", "Codice"], ["study", "Guida allo studio"], ["exercises", "Esercizi"], ["codeExercises", "Esercizi di codice"], ["oral", "Domande d'orale"]];
+const EXTRA_SECTIONS = [["guided", "Rifallo tu"], ["code", "Codice"], ["study", "Guida allo studio"], ["exercises", "Esercizi"], ["codeExercises", "Esercizi di codice"], ["oral", "Domande d'orale"]];
 
 async function showLesson(id, p, anchor) {
   const same = current.view === "lesson" && current.id === id;
@@ -570,10 +578,13 @@ async function showLesson(id, p, anchor) {
 function renderLesson(L) {
   const nav = $("#secnav"); nav.hidden = false;
   const chips = L.sections.map((s, i) => `<a class="chip" href="#${L.id}-p${s.from}" data-sec="s${i}">${esc(s.title)}<small>${s.from}-${s.to}</small></a>`);
-  for (const [k, name] of EXTRA_SECTIONS) if (L[k] && L[k].length) chips.push(`<a class="chip" href="#${L.id}-${k}" data-sec="${k}">${name}</a>`);
+  for (const [k, name] of EXTRA_SECTIONS) if (k === "guided" ? (L.guided && L.guided.steps && L.guided.steps.length) : (L[k] && L[k].length)) chips.push(`<a class="chip" href="#${L.id}-${k}" data-sec="${k}">${name}</a>`);
   nav.innerHTML = chips.join("");
   const secStart = {}; L.sections.forEach((s, i) => secStart[s.from] = i);
   let html = `<header class="lhead"><div class="meta"><span>${L.id}</span><span>${fmtDate(L.date)}</span><span>${esc(L.teacher || "")}</span><span>${L.pages} pagine</span>${L.corrections.length ? `<span style="color:var(--att)">${L.corrections.length} ${L.corrections.length === 1 ? "correzione" : "correzioni"}</span>` : ""}</div><h1>${esc(L.title)}</h1><div class="sum prose">${L.summary || ""}</div><div class="acts">${L._pdf ? `<button class="tbtn on" data-act="present" data-p="1">${ICON_PLAY}Presenta dall'inizio</button>` : ""}${PUBLIC ? pdfLoader(L) : ""}${lessonNeighbors(L.id)}</div>${PUBLIC && !L._pdf ? `<p class="pubnote">Le slide dei docenti non sono incluse in questa versione pubblica. Se hai il PDF della lezione (dalla pagina Moodle del corso), caricalo: resta salvato solo nel tuo browser e attiva miniature, presentazione e annotazioni.</p>` : ""}${L.links.length ? `<div class="linkrow"><span style="color:var(--muted)">Collegamenti:</span>${L.links.filter(k => byId[k.to]).map(k => `<a href="#${k.to}" title="${esc(k.why)}">${k.to}</a>`).join("")}</div>` : ""}</header>`;
+  const stepOf = {};
+  if (L.guided && L.guided.steps) L.guided.steps.forEach((st, i) => (st.slides || []).forEach(p => { if (stepOf[p] == null) stepOf[p] = i; }));
+  L._stepOf = stepOf;
   for (const s of L.slides) {
     if (secStart[s.p] != null) { const sec = L.sections[secStart[s.p]]; html += `<h2 class="sechead" id="${L.id}-s${secStart[s.p]}" data-sec="s${secStart[s.p]}">${esc(sec.title)} <span>p. ${sec.from}-${sec.to}</span></h2>`; }
     if (s.kind === "divider") {
@@ -582,6 +593,19 @@ function renderLesson(L) {
     }
     if (!L._pdf) { html += `<article class="card nothumb" id="${L.id}-p${s.p}"><div class="notes" data-p="${s.p}">${slideNotesHTML(L, s)}</div></article>`; continue; }
     html += `<article class="card" id="${L.id}-p${s.p}"><div class="thumbwrap"><div class="thumb" data-id="${L.id}" data-p="${s.p}" style="aspect-ratio:${L.ratio || 4 / 3}" title="Apri in presentazione"><div class="ph">p. ${s.p}</div></div></div><div class="notes" data-p="${s.p}">${slideNotesHTML(L, s)}</div></article>`;
+  }
+  if (L.guided && L.guided.steps && L.guided.steps.length) {
+    const G = L.guided;
+    html += `<h2 class="sechead" id="${L.id}-guided" data-sec="guided">Rifallo tu <span>${G.steps.length} passi${G.minutes ? ` · circa ${G.minutes} minuti` : ""}</span></h2>`;
+    html += `<section class="panel"><div class="prose">${G.intro || ""}${G.prereq ? `<h4>Prima di iniziare</h4>${G.prereq}` : ""}</div></section>`;
+    G.steps.forEach((st, i) => {
+      html += `<article class="panel gstep" id="${L.id}-g${i + 1}"><h3><span class="gnum">${i + 1}</span>${esc(st.title)}${(st.slides || []).length ? `<span class="gsl">${st.slides.map(p => `<a href="#${L.id}-p${p}">p. ${p}</a>`).join(" ")}</span>` : ""}</h3><div class="prose">${st.html || ""}</div>`
+        + (st.code ? `${st.file ? `<div class="gfile mono">${esc(st.file)}</div>` : ""}<div class="codeblk"><button class="sbtn cp" data-act="copycode" data-src="g:${i}:code">${ICON_COPY}Copia</button><pre class="code"><code>${hl(st.code, st.lang)}</code></pre></div>` : "")
+        + (st.run ? `<div class="gfile mono">Terminale</div><div class="codeblk"><button class="sbtn cp" data-act="copycode" data-src="g:${i}:run">${ICON_COPY}Copia</button><pre class="code grun"><code>${hl(st.run, "bash")}</code></pre></div>` : "")
+        + (st.expected ? `<details><summary>Output atteso</summary><pre class="code output"><code>${esc(st.expected)}</code></pre></details>` : "")
+        + (st.check ? `<div class="box sapere"><span class="bt">Checkpoint</span>${st.check}</div>` : "")
+        + `</article>`;
+    });
   }
   if (L.code && L.code.length) {
     html += `<h2 class="sechead" id="${L.id}-code" data-sec="code">Codice del laboratorio <span>${L.code.length} file</span></h2>`;
@@ -727,7 +751,7 @@ document.addEventListener("click", async e => {
   else if (act === "copyimg") copySlideImage(id, +t.dataset.p);
   else if (act === "copycode") {
     const [k, a, b] = t.dataset.src.split(":");
-    const code = k === "code" ? L.code[+a].blocks[+b].code : L.codeExercises[+a][b];
+    const code = k === "code" ? L.code[+a].blocks[+b].code : k === "g" ? L.guided.steps[+a][b] : L.codeExercises[+a][b];
     copyText(code || "");
   }
 });

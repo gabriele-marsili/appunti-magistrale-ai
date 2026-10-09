@@ -75,3 +75,26 @@ Note:
 - HTML ammesso: p, strong, em, ul, ol, li, code, pre, table/tr/th/td, h4, br, sup, sub, blockquote. Niente style inline, niente script, niente immagini esterne.
 - Scrivi il JSON con `json.dump(obj, f, ensure_ascii=False, indent=1)` da Python: mai a mano.
 - Valida con `python3 /home/claude/p2p/sito/validate.py <file.json>` finché non passa.
+
+## Lab guidati ("guided", solo per i LAB)
+
+Sezione "Rifallo tu": il lab rifatto da zero sul Mac dello studente (macOS, Apple Silicon), passo per passo, così si segue anche senza la registrazione.
+
+```json
+"guided": {
+  "minutes": 120,
+  "intro": "<p>Cosa costruisci, cosa impari, come si collega alle slide e al progetto.</p>",
+  "prereq": "<p>Strumenti da installare (con comandi brew/npm/pip esatti e versioni) e file da scaricare.</p>",
+  "steps": [
+    {"title": "Crea il progetto Maven", "slides": [3, 4],
+     "html": "<p>Perché questo passo, cosa fa ogni parte del codice.</p>",
+     "file": "pom.xml", "lang": "xml", "code": "...contenuto completo del file...",
+     "run": "mvn -q compile", "expected": "output reale copiato dall'esecuzione",
+     "check": "<p>Come capisci che funziona / cosa provare a cambiare.</p>"}
+  ]
+}
+```
+- 6-15 passi; ogni passo ha `code` (file completo o pezzo da aggiungere, dicendo dove) e/o `run` (comandi da terminale).
+- `slides`: le pagine del PDF a cui il passo si riferisce (il sito mette un pulsante "Codice" su quelle schede).
+- Tutto va eseguito davvero prima di scriverlo; `expected` è l'output vero. Se un passo richiede rete Bitcoin o servizi non raggiungibili, dillo e dai un'alternativa locale.
+- `lang`: java, solidity, python, typescript, javascript, json, xml, bash, text.

@@ -80,6 +80,26 @@ def validate(d, pages=None):
         errs.append("servono almeno 2 esercizi a mano")
     if len(d["codeExercises"]) < 2:
         errs.append("servono almeno 2 esercizi di codice")
+    G = d.get("guided")
+    if d["kind"] == "lab" and G is not None:
+        if not G.get("intro"):
+            errs.append("guided: manca intro")
+        html_issues(G.get("intro", ""), "guided intro", errs)
+        html_issues(G.get("prereq", ""), "guided prereq", errs)
+        steps = G.get("steps", [])
+        if len(steps) < 4:
+            errs.append("guided: servono almeno 4 passi")
+        for i, st in enumerate(steps):
+            w = f"guided passo {i+1}"
+            if not st.get("title"):
+                errs.append(f"{w}: titolo vuoto")
+            if not (st.get("code") or st.get("run")):
+                errs.append(f"{w}: serve code o run")
+            html_issues(st.get("html", ""), w, errs)
+            html_issues(st.get("check", ""), w + " check", errs)
+            for p in st.get("slides", []):
+                if not (isinstance(p, int) and 1 <= p <= d["pages"]):
+                    errs.append(f"{w}: slide {p} fuori range")
     for l in d["links"]:
         if not re.fullmatch(r"(L|LAB)\d{2}", l.get("to", "")):
             errs.append(f"link non valido {l}")
