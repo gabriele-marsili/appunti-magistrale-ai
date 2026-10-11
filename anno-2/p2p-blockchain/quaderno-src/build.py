@@ -57,7 +57,11 @@ def main():
     manifest, formulas, oral, corrections, links = [], [], [], [], []
     problems = 0
     for f in files:
-        L = json.load(open(os.path.join(ldir, f), encoding="utf-8"))
+        src = os.path.join(ldir, f)
+        if PUBLIC and os.path.exists(os.path.join(SITO, "lessons_public", f)):
+            # versione pubblica: senza il materiale ricavato dalle registrazioni (resta solo nel quaderno privato)
+            src = os.path.join(SITO, "lessons_public", f)
+        L = json.load(open(src, encoding="utf-8"))
         lid = L["id"]
         pdf = os.path.join(ROOT, "pdf", f"{lid}.pdf")
         ratio, pages = page_ratio(pdf)
@@ -69,6 +73,12 @@ def main():
         if errs:
             problems += 1
             print(f"[{lid}] ATTENZIONE:\n  " + "\n  ".join(errs[:15]))
+        if PUBLIC:
+            L.pop("video", None)
+            for s_ in L["slides"]:
+                s_["boxes"] = [b for b in s_.get("boxes", []) if b.get("type") != "lezione"]
+            if L.get("guided"):
+                L["guided"]["steps"] = [st for st in L["guided"]["steps"] if not st.get("fromVideo")]
         L["ratio"] = ratio
         L["pdf"] = f"pdf/{lid}.pdf"
         json.dump(L, open(os.path.join(DIST, "lessons", f), "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))

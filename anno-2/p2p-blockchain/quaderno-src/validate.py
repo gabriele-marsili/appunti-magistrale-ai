@@ -4,7 +4,7 @@ import json, re, sys
 
 ALLOWED_TAGS = {"p", "strong", "em", "ul", "ol", "li", "code", "pre", "table", "thead", "tbody", "tr", "th", "td",
                 "h4", "br", "sup", "sub", "blockquote", "b", "i", "span", "div", "hr"}
-BOX_TYPES = {"sapere", "attenzione", "approfondimento"}
+BOX_TYPES = {"sapere", "attenzione", "approfondimento", "lezione"}
 BAD_ACCENTS = re.compile(r"\b(perche|poiche|cosi|piu|puo|gia|pero|citta|verra|sara|e')\b(?![\w])", re.I)
 EMOJI = re.compile("[\U0001F300-\U0001FAFF☀-➿⭐✅]")
 
@@ -100,6 +100,23 @@ def validate(d, pages=None):
             for p in st.get("slides", []):
                 if not (isinstance(p, int) and 1 <= p <= d["pages"]):
                     errs.append(f"{w}: slide {p} fuori range")
+    V = d.get("video")
+    if V is not None:
+        if not V.get("verdict"):
+            errs.append("video: manca verdict")
+        html_issues(V.get("verdict", ""), "video verdict", errs)
+        html_issues(V.get("extra", ""), "video extra", errs)
+        for i, m in enumerate(V.get("map", [])):
+            for k in ("from", "to", "kind", "what"):
+                if not m.get(k):
+                    errs.append(f"video map {i}: manca {k}")
+            if m.get("kind") not in ("slide", "live", "demo", "progetto", "esame", "teoria", "domande", "admin", "pausa"):
+                errs.append(f"video map {i}: kind non valido {m.get('kind')}")
+            for p in m.get("slides", []):
+                if not (isinstance(p, int) and 1 <= p <= d["pages"]):
+                    errs.append(f"video map {i}: slide {p} fuori range")
+            if m.get("step") is not None and not (1 <= m["step"] <= len((d.get("guided") or {}).get("steps", []))):
+                errs.append(f"video map {i}: passo {m['step']} inesistente")
     for l in d["links"]:
         if not re.fullmatch(r"(L|LAB)\d{2}", l.get("to", "")):
             errs.append(f"link non valido {l}")
