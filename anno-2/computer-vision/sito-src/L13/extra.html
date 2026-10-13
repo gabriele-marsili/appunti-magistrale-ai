@@ -1,0 +1,240 @@
+<div class="sec" id="l13-libro"><h2>Studia dal libro</h2><span>visionbook cap. 40 (tutto, circa 1 ora e mezza), più cap. 42 § 42.2–42.3 e cap. 43 § 43.2–43.4 (circa 1 ora)</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Cosa leggere, in ordine</h3>
+    <div class="meta">Torralba, Isola, Freeman, <i>Foundations of Computer Vision</i>, gratis online</div>
+    <ol>
+      <li><a href="https://visionbook.mit.edu/3d_scene_understanding_single_view.html" target="_blank">Cap. 42, Single View Metrology</a>: § 42.2 (disegno a linee, stanza di Ames), § 42.3.1–42.3.3 (proiezione di rette, punti di fuga, torre pendente, orizzonte). Copre le slide 4–12. Il resto del capitolo (cross-ratio, misure di altezze, calibrazione dai punti di fuga, § 42.4–42.6) non è nelle slide: facoltativo.</li>
+      <li><a href="https://visionbook.mit.edu/3d_learning.html" target="_blank">Cap. 43, Learning to Estimate Depth from a Single Image</a>, § 43.2 <b>Monocular Depth Cues</b>: gli indizi della slide 14 con la figura della slide 13.</li>
+      <li><a href="https://visionbook.mit.edu/3d_scene_understanding_stereo.html" target="_blank">Cap. 40, Stereo Vision</a>, § 40.1–40.2: anaglifi, la barca (le due formule della slide 17), stereogrammi a punti casuali. § 40.2.3 (camera stereo pinhole fatta in casa) si può leggere in fretta.</li>
+      <li>§ 40.3.1 <b>Triangulation</b>: eq. 40.1, Z = fT/(x<sub>L</sub> − x<sub>R</sub>). Rifai la derivazione con le coordinate (scheda 19) invece che con i triangoli.</li>
+      <li>§ 40.3.2 <b>Stereo Matching</b> con 40.3.2.1–40.3.2.3: disparity space image (fig. 40.7, slide 29), Harris e SIFT (ripasso di L8), interpolazione e SGM. Copre le slide 24–31.</li>
+      <li>§ 40.3.3 <b>Constraints for Arbitrary Cameras</b> e § 40.3.4 <b>The Essential and Fundamental Matrices</b> con 40.3.4.1–40.3.4.4: il cuore teorico (slide 33–37). Attenzione al refuso F = K<sup>−⊤</sup>EK<sup>⊤</sup> (scheda 37). Fai il gioco della fig. 40.13 prima di guardare la soluzione.</li>
+      <li>§ 40.3.5 <b>Image Rectification</b> (slide 22): breve, ma è lì la procedura in tre passi.</li>
+      <li>§ 40.4 <b>Learning-Based Methods</b> (40.4.1 Output Representation, 40.4.2 Two-Stage Networks) e § 40.5 Evaluation: slide 39–44.</li>
+      <li>Cap. 43, § 43.3 (da mappa di profondità a nuvola di punti), § 43.4 con 43.4.1–43.4.3 (dati, loss, architettura): slide 45–46. Leggi la loss invariante di scala con il riquadro Attenzione della scheda 45 accanto. § 43.5 (non supervisionato da video) è oltre le slide ma vale la lettura.</li>
+    </ol>
+    <p><b>Si può saltare</b>: § 40.2.3 (costruire l'anaglifo), § 42.4–42.6, § 43.6. Il cap. 3 (Looking at Images) serve solo per § 3.9 Cues for Support, citato in § 43.2. <b>Facoltativo</b>: Hartley e Zisserman, <i>Multiple View Geometry</i>, cap. 9 (geometria epipolare e F) e cap. 11 (stima di F, algoritmo degli 8 punti normalizzato); Szeliski 2a ed. cap. 12 Depth estimation (sottoparagrafi non verificati).</p>
+  </div>
+
+  <div class="card">
+    <h3>Le idee centrali, come le spiega il libro</h3>
+    <div class="meta">Da saper ricostruire senza slide</div>
+    <p><b>1 · Una vista è ambigua, ma la scena non è arbitraria.</b> La proiezione perde Z: infinite scene danno la stessa immagine (stanza di Ames). Gli indizi monoculari sono ipotesi sulla scena: rette parallele e piani (punti di fuga v = (fD<sub>X</sub>/D<sub>Z</sub>, fD<sub>Y</sub>/D<sub>Z</sub>), dipendono solo dalla direzione), tessitura uniforme, luce, atmosfera, dimensioni note. Quasi tutti danno profondità relativa (§ 42.2–42.3, § 43.2).</p>
+    <p><b>2 · Due camere parallele: profondità = fT / disparità.</b> Con camere identiche traslate di T lungo x: x<sub>L</sub> = fX/Z, x<sub>R</sub> = f(X − T)/Z, quindi d = x<sub>L</sub> − x<sub>R</sub> = fT/Z. La disparità decresce con la distanza; l'errore in profondità cresce come Z²/(fT) (§ 40.3.1).</p>
+    <p><b>3 · Il matching è il problema difficile.</b> Confrontare intensità di singoli pixel fallisce (tessitura assente, rumore, riflessi, occlusioni). Si aggregano i costi (finestre, filtri che preservano i bordi) e si regolarizza (SGM, belief propagation): matching più filtering. In alternativa feature sparse (Harris, SIFT) più interpolazione (§ 40.3.2).</p>
+    <p><b>4 · Il vincolo epipolare.</b> Da P<sub>2</sub> = RP<sub>1</sub> + T, moltiplicando vettorialmente per T e scalarmente per P<sub>2</sub>: p<sub>2</sub><sup>⊤</sup>Ep<sub>1</sub> = 0 con E = [T]<sub>×</sub>R (5 gdl, rango 2, due valori singolari uguali). In pixel c<sub>2</sub><sup>⊤</sup>Fc<sub>1</sub> = 0 con F = K<sub>2</sub><sup>−⊤</sup>EK<sub>1</sub><sup>−1</sup> (7 gdl, rango 2). Ep<sub>1</sub> è la linea epipolare nell'altra immagine; gli epipoli sono gli spazi nulli. Stima lineare da 8 corrispondenze, poi rango 2 (§ 40.3.3–40.3.4).</p>
+    <p><b>5 · Rettificare = ruotare virtualmente le camere.</b> Con due omografie si portano le camere a essere parallele, perpendicolari alla baseline e con righe allineate: gli epipoli vanno all'infinito, le linee epipolari diventano righe e la ricerca è 1D (§ 40.3.5).</p>
+    <p><b>6 · Le reti rifanno la pipeline classica imparandola.</b> Stereo: feature siamesi, cost volume sulle disparità, CNN 3D che aggrega (al posto di SGM), uscita in disparità perché indipendente dalla camera e lineare sui piani. Una vista: encoder-decoder con skip, regressione per pixel; la scala globale è ambigua, quindi loss invariante alla scala (sui logaritmi) e dati da sensori di profondità (§ 40.4, § 43.4).</p>
+  </div>
+
+  <div class="card">
+    <h3>Differenze di notazione fra slide e libro</h3>
+    <ul>
+      <li><b>Numerazione</b>: le slide citano solo il cap. 40, ma le figure delle slide 10–12 vengono dal cap. 42 (fig. 42.2, 42.7, 42.8), quella della slide 13 e della slide 46 dal cap. 43 (fig. 43.1, 43.4). Le figure delle slide 16–19, 25, 29, 31, 33–35 e 41 sono le fig. 40.1, 40.2, 40.5, 40.6, 40.7, 40.8, 40.10, 40.11, 40.12 e 40.14.</li>
+      <li><b>T</b>: in L11–L12 T era la posizione della camera nel mondo (con −RT nella matrice); qui, nella slide 36 e nel libro, T è il termine di traslazione di P<sub>2</sub> = RP<sub>1</sub> + T. Nella slide 18–19 T è la baseline (uno scalare).</li>
+      <li><b>Coordinate</b>: p = coordinate normalizzate della camera (f = 1), c = pixel in omogenee [n, m, 1]. Il libro usa n, m per le colonne e righe in pixel e lettere maiuscole per il 3D.</li>
+      <li><b>Disparità</b>: d = x<sub>L</sub> − x<sub>R</sub> in slide e libro; nel libro anche z = 1/d (a meno del fattore fT). OpenCV restituisce disparità moltiplicate per 16 (sezione Notebook).</li>
+      <li><b>Loss</b>: la slide 40 chiama f<sub>θ</sub> la rete stereo, il libro (cap. 43) chiama h<sub>θ</sub> la rete per una vista; v<sub>1</sub>, v<sub>2</sub> nelle slide sono le viste (il libro usa anche i<sub>1</sub>, i<sub>2</sub>).</li>
+      <li><b>Ottimizzatore</b>: slide "SGD", libro "gradient descent": qui, a differenza di L12, l'SGD a mini-batch è davvero ciò che si usa.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Cosa il libro aggiunge e le slide omettono, e viceversa</h3>
+    <ul>
+      <li>Nel libro: la derivazione completa di E (scheda 36), proprietà di E e F (gradi di libertà, rango, valori singolari), il calcolo degli epipoli, il gioco delle linee epipolari, la procedura di rettificazione, il perché della disparità come uscita (rumore, piani), la conversione profondità → nuvola di punti con K, gli stereogrammi a punti casuali, l'apprendimento non supervisionato da video (§ 43.5), la geometria a una vista con cross-ratio (§ 42.4–42.6).</li>
+      <li>Nelle slide ma non nel libro: il cost volume formalizzato C(x, y, d) con SAD / SSD / NCC, i casi di fallimento elencati, SGM come metodo semi-globale con termine di regolarità, l'esempio DSMNet sulla generalizzazione, il vincolo "match orizzontali" per filtrare i keypoint.</li>
+      <li>In nessuno dei due, ma utile: l'algoritmo degli 8 punti con la normalizzazione di Hartley, l'algoritmo dei 5 punti per E, la scomposizione di E in R e T (quattro soluzioni), il soft argmin delle reti stereo, la vera loss invariante di scala sui logaritmi (Eigen et al. 2014).</li>
+    </ul>
+  </div>
+</div>
+
+<div class="sec" id="l13-notebook"><h2>Notebook epipolar_lines e depth_prediction</h2><span>linee epipolari con SIFT e matrice fondamentale; disparità con StereoBM su Tsukuba</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>epipolar_lines: cosa fa ogni blocco di celle</h3>
+    <div class="meta">Dal tutorial OpenCV <a href="https://docs.opencv.org/4.x/da/de9/tutorial_py_epipolar_geometry.html" target="_blank">Epipolar Geometry</a>; immagini <code>left.jpg</code>, <code>right.jpg</code> (612 × 459, due libri appoggiati sul pavimento)</div>
+    <ul>
+      <li><b>Cella 0, teoria</b>: riassunto della geometria epipolare (piano, linee, epipoli) e di E ed F, con le figure del tutorial. Corrisponde alle slide 33–37.</li>
+      <li><b>Cella 1, keypoint e match</b> (slide 30): immagini caricate in scala di grigi, <code>SIFT_create</code> e <code>detectAndCompute</code> su entrambe, matcher <b>FLANN</b> (k-d tree, 5 alberi, 50 controlli) con <code>knnMatch(k=2)</code>, e ratio test di Lowe con soglia 0.8 (L9). Le coordinate dei match accettati vanno in <code>pts1</code>, <code>pts2</code>.</li>
+      <li><b>Cella 2</b>: disegno dei keypoint con cerchi di scala e orientazione (<code>DRAW_RICH_KEYPOINTS</code>).</li>
+      <li><b>Cella 3</b>: rifà lo stesso ratio test (stessi <code>pts1</code>, <code>pts2</code> della cella 1, più la lista <code>good_matches</code>) e disegna i 50 match con distanza minore.</li>
+      <li><b>Cella 5, matrice fondamentale</b> (slide 37): <code>findFundamentalMat(pts1, pts2, cv.FM_LMEDS)</code>, stima robusta con Least Median of Squares; la maschera restituita tiene solo gli inlier.</li>
+      <li><b>Cella 8, linee epipolari</b>: <code>computeCorrespondEpilines(pts2, 2, F)</code> dà, per ogni punto dell'immagine destra, la retta (a, b, c) nell'immagine sinistra (cioè F<sup>⊤</sup>c<sub>2</sub>), e viceversa con l'argomento 1 (Fc<sub>1</sub>). <code>drawlines</code> traccia ogni retta da x = 0 a x = larghezza ricavando y = −(c + a x)/b, e il punto corrispondente come cerchio.</li>
+      <li><b>Cella 9</b>: le linee della sinistra convergono fuori dall'immagine, a destra: lì c'è l'epipolo.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>depth_prediction: cosa fa ogni blocco di celle</h3>
+    <div class="meta">Dal tutorial OpenCV <a href="https://docs.opencv.org/4.x/dd/d53/tutorial_py_depthmap.html" target="_blank">Depth Map from Stereo Images</a>; coppia <b>Tsukuba</b> (Middlebury 2001), 384 × 288, già rettificata</div>
+    <ul>
+      <li><b>Cella 0, teoria</b>: disparità = x − x′ = Bf/Z, cioè la slide 19 con B al posto di T.</li>
+      <li><b>Cella 1</b>: le due immagini in scala di grigi.</li>
+      <li><b>Cella 2, block matching</b> (slide 27): <code>StereoBM.create(numDisparities=16, blockSize=15)</code>, cioè disparità cercate da 0 a 15 con finestre 15 × 15 (costo SAD su immagini pre-filtrate), poi <code>compute(imgL, imgR)</code> e visualizzazione in grigio.</li>
+      <li><b>Cella 3</b>: descrizione dei parametri di post-filtraggio: soglia di tessitura (slide 28, regioni senza tessitura), filtro degli speckle, numero di disparità, disparità minima, uniqueness ratio (scarta i pixel il cui minimo non è abbastanza migliore degli altri: i pattern ripetitivi della slide 28), pre-filtro.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Numeri della riesecuzione</h3>
+    <div class="meta">Rieseguito nel cloud con OpenCV 5.0.0 (il notebook cita la documentazione 4.12): SIFT trova keypoint leggermente diversi, quindi F non coincide alla cifra con quella stampata nel notebook</div>
+    <ul>
+      <li>SIFT: 815 keypoint a sinistra, 917 a destra; <b>165</b> match superano il ratio test; LMedS ne tiene <b>117</b> come inlier (71%, sopra il 50% che LMedS richiede).</li>
+      <li>Epipolo sinistro (spazio nullo di F) in x ≈ 1400 px con la F del notebook, ≈ 900 px con punti in virgola mobile: in entrambi i casi fuori dall'immagine larga 612, a destra, come dice la cella 9. Il fatto che si sposti di 500 px con un cambiamento minimo dei dati mostra quanto è mal determinato un epipolo lontano.</li>
+      <li>StereoBM: uscita <b>int16</b> con valori da −16 a 240; −16 marca i pixel invalidi. Le prime <b>22 colonne</b> (numDisparities − 1 + blockSize/2) e le ultime 7 sono tutte invalide; dentro l'immagine sono invalidi il 12% dei pixel (soglia di tessitura e uniqueness ratio predefiniti).</li>
+      <li>Confronto con la <b>disparità vera</b> di Middlebury (scaricata a parte, 5–14 px): dove StereoBM dà un valore, l'errore medio è 0.42 px e il 5.9% dei pixel sbaglia di più di 1 px; gli errori sono quasi tutti lungo i contorni (finestra 15 × 15, foreground fattening) e mancano le strutture sottili (il braccio della lampada).</li>
+      <li><code>StereoSGBM</code> (blockSize 5, P1 = 200, P2 = 800, modalità 3WAY) copre il 98.6% dei pixel con il 5.1% di errori sopra 1 px e MAE 0.31: più denso e più preciso, circa al doppio del tempo (8.6 ms contro 4.3 ms per coppia).</li>
+    </ul>
+    <figure><img src="{{IMG:nb_matches.png}}" alt="Le due foto dei libri affiancate, con 50 segmenti verdi che collegano i keypoint SIFT corrispondenti"><figcaption>I 50 match migliori dopo il ratio test (cella 3). I segmenti sono quasi paralleli ma non orizzontali: le due foto non sono rettificate.</figcaption></figure>
+    <figure><img src="{{IMG:nb_disparity.png}}" alt="Sei pannelli: immagine sinistra di Tsukuba, uscita grezza di StereoBM con scala fino a 240, disparità vera, StereoBM diviso 16 con invalidi in rosso, StereoSGBM, mappa dell'errore"><figcaption>In alto: l'immagine sinistra, l'uscita grezza del notebook (scala ×16, colorbar fino a 240, invalidi a −16 neri), la disparità vera. In basso: StereoBM diviso per 16 con i pixel invalidi in rosso, StereoSGBM, errore assoluto di StereoBM (0–3 px): gli errori stanno sui bordi degli oggetti.</figcaption></figure>
+  </div>
+
+  <div class="card">
+    <h3>Bug e imprecisioni</h3>
+    <div class="meta">Verificati eseguendo il codice</div>
+    <div class="box w"><b>1 · Punti convertiti in int32 prima di findFundamentalMat</b>
+      <p>La cella 5 fa <code>pts1 = np.int32(pts1)</code> prima della stima. <code>np.int32</code> <b>tronca</b> (non arrotonda) le coordinate sub-pixel di SIFT: errore fino a 1 px, in media 0.5 px. La stima di F ne risente: misurando la distanza dei punti (in virgola mobile) dalle linee epipolari, la mediana è <b>0.53 px</b> con la F del notebook e <b>0.23 px</b> passando a <code>findFundamentalMat</code> i punti float32 (stesso metodo LMedS, 115 inlier); con RANSAC (soglia 1 px) 0.32 contro 0.19 px. Il troncamento serviva nel tutorial solo per disegnare i cerchi con <code>cv.circle</code>, che vuole interi: la conversione va fatta al momento del disegno, non prima della stima.</p>
+      <figure><img src="{{IMG:nb_epilines.png}}" alt="Quattro pannelli con le foto dei libri e dieci linee epipolari colorate: in alto con la F stimata da punti interi, in basso da punti float"><figcaption>Dieci corrispondenze inlier, con lo stesso colore per la stessa coppia nelle due immagini. In alto F da punti int32 (come nel notebook), in basso da float32. A occhio le linee sono quasi uguali: la differenza è di qualche decimo di pixel, ma raddoppia l'errore mediano. Le linee a sinistra convergono verso un epipolo fuori dall'immagine, a destra.</figcaption></figure>
+    </div>
+    <div class="box w"><b>2 · StereoBM restituisce disparità moltiplicate per 16</b>
+      <p><code>compute</code> restituisce int16 in <b>virgola fissa con 4 bit frazionari</b>: la disparità vera è <code>disparity / 16.0</code>, e i pixel invalidi valgono (minDisparity − 1) · 16 = <b>−16</b>. Il notebook mostra l'array grezzo: con <code>imshow</code> in grigio il fattore 16 non si nota (la scala si adatta), ma la colorbar va fino a 240 e i pixel invalidi appaiono neri come se fossero "lontanissimi". Per la profondità Z = fT/d bisogna dividere per 16 e mascherare i valori negativi (verificato: senza dividere, il 100% dei pixel differisce di più di 1 px dalla disparità vera). Correzione: <code>d = disparity.astype(np.float32) / 16; d[d &lt; 0] = np.nan</code>.</p>
+    </div>
+    <div class="box w"><b>3 · Imprecisioni minori</b>
+      <ul>
+        <li><b>"Il risultato è contaminato da molto rumore"</b> (cella 3): la frase viene dal tutorial, dove l'immagine è diversa. Su Tsukuba con questi parametri la mappa è pulita; le macchie sono pixel <b>invalidati</b> (−16) da soglia di tessitura e uniqueness ratio, più le bande ai bordi, non rumore di stima.</li>
+        <li>I nomi dei parametri nella cella 3 (<code>texture_threshold</code>, <code>speckle_size</code>, <code>prefilter_cap</code>…) sono quelli del pacchetto ROS stereo_image_proc da cui il testo è copiato; in OpenCV si impostano con <code>setTextureThreshold</code>, <code>setSpeckleWindowSize</code>, <code>setSpeckleRange</code>, <code>setUniquenessRatio</code>, <code>setPreFilterCap</code>. In OpenCV <code>numDisparities</code> deve essere multiplo di 16 e <code>blockSize</code> dispari fra 5 e 255.</li>
+        <li><b>Colori diversi fra i due pannelli</b> (cella 8): <code>drawlines</code> sceglie un colore casuale per ogni coppia a ogni chiamata, e le chiamate sono due: la stessa corrispondenza ha colori diversi a sinistra e a destra, quindi non si vede quale linea va con quale punto. Fissare i colori prima (come nella figura sopra). Le immagini sono BGR passate a <code>imshow</code> senza conversione: qui non conta perché i colori sono casuali.</li>
+        <li><b>Celle 1 e 3 duplicate</b>: il ratio test è fatto due volte e la cella 1 ha un ciclo senza il controllo <code>len(pair) &lt; 2</code> che la cella 3 aggiunge; il risultato è lo stesso.</li>
+        <li><b>Cella 0</b>: "se usiamo immagini rettificate e normalizziamo i punti dividendo per le focali, F = E" (dal tutorial). F = E quando K = I, cioè con coordinate normalizzate (sottratto il punto principale e diviso per la focale); la rettificazione non c'entra. "Servono almeno 8 punti": è il minimo dell'algoritmo lineare; con il vincolo det F = 0 ne bastano 7 (<code>FM_7POINT</code>).</li>
+        <li>F restituita è normalizzata con F<sub>33</sub> = 1 e ha già rango 2 (verificato: σ<sub>3</sub>/σ<sub>2</sub> ≈ 10<sup>−16</sup>): OpenCV impone il vincolo dopo la stima lineare, come descritto nella scheda 37.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Correzione minima</h3>
+    <div class="meta">Punti float per la stima, colori coerenti, disparità in pixel</div>
+    <pre># epipolar_lines, cella 5
+pts1 = np.float32(pts1)
+pts2 = np.float32(pts2)
+F, mask = cv.findFundamentalMat(pts1, pts2, cv.FM_RANSAC, 1.0, 0.999)
+inl = mask.ravel() == 1
+pts1, pts2 = pts1[inl], pts2[inl]
+
+# cella 8: un colore per coppia, interi solo per disegnare
+colors = np.random.default_rng(0).integers(0, 255, (len(pts1), 3)).tolist()
+def drawlines(img, lines, pts, colors):
+    c = img.shape[1]
+    out = cv.cvtColor(img, cv.COLOR_GRAY2RGB)
+    for (a, b, cc), p, col in zip(lines, pts, colors):
+        x0, y0 = 0, int(round(-cc / b))
+        x1, y1 = c, int(round(-(cc + a * c) / b))
+        cv.line(out, (x0, y0), (x1, y1), col, 1)
+        cv.circle(out, tuple(int(round(v)) for v in p), 5, col, -1)
+    return out
+l1 = cv.computeCorrespondEpilines(pts2.reshape(-1, 1, 2), 2, F).reshape(-1, 3)
+l2 = cv.computeCorrespondEpilines(pts1.reshape(-1, 1, 2), 1, F).reshape(-1, 3)
+left, right = drawlines(img1, l1, pts1, colors), drawlines(img2, l2, pts2, colors)
+
+# depth_prediction, cella 2
+stereo = cv.StereoBM.create(numDisparities=16, blockSize=15)
+disp = stereo.compute(imgL, imgR).astype(np.float32) / 16.0   # pixel
+disp[disp &lt; 0] = np.nan                                         # invalidi
+plt.imshow(disp, cmap='turbo'); plt.colorbar(label='disparità (px)')
+# profondità: Z = f * T / disp, con f in pixel e T nell'unità voluta</pre>
+  </div>
+
+  <div class="card">
+    <h3>Esercizi sui notebook</h3>
+    <div class="meta">In ordine di difficoltà; i risultati indicati sono quelli della riesecuzione</div>
+    <ol>
+      <li>Applica la correzione 1 e misura la distanza media punto-linea epipolare con i due tipi di punti (atteso: mediana circa 0.5 px contro 0.2 px).</li>
+      <li>Calcola l'<b>epipolo</b> come ultimo vettore singolare destro di F (F e<sub>1</sub> = 0) e verifica che tutte le linee della sinistra ci passino. Ripeti con 10 sottoinsiemi casuali di 50 match: quanto si sposta?</li>
+      <li>Disegna la linea epipolare di un punto <b>outlier</b> scartato dalla maschera: il punto corrispondente ne è lontano?</li>
+      <li>Rettifica la coppia dei libri con <code>cv.stereoRectifyUncalibrated(pts1, pts2, F, (w, h))</code> e <code>warpPerspective</code> con le due omografie restituite: dopo la rettificazione i match devono avere la stessa y (slide 22, 30).</li>
+      <li>Su Tsukuba, calcola la disparità con blockSize 5, 9, 15, 25 e confrontala con la verità di Middlebury (file <code>truedisp.row3.col3.pgm</code>, valori × 16): con 5 l'errore sopra 1 px è circa l'11% (e l'88% dei pixel ha una stima), con 9–15 circa il 6% (90–92%), con 25 risale al 7%. Guarda dove stanno gli errori (bordi contro zone uniformi).</li>
+      <li>Implementa a mano il cost volume SSD (slide 27) con <code>np.roll</code> e un filtro box, prendi l'argmin e confrontalo con StereoBM; poi sostituisci il filtro box con un filtro bilaterale guidato dall'immagine (slide 29).</li>
+      <li>Prova <code>StereoSGBM</code> (P1 = 8·blockSize², P2 = 32·blockSize²) e spiega l'effetto di P1 e P2 con l'energia della scheda 28.</li>
+    </ol>
+  </div>
+</div>
+
+<div class="sec" id="l13-guida"><h2>Guida allo studio</h2><span>circa 4 ore e mezza in quattro blocchi</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Prima di iniziare</h3>
+    <div class="meta">20 minuti</div>
+    <p>Ripassa da L2 la proiezione prospettica x = fX/Z (è tutto ciò che serve per la triangolazione); da L11–L12 K, R, T e le coordinate omogenee (rette come vettori, punto su retta ⇔ prodotto scalare nullo); da L8–L9 SIFT, ratio test, DLT con SVD e RANSAC, che qui si riusano per F; da L5 i filtri box e gaussiano (aggregazione dei costi).</p>
+  </div>
+  <div class="two">
+    <div class="card">
+      <h3>1 · Indizi monoculari</h3>
+      <div class="meta">Slide 2–14 · circa 40 minuti</div>
+      <p>Obiettivo: spiegare perché una vista è ambigua e quali ipotesi la risolvono.</p>
+      <ul>
+        <li>Ricava la formula del punto di fuga e spiega la torre pendente e la stanza di Ames.</li>
+        <li>Elenca i sei indizi della slide 14 dicendo quali danno profondità assoluta e quali relativa.</li>
+        <li>Leggi § 42.2–42.3 e § 43.2.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>2 · Triangolazione e matching</h3>
+      <div class="meta">Slide 15–31 · circa 1 ora e un quarto</div>
+      <p>Obiettivo: derivare Z = fT/d e saper descrivere un algoritmo di stereo denso.</p>
+      <ul>
+        <li>Rifai le formule della barca e la derivazione con coordinate di Z = fT/d, poi la sensibilità ∂Z/∂d.</li>
+        <li>Scrivi il cost volume SSD e spiega i tre casi di fallimento e cosa aggiunge SGM.</li>
+        <li>Correggi su OneNote la slide 22 (traslazione orizzontale). Leggi § 40.2–40.3.2.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>3 · Geometria epipolare</h3>
+      <div class="meta">Slide 32–37 · circa 1 ora e un quarto</div>
+      <p>Obiettivo: derivare il vincolo epipolare e saper usare E ed F.</p>
+      <ul>
+        <li>Rifai la derivazione di Longuet-Higgins senza guardare (scheda 36).</li>
+        <li>Ricava F = K<sub>2</sub><sup>−⊤</sup>EK<sub>1</sub><sup>−1</sup>, conta i gradi di libertà, scrivi una riga della matrice dell'algoritmo degli 8 punti.</li>
+        <li>Fai il gioco della fig. 40.13. Leggi § 40.3.3–40.3.5.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>4 · Reti e notebook</h3>
+      <div class="meta">Slide 38–49 e notebook · circa 1 ora e un quarto</div>
+      <ul>
+        <li>Disegna a memoria la pipeline della slide 41 e collega ogni blocco al suo equivalente classico.</li>
+        <li>Correggi la slide 45 (loss invariante di scala sui logaritmi) e verifica con due righe di numpy.</li>
+        <li>Esegui i notebook con le correzioni e fai gli esercizi 1, 4 e 5.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Formule da sapere a memoria</h3>
+    <span class="f">barca: d = h / tanα;   d = t sinα sinβ / sin(α + β)</span>
+    <span class="f">stereo parallelo: x<sub>L</sub> = fX/Z, x<sub>R</sub> = f(X − T)/Z,   d = x<sub>L</sub> − x<sub>R</sub> = fT/Z,   |∂Z/∂d| = Z²/(fT)</span>
+    <span class="f">cost volume: C(x, y, d) = ∑<sub>W</sub> (I<sub>L</sub>(x + u, y + v) − I<sub>R</sub>(x + u − d, y + v))²,   d̂ = argmin<sub>d</sub> C</span>
+    <span class="f">P<sub>2</sub> = RP<sub>1</sub> + T,   E = [T]<sub>×</sub>R,   p<sub>2</sub><sup>⊤</sup>Ep<sub>1</sub> = 0,   c<sub>2</sub><sup>⊤</sup>Fc<sub>1</sub> = 0,   F = K<sub>2</sub><sup>−⊤</sup>EK<sub>1</sub><sup>−1</sup></span>
+    <span class="f">linea epipolare l<sub>2</sub> = Fc<sub>1</sub>,   epipoli: Fe<sub>1</sub> = 0, e<sub>2</sub><sup>⊤</sup>F = 0,   gdl: E 5, F 7, entrambe rango 2</span>
+    <span class="f">punto di fuga: v = (fD<sub>X</sub>/D<sub>Z</sub>, fD<sub>Y</sub>/D<sub>Z</sub>) = KRD in omogenee</span>
+    <span class="f">loss invariante di scala: g = log ẑ − log z,   ℒ = ∑ (g − ḡ)²</span>
+  </div>
+
+  <div class="card">
+    <h3>Domande tipo orale</h3>
+    <div class="meta">Prova a rispondere, poi apri per la traccia</div>
+    <div class="qa">
+      <details><summary>Perché da una sola immagine la profondità è ambigua? Quali indizi la rendono comunque stimabile?</summary><p>La proiezione x = fX/Z manda tutto un raggio nello stesso pixel: la profondità si perde. Indizi: prospettiva lineare (punti di fuga), gradiente di tessitura, ombreggiatura, prospettiva aerea, occlusione, dimensione familiare. Sono ipotesi sulla scena (rette parallele, tessitura uniforme, oggetti noti) e possono ingannare (stanza di Ames); quasi tutti danno solo profondità relativa (slide 4–14, § 42.2–42.3, § 43.2).</p></details>
+      <details><summary>Ricava la profondità per due camere parallele. Come dipende l'errore dalla distanza?</summary><p>x<sub>L</sub> = fX/Z, x<sub>R</sub> = f(X − T)/Z ⇒ d = x<sub>L</sub> − x<sub>R</sub> = fT/Z ⇒ Z = fT/d (oppure triangoli simili: (T + x<sub>R</sub> − x<sub>L</sub>)/(Z − f) = T/Z). |∂Z/∂d| = Z²/(fT): l'errore cresce col quadrato della distanza e si riduce aumentando baseline o focale (slide 18–19, § 40.3.1).</p></details>
+      <details><summary>Cos'è la rettificazione e perché si fa? Basta che le camere siano traslate?</summary><p>Warp delle due immagini con omografie (rotazioni virtuali delle camere) tali che le linee epipolari diventino righe e i corrispondenti stiano sulla stessa riga: il matching diventa una ricerca 1D. Non basta una traslazione qualunque: deve essere parallela all'asse x (con traslazione lungo l'asse ottico le linee epipolari sono radiali). Si fa con calibrazione nota o anche solo con F (slide 22, § 40.3.5).</p></details>
+      <details><summary>Descrivi il block matching con il cost volume. Quando fallisce e come si migliora?</summary><p>C(x, y, d) = SAD/SSD fra la finestra attorno a (x, y) in L e quella attorno a (x − d, y) in R (o NCC, robusta a guadagno e offset); d̂ = argmin<sub>d</sub>. Fallisce senza tessitura (costo piatto), con pattern ripetitivi (minimi multipli), nelle occlusioni (nessun match) e ai bordi (finestra a cavallo). Si migliora aggregando con filtri che preservano i bordi e regolarizzando: SGM con penalità P<sub>1</sub>, P<sub>2</sub> sui salti di disparità (slide 26–29).</p></details>
+      <details><summary>Definisci piano epipolare, linee epipolari, epipoli. Come cambiano con le configurazioni delle camere?</summary><p>Piano per i due centri ottici e il punto P; linee = intersezioni del piano con i piani immagine; epipoli = intersezioni della baseline con i piani immagine, comuni a tutte le linee. Camere parallele con traslazione orizzontale: epipoli all'infinito, linee orizzontali. Camere convergenti: fascio di linee per un epipolo finito. Moto in avanti: epipolo al centro, linee radiali (slide 33–35, gioco fig. 40.13).</p></details>
+      <details><summary>Ricava il vincolo epipolare e la matrice essenziale.</summary><p>P<sub>2</sub> = RP<sub>1</sub> + T. Prodotto vettoriale con T: T × P<sub>2</sub> = T × RP<sub>1</sub>. Prodotto scalare con P<sub>2</sub>: 0 = P<sub>2</sub><sup>⊤</sup>[T]<sub>×</sub>RP<sub>1</sub>. E = [T]<sub>×</sub>R; dividendo per Z<sub>1</sub>Z<sub>2</sub>, p<sub>2</sub><sup>⊤</sup>Ep<sub>1</sub> = 0 sulle coordinate normalizzate. 5 gdl, rango 2, due valori singolari uguali. Ep<sub>1</sub> è la retta dove cercare p<sub>2</sub> (slide 36–37, § 40.3.4).</p></details>
+      <details><summary>Che differenza c'è fra matrice essenziale e fondamentale? Come si stima F?</summary><p>E lega coordinate normalizzate (serve K), F lega pixel: F = K<sub>2</sub><sup>−⊤</sup>EK<sub>1</sub><sup>−1</sup>, 7 gdl, rango 2. Ogni corrispondenza dà un'equazione lineare negli elementi di F: con 8 punti (normalizzati) si risolve Af = 0 con la SVD, poi si azzera il valore singolare minimo; dentro RANSAC o LMedS per gli outlier (slide 37, notebook). Nel libro la formula di F ha un refuso (K<sup>⊤</sup> al posto di K<sup>−1</sup>).</p></details>
+      <details><summary>Perché le reti stereo stimano la disparità e non la profondità? Descrivi l'architettura tipica.</summary><p>La disparità si misura dalle immagini senza f e T, il suo rumore è più uniforme e sui piani è lineare (derivata seconda nulla). Architettura: rettifica, feature con reti siamesi a pesi condivisi, cost volume sulle disparità, CNN 3D che aggrega (fa la regolarizzazione di SGM), uscita con soft argmin; loss supervisionata ∑|d − f<sub>θ</sub>(v<sub>1</sub>, v<sub>2</sub>)|² su KITTI / Scene Flow. Problema: generalizzazione dal sintetico al reale (slide 39–44, § 40.4).</p></details>
+      <details><summary>Come si addestra una rete per la profondità da una sola immagine? Cos'è la loss invariante di scala?</summary><p>Regressione per pixel con encoder-decoder e skip connection, dati da Kinect, LiDAR, stereo o structure from motion. Da una sola immagine la scala globale è ambigua, quindi si usa ℒ = ∑(g − ḡ)² con g = log ẑ − log z: un fattore s diventa una costante additiva log s e si annulla. La formula della slide, senza logaritmo, è invariante solo a uno spostamento additivo (slide 45–46, § 43.4).</p></details>
+      <details><summary>Nel notebook, perché la F stimata da punti interi è peggiore? Cosa restituisce StereoBM?</summary><p>np.int32 tronca le coordinate sub-pixel (errore fino a 1 px): l'errore mediano punto-linea passa da 0.23 a 0.53 px. StereoBM restituisce int16 in virgola fissa ×16, con −16 per i pixel invalidi: bisogna dividere per 16 e mascherare prima di calcolare Z = fT/d.</p></details>
+    </div>
+  </div>
+</div>

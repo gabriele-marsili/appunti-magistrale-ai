@@ -16,3 +16,4 @@ Una dispensa per lezione, scritta da zero integrando slide e libro (Torralba, Is
 | [L10 · Lab panorami](L10-lab-panorami.md) | Lab: Panorama Stitching with OpenCV | 7101 |
 | [L11 · Modello della camera](L11-modello-della-camera.md) | Camera Model and Perspective Geometry | 6134 |
 | [L12 · Calibrazione](L12-calibrazione.md) | Camera Models and Calibration | 7497 |
+| [L13 · Stereo e profondità](L13-stereo-e-profondita.md) | Stereo Vision and Depth Prediction | 9471 |

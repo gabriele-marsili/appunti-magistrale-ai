@@ -121,7 +121,7 @@ s(11, "The Sampling Theorem (Nyquist–Shannon)", """
 <p><b>Figura:</b> spettro L(ω) nullo fuori da [−ω<sub>max</sub>, ω<sub>max</sub>].</p>
 <div class="box x"><b>Approfondimento</b><ul>
 <li>La slide mescola ω (rad/s) e f (Hz): ω = 2πf, la condizione è la stessa.</li>
-<li>La ricostruzione "perfetta" richiede il passa-basso ideale (interpolazione con sinc), che in pratica non si usa (slide 26).</li>
+<li>La ricostruzione "perfetta" richiede il passa-basso ideale (interpolazione con sinc), che in pratica non si usa (slide 25).</li>
 <li>Per le immagini, con un campione per pixel, la Nyquist è 0.5 cicli/pixel: un periodo non può essere più corto di 2 pixel.</li></ul></div>
 <div class="box b"><b>Dal libro · cap. 20, § 20.3.2 Sampling in the Fourier Domain</b>
 <p>La dimostrazione del teorema in tre passi:</p>
@@ -148,7 +148,7 @@ s(12, "Aliasing and sampling theorem", """
 Ogni campione "accende" una sinc centrata su di sé; le sinc valgono 1 nel proprio campione e 0 su tutti gli altri, quindi la somma passa per i campioni e li raccorda in modo liscio.</li>
 <li><b>§ 20.4.2 Kernel locali</b>: la sinc ha supporto infinito e decade lentamente (come 1/t), quindi in pratica si usano kernel corti: box di larghezza T<sub>s</sub> (nearest neighbor), triangolo di larghezza 2T<sub>s</sub> (lineare, è la convoluzione di due box), Lanczos-1 (solo il lobo centrale della sinc).</li>
 </ul>
-<p>Collegamento: sono gli stessi filtri che tornano nel resize (slide 26) e nell'upsampling delle piramidi. <a href="https://visionbook.mit.edu/sampling_and_aliasing.html" target="_blank">Cap. 20</a>.</p></div>
+<p>Collegamento: sono gli stessi filtri che tornano nel resize (slide 25) e nell'upsampling delle piramidi. <a href="https://visionbook.mit.edu/sampling_and_aliasing.html" target="_blank">Cap. 20</a>.</p></div>
 """)
 
 s(13, "Classic Examples", """
@@ -193,7 +193,7 @@ s(16, "Aliasing in CNNs", """
 """)
 
 s(17, "Aliasing Attack in CNNs", """
-<p><b>Figura:</b> in alto l'immagine di un uccello l<sub>in</sub>, un rumore z quasi invisibile e la somma l<sub>in</sub> + 0.05·z, identica all'originale a occhio. In basso ciò che si ottiene dopo il sottocampionamento: dalla somma esce un segnale di <b>STOP</b>.</p>
+<p><b>Figura:</b> in alto l'immagine di un uccello l<sub>in</sub>, un rumore z quasi invisibile e la somma l<sub>in</sub> + 0.05·z, identica all'originale a occhio. In basso ciò che si ottiene dopo il sottocampionamento: dalla somma esce un segnale di <b>STOP</b>. La didascalia aggiornata precisa che la riga in basso è l'uscita di <b>derivata dell'immagine → sottocampionamento → ReLU</b>.</p>
 <p>z è costruito ad alta frequenza in modo che, dopo un resize senza prefiltro, faccia alias proprio nell'immagine bersaglio. L'umano vede l'uccello, la rete (che lavora sull'input ridimensionato) vede lo STOP.</p>
 <p>È un attacco al <b>sottocampionamento senza prefiltro</b>, non ai pesi della rete: si difende prefiltrando.</p>
 <div class="box b"><b>Dal libro · cap. 21, § 21.2 Example: Aliasing-Based Adversarial Attack</b>
@@ -216,7 +216,7 @@ s(18, "Summary", """
 <p>Il libro aggiunge una sfumatura che le slide non dicono: l'aliasing non è sempre solo un danno. Il pattern di aliasing <b>contiene</b> informazione sulle alte frequenze; algoritmi di <b>super-risoluzione</b> possono imparare a sfruttarlo, e se un'immagine è codificata da più canali (o più scatti leggermente spostati) l'aliasing di un canale può essere compensato dagli altri. <a href="https://visionbook.mit.edu/sampling_and_aliasing.html" target="_blank">Cap. 20</a>.</p></div>
 """)
 
-s(19, "Downsampling", "<p>Come si sottocampiona perdendo il meno possibile.</p>", kind="div", sec=("downsampling","Downsampling","slide 19–29"))
+s(19, "Downsampling", "<p>Come si sottocampiona perdendo il meno possibile.</p>", kind="div", sec=("downsampling","Downsampling","slide 19–28"))
 
 s(20, "Decimation", """
 <p><b>Decimazione</b>: sottocampionare eliminando pixel.</p>
@@ -286,15 +286,7 @@ s(24, "Anti-Aliasing Pre-Filtering", """
 <p><a href="https://visionbook.mit.edu/sampling_and_aliasing.html" target="_blank">Cap. 20</a>.</p></div>
 """)
 
-s(25, "Anti-Aliasing Pre-Filtering (figura)", """
-<p><b>Figura:</b> foto 512×512; downsample ×8 senza prefiltro; blur gaussiano e poi downsample ×8.</p>
-<ul>
-<li>Senza prefiltro: bordi seghettati, texture della tuta e della bandiera rumorose.</li>
-<li>Con prefiltro: più morbida, ma pulita e fedele.</li>
-</ul>
-""")
-
-s(26, "Anti-Aliasing: Binomial Filter", """
+s(25, "Anti-Aliasing: Binomial Filter", """
 <p><b>Figura:</b> un cubo rosso ricampionato con tre filtri.</p>
 <ul>
 <li><b>Ideale</b> (box in frequenza = sinc nello spazio): taglio perfetto ma <b>ringing</b> (aloni vicino ai bordi, fenomeno di Gibbs), perché la sinc ha lobi laterali lenti a decadere.</li>
@@ -312,7 +304,7 @@ s(26, "Anti-Aliasing: Binomial Filter", """
 <p><a href="https://visionbook.mit.edu/upsamplig_downsampling_2.html" target="_blank">Cap. 21</a>. Le proprietà del binomiale sono in <a href="https://visionbook.mit.edu/blurring_2.html" target="_blank">cap. 17, § 17.4</a>.</p></div>
 """)
 
-s(27, "Example: Clothing", """
+s(26, "Example: Clothing", """
 <ul>
 <li><b>Sopra</b> (Fig. 11): 128, 64, 32 per decimazione, con aliasing (come slide 21).</li>
 <li><b>Sotto</b> (Fig. 12): stessa sequenza con prefiltro. A 32×32 la trama non si vede più, ma non compaiono pattern falsi: resta un maglione sfocato.</li>
@@ -320,10 +312,10 @@ s(27, "Example: Clothing", """
 <div class="box b"><b>Dal libro · cap. 21, § 21.3.5 Downsampling</b>
 <p>Il libro chiama <b>downsampling</b> l'operazione completa (prefiltro + decimazione) e <b>decimazione</b> solo il secondo passo:</p>
 <span class="f">z = ℓ<sub>in</sub> ∗ h<sub>k</sub>,   ℓ<sub>out</sub>[n, m] = z[kn, km]</span>
-<p>Con k = 2 e il filtro binomiale, ripetuto più volte, a 32×32 si vedono ancora l'orientazione dei punti della maglia e l'ombreggiatura 3D delle pieghe (Fig. 21.17), mentre la decimazione semplice (Fig. 21.2) li distrugge. Osservazione: per arrivare a 32×32 conviene dimezzare più volte con un filtro piccolo, non usare un solo filtro enorme. È l'idea della piramide gaussiana (slide 42). <a href="https://visionbook.mit.edu/upsamplig_downsampling_2.html" target="_blank">Cap. 21</a>.</p></div>
+<p>Con k = 2 e il filtro binomiale, ripetuto più volte, a 32×32 si vedono ancora l'orientazione dei punti della maglia e l'ombreggiatura 3D delle pieghe (Fig. 21.17), mentre la decimazione semplice (Fig. 21.2) li distrugge. Osservazione: per arrivare a 32×32 conviene dimezzare più volte con un filtro piccolo, non usare un solo filtro enorme. È l'idea della piramide gaussiana (slide 41). <a href="https://visionbook.mit.edu/upsamplig_downsampling_2.html" target="_blank">Cap. 21</a>.</p></div>
 """)
 
-s(28, "Demonstration: Zone Plate", """
+s(27, "Demonstration: Zone Plate", """
 <ul>
 <li>La <b>zone plate</b> (anelli concentrici con frequenza crescente) è un pattern di test classico per l'aliasing.</li>
 <li>Sottocampionata senza filtro, gli anelli fitti producono moiré spurio a bassa frequenza.</li>
@@ -331,42 +323,42 @@ s(28, "Demonstration: Zone Plate", """
 <p>È utile perché contiene tutte le frequenze e tutte le orientazioni, ognuna in una posizione precisa: dove la frequenza locale supera la Nyquist, lo vedi subito.</p>
 """)
 
-s(29, "Demonstration: Zone Plate (figura)", """
+s(28, "Demonstration: Zone Plate (figura)", """
 <p><b>Figura:</b> zone plate 256×256; downsample ×4 senza prefiltro; blur e poi downsample ×4.</p>
 <ul>
 <li><b>Senza prefiltro</b>: compaiono cerchi "nuovi" dove l'originale ha solo anelli fittissimi. Sono alias.</li>
 <li><b>Con prefiltro</b>: resta solo la parte centrale (basse frequenze), il resto diventa grigio uniforme. È corretto: quelle frequenze non sono rappresentabili alla nuova risoluzione.</li>
 </ul>
 """)
-s(30, "Scale-Space", "<p>Seconda parte: come rappresentare un'immagine a tutte le scale.</p>", kind="div", sec=("scalespace","Scale-space","slide 30–40"))
+s(29, "Scale-Space", "<p>Seconda parte: come rappresentare un'immagine a tutte le scale.</p>", kind="div", sec=("scalespace","Scale-space","slide 29–39"))
 
-s(31, "Scale Invariance", """
+s(30, "Scale Invariance", """
 <p><b>Figura:</b> stormo di uccelli a distanze diverse: lo stesso oggetto appare con dimensioni molto diverse.</p>
 <p>Un detector con un filtro di dimensione fissa trova solo oggetti di una certa dimensione. Serve <b>invarianza alla scala</b>.</p>
 """)
 
-s(32, "Multi-Scale Representation", """
+s(31, "Multi-Scale Representation", """
 <p><b>Figura:</b> la stessa immagine a risoluzioni decrescenti (a)–(e). Un detector a finestra fissa (riquadri rossi) trova uccelli diversi a ogni livello: in (a) i piccoli, nei livelli ridotti i grandi, che ora entrano nella finestra.</p>
 <p>Idea: invece di cambiare il detector, <b>si cambia l'immagine</b>.</p>
 <div class="box b"><b>Dal libro · cap. 23, § 23.1 Introduction e § 23.2 Image Pyramids and Multiscale Image Analysis</b>
 <ul>
 <li>Il libro presenta l'invarianza alla scala come la "sorella" dell'invarianza per traslazione (cap. 15): la prospettiva fa apparire lo stesso oggetto a dimensioni diverse, quindi per trovare <i>tutti</i> gli uccelli serve un operatore invariante sia per traslazione sia per scala.</li>
 <li>Invece di convolvere con template sempre più grandi (costo che cresce con la dimensione del template), si tiene il template piccolo e si rimpicciolisce l'immagine: le convoluzioni restano economiche.</li>
-<li>Nell'esempio degli uccelli (immagine 848×643) ogni livello è ridotto <b>del 25%</b> rispetto al precedente, non dimezzato. Il motivo (ragionamento mio, non del libro): per la detection servono scale più fitte di un'ottava, altrimenti un oggetto può cadere fra due livelli. La piramide gaussiana "classica" (slide 41) usa invece il fattore 2.</li>
+<li>Nell'esempio degli uccelli (immagine 848×643) ogni livello è ridotto <b>del 25%</b> rispetto al precedente, non dimezzato. Il motivo (ragionamento mio, non del libro): per la detection servono scale più fitte di un'ottava, altrimenti un oggetto può cadere fra due livelli. La piramide gaussiana "classica" (slide 40) usa invece il fattore 2.</li>
 </ul>
 <p><a href="https://visionbook.mit.edu/pyramids_new_notation.html" target="_blank">Cap. 23, Image Pyramids</a>.</p></div>
 """)
 
-s(33, "Motivation: Subsampling for Efficiency", """
+s(32, "Motivation: Subsampling for Efficiency", """
 <p>Molti task vanno risolti a più scale (volti piccoli e grandi). Due modi di cercare fra le scale:</p>
 <ol>
-<li><b>Immagine fissa, filtro variabile</b> (g<sub>σ</sub> per molti σ): è lo <b>scale-space</b>. Costoso: O(σ) per pixel per scala, tutto a piena risoluzione.</li>
+<li><b>Immagine fissa, filtro variabile</b> (g<sub>σ</sub> per molti σ): è lo <b>scale-space</b>. Costoso: una convoluzione per scala, tutta a piena risoluzione, e il filtro cresce con σ (O(σ) per pixel).</li>
 <li><b>Filtro fisso, immagine variabile</b> (blur + downsample ripetuti): è una <b>piramide</b>. Lo stesso filtro piccolo si riusa a ogni livello e ogni livello costa meno del precedente.</li>
 </ol>
 <p>Le piramidi rinunciano a un po' di flessibilità (scale discrete legate da un fattore fisso, di solito 2) in cambio di grossi guadagni di velocità.</p>
 """)
 
-s(34, "From Multiscale Derivatives to Scale-Space", """
+s(33, "From Multiscale Derivatives to Scale-Space", """
 <ul><li>Richiamo (L5): scegliere σ per le derivate di gaussiana = scegliere la scala di analisi.</li></ul>
 <p><b>Rappresentazione scale-space</b>:</p>
 <span class="f">L(x, y; σ) = (g<sub>σ</sub> ∗ l)(x, y),   σ ≥ 0</span>
@@ -376,7 +368,7 @@ s(34, "From Multiscale Derivatives to Scale-Space", """
 </ul>
 """)
 
-s(35, "Scale-Space and the Heat Equation", """
+s(34, "Scale-Space and the Heat Equation", """
 <ul>
 <li>La gaussiana è la funzione di Green dell'<b>equazione di diffusione</b> (L5).</li>
 <li>Aumentare σ = far "diffondere" l'immagine: l'intensità passa dalle zone chiare alle scure, livellando la struttura in modo monotono.</li>
@@ -390,7 +382,7 @@ s(35, "Scale-Space and the Heat Equation", """
 <div class="box x"><b>Approfondimento</b><p>"Nessun nuovo estremo" è esatto in 1D. In 2D possono nascere nuovi estremi locali; l'assioma preciso è che gli estremi non vengono "rinforzati" (un massimo non cresce, un minimo non cala). Per il corso basta l'idea: la gaussiana non inventa strutture.</p></div>
 """)
 
-s(36, "Scale-Space Axioms", """
+s(35, "Scale-Space Axioms", """
 <p>La gaussiana è l'<b>unico</b> kernel che soddisfa tutti gli assiomi dello scale-space:</p>
 <ul>
 <li><b>LSI</b>: lineare e invariante per traslazione;</li>
@@ -402,12 +394,12 @@ s(36, "Scale-Space Axioms", """
 <div class="box w"><b>Attenzione: formula sbagliata sulla slide</b>
 <p>La slide scrive g(g(l, σ<sub>1</sub>), σ<sub>2</sub>) = g(l, σ<sub>1</sub> + σ<sub>2</sub>). È sbagliato: si sommano le <b>varianze</b>, non le deviazioni standard.</p>
 <span class="f">g<sub>σ2</sub> ∗ (g<sub>σ1</sub> ∗ l) = g<sub>σ</sub> ∗ l   con σ = √(σ<sub>1</sub>² + σ<sub>2</sub>²)</span>
-<p>Esempio: due blur con σ = 1 danno σ = √2 ≈ 1.41, non 2. Con t = σ²/2 (slide 35) invece si sommano direttamente: t = t<sub>1</sub> + t<sub>2</sub>.</p></div>
+<p>Esempio: due blur con σ = 1 danno σ = √2 ≈ 1.41, non 2. Con t = σ²/2 (slide 34) invece si sommano direttamente: t = t<sub>1</sub> + t<sub>2</sub>.</p></div>
 <div class="box b"><b>Dal libro · cap. 17, § 17.3.2 Properties of the Continuous Gaussian</b>
 <p>Il libro conferma la correzione: la convoluzione di due gaussiane è una gaussiana con varianza somma, <span class="f">g(·; σ<sub>1</sub>) ∗ g(·; σ<sub>2</sub>) = g(·; σ<sub>3</sub>),   σ<sub>3</sub>² = σ<sub>1</sub>² + σ<sub>2</sub>²</span> e ricorda che la gaussiana è la soluzione dell'equazione del calore. Lo stesso vale per i binomiali (§ 17.4.1): b<sub>n</sub> ∗ b<sub>m</sub> = b<sub>n+m</sub>, con varianza n/4, quindi σ<sub>n</sub>² + σ<sub>m</sub>² = σ<sub>n+m</sub>². Capitolo: <a href="https://visionbook.mit.edu/blurring_2.html" target="_blank">Blur Filters</a> (è quello di L5).</p></div>
 """)
 
-s(37, "Visualizing Scale-Space", """
+s(36, "Visualizing Scale-Space", """
 <p><b>Figura:</b> la stessa foto con σ = 0, 1, 2, 4, 8.</p>
 <ul>
 <li>La texture fine sparisce per prima; le strutture grandi (volto, silhouette) sopravvivono più a lungo.</li>
@@ -416,7 +408,7 @@ s(37, "Visualizing Scale-Space", """
 <p>Collegamento con L7: i detector di keypoint (SIFT) cercano la σ a cui una struttura risponde di più (<i>scale selection</i>).</p>
 """)
 
-s(38, "Image Pyramids", """
+s(37, "Image Pyramids", """
 <ul>
 <li>L(x, y; σ) è definita per ogni σ sulla griglia a piena risoluzione.</li>
 <li>Calcolarla per molti σ a piena risoluzione è uno spreco: a σ grande l'immagine è liscia e la sua informazione sta già in una risoluzione molto più bassa.</li>
@@ -425,7 +417,7 @@ s(38, "Image Pyramids", """
 <div class="box k"><b>Il ponte fra le due parti</b><p>Il blur dello scale-space è proprio il prefiltro anti-aliasing della slide 24. Blur + downsample fatti bene = niente aliasing e niente spreco.</p></div>
 """)
 
-s(39, "Image Pyramids (definizione)", """
+s(38, "Image Pyramids (definizione)", """
 <ul>
 <li>Una <b>piramide</b> è una pila {I<sub>0</sub>, I<sub>1</sub>, I<sub>2</sub>, …}: I<sub>0</sub> è l'originale e ogni I<sub>l+1</sub> è una versione sfocata e sottocampionata di I<sub>l</sub>.</li>
 <li>Ogni livello è a una scala più grossolana <b>e</b> su una griglia più rada: raddoppiare la σ effettiva corrisponde a dimezzare la risoluzione.</li>
@@ -433,7 +425,7 @@ s(39, "Image Pyramids (definizione)", """
 <p><b>Figura:</b> un faro a risoluzioni dimezzate successivamente.</p>
 """)
 
-s(40, "Octaves and Pyramid Notation", """
+s(39, "Octaves and Pyramid Notation", """
 <ul>
 <li>Dimezzare la risoluzione (e raddoppiare σ) si chiama <b>ottava</b>, come il raddoppio di frequenza in musica.</li>
 <li>Il livello l ha risoluzione W/2<sup>l</sup> × H/2<sup>l</sup> e scala effettiva σ<sub>l</sub> = 2<sup>l</sup> σ<sub>0</sub>.</li>
@@ -447,9 +439,9 @@ s(40, "Octaves and Pyramid Notation", """
 <div class="box x"><b>Approfondimento</b><p>σ<sub>l</sub> = 2<sup>l</sup>σ<sub>0</sub> vale asintoticamente. Riapplicando sempre lo stesso kernel (σ<sub>b</sub>) le varianze si sommano; in pixel dell'originale: σ<sub>eff</sub>(l)² = σ<sub>b</sub>² (4<sup>l</sup> − 1)/3, quindi σ<sub>eff</sub> ≈ σ<sub>b</sub> · 2<sup>l</sup>/√3, che raddoppia a ogni livello.</p></div>
 """)
 
-s(41, "Gaussian Pyramid", "<p>Costruzione concreta della piramide più semplice.</p>", kind="div", sec=("gauss","Piramide gaussiana","slide 41–46"))
+s(40, "Gaussian Pyramid", "<p>Costruzione concreta della piramide più semplice.</p>", kind="div", sec=("gauss","Piramide gaussiana","slide 40–45"))
 
-s(42, "Construction: Repeated Blur + Downsample", """
+s(41, "Construction: Repeated Blur + Downsample", """
 <p>A ogni livello: blur con un kernel piccolo e fisso, poi downsample di 2 per dimensione.</p>
 <span class="f">I<sub>l+1</sub>[m, n] = (b ∗ I<sub>l</sub>)[2m, 2n]</span>
 <ul>
@@ -458,18 +450,18 @@ s(42, "Construction: Repeated Blur + Downsample", """
 </ul>
 """)
 
-s(43, "Kernel: Binomial Filter", """
+s(42, "Kernel: Binomial Filter", """
 <ul>
 <li>Il <b>filtro binomiale</b> è la scelta standard per b: economico, coefficienti interi, separabile, composizione esatta b<sub>n</sub> ∗ b<sub>n</sub> = b<sub>2n</sub>.</li>
 <li>Scelta comune: kernel 5×5 di <b>Burt-Adelson</b>, separabile come <b>(1/16)·[1, 4, 6, 4, 1]</b> su ogni asse.</li>
 </ul>
 <div class="box k"><b>Da sapere</b><ul>
 <li>b<sub>n</sub> = riga n del triangolo di Tartaglia / 2<sup>n</sup>. b<sub>4</sub> = [1 4 6 4 1]/16.</li>
-<li>La varianza di b<sub>n</sub> è n/4: b<sub>4</sub> ha σ = 1 pixel. Componendo, le varianze si sommano (coerente con la correzione della slide 36).</li>
+<li>La varianza di b<sub>n</sub> è n/4: b<sub>4</sub> ha σ = 1 pixel. Componendo, le varianze si sommano (coerente con la correzione della slide 35).</li>
 <li>In 2D il kernel è il prodotto esterno dei due vettori; lo applichi come due convoluzioni 1D: 10 moltiplicazioni per pixel invece di 25.</li></ul></div>
 """)
 
-s(44, "Matrix Form", """
+s(43, "Matrix Form", """
 <p>Tutte le operazioni sono lineari. Per un segnale 1D g<sub>0</sub>:</p>
 <span class="f">g<sub>k+1</sub> = D<sub>k</sub> B<sub>k</sub> g<sub>k</sub> = G<sub>k</sub> g<sub>k</sub></span>
 <ul>
@@ -477,43 +469,44 @@ s(44, "Matrix Form", """
 <li><b>B<sub>k</sub></b>: blur, matrice a bande con [1 4 6 4 1]/16 su ogni riga, troncata ai bordi (zero-padding).</li>
 <li>Nell'esempio il segnale ha lunghezza 8, quindi G<sub>0</sub> è 4 × 8.</li>
 </ul>
-<p>La forma matriciale serve a scrivere la laplaciana e la sua inversa in una riga (slide 49 e 51).</p>
+<p>La forma matriciale serve a scrivere la laplaciana e la sua inversa in una riga (slide 48 e 50).</p>
 <div class="box b"><b>Dal libro · cap. 23, § 23.4 Gaussian Pyramid</b>
 <ul>
 <li>Il libro definisce g<sub>0</sub> = ℓ e g<sub>k+1</sub> = D<sub>k</sub>B<sub>k</sub>g<sub>k</sub> con B<sub>k</sub> = convoluzione separabile con b<sub>4</sub> = [1, 4, 6, 4, 1]/16. Per le immagini a colori la piramide si costruisce <b>canale per canale</b>.</li>
 <li>Guarda le righe di B<sub>0</sub> ai bordi: [6 4 1 0 …]/16 e [4 6 4 1 0 …]/16 sommano a 11/16 e 15/16, non a 1. È lo zero-padding: i bordi della piramide si scuriscono un po' a ogni livello (è il "bordo scuro" che si vede nel notebook).</li>
 <li>Perché funziona: applicare ripetutamente una gaussiana equivale ad applicarne una sola più larga (varianze che si sommano), e dopo il sottocampionamento lo stesso b<sub>4</sub> copre una zona doppia dell'originale. Così un filtro di 5 tap simula filtri sempre più grandi.</li>
-<li>Memoria: 1 + 1/4 + 1/16 + … = 4/3 dell'immagine (slide 40).</li>
+<li>Memoria: 1 + 1/4 + 1/16 + … = 4/3 dell'immagine (slide 39).</li>
 </ul>
 <p><a href="https://visionbook.mit.edu/pyramids_new_notation.html" target="_blank">Cap. 23</a>.</p></div>
 """)
 
-s(45, "Example: Gaussian Pyramid", """
+s(44, "Example: Gaussian Pyramid", """
 <p><b>Figura:</b> piramide gaussiana 256, 128, 64, 32, 16.</p>
 <p>I livelli grossolani evidenziano le <b>feature globali</b>, utili per l'object detection, che ha bisogno anche di informazione su scala globale.</p>
 """)
 
-s(46, "Properties: Resolution vs. Memory Tradeoff", """
+s(45, "Properties: Resolution vs. Memory Tradeoff", """
 <ul>
-<li>Memoria totale ≤ 4/3 dell'originale (slide 40).</li>
+<li>Memoria totale ≤ 4/3 dell'originale (slide 39).</li>
 <li>Ogni livello dimezza risoluzione e contenuto in frequenza, per ogni dimensione.</li>
 <li><b>Livelli grossolani</b>: economici, catturano la struttura globale, perdono il dettaglio.</li>
 <li><b>Livelli fini</b>: costosi, catturano dettaglio e texture, ma la struttura grande è difficile da rilevare (un filtro piccolo ne vede solo un pezzo).</li>
 </ul>
 """)
 
-s(47, "Laplacian Pyramid", "<p>Come non buttare via l'informazione tolta dal blur.</p>", kind="div", sec=("laplace","Piramide laplaciana","slide 47–51"))
+s(46, "Laplacian Pyramid", "<p>Come non buttare via l'informazione tolta dal blur.</p>", kind="div", sec=("laplace","Piramide laplaciana","slide 46–50"))
 
-s(48, "Loss of Information", """
+s(47, "Loss of Information", """
 <ul>
 <li>La piramide gaussiana <b>perde informazione</b> a ogni livello: da g<sub>k+1</sub> non si torna a g<sub>k</sub>.</li>
 <li>Si affianca un'altra piramide che codifica la differenza fra livelli consecutivi.</li>
 </ul>
 <p><b>Piramide laplaciana</b>, in tre passi:</p>
 <ol><li>prendi g<sub>k</sub> e g<sub>k+1</sub>, due livelli consecutivi della gaussiana;</li><li>riporta g<sub>k+1</sub> alla dimensione di g<sub>k</sub>;</li><li>fai la differenza.</li></ol>
+<p><b>Perché "laplaciana" se non si usa il LoG (il cappello messicano)?</b> La differenza di due gaussiane di σ diverse (<b>DoG</b>) approssima il laplaciano della gaussiana (<b>LoG</b>), a meno di un fattore di scala: ogni livello è in pratica un LoG applicato all'immagine, cioè un passa-banda. Lo stesso argomento giustifica la DoG di SIFT in L8.</p>
 """)
 
-s(49, "Laplacian Pyramid (formula)", """
+s(48, "Laplacian Pyramid (formula)", """
 <span class="f">l<sub>k</sub> = g<sub>k</sub> − F<sub>k</sub> g<sub>k+1</sub> = (I<sub>k</sub> − F<sub>k</sub> G<sub>k</sub>) g<sub>k</sub> = L<sub>k</sub> g<sub>k</sub></span>
 <ul>
 <li><b>F<sub>k</sub> = B<sub>k</sub> U<sub>k</sub></b>: upsampling seguito da blur.</li>
@@ -534,18 +527,18 @@ s(49, "Laplacian Pyramid (formula)", """
 <p><a href="https://visionbook.mit.edu/pyramids_new_notation.html" target="_blank">Cap. 23</a>, <a href="https://visionbook.mit.edu/upsamplig_downsampling_2.html" target="_blank">cap. 21</a>.</p></div>
 """)
 
-s(50, "Example (piramide laplaciana)", """
+s(49, "Example (piramide laplaciana)", """
 <p><b>Figura:</b> piramide laplaciana del faro. Grigio medio = zero; i contorni sono evidenziati. I livelli fini contengono bordi sottili e texture, quelli grossolani le forme grandi.</p>
 """)
 
-s(51, "Invertibility", """
+s(50, "Invertibility", """
 <p>Dalla piramide laplaciana più l'ultimo livello della gaussiana (g<sub>N</sub>) si ricostruisce l'originale:</p>
 <span class="f">g<sub>k</sub> = l<sub>k</sub> + F<sub>k</sub> g<sub>k+1</sub></span>
 <p>Si parte da g<sub>N</sub> e si risale livello per livello fino a g<sub>0</sub>.</p>
 <div class="box k"><b>Punti da orale</b><ul>
 <li>La ricostruzione è <b>esatta qualunque sia il filtro</b>: l<sub>k</sub> è definito proprio come ciò che manca. Basta usare lo stesso F<sub>k</sub> in costruzione e ricostruzione.</li>
-<li>È <b>sovracompleta</b>: circa 4/3 dei campioni dell'originale (stesso conto della slide 40).</li>
-<li>Usi: compressione (i livelli sono quasi tutti vicini a zero; è l'uso originale di Burt &amp; Adelson, 1983), blending (slide 58), modifiche per banda.</li></ul></div>
+<li>È <b>sovracompleta</b>: circa 4/3 dei campioni dell'originale (stesso conto della slide 39).</li>
+<li>Usi: compressione (i livelli sono quasi tutti vicini a zero; è l'uso originale di Burt &amp; Adelson, 1983), blending (slide 57), modifiche per banda.</li></ul></div>
 <div class="box b"><b>Dal libro · cap. 23, § 23.5 Laplacian Pyramid, § 23.3 Linear Image Transforms, § 23.7 A Pictorial Summary</b>
 <ul>
 <li>Il libro sottolinea il punto non ovvio: la ricostruzione <b>non dipende dai filtri usati</b>. Basta conservare il residuo passa-basso (l'ultima gaussiana) e rifare g<sub>k</sub> = l<sub>k</sub> + F<sub>k</sub>g<sub>k+1</sub> dall'alto verso il basso.</li>
@@ -556,9 +549,9 @@ s(51, "Invertibility", """
 <p><a href="https://visionbook.mit.edu/pyramids_new_notation.html" target="_blank">Cap. 23</a>.</p></div>
 """)
 
-s(52, "Applications", "<p>Dove si usano le piramidi.</p>", kind="div", sec=("app","Applicazioni","slide 52–64"))
+s(51, "Applications", "<p>Dove si usano le piramidi.</p>", kind="div", sec=("app","Applicazioni","slide 51–63"))
 
-s(53, "Coarse-to-Fine Search", """
+s(52, "Coarse-to-Fine Search", """
 <ul>
 <li>Molti problemi cercano in uno spazio di parametri grande (tutti gli spostamenti, tutte le scale).</li>
 <li><b>Coarse-to-fine</b>: risolvi al livello più grossolano (piccolo, economico), usa la soluzione per restringere la ricerca al livello successivo, ripeti.</li>
@@ -567,7 +560,7 @@ s(53, "Coarse-to-Fine Search", """
 <div class="box k"><b>Il rischio</b><p>Se al livello grossolano scegli la soluzione sbagliata, i livelli fini non la correggono: cercano solo in un intorno. Oggetti piccoli o sottili possono sparire nei livelli grossolani.</p></div>
 """)
 
-s(54, "Coarse-to-Fine Search Example: Optical Flow", """
+s(53, "Coarse-to-Fine Search Example: Optical Flow", """
 <ul>
 <li>Spostamenti grandi sono difficili da stimare a piena risoluzione (il pixel esce dalla finestra di ricerca).</li>
 <li>A un livello grossolano lo stesso spostamento è piccolo (al livello l si divide per 2<sup>l</sup>).</li>
@@ -577,7 +570,7 @@ s(54, "Coarse-to-Fine Search Example: Optical Flow", """
 <div class="box w"><b>Attenzione: esempio impreciso sulla slide</b><p>La slide cita RAFT come metodo coarse-to-fine. Non lo è: RAFT aggiorna iterativamente un unico campo di flow e usa una piramide solo sul volume di correlazione; il paper si presenta proprio come alternativa al coarse-to-fine. Esempi deep davvero coarse-to-fine: SPyNet, PWC-Net.</p></div>
 """)
 
-s(55, "Pyramid-Based Template Matching", """
+s(54, "Pyramid-Based Template Matching", """
 <ul>
 <li>Template matching ingenuo: O(dimensione immagine × dimensione template).</li>
 <li>Coarse-to-fine: match al livello grossolano, tieni le posizioni candidate migliori, raffina solo quelle al livello sotto.</li>
@@ -586,14 +579,14 @@ s(55, "Pyramid-Based Template Matching", """
 <div class="box k"><b>Da saper fare</b><p>Scendere di un livello divide per 4 sia le posizioni sia i pixel del template: il costo esaustivo cala di 16×. L'ottimo globale non è garantito; tenere più candidati (top-k) riduce il rischio.</p></div>
 """)
 
-s(56, "Coarse-to-Fine Alignment Example: Matching", """
+s(55, "Coarse-to-Fine Alignment Example: Matching", """
 <ul>
 <li>Anche l'allineamento di immagini funziona coarse-to-fine: trasformazione approssimata a bassa risoluzione, poi raffinamento.</li>
 <li>Si combina con il matching di feature: si rilevano feature a più livelli della piramide e si stima una trasformazione robusta alla scala a cui sono state trovate (anticipo di SIFT, L7).</li>
 </ul>
 """)
 
-s(57, "Image Blending", """
+s(56, "Image Blending", """
 <ul>
 <li><b>Obiettivo</b>: unire due immagini A e B con una transizione morbida al confine.</li>
 <li><b>Soluzione ingenua</b>: una curva di confine, A da un lato e B dall'altro.</li>
@@ -602,7 +595,7 @@ s(57, "Image Blending", """
 <div class="box k"><b>Perché non basta sfocare la maschera</b><p>Transizione stretta: si vede il gradino di colore. Transizione larga: il dettaglio delle due immagini si sovrappone e compaiono doppi bordi ("fantasmi"). Non esiste una larghezza giusta per tutte le frequenze.</p></div>
 """)
 
-s(58, "Multi-Band (Laplacian Pyramid) Blending", """
+s(57, "Multi-Band (Laplacian Pyramid) Blending", """
 <p><b>Burt &amp; Adelson, 1983</b>:</p>
 <ol>
 <li>piramidi laplaciane LP<sup>A</sup> e LP<sup>B</sup> delle due immagini;</li>
@@ -610,9 +603,9 @@ s(58, "Multi-Band (Laplacian Pyramid) Blending", """
 <li>blending banda per banda, pixel per pixel:</li>
 </ol>
 <span class="f">LP<sup>I</sup><sub>l</sub> = GP<sup>α</sup><sub>l</sub> · LP<sup>A</sup><sub>l</sub> + (1 − GP<sup>α</sup><sub>l</sub>) · LP<sup>B</sup><sub>l</sub></span>
-<ol start="4"><li>ricostruisci I dalla piramide fusa (slide 51). Lo stesso blending si applica al residuo g<sub>N</sub>.</li></ol>
+<ol start="4"><li>ricostruisci I dalla piramide fusa (slide 50). Lo stesso blending si applica al residuo g<sub>N</sub>.</li></ol>
 <p>Ogni banda viene fusa con una transizione di larghezza <b>proporzionale alla sua scala</b>.</p>
-<div class="box k"><b>Risposta alla slide 57</b><p>Basse frequenze (colore, luce) fuse su una zona larga: niente gradino. Alte frequenze (texture, bordi) fuse su una zona stretta: niente fantasmi. Esempio classico: la "orapple", che è il notebook di questa lezione.</p></div>
+<div class="box k"><b>Risposta alla slide 56</b><p>Basse frequenze (colore, luce) fuse su una zona larga: niente gradino. Alte frequenze (texture, bordi) fuse su una zona stretta: niente fantasmi. Esempio classico: la "orapple", che è il notebook di questa lezione.</p></div>
 <div class="box b"><b>Dal libro · cap. 23, § 23.5.1 Image Blending</b>
 <ul>
 <li>Blending ingenuo nel libro: ℓ<sub>out</sub> = ℓ<sup>A</sup> · m + ℓ<sup>B</sup> · (1 − m), con m maschera binaria: bordo netto.</li>
@@ -622,7 +615,7 @@ s(58, "Multi-Band (Laplacian Pyramid) Blending", """
 <p><a href="https://visionbook.mit.edu/pyramids_new_notation.html" target="_blank">Cap. 23</a>.</p></div>
 """)
 
-s(59, "CNN: Pyramids as Multi-Scale Feature Maps", """
+s(58, "CNN: Pyramids as Multi-Scale Feature Maps", """
 <ul>
 <li>Una CNN con stride/pooling produce feature map a risoluzione decrescente: una <b>piramide appresa</b>.</li>
 <li><b>Primi layer</b> (alta risoluzione): dettaglio fine, campo recettivo piccolo, come i livelli fini.</li>
@@ -632,7 +625,7 @@ s(59, "CNN: Pyramids as Multi-Scale Feature Maps", """
 <div class="box x"><b>Differenza con la piramide gaussiana</b><p>Nella CNN il downsampling di solito non è preceduto da un passa-basso, quindi può fare aliasing (slide 16). E i canali aumentano mentre cala la risoluzione.</p></div>
 """)
 
-s(60, "CNN: Feature Pyramid Networks (FPN)", """
+s(59, "CNN: Feature Pyramid Networks (FPN)", """
 <ul>
 <li>Detection e segmentazione devono trovare oggetti a molte scale.</li>
 <li>L'ultimo layer è troppo grossolano per gli oggetti piccoli; i primi sono ad alta risoluzione ma poveri di semantica.</li>
@@ -642,9 +635,9 @@ s(60, "CNN: Feature Pyramid Networks (FPN)", """
 <div class="box x"><b>Dettagli utili all'orale</b><p>Connessione laterale = conv 1×1 (allinea i canali); upsampling nearest ×2; dopo la somma una conv 3×3. Analogia: g<sub>k</sub> = l<sub>k</sub> + F<sub>k</sub>g<sub>k+1</sub>, con l<sub>k</sub> il contributo laterale e F<sub>k</sub>g<sub>k+1</sub> quello top-down.</p></div>
 """)
 
-s(61, "Conclusions", "<p>Chiusura della lezione.</p>", kind="div")
+s(60, "Conclusions", "<p>Chiusura della lezione.</p>", kind="div")
 
-s(62, "Key Takeaways", """
+s(61, "Key Takeaways", """
 <ul>
 <li>L'<b>aliasing</b> è un problema in quasi tutte le pipeline: le frequenze sopra la Nyquist si ripiegano e creano struttura falsa.</li>
 <li>Il <b>downsampling richiede un blur</b> per evitarlo.</li>
@@ -652,17 +645,17 @@ s(62, "Key Takeaways", """
 </ul>
 """)
 
-s(63, "Further Reading", """
+s(62, "Further Reading", """
 <p><a href="https://visionbook.mit.edu/series.html">MIT Vision Book</a>: capitoli su sampling/aliasing e sulle piramidi. Quasi tutte le figure della lezione vengono da lì.</p>
 <ul>
 <li><a href="https://visionbook.mit.edu/sampling_and_aliasing.html" target="_blank">Cap. 20, Sampling and Aliasing</a>: slide 3–18.</li>
-<li><a href="https://visionbook.mit.edu/upsamplig_downsampling_2.html" target="_blank">Cap. 21, Downsampling and Upsampling</a>: slide 17, 19–29 e l'upsampling delle piramidi.</li>
-<li><a href="https://visionbook.mit.edu/pyramids_new_notation.html" target="_blank">Cap. 23, Image Pyramids</a>: slide 31–58.</li>
+<li><a href="https://visionbook.mit.edu/upsamplig_downsampling_2.html" target="_blank">Cap. 21, Downsampling and Upsampling</a>: slide 17, 19–28 e l'upsampling delle piramidi.</li>
+<li><a href="https://visionbook.mit.edu/pyramids_new_notation.html" target="_blank">Cap. 23, Image Pyramids</a>: slide 30–57.</li>
 </ul>
-<p>Lo scale-space continuo (slide 34–36) non ha un capitolo dedicato fra questi: la composizione delle gaussiane è nel cap. 17 (L5). Ordine di lettura e cosa saltare nella sezione "Studia dal libro" in fondo alla pagina.</p>
+<p>Lo scale-space continuo (slide 33–35) non ha un capitolo dedicato fra questi: la composizione delle gaussiane è nel cap. 17 (L5). Ordine di lettura e cosa saltare nella sezione "Studia dal libro" in fondo alla pagina.</p>
 """)
 
-s(64, "Preview", """
+s(63, "Preview", """
 <p><b>Lezione 7</b>: feature e descrittori, corner di Harris, SIFT, feature locali apprese.</p>
 <p>Collegamento: SIFT costruisce una piramide scale-space e cerca gli estremi della DoG (quasi la piramide laplaciana di oggi) nello spazio e nella scala.</p>
 """)

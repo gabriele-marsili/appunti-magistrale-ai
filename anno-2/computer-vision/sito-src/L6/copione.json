@@ -198,11 +198,11 @@
    "t": "Nella formula: convolvi con un filtro h k, poi tieni un pixel ogni k. Il libro chiama downsampling l'operazione completa e decimazione solo il secondo passo. Per ridurre di k serve un taglio intorno a pi greco su k, cioè una gaussiana con sigma proporzionale a k: più riduci, più sfochi."
   },
   {
-   "a": "Dalla slide 27. Sopra: decimazione sempl",
+   "a": "Dalla slide 26. Sopra: decimazione sempl",
    "t": "Guarda la figura. In alto, decimazione semplice: a 32 per 32 il maglione è una poltiglia di quadretti senza senso. Sotto, prima il blur: a 32 per 32 la trama della lana sparisce, ma le pieghe restano e niente di falso compare."
   },
   {
-   "a": "Zone plate (slide 28–29): la frequenza c",
+   "a": "Zone plate (slide 27–28): la frequenza c",
    "t": "Lo zone plate è fatto di anelli la cui frequenza cresce col raggio. Riducendo di 4, Nyquist cade a raggio 32. Nel pannello b, senza prefiltro, una griglia di cerchi inventati. Nel pannello c, con blur di sigma 3, restano gli anelli centrali e il resto diventa grigio. Ed è la risposta giusta."
   },
   {
@@ -254,7 +254,7 @@
    "t": "Sezione 8, inizia la seconda parte: lo scale-space, lo spazio delle scale. Un filtro di dimensione fissa vede bene solo strutture di una certa dimensione."
   },
   {
-   "a": "Dalla slide 32. Il riquadro rosso ha sem",
+   "a": "Dalla slide 31. Il riquadro rosso ha sem",
    "t": "Nella figura degli uccelli il riquadro rosso ha sempre la stessa dimensione in pixel. Nella foto a ci entra solo un uccellino in basso. Riducendo la foto, nei pannelli dal b all'e, entrano uccelli sempre più grandi. Lo stesso detector, su tutte le versioni, li trova tutti."
   },
   {
@@ -262,7 +262,7 @@
    "t": "Lo sapevi già dalla lezione 5: la derivata di gaussiana con sigma piccola risponde ai bordi fini, con sigma grande ai contorni grossi. Lo scale-space è l'immagine convoluta con la gaussiana per tutte le sigma insieme: una famiglia di immagini sfocate, con sigma zero uguale all'originale."
   },
   {
-   "a": "Dalla slide 37. σ = 0, 1, 2, 4, 8: le sc",
+   "a": "Dalla slide 36. σ = 0, 1, 2, 4, 8: le sc",
    "t": "Guarda l'astronauta. A sigma zero leggi i dettagli delle toppe. A sigma 2 le scritte sono sparite ma il viso è chiaro. A sigma 8 riconosci ancora la testa, il casco nero in basso a destra e il razzo. La texture fine sparisce per prima. E ogni immagine ha tutti i pixel dell'originale: ricordatelo."
   },
   {
@@ -274,7 +274,7 @@
    "t": "Due correzioni alle slide. La gaussiana risolve l'equazione del calore con t uguale a sigma al quadrato mezzi: l'intensità si diffonde come il calore. E la composizione: due blur con sigma 1 danno sigma radice di 2, circa uno virgola quattro uno, non 2 come scrivono le slide."
   },
   {
-   "a": "Verifica della correzione alla slide 36:",
+   "a": "Verifica della correzione alla slide 35:",
    "t": "Lo vedi nella figura: i punti blu, due blur con sigma 1 calcolati davvero, stanno esattamente sulla curva verde, sigma radice di 2. La curva rossa tratteggiata, sigma 2, è più bassa e larga e non coincide. Quindi da sigma 2 a sigma 3 serve un secondo blur di radice di 5, non di 1."
   },
   {
@@ -366,7 +366,7 @@
    "t": "I conti: la ricerca esaustiva a 256 per 256 costa circa 52 milioni di operazioni; coarse to fine circa 240 mila, più di 200 volte meno. Regola: scendere di un livello divide per 4 sia le posizioni sia i pixel del template, quindi il costo esaustivo cala di 16 volte per livello."
   },
   {
-   "a": "Flusso ottico (slide 54): uno spostament",
+   "a": "Flusso ottico (slide 53): uno spostament",
    "t": "Vale anche per il flusso ottico: 32 pixel di spostamento al livello 4 sono 2 pixel, facili da stimare, poi raddoppi e raffini. È Lucas Kanade piramidale, e fra i metodi deep SPyNet e PWC-Net. Le slide citano anche RAFT, che però non è coarse to fine."
   },
   {
@@ -382,7 +382,7 @@
    "t": "Sezione 12: il blending multi-banda. Vuoi unire metà mela e metà arancia. Con una maschera sfumata su una zona larga i colori si raccordano, ma le texture si sovrappongono e vedi doppi contorni, come fantasmi. Con una zona stretta, niente fantasmi, ma vedi il salto di colore. Nessuna larghezza va bene per tutte le frequenze."
   },
   {
-   "a": "L'idea di Burt e Adelson (slide 58, libr",
+   "a": "L'idea di Burt e Adelson (slide 57, libr",
    "t": "L'idea di Burt e Adelson: una larghezza diversa per ogni banda. La laplaciana separa già le bande, quindi basta fonderle una per una."
   },
   {
@@ -414,7 +414,7 @@
    "t": "Sezione 13: le reti. Una CNN con stride e pooling è una piramide appresa: primi strati ad alta risoluzione e campo recettivo piccolo, ultimi a bassa risoluzione e campo grande. Ma di solito manca il prefiltro, quindi può fare aliasing."
   },
   {
-   "a": "Le Feature Pyramid Networks (slide 60, L",
+   "a": "Le Feature Pyramid Networks (slide 59, L",
    "t": "Le Feature Pyramid Networks, FPN, aggiungono un percorso dall'alto verso il basso che porta le feature grossolane, ricche di significato, in alta risoluzione e le somma a quelle fini con connessioni laterali. È lo schema della ricostruzione laplaciana: contributo dall'alto più contributo laterale."
   },
   {

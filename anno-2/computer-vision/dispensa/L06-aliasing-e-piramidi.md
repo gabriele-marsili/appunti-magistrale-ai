@@ -12,7 +12,7 @@ Ti servono tre cose già viste.
 
   - **Fourier e teorema di convoluzione** ([L3](https://gabriele-marsili.github.io/appunti-magistrale-ai/anno-2/computer-vision/sito/#L3), [L4](https://gabriele-marsili.github.io/appunti-magistrale-ai/anno-2/computer-vision/sito/#L4)): ogni segnale è una somma di sinusoidi; la trasformata dice quanto pesa ciascuna frequenza. Il fatto che userai di continuo: **un prodotto in un dominio diventa una convoluzione nell'altro**. Ricorda anche che la DFT di un segnale di lunghezza N è periodica di periodo N: le frequenze u e u + N sono la stessa cosa.
   - **Filtro gaussiano e binomiale** ([L5](https://gabriele-marsili.github.io/appunti-magistrale-ai/anno-2/computer-vision/sito/#L5)): la gaussiana g<sub>σ</sub> è un passa-basso, tanto più forte quanto più σ è grande; il binomiale b<sub>4</sub> = \[1, 4, 6, 4, 1\]/16 ne è l'approssimazione discreta (varianza 1, quindi σ = 1 pixel).
-  - **Composizione di gaussiane** ([L5](https://gabriele-marsili.github.io/appunti-magistrale-ai/anno-2/computer-vision/sito/#L5)): sfocare con σ<sub>1</sub> e poi con σ<sub>2</sub> equivale a sfocare una volta con σ = √(σ<sub>1</sub>² + σ<sub>2</sub>²). Si sommano le varianze, non le σ: la slide 36 sbaglia proprio qui.
+  - **Composizione di gaussiane** ([L5](https://gabriele-marsili.github.io/appunti-magistrale-ai/anno-2/computer-vision/sito/#L5)): sfocare con σ<sub>1</sub> e poi con σ<sub>2</sub> equivale a sfocare una volta con σ = √(σ<sub>1</sub>² + σ<sub>2</sub>²). Si sommano le varianze, non le σ: la slide 35 sbaglia proprio qui.
 
 Notazione: tonde per il continuo, ℓ(t); quadre per il discreto, ℓ\[n\]. T<sub>s</sub> è il periodo di campionamento (distanza fra due campioni), f<sub>s</sub> = 1/T<sub>s</sub> la frequenza di campionamento in cicli per unità, ω<sub>s</sub> = 2π/T<sub>s</sub> la stessa in radianti. Le slide passano da f a ω senza avvisare: è sempre ω = 2πf.
 
@@ -27,7 +27,7 @@ Notazione: tonde per il continuo, ℓ(t); quadre per il discreto, ℓ\[n\]. T<su
 In visione **si cambia risoluzione di continuo**. Instagram riduce la tua foto da 12 megapixel a 1080 pixel di lato. Una rete vuole l'input a 224×224. Dentro la rete, stride e pooling dimezzano le feature map. Un'auto a guida autonoma deve riconoscere un pedone a 5 metri (grande) e a 50 metri (minuscolo). La lezione risponde a due domande.
 
 1.  **Come si riduce un'immagine senza rovinarla?** **L'idea ingenua, tenere un pixel ogni k, non perde solo dettaglio**: **crea strutture che non esistono** (slide 5–6, 21). Guarda la figura: a destra righe ondulate e scacchiere che nell'originale non ci sono.
-2.  **Come si analizza un'immagine a tutte le scale?** Lo stesso uccello può occupare 10 o 200 pixel (slide 31). Invece di costruire un detector per ogni dimensione, **si costruiscono versioni ridotte dell'immagine e si usa sempre lo stesso detector** (slide 32). Per farlo bene bisogna saper ridurre: per questo la prima domanda viene prima.
+2.  **Come si analizza un'immagine a tutte le scale?** Lo stesso uccello può occupare 10 o 200 pixel (slide 30). Invece di costruire un detector per ogni dimensione, **si costruiscono versioni ridotte dell'immagine e si usa sempre lo stesso detector** (slide 31). Per farlo bene bisogna saper ridurre: per questo la prima domanda viene prima.
 
 ![Dalla slide 6. (a) Righe sempre più fitte verso l'alto. (b) La stessa immagine tenendo un pixel ogni tanto: compaiono bande curve e scacchiere che l'originale non contiene. È il moiré.](../sito-src/L6/disp2_moire.png)
 
@@ -166,13 +166,13 @@ Slide 17: un'immagine nascosta (un cartello di STOP) moltiplicata per (−1)<sup
 
 dove h<sub>k</sub> è il passa-basso adatto al fattore k: **per ridurre di k serve un taglio intorno a π/k** (in radianti per campione), quindi con una gaussiana σ proporzionale a k. Le fotocamere hanno un filtro ottico davanti al sensore per lo stesso motivo.
 
-![Dalla slide 27. Sopra: decimazione semplice, a 32×32 una poltiglia di pixel colorati. Sotto: prima il blur, poi la decimazione. La trama sparisce, ma le pieghe del maglione restano e niente di falso compare.](../sito-src/L6/disp2_maglione.png)
+![Dalla slide 26. Sopra: decimazione semplice, a 32×32 una poltiglia di pixel colorati. Sotto: prima il blur, poi la decimazione. La trama sparisce, ma le pieghe del maglione restano e niente di falso compare.](../sito-src/L6/disp2_maglione.png)
 
-![Zone plate (slide 28–29): la frequenza cresce col raggio, r/256 cicli per pixel. Dopo la riduzione di 4 la Nyquist è a r = 32. (b) Senza prefiltro, oltre r = 32 nascono anelli inventati. (c) Con il blur il resto diventa grigio: corretto.](../sito-src/L6/disp_zoneplate.png)
+![Zone plate (slide 27–28): la frequenza cresce col raggio, r/256 cicli per pixel. Dopo la riduzione di 4 la Nyquist è a r = 32. (b) Senza prefiltro, oltre r = 32 nascono anelli inventati. (c) Con il blur il resto diventa grigio: corretto.](../sito-src/L6/disp_zoneplate.png)
 
 #### Quale passa-basso?
 
-Qui entra il compromesso della slide 26, che si ritrova ovunque: **un filtro ripido in frequenza è lungo e oscillante nello spazio**.
+Qui entra il compromesso della slide 25, che si ritrova ovunque: **un filtro ripido in frequenza è lungo e oscillante nello spazio**.
 
   - **Ideale** (box in frequenza, sinc nello spazio): taglio perfetto, ma **i lobi della sinc producono ringing, aloni paralleli ai bordi netti**.
   - **Sinc con finestra di Hamming**: la sinc viene troncata dolcemente, w\[n\] = 0.54 + 0.46 cos(πn/L) per |n| ≤ L. Kernel corto, ringing ridotto ma non assente.
@@ -196,7 +196,7 @@ In visione si sceglie quasi sempre il binomiale o la gaussiana: **meglio un po' 
 
 ![(a) Espansione di \[1, 11, 15, 5\]: metà dei campioni è zero: la somma resta 32 (era già dimezzata dalla decimazione), ma la media su 8 campioni si dimezza. (b) Sfocando con b<sub>4</sub> esce un segnale liscio ma alto la metà del gradino originale (tratteggio). (c) Con 2 · b<sub>4</sub> l'altezza torna giusta.](../sito-src/L6/disp2_espansione.png)
 
-**La matematica.** Inserire zeri **dimezza il valore medio in 1D**, perché metà dei campioni è zero; in 2D lo riduce a un quarto. Un filtro con somma 1 non cambia la media, quindi **il filtro di interpolazione deve avere guadagno 2 per asse** (4 in 2D). Il kernel lineare per k = 2 è infatti \[½, 1, ½\] = 2 · b<sub>2</sub>. Questo fattore le slide lo omettono (vedi il riquadro Attenzione della slide 49).
+**La matematica.** Inserire zeri **dimezza il valore medio in 1D**, perché metà dei campioni è zero; in 2D lo riduce a un quarto. Un filtro con somma 1 non cambia la media, quindi **il filtro di interpolazione deve avere guadagno 2 per asse** (4 in 2D). Il kernel lineare per k = 2 è infatti \[½, 1, ½\] = 2 · b<sub>2</sub>. Questo fattore le slide lo omettono (vedi il riquadro Attenzione della slide 48).
 
 **Esempio svolto.** g = \[1, 11, 15, 5\] espanso diventa \[1, 0, 11, 0, 15, 0, 5, 0\]. Con 2 · b<sub>4</sub> e zeri fuori dal segnale, in posizione 2: 2 · (1·1 + 6·11 + 1·15)/16 = 2 · 82/16 = 10.25; in posizione 3: 2 · (4·11 + 4·15)/16 = 13. Senza il 2 avresti 5.125 e 6.5: tutto a metà altezza, come nel pannello (b).
 
@@ -206,28 +206,28 @@ In visione si sceglie quasi sempre il binomiale o la gaussiana: **meglio un po' 
 
 ### 8\. Scale-space: tutte le scale insieme
 
-**Il problema.** Seconda parte. Un filtro di dimensione fissa "vede" bene solo strutture di una certa dimensione (slide 31): un detector 20×20 trova gli uccelli lontani, non quello che riempie mezza foto.
+**Il problema.** Seconda parte. Un filtro di dimensione fissa "vede" bene solo strutture di una certa dimensione (slide 30): un detector 20×20 trova gli uccelli lontani, non quello che riempie mezza foto.
 
-![Dalla slide 32. Il riquadro rosso ha sempre la stessa dimensione in pixel. Riducendo la foto, uccelli sempre più grandi ci entrano: lo stesso detector, applicato a tutte le versioni, li trova tutti.](../sito-src/L6/disp2_uccelli.png)
+![Dalla slide 31. Il riquadro rosso ha sempre la stessa dimensione in pixel. Riducendo la foto, uccelli sempre più grandi ci entrano: lo stesso detector, applicato a tutte le versioni, li trova tutti.](../sito-src/L6/disp2_uccelli.png)
 
-**L'idea.** In [L5](https://gabriele-marsili.github.io/appunti-magistrale-ai/anno-2/computer-vision/sito/#L5) la soluzione era già nascosta nella σ: la derivata di gaussiana con σ piccola risponde ai bordi fini, con σ grande ai contorni grossi. Lo **scale-space** (slide 34) rende sistematica l'idea: invece di scegliere una σ, si calcolano tutte.
+**L'idea.** In [L5](https://gabriele-marsili.github.io/appunti-magistrale-ai/anno-2/computer-vision/sito/#L5) la soluzione era già nascosta nella σ: la derivata di gaussiana con σ piccola risponde ai bordi fini, con σ grande ai contorni grossi. Lo **scale-space** (slide 33) rende sistematica l'idea: invece di scegliere una σ, si calcolano tutte.
 
 `L(x, y; σ) = (gσ ∗ I)(x, y)`
 
-I è l'immagine, g<sub>σ</sub> la gaussiana 2D con deviazione standard σ, **L la famiglia di immagini sfocate indicizzata da σ** (σ = 0 è l'originale). Salendo in σ **la texture fine sparisce per prima e le forme grandi restano più a lungo** (slide 37).
+I è l'immagine, g<sub>σ</sub> la gaussiana 2D con deviazione standard σ, **L la famiglia di immagini sfocate indicizzata da σ** (σ = 0 è l'originale). Salendo in σ **la texture fine sparisce per prima e le forme grandi restano più a lungo** (slide 36).
 
-![Dalla slide 37. σ = 0, 1, 2, 4, 8: le scritte spariscono già a σ = 2, testa e casco si riconoscono ancora a σ = 8. Ogni immagine ha tutti i pixel dell'originale.](../sito-src/L6/disp_scalespace.png)
+![Dalla slide 36. σ = 0, 1, 2, 4, 8: le scritte spariscono già a σ = 2, testa e casco si riconoscono ancora a σ = 8. Ogni immagine ha tutti i pixel dell'originale.](../sito-src/L6/disp_scalespace.png)
 
-**Perché proprio la gaussiana?** Perché è l'**unico** kernel che soddisfa gli assiomi della slide 36: **lineare e invariante per traslazione, simmetrico per rotazione, componibile** (sfocare due volte è sfocare una volta di più) e soprattutto **senza creazione di struttura**: salendo di scala non nascono bordi o picchi che a scala più fine non c'erano. **Un box filter, per esempio, può creare oscillazioni spurie.** Due correzioni alle slide, già segnalate nelle schede:
+**Perché proprio la gaussiana?** Perché è l'**unico** kernel che soddisfa gli assiomi della slide 35: **lineare e invariante per traslazione, simmetrico per rotazione, componibile** (sfocare due volte è sfocare una volta di più) e soprattutto **senza creazione di struttura**: salendo di scala non nascono bordi o picchi che a scala più fine non c'erano. **Un box filter, per esempio, può creare oscillazioni spurie.** Due correzioni alle slide, già segnalate nelle schede:
 
   - **Slide 35**: la gaussiana risolve l'equazione del calore nella forma ∂L/∂t = ∇²L con t = σ²/2 (equivalente: ∂L/∂σ = σ ∇²L). ∇² è il laplaciano (somma delle derivate seconde): l'intensità "diffonde" come il calore.
   - **Slide 36**: la composizione è g<sub>σ<sub>2</sub></sub> ∗ g<sub>σ<sub>1</sub></sub> = g<sub>σ</sub> con **σ² = σ<sub>1</sub>² + σ<sub>2</sub>²**. **Due blur con σ = 1 danno σ = √2 ≈ 1.41, non 2.**
 
-![Verifica della correzione alla slide 36: due blur con σ = 1 (punti blu, calcolati davvero) coincidono con una gaussiana σ = √2 (verde), non con σ = 2 (rosso). Varianza misurata: 2.00.](../sito-src/L6/disp2_varianze.png)
+![Verifica della correzione alla slide 35: due blur con σ = 1 (punti blu, calcolati davvero) coincidono con una gaussiana σ = √2 (verde), non con σ = 2 (rosso). Varianza misurata: 2.00.](../sito-src/L6/disp2_varianze.png)
 
 **Esempio svolto.** Da un'immagine sfocata con σ = 2 vuoi arrivare a σ = 3: serve un secondo blur con σ<sub>2</sub> = √(9 − 4) = √5 ≈ 2.24, non 1.
 
-Lo scale-space ha un difetto: **tiene tutte le scale a piena risoluzione**. Ma un'immagine sfocata con σ grande non ha più alte frequenze, quindi la si può campionare più rada senza aliasing (slide 38). **Il blur dello scale-space è esattamente il prefiltro della sezione 6.** Unendo le due cose si ottengono le piramidi.
+Lo scale-space ha un difetto: **tiene tutte le scale a piena risoluzione**. Ma un'immagine sfocata con σ grande non ha più alte frequenze, quindi la si può campionare più rada senza aliasing (slide 37). **Il blur dello scale-space è esattamente il prefiltro della sezione 6.** Unendo le due cose si ottengono le piramidi.
 
 > **Il punto**
 > 
@@ -237,7 +237,7 @@ Lo scale-space ha un difetto: **tiene tutte le scale a piena risoluzione**. Ma u
 
 **Il problema.** Vogliamo le scale grossolane dello scale-space senza pagarle a piena risoluzione.
 
-**L'idea.** Si parte da g<sub>0</sub> = immagine e si ripete **"sfoca con b<sub>4</sub>, tieni un pixel ogni due per riga e per colonna"** (slide 42–44, libro § 23.4). Ogni livello è il downsampling corretto del precedente.
+**L'idea.** Si parte da g<sub>0</sub> = immagine e si ripete **"sfoca con b<sub>4</sub>, tieni un pixel ogni due per riga e per colonna"** (slide 41–43, libro § 23.4). Ogni livello è il downsampling corretto del precedente.
 
 ![Sopra, la piramide gaussiana g<sub>0</sub>…g<sub>3</sub>, ogni livello con un quarto dei pixel del precedente, mostrati nelle loro dimensioni vere. Sotto, la piramide laplaciana della sezione 10 (grigio = zero): bordi fini in l<sub>0</sub>, forme sempre più grandi salendo, più il residuo g<sub>3</sub>.](../sito-src/L6/disp2_piramidi.png)
 
@@ -245,13 +245,13 @@ Lo scale-space ha un difetto: **tiene tutte le scale a piena risoluzione**. Ma u
 
 `gk+1 = Dk Bk gk = Gk gk`
 
-g<sub>k</sub> è il livello k (come vettore colonna di pixel), B<sub>k</sub> la matrice di blur (convoluzione separabile con b<sub>4</sub>), D<sub>k</sub> la decimazione (righe dell'identità prese una sì e una no), G<sub>k</sub> = D<sub>k</sub>B<sub>k</sub> il passo completo. Con 8 campioni, B<sub>0</sub> è 8×8, D<sub>0</sub> è 4×8 e G<sub>0</sub> è 4×8 (slide 44). Nel codice: una convoluzione e uno slicing `[::2, ::2]`; a colori, canale per canale.
+g<sub>k</sub> è il livello k (come vettore colonna di pixel), B<sub>k</sub> la matrice di blur (convoluzione separabile con b<sub>4</sub>), D<sub>k</sub> la decimazione (righe dell'identità prese una sì e una no), G<sub>k</sub> = D<sub>k</sub>B<sub>k</sub> il passo completo. Con 8 campioni, B<sub>0</sub> è 8×8, D<sub>0</sub> è 4×8 e G<sub>0</sub> è 4×8 (slide 43). Nel codice: una convoluzione e uno slicing `[::2, ::2]`; a colori, canale per canale.
 
 Tre proprietà da sapere.
 
-  - **Lo stesso filtro piccolo simula filtri sempre più grandi.** Dopo ogni dimezzamento, i 5 tap di b<sub>4</sub> coprono una zona doppia dell'originale. Le varianze si sommano: in pixel dell'originale, al livello l la varianza totale è σ<sub>b</sub>² (4<sup>l</sup> − 1)/3, quindi la σ effettiva circa raddoppia a ogni livello. Un raddoppio di scala si chiama **ottava** (slide 40).
+  - **Lo stesso filtro piccolo simula filtri sempre più grandi.** Dopo ogni dimezzamento, i 5 tap di b<sub>4</sub> coprono una zona doppia dell'originale. Le varianze si sommano: in pixel dell'originale, al livello l la varianza totale è σ<sub>b</sub>² (4<sup>l</sup> − 1)/3, quindi la σ effettiva circa raddoppia a ogni livello. Un raddoppio di scala si chiama **ottava** (slide 39).
   - **Costa pochissima memoria.** Ogni livello ha ¼ dei pixel del precedente: 1 + ¼ + 1/16 + … = 1/(1 − ¼) = **4/3**. Tutta la piramide occupa un terzo in più dell'immagine (in 1D sarebbe il doppio).
-  - **Perde informazione.** Da g<sub>k+1</sub> non torni a g<sub>k</sub>: il dettaglio tolto dal blur è sparito (slide 48). Ai bordi, con lo zero-padding del libro, le righe di B sommano a meno di 1 e i bordi si scuriscono un po'.
+  - **Perde informazione.** Da g<sub>k+1</sub> non torni a g<sub>k</sub>: il dettaglio tolto dal blur è sparito (slide 47). Ai bordi, con lo zero-padding del libro, le righe di B sommano a meno di 1 e i bordi si scuriscono un po'.
 
 **Esempio svolto.** Una foto 512×512 ha 262 144 pixel. I livelli 256², 128², 64², … aggiungono 65 536 + 16 384 + 4 096 + … ≈ 87 381: in tutto circa 349 525 numeri, cioè 4/3 dell'originale. La σ effettiva, con σ<sub>b</sub> = 1: σ² = 1, 5, 21 per l = 1, 2, 3, cioè σ ≈ 1, 2.24, 4.58 pixel dell'originale. Il rapporto tende a 2 a ogni livello.
 
@@ -263,7 +263,7 @@ Tre proprietà da sapere.
 
 **Il problema.** La piramide gaussiana butta via il dettaglio a ogni livello. Possiamo conservarlo, separato per scala, e poter tornare all'immagine originale?
 
-**L'idea.** A ogni livello **salvi proprio ciò che il blur ha tolto**: riporti g<sub>k+1</sub> alla dimensione di g<sub>k</sub> e fai la differenza (slide 49, libro § 23.5). Prima la versione grossolana, poi le correzioni sempre più fini.
+**L'idea.** A ogni livello **salvi proprio ciò che il blur ha tolto**: riporti g<sub>k+1</sub> alla dimensione di g<sub>k</sub> e fai la differenza (slide 48, libro § 23.5). Prima la versione grossolana, poi le correzioni sempre più fini.
 
 **La matematica.**
 
@@ -284,7 +284,7 @@ U<sub>k</sub> è l'espansione (inserisce zeri), B<sub>k</sub> lo stesso blur bin
 
 #### Invertire
 
-Ribaltando la definizione (slide 51):
+Ribaltando la definizione (slide 50):
 
 `gk = lk + Fk gk+1`
 
@@ -298,13 +298,13 @@ Si conserva l'ultimo livello della gaussiana (il **residuo passa-basso** g<sub>N
 
 **Il problema.** Molti problemi cercano in uno spazio enorme: tutte le posizioni di un template, tutti gli spostamenti fra due fotogrammi. A piena risoluzione costa troppo.
 
-**L'idea.** **Si risolve prima al livello più piccolo, dove tutto costa poco, e si usa la soluzione come punto di partenza al livello sotto, dove basta una ricerca locale** (slide 53). Come cercare una casa: prima la città sulla cartina, poi la via.
+**L'idea.** **Si risolve prima al livello più piccolo, dove tutto costa poco, e si usa la soluzione come punto di partenza al livello sotto, dove basta una ricerca locale** (slide 52). Come cercare una casa: prima la città sulla cartina, poi la via.
 
 ![Template matching coarse-to-fine, calcolato davvero, con un template 32×32 di bocca e mento. A 64×64 (template 8×8) si provano tutte le posizioni; sotto, solo 5×5 posizioni (arancio) attorno al doppio della stima precedente. Il match finale (rosso) è quello giusto.](../sito-src/L6/disp2_coarse2fine.png)
 
-**Esempio svolto, con i numeri della figura.** Ricerca esaustiva a 256×256 con un template 32×32: 225 × 225 = 50 625 posizioni, ognuna con 1 024 confronti, circa 52 milioni di operazioni. Coarse-to-fine: al livello 2, 57 × 57 = 3 249 posizioni × 64 pixel ≈ 208 000; al livello 1, 25 × 256 = 6 400; al livello 0, 25 × 1 024 = 25 600. Totale circa 240 000: **più di 200 volte meno**. È la regola della slide 55: **scendere di un livello divide per 4 sia le posizioni sia i pixel del template, quindi il costo esaustivo cala di 16 volte per livello**.
+**Esempio svolto, con i numeri della figura.** Ricerca esaustiva a 256×256 con un template 32×32: 225 × 225 = 50 625 posizioni, ognuna con 1 024 confronti, circa 52 milioni di operazioni. Coarse-to-fine: al livello 2, 57 × 57 = 3 249 posizioni × 64 pixel ≈ 208 000; al livello 1, 25 × 256 = 6 400; al livello 0, 25 × 1 024 = 25 600. Totale circa 240 000: **più di 200 volte meno**. È la regola della slide 54: **scendere di un livello divide per 4 sia le posizioni sia i pixel del template, quindi il costo esaustivo cala di 16 volte per livello**.
 
-**Flusso ottico** (slide 54): uno spostamento di 32 pixel al livello 4 è di 2 pixel, facile da stimare; poi lo si raddoppia scendendo e lo si raffina. È Lucas-Kanade piramidale; tra i metodi deep SPyNet e PWC-Net. La slide cita RAFT, che però non è coarse-to-fine (correzione nella scheda 54).
+**Flusso ottico** (slide 53): uno spostamento di 32 pixel al livello 4 è di 2 pixel, facile da stimare; poi lo si raddoppia scendendo e lo si raffina. È Lucas-Kanade piramidale; tra i metodi deep SPyNet e PWC-Net. La slide cita RAFT, che però non è coarse-to-fine (correzione nella scheda 54).
 
 **Il rischio: se al livello grossolano scegli male, i livelli fini non correggono**, perché cercano solo vicino. Oggetti piccoli o sottili possono sparire nei livelli alti. Si mitiga tenendo più candidati.
 
@@ -314,9 +314,9 @@ Si conserva l'ultimo livello della gaussiana (il **residuo passa-basso** g<sub>N
 
 ### 12\. Blending multi-banda
 
-**Il problema.** Vuoi unire metà mela e metà arancia (slide 57), o due foto di un panorama. **Con un taglio netto si vede la cucitura.** Se sfumi la maschera su una zona larga, colori e luce si raccordano ma **le texture si sovrappongono e compaiono doppi contorni**; su una zona stretta, niente fantasmi ma si vede il salto di colore. **Nessuna larghezza va bene per tutte le frequenze.**
+**Il problema.** Vuoi unire metà mela e metà arancia (slide 56), o due foto di un panorama. **Con un taglio netto si vede la cucitura.** Se sfumi la maschera su una zona larga, colori e luce si raccordano ma **le texture si sovrappongono e compaiono doppi contorni**; su una zona stretta, niente fantasmi ma si vede il salto di colore. **Nessuna larghezza va bene per tutte le frequenze.**
 
-**L'idea** di Burt e Adelson (slide 58, libro § 23.5.1): **usare una larghezza diversa per ogni banda**. La piramide laplaciana separa già le bande; basta fonderle una per una con una maschera sempre più sfumata.
+**L'idea** di Burt e Adelson (slide 57, libro § 23.5.1): **usare una larghezza diversa per ogni banda**. La piramide laplaciana separa già le bande; basta fonderle una per una con una maschera sempre più sfumata.
 
 1.  piramidi laplaciane l<sup>A</sup> e l<sup>B</sup> delle due immagini;
 2.  piramide **gaussiana** m<sub>k</sub> della maschera binaria m (1 dove vuoi A), con un livello in più per il residuo;
@@ -341,9 +341,9 @@ Si conserva l'ultimo livello della gaussiana (il **residuo passa-basso** g<sub>N
 
 **Il problema.** Oggi detection e segmentazione si fanno con le CNN. Dove sono le piramidi?
 
-**L'idea.** **Una CNN con stride e pooling è una piramide appresa** (slide 59): primi layer ad alta risoluzione e campo recettivo piccolo, ultimi a bassa risoluzione e campo recettivo grande. Ma **di solito manca il prefiltro, quindi può fare aliasing** (sezione 5).
+**L'idea.** **Una CNN con stride e pooling è una piramide appresa** (slide 58): primi layer ad alta risoluzione e campo recettivo piccolo, ultimi a bassa risoluzione e campo recettivo grande. Ma **di solito manca il prefiltro, quindi può fare aliasing** (sezione 5).
 
-Le **Feature Pyramid Networks** (slide 60, Lin et al. 2017): l'ultimo layer è troppo grossolano per gli oggetti piccoli, i primi sono precisi ma poveri di significato. FPN aggiunge un percorso top-down che porta in alta risoluzione le feature grossolane e le somma a quelle fini con connessioni laterali: lo schema di g<sub>k</sub> = l<sub>k</sub> + F<sub>k</sub>g<sub>k+1</sub>, con F<sub>k</sub>g<sub>k+1</sub> il contributo dall'alto e l<sub>k</sub> quello laterale.
+Le **Feature Pyramid Networks** (slide 59, Lin et al. 2017): l'ultimo layer è troppo grossolano per gli oggetti piccoli, i primi sono precisi ma poveri di significato. FPN aggiunge un percorso top-down che porta in alta risoluzione le feature grossolane e le somma a quelle fini con connessioni laterali: lo schema di g<sub>k</sub> = l<sub>k</sub> + F<sub>k</sub>g<sub>k+1</sub>, con F<sub>k</sub>g<sub>k+1</sub> il contributo dall'alto e l<sub>k</sub> quello laterale.
 
 > **Il punto**
 > 
@@ -411,7 +411,7 @@ Ottieni un coseno di frequenza 1 su 4 campioni, perché L<sub>↓2</sub>\[u\] = 
 
 **Hai sfocato un'immagine con σ = 3 e la vuoi a σ = 5. Con che σ devi sfocare ancora?**
 
-Le varianze si sommano: 25 = 9 + σ<sub>2</sub>², quindi σ<sub>2</sub> = 4. Chi sommasse le σ (come la slide 36) risponderebbe 2, e otterrebbe in realtà σ = √13 ≈ 3.6.
+Le varianze si sommano: 25 = 9 + σ<sub>2</sub>², quindi σ<sub>2</sub> = 4. Chi sommasse le σ (come la slide 35) risponderebbe 2, e otterrebbe in realtà σ = √13 ≈ 3.6.
 
 **Perché, nel costruire la laplaciana, il blur dopo l'espansione va moltiplicato per 4 in 2D?**
 
@@ -432,4 +432,4 @@ Perché la maschera serve come peso fra 0 e 1 a ogni livello, e deve essere semp
   - [Cap. 23, Image Pyramids](https://visionbook.mit.edu/pyramids_new_notation.html): § 23.4–23.5.1 (gaussiana, laplaciana, blending); § 23.3 e 23.6 se vuoi capire wavelet e steerable pyramid, che servono in [L7](https://gabriele-marsili.github.io/appunti-magistrale-ai/anno-2/computer-vision/sito/#L7). Sezioni 9–12.
   - Per scale-space e composizione delle gaussiane: [cap. 17](https://visionbook.mit.edu/blurring_2.html), § 17.3.2 e 17.4.1 (già di L5). Sezione 8.
 
-Ora ripassa con le schede qui sotto, slide per slide: hanno le correzioni alle slide 35, 36, 49 e 54, le note sulla notazione della slide 11, i riquadri "Dal libro" e, in fondo, la sezione "Studia dal libro", la guida allo studio e il notebook `06-image-blending` con i due bug spiegati.
+Ora ripassa con le schede qui sotto, slide per slide: hanno le correzioni alle slide 34, 35, 48 e 53, le note sulla notazione della slide 11, i riquadri "Dal libro" e, in fondo, la sezione "Studia dal libro", la guida allo studio e il notebook `06-image-blending` con i due bug spiegati.
