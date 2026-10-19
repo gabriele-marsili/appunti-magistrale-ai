@@ -1,0 +1,120 @@
+<div class="sec" id="l14-libro"><h2>Studia dal libro</h2><span>visionbook cap. 35 § 35.6 e cap. 36 § 36.2–36.3 (circa 40 minuti), più § 21.2, § 24.5.4, § 12.4; Prince § 20.4.6; Szeliski § 5.4.6</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Cosa leggere, in ordine</h3>
+    <div class="meta">Torralba, Isola, Freeman, <i>Foundations of Computer Vision</i>, gratis online; il libro dedica poche pagine agli attacchi, quindi le slide di Brau (17–47) restano la fonte principale per gli algoritmi</div>
+    <ol>
+      <li><a href="https://visionbook.mit.edu/neural_nets.html" target="_blank">Cap. 12, Neural Networks</a>, § 12.4 <b>Activations Versus Parameters</b> (una pagina): perché si può ottimizzare l'input a pesi fissi. È la premessa di ogni attacco basato sul gradiente (scheda 39).</li>
+      <li><a href="https://visionbook.mit.edu/convolutional_neural_nets.html" target="_blank">Cap. 24, Convolutional Neural Nets</a>, § 24.5.3–24.5.4 <b>Identifying Vulnerabilities</b>: un esempio avversario costruito a mano con la modulazione (scheda 20). Utile perché collega gli attacchi a Fourier (L3) e ai filtri appresi.</li>
+      <li><a href="https://visionbook.mit.edu/upsamplig_downsampling_2.html" target="_blank">Cap. 21, Downsampling and Upsampling Images</a>, § 21.2 <b>Example: Aliasing-Based Adversarial Attack</b>: un attacco analitico che sfrutta l'aliasing di una convoluzione con stride (scheda 24). Ripasso di L6.</li>
+      <li><a href="https://visionbook.mit.edu/bias_and_shift.html" target="_blank">Cap. 35, Data Bias and Shift</a>: leggi in fretta § 35.1–35.2 (spostamento della distribuzione) per il contesto, poi § 35.6 <b>Adversarial Shifts</b> con 35.6.1 <b>Adversarial Attacks</b> e 35.6.2 <b>Defenses</b>. Attenzione al refuso nella formula di 35.6.1 (sotto, idea 2).</li>
+      <li><a href="https://visionbook.mit.edu/data_augmentation.html" target="_blank">Cap. 36, Training for Robustness and Generality</a>, § 36.2 <b>Data Augmentation</b> (fino a 36.2.1 escluso) e § 36.3 <b>Adversarial Training</b>, eq. 36.1–36.2: il min-max della slide 47.</li>
+      <li>Prince, <i>Understanding Deep Learning</i>, § 20.4.6 <b>Leaving the data manifold</b> (mezza pagina, con la fig. 20.14 degli struzzi) e § 9.3.4 <b>Applying noise</b> (l'adversarial training come rumore peggiore).</li>
+      <li>Szeliski 2a ed., § 5.4.6 <b>Adversarial examples</b>: storia (Szegedy, Goodfellow), white e black box, trasferibilità, Ilyas et al. sulle feature non robuste, difese (Madry).</li>
+    </ol>
+    <p><b>Si può saltare</b>: § 35.3–35.5 (bias dei dataset, interessante ma non in questa lezione), § 36.2.1 e § 36.4 (augmentation generativa, modelli generalisti). <b>Non confondere</b>: Prince cap. 15 (GAN) e il cap. 32 del visionbook usano «adversarial» per un altro concetto: due reti addestrate una contro l'altra (generatore e discriminatore). Il legame è solo la struttura min-max, che il § 36.3 nomina esplicitamente. <b>Non nei libri</b>: CoEvolution, AI MBOM, federated learning, il Pilot 2 e UniPure: si studiano dalle slide.</p>
+  </div>
+
+  <div class="card">
+    <h3>Le idee centrali, come le spiega il libro</h3>
+    <div class="meta">Da saper ricostruire senza slide</div>
+    <p><b>1 · Ottimizzare l'input invece dei pesi.</b> Un layer è una funzione di attivazioni e parametri insieme. Nel training si fissano gli input e si aggiornano i pesi con ∇<sub>θ</sub>ℒ; in un attacco si fissano i pesi e si aggiorna l'input con ∇<sub>x</sub>ℒ, calcolato con la stessa backpropagation (§ 12.4).</p>
+    <p><b>2 · L'attacco è uno spostamento di distribuzione scelto da un avversario.</b> Il libro scrive l'attacco targeted come ottimizzazione del rumore ε in una palla ‖ε‖ &lt; r, con cross-entropy H rispetto al codice one-hot della classe obiettivo (struzzo). Nel testo online la formula è scritta con <b>argmax</b> di H(y<sub>ostrich</sub>, f(x + ε)): per far uscire «struzzo» bisogna invece <b>minimizzare</b> quella cross-entropy (argmin), oppure massimizzare la loss della classe vera se l'attacco è untargeted. È lo stesso segno che distingue le due colonne della slide 37 (§ 35.6.1).</p>
+    <p><b>3 · Le reti hanno punti ciechi strutturali.</b> Una CNN che «riconosce linee» in realtà guarda l'energia in una zona dello spettro: una modulazione la inganna (§ 24.5.4). Una convoluzione con stride campiona senza filtro anti-aliasing: un segnale ad alta frequenza (−1)<sup>n+m</sup>·h, invisibile con ampiezza 0.05, si ripiega in banda base e cambia l'uscita (§ 21.2). Per reti grandi gli stessi punti ciechi si trovano con l'ottimizzazione.</p>
+    <p><b>4 · Media contro caso peggiore.</b> Il training normale minimizza l'errore medio sui dati (rischio empirico), e il caso peggiore può restare arbitrariamente cattivo (§ 35.6.2). La data augmentation minimizza 𝔼<sub>θ</sub>ℒ(f(T(x; θ)), y) su trasformazioni casuali; l'adversarial training sostituisce la media con max<sub>θ</sub>, e con T(x) = x + ε, ‖ε‖ &lt; r, diventa argmin<sub>f</sub> 𝔼[max<sub>‖ε‖&lt;r</sub> ℒ(f(x + ε), y)] (§ 36.3, eq. 36.2). In ottimizzazione si chiama robust optimization.</p>
+    <p><b>5 · Perché esistono gli esempi avversari.</b> Due spiegazioni complementari: geometrica (punti vicini ma fuori dalla varietà dei dati, dove la frontiera è libera; Prince § 20.4.6, slide 28) e «di feature» (Ilyas et al. 2019: la rete usa feature davvero predittive ma non robuste, invisibili per noi; Prince § 20.4.6, Szeliski § 5.4.6). A queste si aggiunge l'argomento lineare di Goodfellow (scheda 24): in alta dimensione ε·‖∇ℒ‖<sub>1</sub> è grande anche con ε minuscolo.</p>
+  </div>
+
+  <div class="card">
+    <h3>Differenze di notazione fra slide e libro</h3>
+    <ul>
+      <li><b>Perturbazione e raggio</b>: slide δ e ε (‖δ‖<sub>p</sub> ≤ ε); visionbook ε e r (‖ε‖ &lt; r). Attenzione a non confondere l'ε del libro (il rumore) con l'ε delle slide (il budget).</li>
+      <li><b>Loss</b>: slide ℒ(f(x + δ), l) con l etichetta; libro H(y, f(x + ε)) con H cross-entropy e y one-hot, oppure ℒ(f(x), y).</li>
+      <li><b>Classificatore</b>: nelle slide f restituisce i punteggi delle C classi e 𝒦(x) = argmax f(x) l'etichetta; nel libro f è direttamente la rete.</li>
+      <li><b>Penalità c</b>: in Szegedy (slide 41–42) c moltiplica la norma, in Carlini-Wagner (slide 44) la loss.</li>
+      <li><b>Nome «adversarial training»</b>: nelle slide è la difesa contro gli attacchi; nel libro (§ 36.3) è il caso generale «trasformazione peggiore», che include anche le GAN.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Cosa il libro aggiunge e le slide omettono, e viceversa</h3>
+    <ul>
+      <li>Nel libro: l'inquadramento come data shift (cap. 35), il legame con data augmentation e robust optimization (cap. 36), gli attacchi costruiti analiticamente con modulazione e aliasing (§ 24.5.4, § 21.2), il fatto che rendere pubblico un sistema lo espone agli attacchi.</li>
+      <li>Nelle slide ma non nel libro: le norme l<sub>p</sub> e il PSNR, la tassonomia completa, i vincoli di box e intero, FGSM, L-BFGS, CW con il cambio di variabile tanh, PGD con proiezione, gli attacchi fisici, black box e Square attack, la purificazione.</li>
+      <li>In nessuno dei due, ma utile: il teorema di Danskin che giustifica il gradiente del min-max (scheda 47), gli attacchi adattivi contro le difese, la robustezza certificata con randomized smoothing (citata solo in bibliografia, slide 65).</li>
+    </ul>
+  </div>
+</div>
+
+<div class="sec" id="l14-guida"><h2>Guida allo studio</h2><span>circa 3 ore in tre blocchi; la parte da studiare a fondo è il seminario di Brau</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Prima di iniziare</h3>
+    <div class="meta">15 minuti</div>
+    <p>Ripassa la cross-entropy e la backpropagation (il gradiente rispetto all'input è lo stesso calcolo); da L3 la modulazione (moltiplicare per una sinusoide sposta lo spettro); da L6 l'aliasing e il perché del filtro prima del sottocampionamento; da L7 le CNN con stride. Per la terza parte: da L13 il LiDAR come sensore di profondità e KITTI.</p>
+  </div>
+  <div class="two">
+    <div class="card">
+      <h3>1 · Definizioni e tassonomia</h3>
+      <div class="meta">Slide 17–35 · circa 50 minuti</div>
+      <p>Obiettivo: definire un esempio avversario e classificare un attacco.</p>
+      <ul>
+        <li>Scrivi la definizione 𝒦(x + δ) ≠ 𝒦(x), ‖δ‖<sub>p</sub> piccola; calcola le quattro norme su un vettore e spiega perché l<sub>0</sub> e p &lt; 1 non sono norme.</li>
+        <li>Converti PSNR in MSE e ritorno (6 dB per σ = 0.5, 40 dB per 0.01 di scarto).</li>
+        <li>I tre assi: conoscenza, obiettivo, norma. Leggi § 35.6 e § 24.5.4.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>2 · Generazione e difesa</h3>
+      <div class="meta">Slide 36–47 · circa 1 ora e mezza</div>
+      <p>Obiettivo: scrivere a memoria FGSM, PGD, CW e il min-max.</p>
+      <ul>
+        <li>Ricava FGSM dalla linearizzazione (massimo di g<sup>⊤</sup>δ in palla l<sub>∞</sub>) e la versione targeted.</li>
+        <li>Scrivi PGD con la proiezione l<sub>∞</sub> e l<sub>2</sub>; spiega perché si proietta attorno a x.</li>
+        <li>CW: cambio di variabile tanh e margine sui logit (correggi il segno della slide 43). Ricerca su c.</li>
+        <li>Adversarial training: min-max, algoritmo, costo. Leggi § 36.2–36.3.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>3 · Contesto e caso applicativo</h3>
+      <div class="meta">Slide 1–16 e 52–66 · circa 30 minuti</div>
+      <ul>
+        <li>Distingui evasione, poisoning, backdoor, estrazione del modello e collocali nella pipeline della slide 54.</li>
+        <li>Spiega range image, PGD contro Square attack, mIoU rispetto alla predizione pulita; rifai il conto del 40%.</li>
+        <li>Purificazione contro adversarial training: cosa cambia e cosa resta fisso.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Formule da sapere a memoria</h3>
+    <span class="f">norme: ‖δ‖<sub>0</sub> = #{i : δ<sub>i</sub> ≠ 0},   ‖δ‖<sub>p</sub> = (∑|δ<sub>i</sub>|<sup>p</sup>)<sup>1/p</sup>,   ‖δ‖<sub>∞</sub> = max|δ<sub>i</sub>|</span>
+    <span class="f">PSNR = 10 log<sub>10</sub>(MAX² / MSE),   MSE = ‖δ‖<sub>2</sub>²/n</span>
+    <span class="f">loss-based: max<sub>‖δ‖≤ε</sub> ℒ(f(x + δ), l<sub>true</sub>)   |   min<sub>‖δ‖≤ε</sub> ℒ(f(x + δ), l<sub>target</sub>)</span>
+    <span class="f">distance-based: min ‖δ‖<sub>p</sub>  s.t. 𝒦(x + δ) ≠ l<sub>true</sub>  (oppure = l<sub>target</sub>),  0 ≤ x + δ ≤ 1</span>
+    <span class="f">FGSM: δ = ε·sign(∇<sub>x</sub>ℒ(f(x), l<sub>true</sub>));   targeted: δ = −ε·sign(∇<sub>x</sub>ℒ(f(x), l<sub>target</sub>))</span>
+    <span class="f">PGD: x<sup>(t)</sup> = Π<sub>B(x, ε)</sub>( x<sup>(t−1)</sup> + α·sign(∇<sub>x</sub>ℒ(f(x<sup>(t−1)</sup>), l<sub>true</sub>)) )</span>
+    <span class="f">CW: min<sub>w</sub> ‖½(tanh w + 1) − x‖<sub>p</sub> + c·[max<sub>j≠t</sub> Z<sub>j</sub> − Z<sub>t</sub>]<sup>+</sup>,   Z = logit di ½(tanh w + 1)</span>
+    <span class="f">adversarial training: min<sub>θ</sub> 𝔼<sub>(x,l)</sub> [ max<sub>‖δ‖<sub>p</sub>&lt;ε</sub> ℒ(f<sub>θ</sub>(x + δ), l) ]</span>
+    <span class="f">recupero di mIoU: (0.435 − 0.056)/(1 − 0.056) ≈ 0.40</span>
+  </div>
+
+  <div class="card">
+    <h3>Domande tipo orale</h3>
+    <div class="meta">Prova a rispondere, poi apri per la traccia</div>
+    <div class="qa">
+      <details><summary>Cos'è un esempio avversario? Dai una definizione formale.</summary><p>Un input x + δ ottenuto da un input pulito x con una perturbazione δ di norma l<sub>p</sub> piccola, tale che il classificatore cambi decisione: 𝒦(x + δ) ≠ 𝒦(x), spesso con alta confidenza (panda → gibbon al 99.3%). Va aggiunto il vincolo che x + δ sia un'immagine valida (box [0, 1], valori interi). È un attacco di evasione: al momento del test, senza toccare i pesi (slide 21, 30, 37).</p></details>
+      <details><summary>Quali norme si usano per misurare la perturbazione e che perturbazioni producono?</summary><p>l<sub>0</sub> conta i pixel cambiati (pochi pixel, valori grandi); l<sub>1</sub> somma i valori assoluti (sparsa); l<sub>2</sub> è l'energia (concentrata ma morbida); l<sub>∞</sub> è il cambio massimo su un pixel (densa, tutti i pixel di poco). Per p &lt; 1 la palla non è convessa (quasi-norma); l<sub>0</sub> non è omogenea. Il PSNR è legato a l<sub>2</sub>: MSE = ‖δ‖<sub>2</sub>²/n, più dB = perturbazione più piccola (slide 25, 30, 31).</p></details>
+      <details><summary>Classifica gli attacchi avversari.</summary><p>Tre assi: conoscenza (white box: architettura e pesi, quindi gradienti; black box: solo query, con stima del gradiente, ricerca casuale come Square attack o trasferimento da un modello sostituto); obiettivo (untargeted: una classe sbagliata qualunque; targeted: una classe scelta); norma (l<sub>0</sub>, l<sub>1</sub>, l<sub>2</sub>, l<sub>∞</sub>). In più: digitale contro fisico (adesivi, poster) e loss-based contro distance-based (slide 32–38).</p></details>
+      <details><summary>Ricava FGSM. Come cambia per un attacco targeted?</summary><p>Linearizzo: ℒ(x + δ) ≈ ℒ(x) + g<sup>⊤</sup>δ con g = ∇<sub>x</sub>ℒ(f(x), l<sub>true</sub>). Il massimo di g<sup>⊤</sup>δ con ‖δ‖<sub>∞</sub> ≤ ε si ottiene componente per componente con δ<sub>i</sub> = ε·sign(g<sub>i</sub>), e vale ε‖g‖<sub>1</sub>. Targeted: si vuole diminuire la loss della classe obiettivo, quindi δ = −ε·sign(∇<sub>x</sub>ℒ(f(x), l<sub>target</sub>)). Pro: un solo gradiente; contro: un passo lineare, serve ε grande, non sempre riesce (slide 39–40).</p></details>
+      <details><summary>Descrivi PGD. Perché è considerato l'attacco di riferimento?</summary><p>FGSM iterato con passo α e proiezione: x̃ = x<sup>(t−1)</sup> + α·sign(∇ℒ), x<sup>(t)</sup> = Π<sub>B(x,ε)</sub>(x̃), con partenza casuale nella palla e riavvii. Per l<sub>∞</sub> la proiezione è un clip in [x − ε, x + ε] e poi in [0, 1]; per l<sub>2</sub> si riscala x̃ − x se supera ε. È un ottimizzatore del primo ordine del problema loss-based: Madry lo propone come l'avversario «universale» del primo ordine, quindi la robustezza a PGD è il test standard (slide 46).</p></details>
+      <details><summary>Come trasforma Carlini-Wagner il problema di perturbazione minima?</summary><p>Il vincolo di classe diventa una penalità c·ℒ con ℒ margine sui logit, [max<sub>j≠t</sub> Z<sub>j</sub> − Z<sub>t</sub>]<sup>+</sup> (la slide 43 ha il segno invertito, che va bene per l'untargeted con l = l<sub>true</sub>); il box si elimina con x + δ = ½(tanh w + 1). Il problema diventa senza vincoli in w, si risolve con Adam, e c si sceglie con ricerca binaria (il più piccolo che riesce). Rispetto a L-BFGS di Szegedy: niente vincoli da gestire, loss che si azzera appena l'attacco riesce, perturbazioni più piccole (slide 41–45).</p></details>
+      <details><summary>Cosa dice il «teorema» su L-BFGS e quanto vale per le reti?</summary><p>Se la loss è convessa nell'input, per ogni c L-BFGS con box trova la soluzione δ(c) del problema penalizzato, e una ricerca su c dà la perturbazione minima che porta alla classe obiettivo. Per le reti l'ipotesi è falsa: si trova solo un minimo locale, un'approssimazione (lo dicono Szegedy et al.). Con c sulla norma si cerca il c più grande che riesce ancora (slide 41).</p></details>
+      <details><summary>Scrivi il problema dell'adversarial training e come si risolve.</summary><p>min<sub>θ</sub> 𝔼<sub>(x,l)</sub>[max<sub>‖δ‖&lt;ε</sub> ℒ(f<sub>θ</sub>(x + δ), l)]: si minimizza la loss nel caso peggiore in una palla attorno a ogni esempio. Massimo interno con PGD a pesi fissi, minimo esterno con SGD sugli esempi avversari (Danskin: il gradiente del max è il gradiente nel massimizzatore). Costo circa K + 1 volte il training normale; robustezza per la norma e l'ε usati; accuratezza pulita un po' più bassa. Nel libro è il caso «peggiore» della data augmentation (§ 36.3); la versione di Goodfellow mescola loss pulita e loss FGSM con peso α (slide 40, 47).</p></details>
+      <details><summary>Perché bastano perturbazioni piccole mentre il rumore gaussiano grande non inganna la rete?</summary><p>Al primo ordine la variazione della loss è ∇ℒ<sup>⊤</sup>δ: con rumore casuale i termini hanno segni casuali e si cancellano (ordine σ‖∇ℒ‖<sub>2</sub>), con δ = ε·sign(∇ℒ) si sommano tutti (ε‖∇ℒ‖<sub>1</sub>, fino a √n volte di più). In alta dimensione tante piccole modifiche coerenti spostano molto l'uscita (argomento lineare di Goodfellow). Altre letture: punti fuori dalla varietà dei dati dove la frontiera è libera; feature predittive ma non robuste (Ilyas et al.) (slide 24, 28, Prince § 20.4.6).</p></details>
+      <details><summary>Come si collega l'aliasing di L6 agli attacchi avversari?</summary><p>§ 21.2 del visionbook: un sistema con convoluzione e decimazione (stride 2) senza filtro anti-aliasing. Si somma all'immagine un'immagine nascosta modulata alla frequenza più alta, (−1)<sup>n+m</sup>·h, con ampiezza piccola (0.05): a occhio non si vede, ma il sottocampionamento la ripiega in banda base e l'uscita mostra l'immagine nascosta. Le CNN con stride possono avere lo stesso punto debole.</p></details>
+      <details><summary>Nel Pilot 2, come si attacca la segmentazione LiDAR e come si difende?</summary><p>La nuvola si proietta in una range image 64 × 1024 (righe = fasci, colonne = azimut) segmentata da LENet. Attacchi: PGD white box (x ← Π<sub>ε</sub>(x + α·sign ∇ℒ)) e Square attack black box (quadrati casuali tenuti se la loss sale), con ε = 0.3 m: la strada diventa vegetazione, mIoU rispetto alla predizione pulita 0.056. Difesa: purificazione come pre-elaborazione, UniPure (sparsità wavelet, HQS, deep unrolling) senza riaddestrare il modello: mIoU 0.435, cioè il 40% di quanto perso, (0.435 − 0.056)/(1 − 0.056) (slide 58–60).</p></details>
+      <details><summary>Quali minacce alla supply chain dell'AI elenca il seminario?</summary><p>Evasione (esempi avversari sui sensori), data poisoning (sul training), backdoor e manomissione del modello (negli aggiornamenti OtA o nei modelli di terzi), estrazione del modello (interrogazioni ripetute), DoS. Contromisure: AI MBOM come carta d'identità del modello, trust score sui componenti, validazione a runtime, adversarial training e purificazione; nel federato, rischio di partecipanti malevoli e proposta P2P (P4L) (slide 4–11, 54–55).</p></details>
+    </div>
+  </div>
+</div>

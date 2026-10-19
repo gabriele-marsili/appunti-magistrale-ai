@@ -17,3 +17,4 @@ Una dispensa per lezione, scritta da zero integrando slide e libro (Torralba, Is
 | [L11 · Modello della camera](L11-modello-della-camera.md) | Camera Model and Perspective Geometry | 6134 |
 | [L12 · Calibrazione](L12-calibrazione.md) | Camera Models and Calibration | 7497 |
 | [L13 · Stereo e profondità](L13-stereo-e-profondita.md) | Stereo Vision and Depth Prediction | 9471 |
+| [L14 · Attacchi avversari](L14-attacchi-avversari.md) | Seminar: CoEvolution – Adversarial Examples | 8414 |
