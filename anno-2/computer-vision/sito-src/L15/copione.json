@@ -1,0 +1,553 @@
+{
+ "L": "L15",
+ "segs": [
+  {
+   "a": "In una frase: invece di scegliere a mano",
+   "t": "Finora i filtri li abbiamo scelti noi: Sobel per i bordi, Gabor per le texture, gli istogrammi di gradienti di SIFT, la scale invariant feature transform. E se li imparasse la macchina? Alla fine di questa lezione saprai come è fatta una rete convoluzionale, perché funziona sulle immagini, e saprai fare i conti di pesi e di campo recettivo."
+  },
+  {
+   "a": "Prima di iniziare",
+   "t": "Prima di iniziare. Ti servono la convoluzione della lezione 3, i filtri di gradiente della 5, i banchi di filtri della 7 e l'aliasing della 6. E un minimo di machine learning: loss, gradiente, overfitting."
+  },
+  {
+   "a": "Guarda prima questi video",
+   "t": "I video consigliati sono un complemento, utili da vedere prima o dopo. Quello di 3Blue1Brown è perfetto se non hai mai visto una rete neurale da dentro. Le due lezioni di Justin Johnson coprono lo strato convoluzionale e le architetture con tutti i conti, quella di Stanford è un'alternativa più breve."
+  },
+  {
+   "a": "1. Dai filtri fissi ai filtri appresi",
+   "t": "Sezione 1: dai filtri fissi ai filtri appresi. Perché i filtri scelti a mano, per quanto buoni, a un certo punto non bastano più?"
+  },
+  {
+   "a": "Il problema. Nelle lezioni precedenti ab",
+   "t": "Il problema ha due facce. I filtri classici sono fissi, scelti da un umano e uguali per ogni immagine. E sono lineari: una cascata di filtri lineari è ancora un filtro lineare. Puoi metterne in fila cento, ma equivalgono a uno solo, e non riescono a costruire concetti composti come un occhio o una ruota."
+  },
+  {
+   "a": "L'idea. Due ingredienti: una non lineari",
+   "t": "La soluzione ha due ingredienti. Una non linearità fra un filtro e il successivo, così la composizione non collassa. E pesi imparati dai dati, così i filtri si adattano al compito. Il prezzo è l'interpretabilità."
+  },
+  {
+   "a": "A sinistra i filtri fissi della  L5 . A ",
+   "t": "Guarda la figura da sinistra a destra. Primo pannello, l'astronauta. Secondo e terzo, Sobel in x e in y, i filtri fissi: in rosso e blu le risposte positive e negative. Il quarto applica una ReLU a Sobel in x: restano accesi solo i bordi da scuro a chiaro, il resto è nero."
+  },
+  {
+   "a": "A sinistra i filtri fissi della  L5 . A ",
+   "t": "Il quinto pannello è un secondo stadio non lineare: un pooling dei moduli dei due gradienti, e poi il minimo fra i due. Si accende solo dove ci sono bordi in due direzioni vicini, cioè angoli e texture, come lo stemma sulla tuta. Qui è costruito a mano; una rete impara da sola combinazioni di questo tipo."
+  },
+  {
+   "a": "Il punto Filtri fissi + solo operazioni ",
+   "t": "Da portare a casa: filtri fissi e solo operazioni lineari danno un'espressività limitata. Una rete profonda alterna filtri appresi e non linearità, e così costruisce feature composte."
+  },
+  {
+   "a": "2. Una rete profonda: composizione di st",
+   "t": "Sezione 2: cos'è una rete profonda, e come si addestra."
+  },
+  {
+   "a": "f θ (x) = f L (f L−1 (… f 1 (x)))",
+   "t": "Una rete profonda è una composizione di strati: f con pedice theta di x è f con pedice L applicata a f con pedice L meno 1, e così via fino a f con pedice 1 di x. Leggila da dentro verso fuori. Gli strati alternano un'operazione lineare, matrice di pesi più bias, e una non lineare elemento per elemento."
+  },
+  {
+   "a": "Come si addestra. Si definisce una loss ",
+   "t": "Per addestrarla serve una loss, che misura quanto è sbagliata l'uscita: entropia incrociata per la classificazione, errore quadratico medio per la regressione. Poi si aggiornano i parametri con la discesa stocastica del gradiente, SGD, da stochastic gradient descent."
+  },
+  {
+   "a": "θ t = θ t−1 − α ∇ θ L(f θ (x))",
+   "t": "La formula dice: il nuovo theta è il vecchio theta meno alfa per il gradiente della loss rispetto a theta. Cioè: guarda dove la loss cresce, e fai un piccolo passo dalla parte opposta. Alfa è il learning rate, la lunghezza del passo; il gradiente lo calcola la backpropagation, su un piccolo gruppo di esempi, il mini-batch."
+  },
+  {
+   "a": "Esempio. Un solo parametro, L(θ) = (θ − ",
+   "t": "Un esempio a mano. La loss è theta meno 3, al quadrato, si parte da theta uguale a 1 con alfa zero virgola uno. La derivata, 2 per theta meno 3, vale meno 4. Il nuovo theta è 1 meno zero virgola uno per meno 4, cioè 1 virgola 4: un passo verso il minimo in 3."
+  },
+  {
+   "a": "Il punto Rete profonda = catena di strat",
+   "t": "Da portare a casa: una rete profonda è una catena di strati lineari e non lineari, addestrata minimizzando una loss con SGD sui mini-batch."
+  },
+  {
+   "a": "3. Ottimizzare senza garanzie, e le scel",
+   "t": "Sezione 3: ottimizzare senza garanzie. Per colpa delle non linearità la loss non è convessa: nessuna garanzia di arrivare al minimo globale. Eppure le reti si addestrano bene. Perché?"
+  },
+  {
+   "a": "Che cosa sappiamo. Per le reti grandi (s",
+   "t": "Quello che sappiamo è empirico: per le reti grandi i minimi locali cattivi sono pochi, ci sono soprattutto punti di sella, e i minimi trovati hanno loss simili. Conta la forma della valle: una valle piatta tollera passi grandi."
+  },
+  {
+   "a": "Dalla slide 7 (Li et al., 2018). La loss",
+   "t": "Guarda la figura, dal lavoro di Li e colleghi: la loss di una ResNet a 56 strati lungo due direzioni casuali dei pesi. A sinistra, senza skip connection, cioè senza scorciatoie, un paesaggio caotico di picchi rossi, con un minimo blu stretto fra le montagne. A destra, con le skip connection, una superficie quasi piatta che scende in un imbuto blu. L'architettura cambia la difficoltà dell'ottimizzazione."
+  },
+  {
+   "a": "Attenzione: \"SGD will find a local minim",
+   "t": "Attenzione: le slide dicono che SGD troverà un minimo locale. SGD trova un punto stazionario, di solito un minimo locale; ma per le reti sovraparametrizzate ci sono pochi minimi cattivi e molti punti di sella, che SGD supera grazie al rumore dei mini-batch."
+  },
+  {
+   "a": "passo in avanti : che rappresentazione i",
+   "t": "Le scelte di progetto si guardano da tre lati: il bias induttivo dello strato, cioè le ipotesi che fa sui dati prima di vederli, e la convoluzione ne fa una giusta per le immagini; il flusso del gradiente all'indietro; e il costo. Da portare a casa: la loss non è convessa ma i minimi trovati vanno bene, e l'architettura può renderla molto più liscia."
+  },
+  {
+   "a": "4. La rete come trasformazione dei dati:",
+   "t": "Sezione 4: un modo molto visivo di guardare una rete, come una macchina che deforma i dati."
+  },
+  {
+   "a": "Il problema. Due classi disposte a cerch",
+   "t": "Prendi due classi su due anelli concentrici. Nessuna retta le separa, quindi un classificatore lineare è condannato a sbagliare. Ogni strato della rete invece trasforma la nuvola dei dati in una nuova nuvola, finché le classi diventano linearmente separabili, e allora l'ultimo strato, lineare, le divide con un iperpiano."
+  },
+  {
+   "a": "Una piccola rete (strati nascosti 16, 16",
+   "t": "Guarda la figura, un esperimento vero. Nel primo pannello i rossi sull'anello esterno, i blu su quello interno. La frontiera imparata è la linea nera attorno ai blu: non un cerchio ma un poligono con lati dritti, perché una rete ReLU è lineare a tratti."
+  },
+  {
+   "a": "Una piccola rete (strati nascosti 16, 16",
+   "t": "Nel pannello centrale, i dati dopo il primo strato, a 16 dimensioni, proiettati in 2 con la PCA, cioè l'analisi delle componenti principali: deformati, ma i blu sono ancora dentro i rossi. Nel terzo, dopo il terzo strato, in 2 dimensioni: rossi schiacciati sull'asse verticale in alto a sinistra, blu sull'asse orizzontale in basso a destra, e la retta nera in diagonale li separa."
+  },
+  {
+   "a": "Dalla slide 11 (visionbook fig. 13.8). O",
+   "t": "Questa figura del visionbook mostra lo stesso durante l'addestramento. Ogni pila è la rete, ogni piano l'uscita di uno strato, e da sinistra a destra procede il training. Nella prima pila rossi e blu restano ammucchiati; nell'ultima, salendo verso la softmax, i fili rossi vanno da una parte e quelli blu dall'altra."
+  },
+  {
+   "a": "Embedding. L'uscita di uno strato intern",
+   "t": "L'uscita di uno strato interno si chiama embedding: un vettore ad alta dimensione che rappresenta l'immagine a quel livello. Spesso si congela una rete addestrata e si riusano i suoi embedding per un problema nuovo. Per vederli si riducono a 2 dimensioni con la PCA o con t-SNE."
+  },
+  {
+   "a": "Il punto Strato dopo strato, la rete def",
+   "t": "Da portare a casa: strato dopo strato, la rete deforma la nuvola dei dati finché le classi diventano separabili da un iperpiano. I vettori intermedi sono gli embedding, riusabili per altri compiti."
+  },
+  {
+   "a": "5. Profondità o larghezza?",
+   "t": "Sezione 5: profondità o larghezza?"
+  },
+  {
+   "a": "Profondità (slide 14). Una rete ReLU è l",
+   "t": "Una rete ReLU è lineare a tratti: ogni neurone taglia lo spazio con un iperpiano, e dentro ogni regione la rete è lineare. Uno strato successivo può piegare e riusare i tagli precedenti, quindi il numero massimo di regioni cresce esponenzialmente con la profondità. In principio, la profondità permette funzioni molto più complesse."
+  },
+  {
+   "a": "Sinistra e centro: le regioni lineari di",
+   "t": "Guarda i primi due pannelli: due reti con pesi casuali e lo stesso numero di neuroni, 24. A sinistra un solo strato da 24 ReLU: tagli dritti che attraversano tutto, 239 regioni. Al centro tre strati da 8: bordi spezzati, piegati dagli strati successivi, ma 130 regioni, non di più."
+  },
+  {
+   "a": "Attenzione: \"il numero di regioni è espo",
+   "t": "Ed ecco un errore delle slide. Dicono che il numero di regioni è esponenziale nella profondità: vale solo come massimo teorico. L'articolo citato proprio nella figura, di Hanin e Rolnick, mostra che nelle reti reali il numero medio di regioni cresce con il numero totale di neuroni, non esponenzialmente con la profondità. Il vantaggio della profondità è soprattutto empirico."
+  },
+  {
+   "a": "Larghezza : è la dimensione degli embedd",
+   "t": "La larghezza è la dimensione degli embedding. In alta dimensione due vettori casuali sono quasi ortogonali. Nel terzo pannello lo vedi: in grigio, d uguale a 2, il coseno fra due vettori casuali è sparso fra meno 1 e 1; in rosso, d uguale a 1000, è un picco stretto attorno a zero. C'è spazio per moltissime direzioni quasi indipendenti, una per concetto."
+  },
+  {
+   "a": "Il punto Profondità = possibilità di com",
+   "t": "Da portare a casa: la profondità permette di comporre e piegare, la larghezza dà spazio a rappresentazioni sparse e quasi ortogonali. Le reti migliori hanno entrambe."
+  },
+  {
+   "a": "6. Generalizzazione: perché le reti enor",
+   "t": "Sezione 6: il paradosso della generalizzazione. Reti con milioni di parametri che non vanno in overfitting."
+  },
+  {
+   "a": "Il problema. Nel machine learning classi",
+   "t": "Nel machine learning classico un modello troppo complesso va in overfitting: impara il rumore invece della regola, e si cerca un equilibrio fra bias e varianza, la curva a U. Le reti profonde hanno una capacità praticamente infinita, eppure generalizzano."
+  },
+  {
+   "a": "L'esperimento chiave (Zhang et al., ICLR",
+   "t": "L'esperimento chiave è di Zhang e colleghi, del 2017. Su CIFAR-10 si mettono etichette casuali, e una rete standard le impara a memoria fino a zero errori sul training, perfino con immagini di puro rumore. Quindi la rete potrebbe memorizzare tutto: se generalizza, non è per una capacità limitata."
+  },
+  {
+   "a": "implicita , ed è la più forte: nei param",
+   "t": "La regolarizzazione viene da due fonti. La più forte è implicita: nei parametri di SGD e nell'architettura; batch piccoli e learning rate alti portano verso minimi piatti, che generalizzano meglio. Poi c'è quella esplicita: il weight decay, che premia i pesi piccoli, e il dropout, che spegne a caso una parte delle unità durante l'addestramento."
+  },
+  {
+   "a": "Il punto Una rete può imparare a memoria",
+   "t": "Da portare a casa: una rete può memorizzare anche etichette casuali; generalizza grazie alla regolarizzazione implicita di SGD e dell'architettura, aiutata da weight decay e dropout."
+  },
+  {
+   "a": "7. Le funzioni di attivazione",
+   "t": "Sezione 7: le funzioni di attivazione. Quale non linearità mettere fra due strati lineari? Deve costare poco e avere una derivata utile, perché la backpropagation moltiplica le derivate di tutti gli strati: se una è quasi zero, il gradiente muore."
+  },
+  {
+   "a": "soglia : 1 se x > 0, altrimenti 0 (il pe",
+   "t": "Le candidate sono cinque. La soglia, 1 per x positivo e 0 altrimenti: è il perceptron. La sigmoide, che va dolcemente da 0 a 1. La tangente iperbolica, da meno 1 a 1, una sigmoide riscalata. La ReLU, rectified linear unit, il massimo fra x e zero. E la leaky ReLU, che per x negativo vale alfa per x, con alfa piccolo."
+  },
+  {
+   "a": "In basso le derivate. La sigmoide ha der",
+   "t": "Nella figura, in alto in blu le funzioni, in basso in rosso le derivate. La soglia ha derivata zero: niente gradiente. La sigmoide ha una gobba bassa, massimo zero virgola venticinque sulla linea tratteggiata arancione. La tanh va a zero ai lati. La ReLU ha un gradino: zero a sinistra, 1 a destra. La leaky ReLU, con alfa zero virgola uno, a sinistra resta a zero virgola uno."
+  },
+  {
+   "a": "Perché la ReLU ha vinto. Con la sigmoide",
+   "t": "Ecco perché ha vinto la ReLU. Con la sigmoide ogni strato moltiplica il gradiente al più per zero virgola venticinque: dopo 10 strati, circa un milionesimo. È il vanishing gradient, e gli strati iniziali non imparano. La ReLU ha derivata 1 dove è attiva. Il suo difetto è la ReLU morta, con gradiente sempre zero; la leaky ReLU lo evita."
+  },
+  {
+   "a": "Attenzione: il grafico della leaky ReLU ",
+   "t": "Attenzione: nelle slide il grafico della leaky ReLU è etichettato alfa uguale a 2, ma la curva passa per meno 2, meno zero virgola quattro, quindi la pendenza è zero virgola due. Con alfa uguale a 2 il ramo negativo sarebbe più ripido di quello positivo. I valori tipici vanno da zero virgola zero uno a zero virgola due."
+  },
+  {
+   "a": "Il punto L'attivazione deve avere un gra",
+   "t": "Da portare a casa: sigmoide e tanh saturano e fanno svanire il gradiente; ReLU e leaky ReLU no, e costano pochissimo."
+  },
+  {
+   "a": "8. Normalizzare le attivazioni: BatchNor",
+   "t": "Sezione 8: BatchNorm e LayerNorm. Strato dopo strato, media e varianza delle attivazioni possono crescere o ridursi molto, e l'ottimizzazione diventa instabile. L'idea è standardizzarle, e poi lasciare alla rete la libertà di riscalarle."
+  },
+  {
+   "a": "x out [i] = γ · (x in [i] − 𝔼[x in [i]])",
+   "t": "Nella formula della BatchNorm si sottrae la media e si divide per la radice della varianza più epsilon: la solita standardizzazione, con epsilon che evita di dividere per zero. Poi si moltiplica per gamma e si somma beta, una scala e uno spostamento appresi, che permettono alla rete di tornare indietro se le conviene."
+  },
+  {
+   "a": "Media 𝔼 e varianza Var si calcolano per ",
+   "t": "Media e varianza si calcolano per canale, sugli esempi del batch, e nelle reti convoluzionali anche su tutte le posizioni. La parte delicata è training contro test. In training si usano le statistiche del mini-batch; in inferenza medie mobili accumulate e congelate, così l'uscita su un'immagine non dipende dalle altre del batch."
+  },
+  {
+   "a": "Il difetto : BatchNorm dipende dalla dim",
+   "t": "Il difetto è che la BatchNorm dipende dalla dimensione del batch: con un'immagine sola la varianza non ha senso. Per questo molte reti moderne usano la LayerNorm: stessa formula, ma media e varianza calcolate su tutte le feature di un singolo esempio."
+  },
+  {
+   "a": "Su quali numeri si calcolano media e var",
+   "t": "La figura lo mostra a colpo d'occhio. Righe: esempi del batch. Colonne: feature o canali. A sinistra la BatchNorm evidenzia in arancione una colonna, un canale su tutti gli esempi. A destra la LayerNorm evidenzia una riga, un esempio su tutte le sue feature. Ecco perché la LayerNorm è la trasposta della BatchNorm."
+  },
+  {
+   "a": "Esempio. BatchNorm su un canale con un b",
+   "t": "Un esempio. BatchNorm su un canale con i valori 2, 4, 6, 8: media 5, varianza 5, deviazione circa 2 virgola 24. Le uscite vanno da meno 1 virgola 34 a 1 virgola 34, poi si applicano gamma e beta."
+  },
+  {
+   "a": "Attenzione: γ e β \"learned scalar parame",
+   "t": "Attenzione: le slide dicono che gamma e beta sono due parametri scalari. In realtà c'è una coppia gamma e beta per ogni canale. E nella formula delle slide manca epsilon sotto la radice, come nel libro."
+  },
+  {
+   "a": "Il punto BatchNorm standardizza ogni can",
+   "t": "Da portare a casa: la BatchNorm standardizza ogni canale sul batch, con medie mobili in test; la LayerNorm standardizza ogni esempio sulle proprie feature e non dipende dal batch."
+  },
+  {
+   "a": "9. L'uscita: softmax con temperatura, re",
+   "t": "Sezione 9: l'uscita della rete. L'ultimo strato lineare produce un numero per classe, i logit, che possono essere qualunque cosa, anche negativi. La softmax con temperatura li trasforma in probabilità."
+  },
+  {
+   "a": "x out [i] = e z i /τ / ∑ k=1 K e z k /τ",
+   "t": "La formula: la probabilità della classe i è e elevato a z con pedice i diviso tau, divisa per la somma degli stessi esponenziali su tutte le classi. L'esponenziale rende tutto positivo, la divisione fa sommare a 1."
+  },
+  {
+   "a": "Le uscite sono positive e sommano a 1. È",
+   "t": "È un argmax morbido: il logit più grande dà la probabilità più grande. La temperatura tau regola quanto è decisa: con tau verso zero tutto va alla classe migliore, con tau verso infinito la distribuzione diventa uniforme."
+  },
+  {
+   "a": "Gli stessi logit z = (2, 1, 0.1, −1) con",
+   "t": "Guarda la figura: gli stessi logit, 2, 1, zero virgola uno e meno 1, con tre temperature. In rosso, tau un quarto: la prima classe prende zero virgola novantotto. In blu, tau uguale a 1: zero virgola sessantaquattro alla prima. In verde, tau uguale a 4: le barre si appiattiscono, da zero virgola trentacinque a zero virgola sedici. L'ordine delle classi non cambia mai."
+  },
+  {
+   "a": "l = − ∑ c=1 C y[c] log ŷ[c]",
+   "t": "Per la classificazione la loss è l'entropia incrociata, cross-entropy: meno la somma sulle classi della probabilità vera per il logaritmo della probabilità predetta. Con la distribuzione vera one-hot, cioè 1 sulla classe giusta e 0 altrove, resta un solo termine: meno il logaritmo della probabilità data alla classe giusta."
+  },
+  {
+   "a": "Esempio. Logit (2, 1, 0.1, −1), classe v",
+   "t": "Il conto con i logit della figura, prima classe giusta, tau uguale a 1. La somma degli esponenziali è circa 11 virgola 58, il logaritmo circa 2 virgola 449. La loss è meno 2 più 2 virgola 449, cioè zero virgola 449: proprio meno il logaritmo di zero virgola sessantaquattro, la barra blu più alta."
+  },
+  {
+   "a": "Attenzione: le formule di softmax e cros",
+   "t": "Attenzione: la softmax delle slide, con z diviso tau, è quella giusta; il libro scrive e alla meno tau per z, con tau che fa da temperatura inversa. E nella seconda formula della cross-entropy delle slide, dentro la somma, ci vanno i logit, cioè gli ingressi della softmax, non le uscite."
+  },
+  {
+   "a": "Il punto Logit → softmax (τ regola quant",
+   "t": "Da portare a casa: logit, softmax con tau che regola quanto è piccata, probabilità. La loss è meno il logaritmo della probabilità della classe giusta, calcolata dai logit."
+  },
+  {
+   "a": "10. Lo strato convoluzionale: uno strato",
+   "t": "Sezione 10: lo strato convoluzionale, il cuore della lezione. Uno strato denso su un'immagine collegherebbe ogni pixel d'uscita a ogni pixel d'ingresso: troppi pesi, e nessuna idea che un bordo è un bordo ovunque si trovi. La soluzione è la convoluzione della lezione 3, con i pesi da imparare."
+  },
+  {
+   "a": "x out [n, m] = b + ∑ k 1 , k 2 = −K K w[",
+   "t": "Leggiamo la formula. L'uscita in n, m è il bias b più la somma, per k 1 e k 2 da meno K a K, del peso w in k 1, k 2 per l'ingresso in n più k 1, m più k 2. In parole: centra il kernel sul pixel, moltiplica peso per pixel, somma e aggiungi il bias."
+  },
+  {
+   "a": "w è il kernel (filtro) di lato 2K + 1 (K",
+   "t": "Il kernel ha lato 2 K più 1. Il segno più negli indici dice che il filtro non viene ribaltato: tecnicamente è una correlazione incrociata, ma per filtri appresi non importa, e tutti la chiamano convoluzione."
+  },
+  {
+   "a": "A sinistra: il kernel scorre sull'ingres",
+   "t": "Guarda la figura. L'ingresso 5 per 5 ha le prime tre colonne a 1 e le ultime due a 5. Il kernel arancione ha meno 1 a sinistra, zero al centro, 1 a destra. Nella posizione azzurra ogni riga dà meno 1 più 5, cioè 4, e tre righe fanno 12. Nell'uscita la prima colonna vale zero, dove l'ingresso è costante: è un rilevatore di bordi verticali."
+  },
+  {
+   "a": "A sinistra: il kernel scorre sull'ingres",
+   "t": "A destra la stessa operazione in una dimensione, come matrice 6 per 8. Ogni riga contiene i tre pesi, in rosso, verde e blu, ed è la riga sopra spostata di una casella. Su 48 posti ci sono solo 3 pesi diversi e 30 zeri."
+  },
+  {
+   "a": "L'idea chiave (slide 27). Una convoluzio",
+   "t": "Ecco l'idea chiave: una convoluzione è uno strato lineare, uscita uguale a W per ingresso, con una matrice W di Toeplitz, a diagonali costanti. Quasi tutti zeri: località. Gli stessi pochi pesi su ogni riga: condivisione dei pesi. Nessuno costruisce davvero la matrice, si calcola la convoluzione."
+  },
+  {
+   "a": "Il punto Strato convoluzionale = strato ",
+   "t": "Da portare a casa: lo strato convoluzionale è uno strato lineare con connessioni locali e pesi condivisi, una correlazione incrociata con un kernel appreso."
+  },
+  {
+   "a": "11. Più canali in ingresso e in uscita",
+   "t": "Sezione 11: più canali. Un'immagine a colori ha 3 canali, e in uscita vogliamo tanti filtri diversi."
+  },
+  {
+   "a": "Canali in ingresso (slide 28): un filtro",
+   "t": "Per i canali in ingresso, un filtro ha una fetta per ogni canale: filtri il rosso con la sua fetta, il verde con la sua, il blu con la sua, e sommi. Per i canali in uscita usi più filtri, e ognuno produce una feature map, una mappa delle caratteristiche. È un banco di filtri della lezione 7, ma appreso."
+  },
+  {
+   "a": "x out [c 2 ] = ∑ c 1 =1 C in w[c 1 , c 2",
+   "t": "Nella formula, il canale d'uscita c 2 è la somma su tutti i canali d'ingresso c 1 del filtro w in c 1, c 2 applicato al canale c 1, più il bias b di c 2. I pesi sono C in per C out per k per k, più un bias per ogni canale d'uscita."
+  },
+  {
+   "a": "Attenzione: indici e forme nelle slide 2",
+   "t": "Attenzione: nelle slide il bias della formula multicanale è indicizzato con il canale d'ingresso, un refuso copiato dal libro. C'è un bias per ogni canale d'uscita. E la forma del tensore è scritta alla PyTorch, con C out prima di C in."
+  },
+  {
+   "a": "Il punto Ogni canale d'uscita è un filtr",
+   "t": "Da portare a casa: ogni canale d'uscita è un filtro tridimensionale che somma tutti i canali d'ingresso. Pesi: k al quadrato per C in per C out, più C out bias."
+  },
+  {
+   "a": "12. Quanto si risparmia: fully connected",
+   "t": "Sezione 12: quanto si risparmia con la convoluzione. Un conto da saper fare a memoria."
+  },
+  {
+   "a": "fully connected : ogni unità d'uscita è ",
+   "t": "Strato fully connected, completamente connesso, da 64 per 64 per 3 a 64 per 64 per 64: 12288 per 262144 pesi, circa 3 virgola 2 miliardi, per un solo strato su un'immagine piccolissima. Convoluzione 3 per 3: 9 per 3 per 64, cioè 1728 pesi più 64 bias, e questo numero non dipende dalla risoluzione."
+  },
+  {
+   "a": "Scala logaritmica: lo strato denso cresc",
+   "t": "Il grafico è in scala logaritmica: ogni tacca vale un fattore 100. Le barre rosse dello strato denso vanno da 2 per 10 alla 8 per un'immagine 32 per 32 a 4 virgola 8 per 10 alla 11 per 224 per 224: crescono con la quarta potenza del lato. Le barre blu restano ferme a 1728."
+  },
+  {
+   "a": "Il punto 3,2 miliardi contro 1728: la co",
+   "t": "Da portare a casa: 3 virgola 2 miliardi contro 1728. La convoluzione rende possibili le reti sulle immagini, e generalizza meglio perché incorpora le ipotesi giuste."
+  },
+  {
+   "a": "13. Stride e dilatazione: saltare pixel,",
+   "t": "Sezione 13: stride e dilatazione, due modi di saltare pixel. E torna un vecchio nemico, l'aliasing."
+  },
+  {
+   "a": "Stride (slide 32). Si calcola l'uscita s",
+   "t": "Lo stride, il passo, vuol dire calcolare l'uscita solo ogni s pixel: nella formula l'indice diventa s per n più k 1. Con stride 2 l'uscita ha metà righe e metà colonne, un quarto del calcolo."
+  },
+  {
+   "a": "Il problema (slide 33). Stride s vuol di",
+   "t": "Ma stride s vuol dire filtrare e poi sottocampionare. Se il filtro non toglie le frequenze sopra la nuova frequenza di Nyquist, c'è aliasing, come nella lezione 6. La rete può compensare imparando filtri più lisci, ma così restringe i kernel che può usare."
+  },
+  {
+   "a": "Una \"zone plate\" (anelli sempre più fitt",
+   "t": "Guarda la figura. A sinistra una zone plate: anelli sempre più fitti verso l'esterno. Al centro, stride 2 senza filtro: verso i bordi compaiono cerchi interi che non esistono, alte frequenze travestite da basse. A destra, prima una sfocatura gaussiana con sigma uguale a 1, poi stride 2: gli anelli centrali restano, e l'esterno diventa grigio uniforme, senza falsi. È il trucco della piramide gaussiana: prima sfoca, poi sottocampiona."
+  },
+  {
+   "a": "Dilatazione (slide 34). Il problema oppo",
+   "t": "La dilatazione risolve il problema opposto: vedere lontano con pochi pesi. Si allarga il kernel inserendo buchi: l'indice diventa n più d per k 1. Con dilatazione 2 un 3 per 3 copre un 5 per 5, con dilatazione 4 un 9 per 9, sempre con 9 pesi e senza ridurre la risoluzione."
+  },
+  {
+   "a": "Sempre 9 pesi per strato. In cascata, di",
+   "t": "Nella figura, i primi tre pannelli sono lo stesso kernel da 9 pesi con dilatazione 1, 2 e 4: i quadratini blu si allontanano. L'ultimo mostra tre strati in cascata con dilatazioni 1, 2 e 4: coprono senza buchi un campo 15 per 15 con 27 pesi. Il colore conta i percorsi che arrivano a ogni pixel: più scuro al centro, più chiaro ai bordi."
+  },
+  {
+   "a": "Attenzione: segni nelle formule di strid",
+   "t": "Errore delle slide: nelle formule di stride e dilatazione gli indici hanno il segno meno, da convoluzione vera, mentre la formula base aveva il più, da correlazione. È un refuso del libro; con kernel appresi non cambia nulla, ma per coerenza va scritto con il più."
+  },
+  {
+   "a": "Il punto Stride = sottocampionare (meno ",
+   "t": "Da portare a casa: lo stride sottocampiona, meno calcolo ma rischio di aliasing. La dilatazione mette buchi nel kernel: campo più ampio a parità di pesi, senza perdere risoluzione."
+  },
+  {
+   "a": "14. Pooling: invarianza da equivarianza",
+   "t": "Sezione 14: il pooling, che trasforma l'equivarianza in invarianza. Due parole che si confondono spesso, andiamo piano."
+  },
+  {
+   "a": "Il problema. Un rilevatore di \"occhio\" d",
+   "t": "Un rilevatore di occhi dovrebbe dire: c'è un occhio da queste parti, senza dipendere dal pixel esatto. La convoluzione invece è equivariante: se sposti l'ingresso, l'uscita si sposta allo stesso modo, f di T x uguale a T di f di x. Noi vogliamo, almeno alla fine, l'invarianza: f di T x uguale a f di x, l'uscita non cambia."
+  },
+  {
+   "a": "x out [i] = max j ∈ 𝒩(i) x in [j] oppure",
+   "t": "Il pooling riassume ogni intorno con un solo numero: il massimo, max pooling, o la media, average pooling. Nella formula, l'uscita i è il massimo, o la media, dei valori d'ingresso j nell'intorno di i."
+  },
+  {
+   "a": "Max pooling e average pooling 2 × 2 con ",
+   "t": "Nella figura la feature map 4 per 4 è divisa in quattro blocchi colorati. Il blocco azzurro in alto a sinistra ha 1, 3, 5 e 6: massimo 6, media 3 virgola 75. Il blocco rosa in basso a destra ha 9, 4, 3 e 8: massimo 9, media 6. Da 16 numeri a 4."
+  },
+  {
+   "a": "Esempio di invarianza. In 1D, risposta (",
+   "t": "Un esempio di invarianza in una dimensione. La risposta 9, 0, 0, 0 e la stessa spostata di un pixel, 0, 9, 0, 0: con max pooling a finestre di 2 entrambe danno 9, 0, lo spostamento è sparito. Ma spostando ancora, 0, 0, 9, 0, ottieni 0, 9. L'invarianza è solo locale, dentro la finestra."
+  },
+  {
+   "a": "Global average pooling (slide 37): la me",
+   "t": "Il global average pooling fa la media di ogni feature map su tutte le posizioni: da H per W per C a un vettore di C numeri, alla fine della parte convoluzionale. Dà invarianza alla traslazione, perché la media non sa dove fosse l'oggetto, e libera dalla risoluzione d'ingresso: immagini più grandi danno sempre C numeri."
+  },
+  {
+   "a": "Attenzione: l'indice nella formula del p",
+   "t": "Piccolo errore delle slide: nella formula del pooling la lettera i indica sia l'uscita sia la variabile su cui si fa il massimo. Servono due indici diversi, come nella dispensa."
+  },
+  {
+   "a": "Il punto Convoluzione = equivariante; po",
+   "t": "Da portare a casa: la convoluzione è equivariante; il pooling dà invarianza locale; il global average pooling dà invarianza globale e risoluzione libera."
+  },
+  {
+   "a": "15. Campo recettivo e gerarchia delle fe",
+   "t": "Sezione 15: campo recettivo e gerarchia delle feature. Un filtro 3 per 3 vede 9 pixel: come fa una rete di filtri 3 per 3 a riconoscere un airone che occupa mezza immagine?"
+  },
+  {
+   "a": "L'idea (slide 39). Il campo recettivo di",
+   "t": "Il campo recettivo di un'unità è la regione dell'immagine originale che può influenzarla. Uno strato vede k pixel dello strato sotto, ognuno dei quali ne vede k di quello ancora sotto: il campo cresce con la profondità. Le non linearità punto per punto non lo cambiano."
+  },
+  {
+   "a": "A sinistra: con kernel 3 e stride 1 ogni",
+   "t": "Nella figura a sinistra, l'unità arancione allo strato 4 tocca 3 unità sotto, poi 5, poi 7, e infine 9 pixel d'ingresso: ogni strato aggiunge un pixel per lato. A destra, la linea blu, solo conv con stride 1, dopo 13 strati arriva a 27. La curva arancione, con un max pooling dopo ogni blocco come in VGG-16, si impenna fino a 196 pixel, quasi tutta l'immagine."
+  },
+  {
+   "a": "La matematica. Se lo strato l ha kernel ",
+   "t": "La regola: ogni strato con kernel k aggiunge k meno 1, per il prodotto degli stride precedenti. Esempio: due conv 3 per 3 danno 5; un pooling 2 per 2 con stride 2 aggiunge 1, siamo a 6; ora ogni passo vale 2 pixel, e la conv successiva aggiunge 4: siamo a 10."
+  },
+  {
+   "a": "L'ipotesi gerarchica (slide 40). Una CNN",
+   "t": "Da qui l'ipotesi gerarchica: una rete addestrata impara una gerarchia, da bordi a texture, a parti, a oggetti interi. È un'ipotesi, ma ben supportata."
+  },
+  {
+   "a": "Le feature map (slide 41–42). Ogni strat",
+   "t": "Scendendo nella rete la risoluzione delle feature map cala e i canali aumentano. Con centinaia di canali non si possono guardare tutti: si fa una PCA in ogni posizione e si mostrano le prime 3 componenti come rosso, verde e blu."
+  },
+  {
+   "a": "Dalla slide 43 (visionbook fig. 24.25). ",
+   "t": "Guarda la figura: tre reti, AlexNet, VGG-16 e ResNet-18, sulla stessa foto di airone. Nella colonna conv1 le mappe ricalcano i contorni dell'uccello. Andando a destra i pixel diventano blocchi sempre più grossi, e i colori smettono di seguire i bordi e separano regioni: nelle ultime colonne di VGG e ResNet c'è una zona accesa in rosso e giallo attorno alla testa dell'airone, staccata dallo sfondo."
+  },
+  {
+   "a": "Il punto Il campo recettivo cresce come ",
+   "t": "Da portare a casa: il campo recettivo cresce come 2 L più 1 con i 3 per 3, e molto più in fretta con il sottocampionamento. Per questo gli strati iniziali vedono bordi e gli ultimi oggetti interi."
+  },
+  {
+   "a": "16. Le architetture classiche: da LeNet ",
+   "t": "Sezione 16: le architetture classiche. Lo schema base è LeNet, del 1998, per le cifre scritte a mano: convoluzione, non linearità, pooling, ripetuti, con i filtri che crescono e la risoluzione che scende; poi strati densi e softmax."
+  },
+  {
+   "a": "AlexNet (2012, slide 47): la prima rete ",
+   "t": "AlexNet, nel 2012, vince nettamente su ImageNet ed è l'inizio della rivoluzione deep nella visione. 8 strati con pesi, 5 convoluzionali e 3 densi, primo strato 11 per 11 con stride 4, circa 60 milioni di parametri, quasi tutti negli strati densi. Gli ingredienti: ReLU, due GPU da gioco, dropout, augmentation e weight decay."
+  },
+  {
+   "a": "VGG (2014, slide 48): design semplice e ",
+   "t": "VGG, del 2014, è semplicissima: solo convoluzioni 3 per 3 e max pooling 2 per 2, fino a 19 strati e circa 144 milioni di parametri. Perché solo 3 per 3? Per il campo recettivo."
+  },
+  {
+   "a": "Con C canali in ingresso e in uscita, tr",
+   "t": "Nella figura, a sinistra, il pixel arancione e tre quadrati: dopo uno strato vede 3 per 3, dopo due 5 per 5, dopo tre 7 per 7. A destra i pesi con C canali: un 7 per 7 costa 49 C quadro, tre 3 per 3 solo 27, e dentro le barre leggi una ReLU contro tre."
+  },
+  {
+   "a": "I conti. Due 3 × 3 = un campo 5 × 5 con ",
+   "t": "Quindi tre 3 per 3 costano il 45 per cento in meno di un 7 per 7, vedono la stessa regione e hanno più non linearità. La profondità conta più della dimensione del kernel."
+  },
+  {
+   "a": "Il punto Schema classico: conv-ReLU-pool",
+   "t": "Da portare a casa: conv, ReLU e pooling ripetuti, canali su e risoluzione giù. AlexNet ha acceso la rivoluzione; VGG ha dimostrato che molti 3 per 3 battono pochi kernel grandi."
+  },
+  {
+   "a": "Inception / GoogLeNet (2014, slide 49). ",
+   "t": "Sezione 17: più scale e più profondità. Inception, o GoogLeNet, del 2014, applica in parallelo convoluzioni 1 per 1, 3 per 3, 5 per 5 e un pooling, e concatena, perché la scala giusta cambia da punto a punto. Per contenere il costo usa filtri 1 per 1, che non guardano i vicini ma mescolano i canali in ogni pixel, e li riducono prima dei filtri grandi: in un esempio della dispensa i pesi scendono a circa un terzo."
+  },
+  {
+   "a": "ResNet (2015, slide 50). Il problema : o",
+   "t": "Ora ResNet, del 2015, forse l'idea più importante della lezione. Oltre una certa profondità le reti normali peggiorano, anche sul training set: su CIFAR-10 una rete da 56 strati sbaglia più di una da 20. Non è overfitting, è un problema di ottimizzazione. La soluzione è il blocco residuo: y uguale a F di x più x. Il blocco impara solo la correzione."
+  },
+  {
+   "a": "Il blocco residuo. La scorciatoia aranci",
+   "t": "Nella figura, x entra da sinistra e si divide. Il ramo in basso passa per due blocchi azzurri, conv 3 per 3 con BatchNorm e ReLU, poi conv 3 per 3 con BatchNorm: è F di x, il residuo. Il ramo arancione in alto è la skip connection, che porta x direttamente al cerchio con la somma, da cui esce y."
+  },
+  {
+   "a": "Perché funziona: l'identità è facilissim",
+   "t": "Perché funziona? Primo, l'identità è facilissima: basta F uguale a zero, quindi aggiungere blocchi non dovrebbe mai peggiorare la rete. Secondo, la derivata di y rispetto a x è la derivata di F più l'identità."
+  },
+  {
+   "a": "Anche se ∂F/∂x è piccolo, il termine ide",
+   "t": "Anche se la derivata di F è piccola, l'identità fa passare il gradiente all'indietro senza attenuarlo. Così si addestrano reti di oltre 100 strati, e la loss diventa l'imbuto liscio della sezione 3."
+  },
+  {
+   "a": "Attenzione: la causa del problema nella ",
+   "t": "Attenzione: le slide attribuiscono il problema delle reti profonde a gradienti che svaniscono o esplodono. Gli autori di ResNet dicono invece che la degradazione delle reti piane, che avevano già BatchNorm, è un problema di ottimizzazione che difficilmente dipende da gradienti che svaniscono; Prince parla di shattered gradients, gradienti frammentati. La formula della derivata resta giusta."
+  },
+  {
+   "a": "DenseNet (2017, slide 51): portare la sc",
+   "t": "DenseNet, del 2017, porta la scorciatoia all'estremo: ogni strato riceve la concatenazione delle feature map di tutti i precedenti. Le feature si riusano, ma costa memoria. Ricorda: ResNet somma, DenseNet concatena."
+  },
+  {
+   "a": "Il punto Inception: più scale in paralle",
+   "t": "Da portare a casa: Inception lavora su più scale e usa gli 1 per 1 per ridurre i canali; ResNet usa F di x più x, con l'identità come autostrada per il gradiente; DenseNet concatena tutto."
+  },
+  {
+   "a": "18. Reti efficienti e il costo dell'accu",
+   "t": "Sezione 18: reti efficienti. EfficientNet, del 2019, scopre che conviene scalare insieme profondità, larghezza e risoluzione con un rapporto fisso, il compound scaling, invece di una sola."
+  },
+  {
+   "a": "MobileNet (slide 52): reti per telefoni ",
+   "t": "MobileNet, per telefoni e dispositivi embedded, usa le convoluzioni depthwise separable. Una conv standard mescola spazio e canali in un colpo. Qui si separano: prima un filtro k per k per ogni canale, la depthwise, senza mescolare i canali; poi una pointwise 1 per 1 che mescola i canali."
+  },
+  {
+   "a": "Pesi (per posizione, anche il numero di ",
+   "t": "Nella figura, a sinistra lo schema: in rosa la conv standard, sotto in azzurro la depthwise e in verde la pointwise. A destra, con k uguale a 3 e 256 canali, la barra rossa standard arriva a 589824 pesi, quella blu separabile si ferma a 67840."
+  },
+  {
+   "a": "I conti. Standard: k 2 C in C out . Sepa",
+   "t": "Il conto: standard, k al quadrato per C in per C out; separabile, k al quadrato per C in più C in per C out. Qui circa 8 virgola 7 volte meno, e con molti canali quasi un fattore 9. È l'idea dei filtri separabili della lezione 5, applicata a spazio e canali."
+  },
+  {
+   "a": "Dalla slide 55: accuratezza top-1 su Ima",
+   "t": "Guarda il grafico: in orizzontale il costo in miliardi di operazioni, in verticale l'accuratezza top-1, la bolla è il numero di parametri. Le due bolle verdi enormi a destra sono VGG-16 e VGG-19: oltre 30 miliardi di operazioni per circa il 71 per cento. ResNet-50, 101 e 152 arrivano fra 76 e 78 con molto meno, e le MobileNet stanno attorno al 70 con meno di un miliardo."
+  },
+  {
+   "a": "Il punto EfficientNet scala profondità, ",
+   "t": "Da portare a casa: EfficientNet scala tutto insieme, MobileNet separa spazio e canali e taglia il costo di quasi k al quadrato, ConvNeXt, del 2022, porta nelle convoluzionali le idee dei Transformer. E più parametri non vuol dire più accuratezza."
+  },
+  {
+   "a": "19. Punti di forza e limiti delle CNN",
+   "t": "Sezione 19: forza e limiti. La forza è il bias induttivo: località e pesi condivisi sono ipotesi giuste per le immagini, quindi le reti convoluzionali sono la scelta di default su dataset piccoli e medi."
+  },
+  {
+   "a": "il campo recettivo effettivo è molto più",
+   "t": "I limiti: il campo recettivo effettivo è più piccolo di quello teorico e concentrato al centro; l'equivarianza è rigida anche quando la posizione conta; e, come nella lezione 14, le reti guardano dettagli che noi ignoriamo. Da qui partono i Vision Transformer."
+  },
+  {
+   "a": "Il punto Le CNN funzionano perché hanno ",
+   "t": "Da portare a casa: le reti convoluzionali funzionano perché hanno il bias induttivo giusto e costano poco; gli stessi vincoli diventano limiti quando servono relazioni a lungo raggio."
+  },
+  {
+   "a": "Perché una pila di filtri lineari, anche",
+   "t": "Ora verifica di aver capito. Prima domanda. Perché una pila di filtri lineari, anche lunghissima, non basta? Cosa cambia con una ReLU in mezzo? Metti in pausa e prova a rispondere."
+  },
+  {
+   "a": "Perché una pila di filtri lineari, anche",
+   "t": "Risposta. Due convoluzioni in fila sono una sola convoluzione, quindi la pila non è più espressiva di un filtro. Con una non linearità in mezzo la composizione non collassa: la rete diventa lineare a tratti, con tante regioni, e separa classi che nessun iperpiano separa, come i due anelli."
+  },
+  {
+   "a": "Perché una pila di filtri lineari, anche",
+   "t": "Seconda domanda. Quanti pesi servono per portare 64 per 64 per 3 in 64 per 64 per 64, fully connected e con una conv 3 per 3? Perché la convoluzione non dipende dalla risoluzione? Metti in pausa e prova a rispondere."
+  },
+  {
+   "a": "Perché una pila di filtri lineari, anche",
+   "t": "Risposta. Fully connected, circa 3 virgola 2 miliardi. Convoluzione, 1728 pesi più 64 bias. Lo stesso kernel si usa in ogni posizione, quindi i pesi dipendono solo da k, C in e C out; la risoluzione cambia solo il calcolo."
+  },
+  {
+   "a": "Perché una pila di filtri lineari, anche",
+   "t": "Terza domanda. Campo recettivo dopo tre conv 3 per 3 con stride 1? E se dopo le prime due c'è un max pooling 2 per 2 con stride 2? Perché VGG preferisce tre 3 per 3 a un 7 per 7? Metti in pausa e prova a rispondere."
+  },
+  {
+   "a": "Perché una pila di filtri lineari, anche",
+   "t": "Risposta. Con stride 1, 7. Con il pooling: 5 dopo due conv, 6 dopo il pooling, e la terza conv aggiunge 4: 10. Tre 3 per 3 vedono un 7 per 7 con 27 C quadro pesi invece di 49, e tre non linearità invece di una."
+  },
+  {
+   "a": "Perché una pila di filtri lineari, anche",
+   "t": "Quarta domanda. Che differenza c'è fra BatchNorm e LayerNorm? Cosa fa la BatchNorm in inferenza, e perché? Metti in pausa e prova a rispondere."
+  },
+  {
+   "a": "Perché una pila di filtri lineari, anche",
+   "t": "Risposta. La BatchNorm calcola le statistiche per canale sul batch e sulle posizioni, la LayerNorm per esempio sulle sue feature. In inferenza la BatchNorm usa le medie mobili del training, così l'uscita non dipende dalle altre immagini e funziona anche con un'immagine sola."
+  },
+  {
+   "a": "Perché una pila di filtri lineari, anche",
+   "t": "Quinta domanda. Perché lo stride può produrre aliasing, e come si evita? Metti in pausa e prova a rispondere."
+  },
+  {
+   "a": "Perché una pila di filtri lineari, anche",
+   "t": "Risposta. Lo stride è un sottocampionamento: le frequenze sopra la nuova frequenza di Nyquist si ripiegano in frequenze basse false, come i cerchi finti della zone plate. Si evita con un passa-basso prima di sottocampionare."
+  },
+  {
+   "a": "Perché una pila di filtri lineari, anche",
+   "t": "Sesta domanda. Scrivi il blocco residuo e la sua derivata. Cosa rende facile addestrare una ResNet, e cosa c'è di impreciso nelle slide? Metti in pausa e prova a rispondere."
+  },
+  {
+   "a": "Perché una pila di filtri lineari, anche",
+   "t": "Risposta. y uguale a F di x più x, derivata uguale alla derivata di F più l'identità. Un blocco in più può fare l'identità, e il gradiente ha un cammino diretto. Le slide danno la colpa ai gradienti che svaniscono, ma He e colleghi parlano di un problema di ottimizzazione che difficilmente dipende da quello."
+  },
+  {
+   "a": "Come proseguire",
+   "t": "Per proseguire, il capitolo 24 del visionbook copre tutta la parte convoluzionale e Prince è ottimo per numeri e reti residue. Poi ripassa con le schede e i riquadri Attenzione."
+  },
+  {
+   "a": "Ora ripassa con le schede qui sotto, sli",
+   "t": "Riassumiamo. Una rete profonda alterna strati lineari e non linearità, si addestra con la discesa del gradiente e deforma i dati finché diventano separabili. Per le immagini lo strato giusto è la convoluzione: pochi pesi condivisi e il bias induttivo giusto. Stride e pooling riducono la risoluzione, attenti all'aliasing, e fanno crescere il campo recettivo, da cui la gerarchia dai bordi agli oggetti. Le connessioni residue hanno reso possibili reti di cento strati, e le architetture moderne cercano il compromesso fra costo e accuratezza."
+  }
+ ]
+}

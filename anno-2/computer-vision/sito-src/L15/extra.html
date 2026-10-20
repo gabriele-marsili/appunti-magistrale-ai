@@ -1,0 +1,108 @@
+<div class="sec" id="l15-libro"><h2>Studia dal libro</h2><span>visionbook cap. 24 (circa 1 ora e mezza), più cap. 12 § 12.5 e 12.7, cap. 13; Prince cap. 10 e 11; Szeliski § 5.3–5.4</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Cosa leggere, in ordine</h3>
+    <div class="meta">Torralba, Isola, Freeman, <i>Foundations of Computer Vision</i>, gratis online; Prince, <i>Understanding Deep Learning</i> e Szeliski 2a ed. nella cartella materiale</div>
+    <ol>
+      <li><a href="https://visionbook.mit.edu/neural_nets.html" target="_blank">Cap. 12, Neural Networks</a>: § 12.3–12.5 (MLP, attivazioni e parametri, reti profonde, approssimazione universale con le «gobbe» di ReLU, profondità contro larghezza) e § 12.7 <b>Catalog of Layers</b> (attivazioni, batchnorm e layernorm, uscite). Sono le slide 5 e 18–23.</li>
+      <li><a href="https://visionbook.mit.edu/neural_nets_as_distribution_transformers.html" target="_blank">Cap. 13, Neural Networks as Distribution Transformers</a>, breve e tutto da leggere: la rete come sequenza di trasformazioni geometriche, le figure 13.5, 13.7, 13.8 e 13.9 sono quelle delle slide 10–13 e 19.</li>
+      <li><a href="https://visionbook.mit.edu/convolutional_neural_nets.html" target="_blank">Cap. 24, Convolutional Neural Nets</a>: è il riferimento del prof (slide 59). Leggi tutto il § 24.2 (strato conv, multicanale, stride con aliasing, dilatazione), § 24.3.1–24.3.2 (pooling e global pooling), § 24.4–24.5 (CNN minima ed esempio linee orizzontali e verticali, con il collegamento agli attacchi di L14), § 24.6–24.7 (feature map, PCA, campo recettivo), § 24.10 e § 24.11.3 (ResNet).</li>
+      <li>Prince, cap. 10 <b>Convolutional networks</b>: § 10.1 (invarianza ed equivarianza), § 10.2 (conv 1D, padding, stride, dilatazione, canali, campo recettivo, esperimento MNIST-1D), § 10.4.3 (conv 1×1), § 10.5.1 (ImageNet, AlexNet, VGG).</li>
+      <li>Prince, cap. 11 <b>Residual networks</b>: § 11.1.1 (perché le reti piane profonde non si addestrano), § 11.2, § 11.3–11.4 (BatchNorm, con il conto della varianza), § 11.5.1–11.5.2 (ResNet, DenseNet).</li>
+      <li>Per la parte su generalizzazione: <a href="https://visionbook.mit.edu/problem_of_generalization.html" target="_blank">cap. 11 del visionbook</a> § 11.2 e 11.4, e Prince § 20.2–20.4 (etichette casuali, minimi locali, minimi piatti, regolarizzazione implicita di SGD).</li>
+      <li>Szeliski 2a ed., § 5.3 <b>Deep neural networks</b> (5.3.2 attivazioni, 5.3.3 regolarizzazione e normalizzazione, 5.3.4 loss) e § 5.4 <b>Convolutional neural networks</b> (5.4.1 pooling, 5.4.3 architetture, 5.4.5 visualizzazione di pesi e attivazioni): utile come panoramica con molte figure.</li>
+    </ol>
+    <p><b>Si può saltare</b>: nel cap. 24 i § 24.2.4 (filtri a basso rango), 24.3.3 (LRN), 24.8–24.9 e 24.11.1–24.11.2 (uscite spaziali, encoder-decoder, U-Net: torneranno con la segmentazione); nel cap. 12 la storia del perceptron (§ 12.2.2) e il § 12.6 (Hebb). <b>Non nei libri</b>: Inception, EfficientNet, MobileNet, ConvNeXt e il grafico costo/accuratezza; per questi bastano le slide e gli articoli citati.</p>
+  </div>
+
+  <div class="card">
+    <h3>Le idee centrali, come le spiega il libro</h3>
+    <div class="meta">Da saper ricostruire senza slide</div>
+    <p><b>1 · Uno strato conv è uno strato lineare con vincoli.</b> La matrice W è di Toeplitz: zeri fuori da una banda (località) e righe che ripetono gli stessi pesi spostati (condivisione). Una rete fully connected potrebbe impararla, ma in pratica non ci riesce: su MNIST-1D la CNN da 2.050 parametri ha circa il 17% di errore di test, la fully connected da 59.065 circa il 40% (Prince § 10.2.7). Il guadagno viene dal bias induttivo, non dal numero di parametri.</p>
+    <p><b>2 · Ogni strato trasforma la distribuzione dei dati.</b> Lineare: sposta, ruota, stira. ReLU: proietta sugli assi, e in alta dimensione lascia quasi tutti i punti con molte coordinate a zero (l'ortante positivo è 1/2<sup>N</sup> dello spazio). Il training cerca la sequenza di trasformazioni che rende le classi linearmente separabili all'ultimo strato (cap. 13).</p>
+    <p><b>3 · Dal banco di filtri alla gerarchia.</b> Strato dopo strato il campo recettivo cresce (kernel 3: 3, 5, 7, …; con stride o pooling cresce molto più in fretta), la risoluzione scende e i canali salgono; le mappe passano da bordi a zone semantiche (§ 24.6–24.7, fig. 24.24–24.25). Il pooling trasforma l'equivarianza delle conv in invarianza (§ 24.3.1).</p>
+    <p><b>4 · Stride e dilatazione hanno un prezzo in frequenza.</b> Lo stride è un sottocampionamento senza anti-aliasing (fig. 24.8, ripasso di L6); la dilatazione rende i kernel non più passa-basso (fig. 24.10). L'apprendimento compensa solo in parte.</p>
+    <p><b>5 · Le reti residue risolvono un problema di ottimizzazione.</b> Le reti piane troppo profonde peggiorano anche sul training; il blocco y = F(x) + x rende l'identità facile e dà al gradiente un cammino diretto (∂y/∂x = ∂F/∂x + I). La varianza però raddoppia a ogni blocco, e la BatchNorm la tiene sotto controllo (Prince § 11.1–11.4).</p>
+    <p><b>Notazione e refusi</b>: il visionbook scrive la softmax come e<sup>−τx</sup> (temperatura inversa con segno insolito): usate e<sup>x/τ</sup> delle slide. Nelle eq. 24.5–24.6 l'indice ha il meno, nella 24.2 il più; nel multicanale il bias è indicizzato col canale di ingresso; K indica a volte la semi-ampiezza, a volte il lato del kernel; nel § 24.2.3 la cascata di dilatazioni 1, 2, 4 copre 15 × 15, non 9 × 9; nel § 24.4 la rete ha un solo strato conv (il testo dice due). Nelle slide le stesse incoerenze sono segnalate nei riquadri Attenzione (slide 22, 28, 30, 32, 36).</p>
+  </div>
+</div>
+
+<div class="sec" id="l15-guida"><h2>Guida allo studio</h2><span>circa 4 ore in quattro blocchi; il cuore è la parte sulla convoluzione e sulle architetture</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Prima di iniziare</h3>
+    <div class="meta">15 minuti</div>
+    <p>Ripassa da L3 convoluzione, correlazione e associatività; da L5 i filtri di derivata (Sobel, derivata di gaussiana); da L6 aliasing e filtro anti-aliasing prima del sottocampionamento; da L7 i banchi di filtri. Serve anche il ripasso di base di machine learning: gradiente, regola della catena, cross-entropy.</p>
+  </div>
+  <div class="two">
+    <div class="card">
+      <h3>1 · Reti profonde e ottimizzazione</h3>
+      <div class="meta">Slide 2–16 · circa 50 minuti</div>
+      <p>Obiettivo: spiegare cos'è una DNN, come si addestra e perché generalizza nonostante tutto.</p>
+      <ul>
+        <li>Composizione di strati, SGD, training loop; loss non convessa, minimi piatti, skip connection.</li>
+        <li>La rete come trasformazione dei dati: separabilità lineare, embedding, t-SNE e PCA.</li>
+        <li>Profondità contro larghezza (attenzione alla slide 14), etichette casuali, regolarizzazione implicita ed esplicita. Leggi cap. 12 § 12.5 e cap. 13.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>2 · Componenti</h3>
+      <div class="meta">Slide 17–24 · circa 40 minuti</div>
+      <p>Obiettivo: scrivere a memoria attivazioni, normalizzazioni, softmax e cross-entropy.</p>
+      <ul>
+        <li>Le cinque attivazioni e le loro derivate; perché la sigmoide fa svanire il gradiente.</li>
+        <li>BatchNorm (training contro inferenza, statistiche per canale) e LayerNorm; un esempio a mano.</li>
+        <li>Softmax con τ (casi limite), cross-entropy dai logit e trucco log-sum-exp. Leggi § 12.7.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>3 · Lo strato convoluzionale</h3>
+      <div class="meta">Slide 25–43 · circa 1 ora e mezza</div>
+      <p>Obiettivo: contare parametri e campo recettivo e spiegare ogni iperparametro.</p>
+      <ul>
+        <li>Toeplitz e condivisione dei pesi; formula multicanale; K · K · C<sub>in</sub> · C<sub>out</sub> + C<sub>out</sub>; il conto 3,2 miliardi contro 1.728.</li>
+        <li>Stride e aliasing (fig. 24.8), dilatazione, dimensione dell'uscita ⌊(N + 2p − k)/s⌋ + 1.</li>
+        <li>Pooling, equivarianza contro invarianza, GAP; campo recettivo; feature map e PCA. Leggi § 24.2–24.7.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>4 · Architetture</h3>
+      <div class="meta">Slide 44–58 · circa 50 minuti</div>
+      <p>Obiettivo: per ogni rete, l'idea chiave e il problema che risolve.</p>
+      <ul>
+        <li>LeNet (schema), AlexNet (ReLU, GPU, dropout), VGG (3 × 3 impilati, con i conti), Inception (rami paralleli, 1 × 1), ResNet (residuo, gradiente), DenseNet (concatenazione).</li>
+        <li>EfficientNet (compound scaling), MobileNet (depthwise separable, con i conti), ConvNeXt; lettura del grafico costo/accuratezza.</li>
+        <li>Punti di forza e limiti delle CNN, verso i transformer. Leggi Prince cap. 11.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Formule da sapere a memoria</h3>
+    <span class="f">rete: f<sub>θ</sub>(x) = f<sub>L</sub>(f<sub>L−1</sub>(… f<sub>1</sub>(x)));   SGD: θ<sub>t</sub> = θ<sub>t−1</sub> − α ∇<sub>θ</sub>L</span>
+    <span class="f">conv: x<sub>out</sub>[n, m] = b + ∑<sub>k<sub>1</sub>,k<sub>2</sub>=−K</sub><sup>K</sup> w[k<sub>1</sub>, k<sub>2</sub>] x<sub>in</sub>[n + k<sub>1</sub>, m + k<sub>2</sub>]</span>
+    <span class="f">multicanale: x<sub>out</sub>[c<sub>2</sub>] = ∑<sub>c<sub>1</sub></sub> w[c<sub>1</sub>, c<sub>2</sub>] ⋆ x<sub>in</sub>[c<sub>1</sub>] + b[c<sub>2</sub>];   parametri k² C<sub>in</sub> C<sub>out</sub> + C<sub>out</sub></span>
+    <span class="f">uscita: ⌊(N + 2p − k)/s⌋ + 1;   campo recettivo con stride 1: L(k − 1) + 1</span>
+    <span class="f">BatchNorm: γ (x − μ<sub>B</sub>)/√(σ<sub>B</sub>² + ε) + β (per canale, su batch e posizioni);   LayerNorm: stesse operazioni sul singolo esempio</span>
+    <span class="f">softmax: p<sub>i</sub> = e<sup>z<sub>i</sub>/τ</sup> / ∑<sub>k</sub> e<sup>z<sub>k</sub>/τ</sup>;   cross-entropy: l = −∑<sub>c</sub> y[c] log p<sub>c</sub> = −z<sub>y</sub> + log ∑<sub>k</sub> e<sup>z<sub>k</sub></sup> (τ = 1)</span>
+    <span class="f">residuo: y = F(x) + x,   ∂y/∂x = ∂F/∂x + I</span>
+    <span class="f">depthwise separable: k² C<sub>in</sub> + C<sub>in</sub> C<sub>out</sub> invece di k² C<sub>in</sub> C<sub>out</sub> (rapporto 1/C<sub>out</sub> + 1/k²)</span>
+  </div>
+
+  <div class="card">
+    <h3>Domande tipo orale</h3>
+    <div class="meta">Prova a rispondere, poi apri per la traccia</div>
+    <div class="qa">
+      <details><summary>Perché passare da filtri fissi a filtri appresi? Cosa si guadagna e cosa si perde?</summary><p>I filtri fatti a mano sono uguali per ogni dominio, non si compongono in rappresentazioni gerarchiche e sono lineari, quindi una loro pila resta un filtro lineare. Una CNN impara il banco di filtri dai dati e alterna filtri e non linearità, così può costruire feature sempre più complesse (bordi, texture, parti, oggetti). Si perde interpretabilità e servono molti dati e calcolo (slide 3, 40).</p></details>
+      <details><summary>Scrivi uno strato convoluzionale multicanale e conta i suoi parametri. Confrontalo con uno strato fully connected.</summary><p>x<sub>out</sub>[c<sub>2</sub>] = ∑<sub>c<sub>1</sub></sub> w[c<sub>1</sub>, c<sub>2</sub>] ⋆ x<sub>in</sub>[c<sub>1</sub>] + b[c<sub>2</sub>]: k² C<sub>in</sub> C<sub>out</sub> pesi e C<sub>out</sub> bias, indipendenti dalla risoluzione. Il fully connected da H × W × C<sub>in</sub> a H × W × C<sub>out</sub> ha (HWC<sub>in</sub>)(HWC<sub>out</sub>) pesi: per 64 × 64 × 3 → 64 canali circa 3,2 miliardi contro 1.728. La conv è un fully connected con matrice di Toeplitz (località + pesi condivisi); il vantaggio è anche di bias induttivo, non solo di memoria (slide 27–31; Prince § 10.2.7).</p></details>
+      <details><summary>Cosa fanno stride, dilatazione e pooling? Quali problemi possono creare?</summary><p>Lo stride calcola il filtro ogni s pixel: uscita N/s, calcolo ridotto, ma è un sottocampionamento senza anti-aliasing, quindi le alte frequenze si ripiegano (fig. 24.8, L6). La dilatazione distanzia i pesi del kernel: campo più grande senza più pesi, ma il kernel non è più un passa-basso. Il pooling (max o medio) riduce la risoluzione per canale e dà robustezza a piccole traslazioni; il max conserva la risposta più forte, la media sfuma (slide 32–36).</p></details>
+      <details><summary>Invarianza ed equivarianza: che differenza c'è e chi le produce in una CNN?</summary><p>f è equivariante a una traslazione T se f(T x) = T f(x): la conv lo è, la mappa si sposta con l'ingresso. f è invariante se f(T x) = f(x): serve alla classificazione. Il pooling locale dà un po' di invarianza alle piccole traslazioni, il global average pooling molta di più perché media su tutte le posizioni (e permette ingressi di qualunque dimensione). La segmentazione invece vuole equivarianza (slide 36–37; Prince § 10.1).</p></details>
+      <details><summary>Cos'è il campo recettivo e come cresce? Perché VGG usa solo 3 × 3?</summary><p>È la regione dell'ingresso che influenza un'unità. Con kernel k e stride 1 vale L(k − 1) + 1 dopo L strati; stride e pooling lo fanno crescere molto più in fretta; le ReLU non lo cambiano. Tre 3 × 3 hanno lo stesso campo di un 7 × 7 con 27C² pesi invece di 49C² e tre non linearità invece di una. Però il campo recettivo effettivo è più piccolo del teorico e concentrato al centro (slide 39, 48, 57).</p></details>
+      <details><summary>Spiega BatchNorm e LayerNorm. Perché molte reti moderne preferiscono la LayerNorm?</summary><p>Entrambe standardizzano (sottraggono la media e dividono per la deviazione standard) e poi riscalano con γ, β appresi. La BatchNorm calcola le statistiche per canale sul batch (e sulle posizioni spaziali nelle CNN); in inferenza usa medie mobili del training. La LayerNorm le calcola sul singolo esempio, quindi non dipende dal batch e si comporta uguale in training e test: niente problemi con batch di 1 o multi-task. La BatchNorm stabilizza la varianza, permette learning rate più alti e regolarizza (slide 20–21; Prince § 11.4).</p></details>
+      <details><summary>Cosa fa la temperatura della softmax? Perché la cross-entropy si calcola dai logit?</summary><p>p<sub>i</sub> = e<sup>z<sub>i</sub>/τ</sup>/∑ e<sup>z<sub>k</sub>/τ</sup>: τ grande rende la distribuzione uniforme, τ piccolo la rende un argmax (probabilità 1 al logit massimo). Per prevedere la classe basta l'argmax dei logit. La cross-entropy fusa, −z<sub>y</sub> + log ∑ e<sup>z<sub>k</sub></sup>, si calcola col trucco log-sum-exp (sottraendo il logit massimo): niente overflow di e<sup>z</sup> e niente log(0) (slide 22–24).</p></details>
+      <details><summary>Perché le reti molto profonde erano difficili da addestrare e come le risolve ResNet?</summary><p>Oltre una certa profondità le reti «piane» peggiorano anche sull'errore di training: è un problema di ottimizzazione, non di overfitting (gradienti che svaniscono o esplodono, o meglio shattered gradients). Il blocco y = F(x) + x rende l'identità facile (F = 0) e dà ∂y/∂x = ∂F/∂x + I: c'è sempre un cammino diretto per il gradiente, e la superficie della loss diventa più liscia (slide 7). Così si addestrano reti con oltre 100 strati. DenseNet concatena invece di sommare (slide 50–51; Prince cap. 11).</p></details>
+      <details><summary>Le DNN hanno capacità enorme e possono imparare etichette casuali. Perché allora generalizzano?</summary><p>Non c'è una risposta completa. Le misure classiche di complessità (VC) sono inutili; Zhang et al. mostrano che una rete impara anche dati senza struttura. La generalizzazione viene da regolarizzazione implicita (SGD con batch piccoli e learning rate alti tende a minimi piatti), dall'architettura (bias induttivo come località e pesi condivisi), e in misura minore da weight decay, dropout e augmentation. In pratica: usa il modello più grande che puoi permetterti, con dati in proporzione (scaling laws) (slide 14–16; Prince § 20.2–20.4).</p></details>
+      <details><summary>Confronta EfficientNet, MobileNet e ConvNeXt: quale problema risolve ciascuno?</summary><p>EfficientNet: come ingrandire una rete; scalare insieme profondità, larghezza e risoluzione con un rapporto fisso dà più accuratezza per FLOP. MobileNet: come renderla economica; depthwise k × k + pointwise 1 × 1 costa k² C<sub>in</sub> + C<sub>in</sub> C<sub>out</sub> invece di k² C<sub>in</sub> C<sub>out</sub> (per 3 × 3 e 256 canali circa 8,7 volte meno). ConvNeXt: come restare competitivi coi transformer; kernel 7 × 7 depthwise, LayerNorm, GELU, inverted bottleneck, meno normalizzazioni (slide 52–55).</p></details>
+    </div>
+  </div>
+</div>
