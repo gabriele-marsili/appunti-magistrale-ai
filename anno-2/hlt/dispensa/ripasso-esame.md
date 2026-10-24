@@ -78,6 +78,38 @@ $$
 
 Identità esatta: probabilità congiunta come prodotto di condizionate. Lega probabilità di sequenze e predizione della parola successiva.
 
+**Regola della catena (caratteri)** ([L16](L16-laboratorio-dagli-n-gram-a-gpt.md))
+
+$$
+P(x_1,\ldots,x_T)=\prod_{t=1}^{T}P(x_t\mid x_{<t})
+$$
+
+Vale per ogni modello del laboratorio; i modelli differiscono solo nel modo di stimare $P(x_t\mid x_{&lt;t})$.
+
+**N-gram di caratteri (Markov)** ([L16](L16-laboratorio-dagli-n-gram-a-gpt.md))
+
+$$
+P(x_t\mid x_{<t})\approx P(x_t\mid x_{t-n+1},\ldots,x_{t-1})
+$$
+
+Ordine $n$ = storia di $n-1$ caratteri; $n=2$ bigram: $P(x_t\mid x_{t-1})$.
+
+**Stima MLE bigram** ([L16](L16-laboratorio-dagli-n-gram-a-gpt.md))
+
+$$
+P(b\mid a)=\frac{C(a\,b)}{C(a)}
+$$
+
+$C(a)$ = numero di bigram che cominciano con $a$. Nel lab: $P(o\mid t)=3800/20092=0{,}189$; $P(u\mid q)=1$.
+
+**Contesti possibili di un n-gram** ([L16](L16-laboratorio-dagli-n-gram-a-gpt.md))
+
+$$
+\#\text{contesti}\le V^{h},\qquad \log_{10}V^h=h\log_{10}V
+$$
+
+$h=n-1$. Con $V=77$: $h=8$ dà $10^{15{,}1}$, $h=64$ dà $10^{120{,}7}$. Il muro degli n-gram.
+
 ### Estrazione di informazione
 
 **Miscela di topic** ([L1, slide 49](L01-introduzione-al-corso.md#p-49))
@@ -265,6 +297,110 @@ P = \frac{\#\text{span corretti}}{\#\text{span predetti}},\quad R = \frac{\#\tex
 $$
 
 Uno span è corretto solo con confini e tipo identici al gold; un errore di confine vale un FP e un FN.
+
+**Precision, recall e F1 sugli span (NER)** ([L9](L09-laboratorio-nltk-e-spacy.md))
+
+$$
+P = \frac{|G\cap S|}{|S|},\quad R = \frac{|G\cap S|}{|G|},\quad F_1 = \frac{2PR}{P+R}
+$$
+
+$G$ = insieme degli span gold $(\text{start}, \text{end}, \text{tipo})$, $S$ = span predetti; match esatto di confini e tipo. Un errore di confine costa un falso positivo e un falso negativo. 0 per convenzione se un denominatore è nullo.
+
+**Correlazione di rango di Spearman** ([L11, slide 56](L11-embedding-word2vec.md#p-56))
+
+$$
+\rho = 1 - \frac{6\sum_i d_i^2}{n(n^2-1)}
+$$
+
+$d_i$ = differenza fra il rango umano e il rango del modello della coppia $i$, $n$ coppie (senza pareggi). Esercizio 12: $\rho = 1 - 48/120 = 0{,}60$.
+
+**Correlazione di Spearman (con i pari)** ([L12](L12-laboratorio-word-embedding.md))
+
+$$
+\rho=\frac{\sum_i(a_i-\bar a)(b_i-\bar b)}{\sqrt{\sum_i(a_i-\bar a)^2}\sqrt{\sum_i(b_i-\bar b)^2}},\qquad a_i=\text{rango}(x_i),\ b_i=\text{rango}(y_i)
+$$
+
+Pearson sui ranghi; i valori pari ricevono la media dei ranghi occupati. La scorciatoia $1-\frac{6\sum d_i^2}{n(n^2-1)}$ vale solo senza pari. Esempio: $[1..5]$ contro $[5,6,7,8,7]$ → 0,8208.
+
+**Cross-entropy held-out (nats)** ([L16](L16-laboratorio-dagli-n-gram-a-gpt.md))
+
+$$
+H=-\frac{1}{N}\sum_{i=1}^{N}\ln P(x_i\mid \text{context}_i)
+$$
+
+Media del log-probabilità negativo dei caratteri veri. 5-gram lisciato: 1,767 nats; tiny GPT a 500 passi: 2,226.
+
+**Perplexity e conversione bit/nats** ([L16](L16-laboratorio-dagli-n-gram-a-gpt.md))
+
+$$
+\text{PPL}=e^{H_\text{nat}}=2^{H_\text{bit}},\qquad H_\text{bit}=\frac{H_\text{nat}}{\ln 2}
+$$
+
+Stesso numero in qualunque base. 5-gram: PPL 5,85 (2,55 bit/carattere).
+
+**Surprisal** ([L16](L16-laboratorio-dagli-n-gram-a-gpt.md))
+
+$$
+s(x)=-\log_2 P(x\mid\text{context})
+$$
+
+In bit: 0 = certo, 1 = moneta, $\log_2 77=6{,}27$ = uniforme sui 77 caratteri. La media delle surprisal è la CE in bit.
+
+**Baseline uniforme** ([L16](L16-laboratorio-dagli-n-gram-a-gpt.md))
+
+$$
+H_\text{unif}=-\ln\frac1V=\ln V,\qquad \text{PPL}_\text{unif}=V
+$$
+
+$\ln 77=4{,}344$ nats, PPL 77: la loss iniziale di una rete inizializzata con pesi piccoli (4,377 osservata).
+
+**Likelihood di un testo** ([L17, slide 54](L17-pretraining-dei-modelli-linguistici.md#p-54))
+
+$$
+\text{likelihood}(w_{1:T}) = \prod_{i=1}^{T}P(w_i\mid w_{<i})
+$$
+
+Prodotto delle probabilità dei token; decresce con la lunghezza (Eq. 7.56).
+
+**Perplexity** ([L17, slide 54](L17-pretraining-dei-modelli-linguistici.md#p-54))
+
+$$
+\mathrm{PP}(w_{1:T}) = P(w_{1:T})^{-1/T} = \left(\prod_{t=1}^{T}P(w_t\mid w_{<t})^{-1}\right)^{1/T}
+$$
+
+Inverso della probabilità normalizzato per la lunghezza (Eq. 7.57). Più bassa è meglio. Dipende dal tokenizzatore.
+
+**Perplexity e cross-entropy** ([L17, slide 55](L17-pretraining-dei-modelli-linguistici.md#p-55))
+
+$$
+\mathrm{PP} = \exp\left(\frac1T\sum_{t=1}^{T}-\ln P(w_t\mid w_{<t})\right) = 2^{H_{bit}}
+$$
+
+Esponenziale della loss media in nat (Eq. 7.58); stesso valore con log in base 2. Esempio: loss 0,853, perplexity 2,35.
+
+**Accuratezza sul sottoinsieme pulito** ([L17, slide 60](L17-pretraining-dei-modelli-linguistici.md#p-60))
+
+$$
+\text{acc}_{pulito} = \frac{\text{corrette} - \text{corrette contaminate}}{\text{totale} - \text{contaminate}}
+$$
+
+Esempio della lezione: $(90-30)/(100-30) = 85{,}7\%$ contro il 90% complessivo.
+
+**Win rate** ([L19, slide 32](L19-post-training-ii-preferenze-rlhf-dpo-e-rl-per-il-ragionamento.md#p-32))
+
+$$
+\text{win rate} = \frac{W + T/2}{W + L + T}
+$$
+
+Vittorie, sconfitte, pareggi nei confronti a coppie fra due modelli. Non nelle slide. 110, 50, 40: 0,65.
+
+**pass@k** ([L19, slide 41](L19-post-training-ii-preferenze-rlhf-dpo-e-rl-per-il-ragionamento.md#p-41))
+
+$$
+\text{pass@}k = 1 - \binom{n-c}{k}\Big/\binom{n}{k}
+$$
+
+Probabilità che almeno una di $k$ risposte sia corretta, stimata da $n$ campioni con $c$ corretti. Non nelle slide. $n = 8$, $c = 2$, $k = 4$: 0,786.
 
 ### Parole e vocabolario
 
@@ -591,6 +727,14 @@ S(w) = \frac{\text{count}(w)}{N}
 $$
 
 Il backoff termina nell'unigram.
+
+**Add-α (add-k)** ([L16](L16-laboratorio-dagli-n-gram-a-gpt.md))
+
+$$
+P(b\mid \text{ctx})=\frac{C(\text{ctx}\,b)+\alpha}{C(\text{ctx})+\alpha V}
+$$
+
+$\alpha=1$ Laplace, $\alpha=0$ MLE; contesto mai visto: $1/V$. Nel lab $\alpha=0{,}1$, $V=77$, quindi $\alpha V=7{,}7$.
 
 ### Teoria dell'informazione
 
@@ -1216,6 +1360,1350 @@ $$
 
 Come per l'HMM, ma con somme di pesi al posto di prodotti di probabilità (log-spazio).
 
+### Collocazioni
+
+**Pointwise mutual information di un bigramma** ([L9](L09-laboratorio-nltk-e-spacy.md))
+
+$$
+\text{PMI}(w_1,w_2) = \log_2\frac{P(w_1w_2)}{P(w_1)\,P(w_2)} = \log_2\frac{P(w_2\mid w_1)}{P(w_2)}
+$$
+
+Quanto più spesso del caso le due parole compaiono in sequenza: 0 se indipendenti, positiva se si attraggono, negativa se si evitano. In bit (logaritmo in base 2).
+
+**PMI dai conteggi (stime MLE)** ([L9](L09-laboratorio-nltk-e-spacy.md))
+
+$$
+\text{PMI}(w_1,w_2) = \log_2\frac{C(w_1w_2)\cdot N}{C(w_1)\,C(w_2)}
+$$
+
+Con $P(w_2\mid w_1) = C(w_1w_2)/C(w_1)$ e $P(w_2) = C(w_2)/N$, $N$ = numero di token. Esempio: *Talking Cricket* (18, 19, 34, $N = 53.332$) = 10,54 bit; *of the* = 2,43 bit.
+
+**PMI massima con conteggi unitari** ([L9](L09-laboratorio-nltk-e-spacy.md))
+
+$$
+C(w_1w_2) = C(w_1) = C(w_2) = 1 \;\Rightarrow\; \text{PMI} = \log_2 N
+$$
+
+Il valore più alto possibile: per questo la PMI va usata con una soglia di frequenza. Su Pinocchio $\log_2 53332 = 15{,}70$, raggiunto da 130 bigrammi senza filtri.
+
+### Rappresentazione del testo
+
+**Bag of words binario e a conteggi** ([L9](L09-laboratorio-nltk-e-spacy.md))
+
+$$
+x_j = \mathbb 1[w_j \in d] \quad\text{oppure}\quad x_j = C_d(w_j),\qquad \mathbf x\in\mathbb R^{|V|}
+$$
+
+Una feature per parola del vocabolario $V$; vettore di lunghezza fissa e sparso; l'ordine delle parole si perde.
+
+**Similarità di Jaccard fra insiemi di n-grammi** ([L9](L09-laboratorio-nltk-e-spacy.md))
+
+$$
+J(A,B) = \frac{|A\cap B|}{|A\cup B|}
+$$
+
+Con gli insiemi di trigrammi di caratteri: $J(\textit{rainbow}, \textit{rainbaw}) = 3/7 = 0{,}43$, $J(\textit{rainbow}, \textit{rainbows}) = 5/6$. Una parola di $L$ caratteri ha $L-n+1$ n-grammi (senza padding).
+
+**Media degli embedding di un documento** ([L12](L12-laboratorio-word-embedding.md))
+
+$$
+\mathbf x_d=\frac{1}{|d|}\sum_{w\in d}\mathbf e_w
+$$
+
+Solo parole nel vocabolario dell'embedding; vettore nullo se nessuna. Perde ordine e negazione: *The movie is good* e *The movie is not good* hanno coseno 0,991.
+
+**tf-idf del libro** ([L12](L12-laboratorio-word-embedding.md))
+
+$$
+\text{tf}_{t,d}=\begin{cases}1+\log_{10}\text{count}(t,d)&\text{count}>0\\0&\text{altrimenti}\end{cases}\qquad \text{idf}_t=\log_{10}\frac{N}{\text{df}_t}\qquad \text{tf-idf}=\text{tf}_{t,d}\cdot\text{idf}_t
+$$
+
+$N$ = numero di documenti (qui 1.600 recensioni di training). 10 occorrenze → tf 2; un termine presente in tutti i documenti → idf 0.
+
+**tf-idf di scikit-learn (sublinear_tf=True)** ([L12](L12-laboratorio-word-embedding.md))
+
+$$
+\text{tf}=1+\ln\text{count}(t,d)\qquad \text{idf}_t=\ln\frac{1+N}{1+\text{df}_t}+1\qquad \mathbf x_d\leftarrow\frac{\mathbf x_d}{\|\mathbf x_d\|_2}
+$$
+
+Logaritmo naturale, idf smussata (un termine ovunque ha idf 1), normalizzazione L2 di ogni documento.
+
+### Sentiment
+
+**Compound di VADER** ([L9](L09-laboratorio-nltk-e-spacy.md))
+
+$$
+\text{compound} = \frac{s}{\sqrt{s^2+\alpha}},\qquad \alpha = 15
+$$
+
+$s$ = somma delle valenze corrette dalle regole (più 0,292 per ogni !, al massimo 4). Valori in $(-1, 1)$; soglia convenzionale $\pm 0{,}05$. Esempio: *good* $1{,}9/\sqrt{18{,}61} = 0{,}4404$. Non è una probabilità.
+
+**Regole di VADER (costanti)** ([L9](L09-laboratorio-nltk-e-spacy.md))
+
+$$
+v_{\text{neg}} = -0{,}74\,v,\quad v_{\text{very}} = v \pm 0{,}293,\quad v_{\text{CAPS}} = v \pm 0{,}733,\quad v_{\text{prima di but}} = 0{,}5\,v,\quad v_{\text{dopo but}} = 1{,}5\,v
+$$
+
+Negazione nelle 3 parole precedenti; intensificatore e maiuscole aumentano il modulo (attenuatori come *kind of* lo diminuiscono); *but* sposta il peso verso la parte finale.
+
+**Punteggi neg, neu, pos di VADER** ([L9](L09-laboratorio-nltk-e-spacy.md))
+
+$$
+\text{pos} = \frac{\sum_{v_i>0}(v_i+1)}{T},\quad \text{neg} = \frac{\sum_{v_i<0}(|v_i|+1)}{T},\quad \text{neu} = \frac{\#\{v_i=0\}}{T}
+$$
+
+$T$ = somma dei tre numeratori; la spinta dei punti esclamativi si aggiunge al lato più forte. Ogni parola neutra pesa 1, ogni parola con sentiment $1+|v_i|$: sono quote di intensità, non percentuali di testo.
+
+### PoS tagging
+
+**Ambiguità dei tag su tipi e token** ([L9](L09-laboratorio-nltk-e-spacy.md))
+
+$$
+\text{amb}_{\text{tipi}} = \frac{|\{w : |T(w)|\ge 2\}|}{|V|},\qquad \text{amb}_{\text{token}} = \frac{\sum_{w: |T(w)|\ge 2} C(w)}{N}
+$$
+
+$T(w)$ = insieme dei tag con cui compare $w$. WSJ completo: 14% e 55% (Fig. 18.4); campione NLTK: 9,9% e 36,5%.
+
+**Baseline most-frequent-tag** ([L9](L09-laboratorio-nltk-e-spacy.md))
+
+$$
+\hat t(w) = \begin{cases}\arg\max_t C(w, t) & w \text{ visto nel training}\\ \text{NN} & \text{altrimenti}\end{cases}
+$$
+
+Accuratezza circa 92% sul WSJ completo (libro); 87,0% sul campione NLTK (19% sulle parole ignote), 92,8% con regole su suffissi e maiuscole per le ignote.
+
+### Semantica vettoriale
+
+**Prodotto scalare** ([L10, slide 24](L10-semantica-vettoriale.md#p-24))
+
+$$
+\mathbf v\cdot\mathbf w = \sum_{i=1}^{N} v_iw_i
+$$
+
+Alto se i due vettori hanno valori grandi nelle stesse dimensioni, 0 se ortogonali. Non invariante alla scala: $\text{dot}(c\mathbf v,\mathbf w) = c\,\text{dot}(\mathbf v,\mathbf w)$. Esempio $[1, 3]\cdot[3;\ 1{,}6] = 7{,}8$.
+
+**Lunghezza (norma) di un vettore** ([L10, slide 25](L10-semantica-vettoriale.md#p-25))
+
+$$
+|\mathbf v| = \sqrt{\sum_{i=1}^{N} v_i^2}
+$$
+
+Per i vettori di conteggi cresce con la frequenza della parola (bias della frequenza). Vettore unitario: $\mathbf v/|\mathbf v|$.
+
+**Coseno come prodotto scalare normalizzato** ([L10, slide 26](L10-semantica-vettoriale.md#p-26))
+
+$$
+\mathbf a\cdot\mathbf b = |\mathbf a||\mathbf b|\cos\theta
+$$
+
+Da cui $\cos\theta = \mathbf a\cdot\mathbf b/(|\mathbf a||\mathbf b|)$; per vettori unitari il prodotto scalare è il coseno.
+
+**Similarità coseno** ([L10, slide 27](L10-semantica-vettoriale.md#p-27))
+
+$$
+\text{cosine}(\mathbf v,\mathbf w) = \frac{\mathbf v\cdot\mathbf w}{|\mathbf v||\mathbf w|} = \frac{\sum_i v_iw_i}{\sqrt{\sum_i v_i^2}\sqrt{\sum_i w_i^2}}
+$$
+
+Intervallo $[-1, 1]$; $[0, 1]$ per conteggi non negativi. Invariante alla scala: $\cos(c\mathbf v,\mathbf w) = \cos(\mathbf v,\mathbf w)$ per $c&gt;0$. Esempi: cos(digital, information) = 0,996, cos(cherry, information) = 0,018.
+
+**Distanza euclidea** ([L10, slide 7](L10-semantica-vettoriale.md#p-7))
+
+$$
+d(\mathbf v,\mathbf w) = |\mathbf v-\mathbf w| = \sqrt{\sum_i (v_i-w_i)^2}
+$$
+
+Misura alternativa (esercizio 2): adatta a punti su scale con un punto neutro, come valence/arousal/dominance di Osgood; dipende dalla lunghezza, quindi non adatta ai conteggi grezzi.
+
+**Similarità coseno** ([L12](L12-laboratorio-word-embedding.md))
+
+$$
+\cos(\mathbf u,\mathbf v)=\frac{\mathbf u\cdot\mathbf v}{\|\mathbf u\|\,\|\mathbf v\|}=\frac{\sum_i u_iv_i}{\sqrt{\sum_i u_i^2}\sqrt{\sum_i v_i^2}}
+$$
+
+Fra 0 e 1 per vettori di conteggi, fra −1 e 1 per embedding densi. Nel lab: *pizza*-*cheese* $= 1/\sqrt2 = 0{,}707$ sul corpus giocattolo.
+
+**Coppie della matrice parola-contesto** ([L12](L12-laboratorio-word-embedding.md))
+
+$$
+N=\sum_{w}\sum_{c}C(w,c)
+$$
+
+Numero di coppie (target, contesto) osservate. Con finestra $\pm1$ una frase di 3 parole dà 4 coppie: le 8 frasi del corpus giocattolo danno $N = 32$ da 24 token.
+
+### Information retrieval
+
+**Term frequency** ([L10, slide 39](L10-semantica-vettoriale.md#p-39))
+
+$$
+\text{tf}_{t,d} = \begin{cases}1+\log_{10}\text{count}(t,d) & \text{count}(t,d)>0\\ 0 & \text{altrimenti}\end{cases}
+$$
+
+Ogni fattore 10 aggiunge 1: count 1, 10, 100, 1000 → tf 1, 2, 3, 4. Variante delle edizioni precedenti: $\log_{10}(\text{count}+1)$.
+
+**Inverse document frequency** ([L10, slide 41](L10-semantica-vettoriale.md#p-41))
+
+$$
+\text{idf}_t = \log_{10}\frac{N}{\text{df}_t}
+$$
+
+$N$ = documenti della collezione, $\text{df}_t$ = documenti che contengono $t$. 0 per un termine presente ovunque. Shakespeare ($N = 37$): Romeo 1,57, battle 0,246, fool 0,012, good 0.
+
+**tf-idf** ([L10, slide 43](L10-semantica-vettoriale.md#p-43))
+
+$$
+\text{tf-idf}(t,d) = w_{t,d} = \text{tf}_{t,d}\cdot\text{idf}_t
+$$
+
+Alto per i termini frequenti nel documento e rari nella collezione. battle in Julius Caesar: $(1+\log_{10}7)\cdot0{,}246 = 0{,}454$.
+
+**Punteggio di un documento (tf-idf cosine)** ([L10, slide 46](L10-semantica-vettoriale.md#p-46))
+
+$$
+\text{score}(q,d) = \cos(\mathbf q,\mathbf d) = \frac{\mathbf q}{|\mathbf q|}\cdot\frac{\mathbf d}{|\mathbf d|} = \sum_{t\in q}\frac{\text{tf-idf}(t,q)}{|\mathbf q|}\cdot\frac{\text{tf-idf}(t,d)}{|\mathbf d|}
+$$
+
+La query è pesata come un documento. Esempio del libro: query *sweet love*, Doc 1 0,747, Doc 2 0,078.
+
+**BM25 (approfondimento)** ([L10, slide 38](L10-semantica-vettoriale.md#p-38))
+
+$$
+\sum_{t\in q}\log\frac{N}{\text{df}_t}\cdot\frac{\text{tf}_{t,d}}{k\left(1-b+b\frac{|d|}{|d_{avg}|}\right)+\text{tf}_{t,d}}
+$$
+
+Variante di tf-idf citata nella slide 38 (libro §11.1.3): $k$ controlla la saturazione della frequenza ($k = 0$: solo presenza), $b$ la normalizzazione per la lunghezza. Tipici $k\in[1{,}2;\ 2]$, $b = 0{,}75$.
+
+### Associazione (PMI)
+
+**Pointwise mutual information** ([L10, slide 48](L10-semantica-vettoriale.md#p-48))
+
+$$
+\text{PMI}(w,c) = \log_2\frac{P(w,c)}{P(w)P(c)}
+$$
+
+Osservato contro atteso sotto indipendenza, in bit. 0 = come il caso, positiva = più del caso, negativa = meno. cherry-pie 4,38; information-data 0,094; cherry-computer −6,70.
+
+**Positive PMI** ([L10, slide 50](L10-semantica-vettoriale.md#p-50))
+
+$$
+\text{PPMI}(w,c) = \max\left(\log_2\frac{P(w,c)}{P(w)P(c)},\ 0\right)
+$$
+
+I valori negativi (inaffidabili) e i $-\infty$ delle coppie mai viste diventano 0 (Niwa e Nitta, 1994).
+
+**Probabilità da una matrice di conteggi** ([L10, slide 52](L10-semantica-vettoriale.md#p-52))
+
+$$
+p_{ij} = \frac{f_{ij}}{\sum_{i'}\sum_{j'}f_{i'j'}},\quad p_{i*} = \frac{\sum_j f_{ij}}{\sum_{i'}\sum_{j'}f_{i'j'}},\quad p_{*j} = \frac{\sum_i f_{ij}}{\sum_{i'}\sum_{j'}f_{i'j'}}
+$$
+
+Congiunta e marginali di parola (riga) e contesto (colonna), stime di massima verosimiglianza. Nell'esempio $N = 11.716$.
+
+**PPMI di una cella** ([L10, slide 53](L10-semantica-vettoriale.md#p-53))
+
+$$
+\text{PPMI}_{ij} = \max\left(\log_2\frac{p_{ij}}{p_{i*}p_{*j}},\ 0\right) = \max\left(\log_2\frac{f_{ij}\,N}{f_{i*}\,f_{*j}},\ 0\right)
+$$
+
+La seconda forma (conteggio osservato su conteggio atteso $f_{i*}f_{*j}/N$) è la più comoda a mano ed evita gli errori di arrotondamento.
+
+**PPMI con α (contesti)** ([L10, slide 57](L10-semantica-vettoriale.md#p-57))
+
+$$
+\text{PPMI}_\alpha(w,c) = \max\left(\log_2\frac{P(w,c)}{P(w)P_\alpha(c)},\ 0\right),\qquad P_\alpha(c) = \frac{\text{count}(c)^\alpha}{\sum_{c'}\text{count}(c')^\alpha}
+$$
+
+Levy et al. (2015), α = 0,75: i contesti rari ricevono più probabilità e quindi PMI più bassa. $P = 0{,}99/0{,}01$ diventa $0{,}97/0{,}03$.
+
+**Mutual information (approfondimento)** ([L10, slide 48](L10-semantica-vettoriale.md#p-48))
+
+$$
+I(X;Y) = \sum_{x,y}P(x,y)\log_2\frac{P(x,y)}{P(x)P(y)}
+$$
+
+Media della PMI su tutte le coppie; sempre $\ge 0$, nulla solo per variabili indipendenti. La formula fra due eventi della slide 48 è la versione puntuale.
+
+**Probabilità dalla matrice di co-occorrenza** ([L12](L12-laboratorio-word-embedding.md))
+
+$$
+P(w,c)=\frac{C(w,c)}{N}\qquad P(w)=\frac{\sum_c C(w,c)}{N}\qquad P(c)=\frac{\sum_w C(w,c)}{N}
+$$
+
+Tutte sulle stesse $N$ coppie: $P(w)$ è la somma di riga, $P(c)$ quella di colonna (non la frequenza della parola).
+
+**PPMI di una cella dai conteggi** ([L12](L12-laboratorio-word-embedding.md))
+
+$$
+\text{PPMI}(w,c)=\max\left(\log_2\frac{C(w,c)\,N}{\sum_{c'}C(w,c')\,\sum_{w'}C(w',c)},\ 0\right)
+$$
+
+La forma calcolata da `ppmi` nel notebook; celle vuote a 0. Esempio: PPMI(*cats*, *the*) $= \log_2\frac{2\cdot60}{4\cdot20} = 0{,}585$.
+
+### Word2vec
+
+**Probabilità che c sia un contesto di w** ([L11, slide 15](L11-embedding-word2vec.md#p-15))
+
+$$
+P(+\mid w,c) = \sigma(\mathbf c\cdot\mathbf w) = \frac{1}{1+\exp(-\mathbf c\cdot\mathbf w)}
+$$
+
+Eq. 5.15. $\mathbf w$ dalla matrice dei target $W$, $\mathbf c$ da quella dei contesti $C$. Esempio: apricot·jam = 1, $\sigma(1) = 0{,}73$.
+
+**Probabilità che c non sia un contesto** ([L11, slide 16](L11-embedding-word2vec.md#p-16))
+
+$$
+P(-\mid w,c) = 1-P(+\mid w,c) = \sigma(-\mathbf c\cdot\mathbf w) = \frac{1}{1+\exp(\mathbf c\cdot\mathbf w)}
+$$
+
+Eq. 5.12 e 5.16. Le due probabilità sommano a 1; si usa $1-\sigma(x) = \sigma(-x)$.
+
+**Sigmoide e sua derivata** ([L11, slide 15](L11-embedding-word2vec.md#p-15))
+
+$$
+\sigma(x) = \frac{1}{1+e^{-x}}\qquad \sigma'(x) = \sigma(x)(1-\sigma(x))\qquad \frac{d}{dx}\log\sigma(x) = 1-\sigma(x)
+$$
+
+Valori utili: $\sigma(0) = 0{,}5$, $\sigma(1) = 0{,}73$, $\sigma(2) = 0{,}88$, $\sigma(3) = 0{,}95$. La terza identità è quella che serve per i gradienti.
+
+**Similarità come prodotto scalare** ([L11, slide 14](L11-embedding-word2vec.md#p-14))
+
+$$
+\text{Similarity}(w,c)\approx\mathbf c\cdot\mathbf w
+$$
+
+Eq. 5.13: un contesto è probabile se il suo embedding ha prodotto scalare alto con quello del target.
+
+**Probabilità di una finestra (indipendenza)** ([L11, slide 16](L11-embedding-word2vec.md#p-16))
+
+$$
+P(+\mid w,c_{1:L}) = \prod_{i=1}^{L}\sigma(\mathbf c_i\cdot\mathbf w)\qquad \log P(+\mid w,c_{1:L}) = \sum_{i=1}^{L}\log\sigma(\mathbf c_i\cdot\mathbf w)
+$$
+
+Eq. 5.17-5.18. I contesti sono assunti indipendenti dato il target.
+
+**Parametri di skip-gram** ([L11, slide 17](L11-embedding-word2vec.md#p-17))
+
+$$
+\theta = \begin{bmatrix}W\\ C\end{bmatrix}\in\mathbb R^{2|V|\times d}
+$$
+
+Un target embedding e un context embedding per parola: $2|V|d$ numeri, 30 milioni con $|V| = 50.000$ e $d = 300$.
+
+**Distribuzione delle parole di rumore** ([L11, slide 22](L11-embedding-word2vec.md#p-22))
+
+$$
+P_\alpha(w) = \frac{\text{count}(w)^\alpha}{\sum_{w'}\text{count}(w')^\alpha}\qquad \alpha = 0{,}75
+$$
+
+Eq. 5.19. Le parole rare guadagnano probabilità: con due eventi 0,99/0,01 si passa a 0,97/0,03 (Eq. 5.20). $\alpha = 1$: $P$ originale; $\alpha = 0$: uniforme.
+
+**Loss di skip-gram con negative sampling** ([L11, slide 24](L11-embedding-word2vec.md#p-24))
+
+$$
+L(w,c_{pos},c_{neg*}) = -\Big[\log\sigma(\mathbf c_{pos}\cdot\mathbf w) + \sum_{i=1}^{k}\log\sigma(-\mathbf c_{neg_i}\cdot\mathbf w)\Big]
+$$
+
+Eq. 5.21, per una coppia positiva e $k$ parole di rumore. Vale $(k+1)\ln2$ con tutti i prodotti a 0, tende a 0 per un classificatore perfetto. Esempio della scheda 30: 1,14.
+
+**Gradienti rispetto ai contesti** ([L11, slide 27](L11-embedding-word2vec.md#p-27))
+
+$$
+\frac{\partial L}{\partial\mathbf c_{pos}} = [\sigma(\mathbf c_{pos}\cdot\mathbf w)-1]\,\mathbf w\qquad \frac{\partial L}{\partial\mathbf c_{neg_i}} = \sigma(\mathbf c_{neg_i}\cdot\mathbf w)\,\mathbf w
+$$
+
+Eq. 5.22-5.23: probabilità prevista meno etichetta (1 o 0), per $\mathbf w$.
+
+**Gradiente rispetto al target** ([L11, slide 28](L11-embedding-word2vec.md#p-28))
+
+$$
+\frac{\partial L}{\partial\mathbf w} = [\sigma(\mathbf c_{pos}\cdot\mathbf w)-1]\,\mathbf c_{pos} + \sum_{i=1}^{k}\sigma(\mathbf c_{neg_i}\cdot\mathbf w)\,\mathbf c_{neg_i}
+$$
+
+Eq. 5.24: gli errori delle $k+1$ coppie, ciascuno per il suo vettore di contesto.
+
+**Aggiornamenti della SGD** ([L11, slide 29](L11-embedding-word2vec.md#p-29))
+
+$$
+\mathbf c_{pos}^{t+1} = \mathbf c_{pos}^{t} - \eta\,\frac{\partial L}{\partial\mathbf c_{pos}}\Big|_t\quad \mathbf c_{neg_i}^{t+1} = \mathbf c_{neg_i}^{t} - \eta\,\frac{\partial L}{\partial\mathbf c_{neg_i}}\Big|_t\quad \mathbf w^{t+1} = \mathbf w^{t} - \eta\,\frac{\partial L}{\partial\mathbf w}\Big|_t
+$$
+
+Eq. 5.25-5.27: tutti i gradienti valutati con i valori al tempo $t$. $\eta$ = learning rate (0,5 nell'esempio della slide, 0,025 nel notebook).
+
+**Embedding finale di una parola** ([L11, slide 32](L11-embedding-word2vec.md#p-32))
+
+$$
+\mathbf e_i = \mathbf w_i + \mathbf c_i\quad\text{oppure}\quad \mathbf e_i = \mathbf w_i
+$$
+
+Si sommano i due embedding o si butta via $C$.
+
+**Fasttext: parola come somma di n-grammi** ([L11, slide 39](L11-embedding-word2vec.md#p-39))
+
+$$
+\mathbf v_{where} = \mathbf z_{\langle where\rangle} + \sum_{g\in G(where)}\mathbf z_g
+$$
+
+$G$ = n-grammi di caratteri (3-6) della parola con i confini < >; per una parola sconosciuta si sommano solo gli n-grammi. Una parola di $m$ lettere ha $4m-6$ n-grammi di lunghezza 3-6 ($m\ge4$).
+
+**SGNS come fattorizzazione della PMI (approfondimento)** ([L11, slide 40](L11-embedding-word2vec.md#p-40))
+
+$$
+\mathbf w\cdot\mathbf c = \text{PMI}(w,c) - \log k
+$$
+
+Levy e Goldberg (2014), non nel libro: all'ottimo SGNS fattorizza una matrice PMI spostata di $\log k$ (con $P_\alpha$ al denominatore se il rumore viene da $P_\alpha$).
+
+**Distribuzione dei negativi (e del contesto per la PPMI con α)** ([L12](L12-laboratorio-word-embedding.md))
+
+$$
+P_\alpha(w)=\frac{\text{count}(w)^{\alpha}}{\sum_{w'}\text{count}(w')^{\alpha}},\qquad \alpha=0{,}75
+$$
+
+Alza la probabilità delle parole rare. In gensim è `ns_exponent=0.75`; nel training fatto a mano `p_neg = freq ** 0.75 / np.sum(freq ** 0.75)`.
+
+**Probabilità di una coppia vera** ([L12](L12-laboratorio-word-embedding.md))
+
+$$
+P(+\mid w,c)=\sigma(\mathbf c\cdot\mathbf w)=\frac{1}{1+e^{-\mathbf c\cdot\mathbf w}}
+$$
+
+$\mathbf w$ riga di $W$ (target), $\mathbf c$ riga di $C$ (contesto). $P(-\mid w,c) = \sigma(-\mathbf c\cdot\mathbf w)$.
+
+**Loss di SGNS per una coppia** ([L12](L12-laboratorio-word-embedding.md))
+
+$$
+L=-\log\sigma(\mathbf c_{pos}\cdot\mathbf w)-\sum_{i=1}^{k}\log\sigma(-\mathbf c_{neg_i}\cdot\mathbf w)
+$$
+
+J&M Eq. 5.21. Con tutti i vettori di contesto nulli vale $(k+1)\ln 2$ ($= 4{,}16$ con $k = 5$). Implementazione stabile: `np.logaddexp(0, -s)` $= -\log\sigma(s)$.
+
+**Gradienti di SGNS** ([L12](L12-laboratorio-word-embedding.md))
+
+$$
+\frac{\partial L}{\partial\mathbf c_{pos}}=[\sigma(\mathbf c_{pos}\cdot\mathbf w)-1]\,\mathbf w,\quad \frac{\partial L}{\partial\mathbf c_{neg_i}}=\sigma(\mathbf c_{neg_i}\cdot\mathbf w)\,\mathbf w,\quad \frac{\partial L}{\partial\mathbf w}=[\sigma(\mathbf c_{pos}\cdot\mathbf w)-1]\,\mathbf c_{pos}+\sum_{i}\sigma(\mathbf c_{neg_i}\cdot\mathbf w)\,\mathbf c_{neg_i}
+$$
+
+J&M Eq. 5.22-5.24, da $\frac{d}{dz}\log\sigma(z) = 1-\sigma(z)$. Esempio: $\mathbf w = \mathbf c_{pos} = [1,0]$, $\mathbf c_{neg} = [0,1]$ → $\nabla_{\mathbf w} = [-0{,}269;\ 0{,}5]$.
+
+**Probabilità di tenere una parola (subsampling)** ([L12](L12-laboratorio-word-embedding.md))
+
+$$
+P_{\text{keep}}(w)=\min\left(1,\ \sqrt{\frac{t}{f(w)}}+\frac{t}{f(w)}\right),\qquad t=10^{-3}
+$$
+
+$f(w)$ = frequenza relativa nel corpus. Le parole frequentissime vengono scartate spesso, così la finestra raggiunge parole più lontane. È la formula del codice di word2vec usata in `train_sgns` (in gensim: `sample=1e-3`).
+
+### Proprietà degli embedding
+
+**Metodo del parallelogramma** ([L11, slide 48](L11-embedding-word2vec.md#p-48))
+
+$$
+\hat{\mathbf b}^* = \underset{\mathbf x}{\operatorname{argmin}}\ \text{distance}(\mathbf x,\ \mathbf b-\mathbf a+\mathbf a^*)
+$$
+
+Eq. 5.28, per $a : b :: a^* : b^*$, escludendo le parole di input. Distanza euclidea nel libro, spesso coseno in pratica.
+
+**Differenza di coseni come misura di bias** ([L11, slide 54](L11-embedding-word2vec.md#p-54))
+
+$$
+\text{bias}(x) = \cos(\mathbf x,\mathbf{she}) - \cos(\mathbf x,\mathbf{he})
+$$
+
+Esercizio 11: positivo se la parola pende verso *she*. Nell'esempio nurse +0,759, engineer −0,632, teacher 0.
+
+**Analogia con il parallelogramma (coseno)** ([L12](L12-laboratorio-word-embedding.md))
+
+$$
+\hat d=\underset{x\notin\{a,b,c\}}{\operatorname{argmax}}\ \cos\big(\mathbf x,\ \mathbf b-\mathbf a+\mathbf c\big)
+$$
+
+$a : b :: c : d$. Per vettori unitari equivale a minimizzare la distanza euclidea, perché $\|\mathbf t-\mathbf x\|^2 = \|\mathbf t\|^2+1-2\,\mathbf t\cdot\mathbf x$. L'esclusione degli input è essenziale.
+
+**Odd-one-out con il centroide** ([L12](L12-laboratorio-word-embedding.md))
+
+$$
+\text{intruso}=\underset{w\in S}{\operatorname{argmin}}\ \cos\Big(\mathbf w,\ \tfrac{1}{|S|}\textstyle\sum_{v\in S}\mathbf v\Big)
+$$
+
+La parola meno simile al centro di massa del gruppo $S$.
+
+### Bias
+
+**Direzione di genere** ([L12](L12-laboratorio-word-embedding.md))
+
+$$
+\mathbf d=\frac{\bar{\boldsymbol\delta}}{\|\bar{\boldsymbol\delta}\|},\qquad \bar{\boldsymbol\delta}=\frac{1}{P}\sum_{p=1}^{P}\left(\frac{\mathbf f_p}{\|\mathbf f_p\|}-\frac{\mathbf m_p}{\|\mathbf m_p\|}\right)
+$$
+
+Media delle differenze femminile − maschile dei vettori normalizzati su $P$ coppie definitorie, poi normalizzata. In GloVe con 8 coppie: coseno 0,891 con $\mathbf{she}-\mathbf{he}$.
+
+**Neutralize (proiezione ortogonale)** ([L12](L12-laboratorio-word-embedding.md))
+
+$$
+\mathbf v_\perp=\mathbf v-(\mathbf v\cdot\mathbf d)\,\mathbf d,\qquad \mathbf v_\perp\cdot\mathbf d=0\ \ (\|\mathbf d\|=1)
+$$
+
+Toglie la componente lungo $\mathbf d$. Esempio: $[3,4]$ con $\mathbf d = [1,0]$ → $[0,4]$. Non toglie l'informazione distribuita nelle altre dimensioni (10-NN al 93,1% dopo il neutralize).
+
+**Bias di una parola come differenza di coseni** ([L12](L12-laboratorio-word-embedding.md))
+
+$$
+\text{bias}(p)=\cos(\mathbf p,\mathbf{woman})-\cos(\mathbf p,\mathbf{man})
+$$
+
+Positivo = più vicino a *woman*. In GloVe: *nurse* +0,158, *manager* −0,214.
+
+### Reti neurali
+
+**Unità neurale** ([L13, slide 10](L13-reti-neurali.md#p-10))
+
+$$
+z = b + \sum_i w_i x_i = \mathbf w\cdot\mathbf x + b,\qquad a = f(z)
+$$
+
+Eq. 6.1-6.4. $z$ pre-attivazione, $f$ attivazione non lineare. Esempio del libro: $\mathbf w = [0{,}2;0{,}3;0{,}9]$, $b = 0{,}5$, $\mathbf x = [0{,}5;0{,}6;0{,}1]$: $z = 0{,}87$, $\sigma(z) = 0{,}70$.
+
+**Sigmoide, tanh, ReLU** ([L13, slide 14](L13-reti-neurali.md#p-14))
+
+$$
+\sigma(z) = \frac{1}{1+e^{-z}}\quad \tanh(z) = \frac{e^z - e^{-z}}{e^z + e^{-z}}\quad \mathrm{ReLU}(z) = \max(z,0)
+$$
+
+Eq. 6.3, 6.5, 6.6. Codomini $(0,1)$, $(-1,1)$, $[0,\infty)$. GELU $= z\,\Phi(z)$, liscia, minimo circa −0,17.
+
+**Derivate delle attivazioni** ([L13, slide 16](L13-reti-neurali.md#p-16))
+
+$$
+\sigma'(z) = \sigma(z)(1-\sigma(z)) \le \tfrac14\qquad \tanh'(z) = 1-\tanh^2(z)\qquad \mathrm{ReLU}'(z) = \begin{cases}0 & z<0\\ 1 & z\ge0\end{cases}
+$$
+
+Eq. 6.38-6.40 (in $z = 0$ la derivata della ReLU per convenzione vale 1). Il limite 1/4 spiega il vanishing gradient: dieci sigmoidi in catena danno al più $(1/4)^{10}\approx10^{-6}$.
+
+**Perceptron e frontiera lineare** ([L13, slide 18](L13-reti-neurali.md#p-18))
+
+$$
+y = \begin{cases}0 & \mathbf w\cdot\mathbf x + b\le 0\\ 1 & \mathbf w\cdot\mathbf x + b > 0\end{cases}\qquad x_2 = -\frac{w_1}{w_2}x_1 - \frac{b}{w_2}
+$$
+
+Eq. 6.7. La frontiera di un'unità è una retta (iperpiano in $d$ dimensioni): XOR non è linearmente separabile.
+
+**Rete XOR** ([L13, slide 21](L13-reti-neurali.md#p-21))
+
+$$
+\mathbf h = \mathrm{ReLU}\Big(\begin{bmatrix}1&1\\1&1\end{bmatrix}\mathbf x + \begin{bmatrix}0\\-1\end{bmatrix}\Big),\qquad y = \mathrm{ReLU}(h_1 - 2h_2)
+$$
+
+Fig. 6.6. $\mathbf h$ = [0,0], [1,0], [1,0], [2,1] per i quattro input; $y$ = 0, 1, 1, 0.
+
+**Collasso di strati lineari** ([L13, slide 26](L13-reti-neurali.md#p-26))
+
+$$
+W^{[2]}(W^{[1]}\mathbf x + \mathbf b^{[1]}) + \mathbf b^{[2]} = W'\mathbf x + \mathbf b',\quad W' = W^{[2]}W^{[1]},\ \mathbf b' = W^{[2]}\mathbf b^{[1]} + \mathbf b^{[2]}
+$$
+
+Eq. 6.14. Senza non linearità la profondità non aggiunge espressività.
+
+**Approssimazione universale** ([L13, slide 27](L13-reti-neurali.md#p-27))
+
+$$
+\sup_{\mathbf x\in K}\Big|f(\mathbf x) - \sum_{j=1}^N u_j\,\sigma(\mathbf w_j\cdot\mathbf x + b_j)\Big| < \varepsilon
+$$
+
+Hornik et al. 1989: per ogni $f$ continua su un compatto $K$ e ogni $\varepsilon>0$ esiste un $N$ (che può essere esponenziale in $d$). Interpolazione di $x^2$ con ReLU a passo $h$: errore massimo $h^2/4$.
+
+**Rete feedforward a due strati** ([L13, slide 31](L13-reti-neurali.md#p-31))
+
+$$
+\mathbf h = g(W\mathbf x + \mathbf b),\quad \mathbf z = U\mathbf h,\quad \mathbf y = \mathrm{softmax}(\mathbf z)
+$$
+
+Eq. 6.12. Forme: $W$ $d_h\times d$, $\mathbf b$ e $\mathbf h$ $d_h$, $U$ $K\times d_h$, $\mathbf z$ e $\mathbf y$ $K$. Parametri: $d_hd + d_h + Kd_h$ (+$K$ con bias di output).
+
+**Forward pass su un batch** ([L13, slide 33](L13-reti-neurali.md#p-33))
+
+$$
+H = g(XW^\top + \mathbf b),\quad Z = HU^\top,\quad \hat Y = \mathrm{softmax}(Z)
+$$
+
+Eq. 6.20. $X$ $m\times d$, $H$ $m\times d_h$, $Z$ $m\times K$; softmax riga per riga. Il libro in Eq. 6.22 usa $\mathbf xW$ con $W$ di forma $d\times d_h$.
+
+**Notazione per strati** ([L13, slide 34](L13-reti-neurali.md#p-34))
+
+$$
+\mathbf z^{[\ell]} = W^{[\ell]}\mathbf a^{[\ell-1]} + \mathbf b^{[\ell]},\qquad \mathbf a^{[\ell]} = g^{[\ell]}(\mathbf z^{[\ell]}),\qquad \mathbf a^{[0]} = \mathbf x,\ \hat{\mathbf y} = \mathbf a^{[n]}
+$$
+
+Eq. 6.13. $\mathbf z^{[n]}$ sono i logit.
+
+**Softmax e sua invarianza** ([L13, slide 36](L13-reti-neurali.md#p-36))
+
+$$
+\mathrm{softmax}(\mathbf z)_i = \frac{e^{z_i}}{\sum_{j=1}^K e^{z_j}} = \frac{e^{z_i - c}}{\sum_j e^{z_j - c}}
+$$
+
+Eq. 6.9. Contano solo le differenze: $p_i/p_j = e^{z_i - z_j}$ (scarto 2 → rapporto 7,4). Calcolo stabile con $c = \max\mathbf z$.
+
+**Cross-entropy (negative log likelihood)** ([L13, slide 38](L13-reti-neurali.md#p-38))
+
+$$
+L_{CE}(\mathbf p,\mathbf y) = -\sum_{k=1}^K y_k\log p_k = -\log p_c = -z_c + \log\sum_j e^{z_j}
+$$
+
+Eq. 6.26-6.28. $p_c$ = 0,1 / 0,5 / 0,9 → $L$ = 2,30 / 0,69 / 0,11. Uniforme su $K$ classi: $\log K$. Caso binario: $-[y\log\hat y + (1-y)\log(1-\hat y)]$ (Eq. 6.25).
+
+**Gradiente rispetto ai logit** ([L13, slide 57](L13-reti-neurali.md#p-57))
+
+$$
+\frac{\partial L}{\partial z} = a - y\ \text{(sigmoide + BCE)},\qquad \frac{\partial L}{\partial\mathbf z} = \mathbf p - \mathbf y\ \text{(softmax + CE)},\qquad \frac{\partial L}{\partial w_j} = (a-y)\,x_j
+$$
+
+Eq. 6.29, 6.42-6.43. L'errore di previsione per l'input.
+
+### Embedding e pooling
+
+**Lookup nella matrice di embedding** ([L13, slide 42](L13-reti-neurali.md#p-42))
+
+$$
+\mathbf e(w) = \mathbf x_w E,\qquad E\in\mathbb R^{|V|\times d},\ \mathbf x_w\ \text{one-hot } 1\times|V|
+$$
+
+Fig. 6.11. Il prodotto con un one-hot seleziona la riga di $w$; in pratica è un'indicizzazione.
+
+**Mean e max pooling** ([L13, slide 44](L13-reti-neurali.md#p-44))
+
+$$
+\mathbf x_{\text{mean}} = \frac1n\sum_{i=1}^n\mathbf e(w_i),\qquad (\mathbf x_{\max})_j = \max_i\ \mathbf e(w_i)_j
+$$
+
+Eq. 6.21. Con maschera di padding: $\sum_i m_i\mathbf e_i/\sum_i m_i$. Invarianti all'ordine.
+
+**Language model neurale feedforward** ([L13, slide 47](L13-reti-neurali.md#p-47))
+
+$$
+\mathbf e = [E\mathbf x_{t-3}; E\mathbf x_{t-2}; E\mathbf x_{t-1}],\ \mathbf h = g(W\mathbf e + \mathbf b),\ \mathbf z = U\mathbf h,\ \hat{\mathbf y} = \mathrm{softmax}(\mathbf z)
+$$
+
+Eq. 6.23-6.24, Bengio et al. 2003. Approssima $P(w_t\mid w_{1:t-1})\approx P(w_t\mid w_{t-N+1:t-1})$. $\mathbf e$ ha dimensione $Nd$, $U$ è $|V|\times d_h$.
+
+### Addestramento reti neurali
+
+**Discesa del gradiente** ([L13, slide 53](L13-reti-neurali.md#p-53))
+
+$$
+\theta^{t+1} = \theta^t - \eta\,\frac{\partial L}{\partial\theta}
+$$
+
+Loss non convessa per le reti: si cerca un buon minimo. $\eta$ learning rate.
+
+**Regola della catena su un grafo** ([L13, slide 55](L13-reti-neurali.md#p-55))
+
+$$
+\frac{\partial L}{\partial x} = \frac{\partial L}{\partial y}\cdot\frac{\partial y}{\partial x}\qquad(\text{downstream} = \text{upstream}\times\text{locale})
+$$
+
+Eq. 6.31-6.34. Esempio $L = c(a+2b)$ con $a = 3$, $b = 1$, $c = -2$: $\partial L/\partial a = -2$, $\partial L/\partial b = -4$, $\partial L/\partial c = 5$. I contributi di più rami si sommano.
+
+**SGD con momentum** ([L13, slide 61](L13-reti-neurali.md#p-61))
+
+$$
+\mathbf v\leftarrow\beta\mathbf v + \mathbf g,\qquad \theta\leftarrow\theta - \eta\,\mathbf v
+$$
+
+Con gradiente costante $v\to1/(1-\beta) = 10$ per $\beta = 0{,}9$; con gradiente alternato le oscillazioni si smorzano.
+
+**Adam** ([L13, slide 61](L13-reti-neurali.md#p-61))
+
+$$
+\mathbf m\leftarrow\beta_1\mathbf m + (1-\beta_1)\mathbf g,\ \ \mathbf s\leftarrow\beta_2\mathbf s + (1-\beta_2)\mathbf g^2,\ \ \hat{\mathbf m} = \frac{\mathbf m}{1-\beta_1^t},\ \hat{\mathbf s} = \frac{\mathbf s}{1-\beta_2^t},\ \ \theta\leftarrow\theta - \eta\frac{\hat{\mathbf m}}{\sqrt{\hat{\mathbf s}} + \epsilon}
+$$
+
+$\beta_1 = 0{,}9$, $\beta_2\approx0{,}999$. Primo passo: $\eta\,\mathrm{sign}(g)$. AdamW: weight decay disaccoppiato.
+
+**Cosine annealing** ([L13, slide 62](L13-reti-neurali.md#p-62))
+
+$$
+\eta_t = \frac{\eta_{\max}}{2}\Big(1 + \cos\frac{\pi t}{T}\Big)
+$$
+
+Da $\eta_{\max}$ a 0 in $T$ passi; $\eta_{T/2} = \eta_{\max}/2$. Spesso preceduto da un warm-up lineare.
+
+**L2 e weight decay** ([L13, slide 64](L13-reti-neurali.md#p-64))
+
+$$
+L_{\text{reg}} = L + \frac\lambda2\|\theta\|^2,\qquad \theta\leftarrow(1-\eta\lambda)\,\theta - \eta\,\nabla_\theta L
+$$
+
+Ogni passo restringe i pesi di $(1-\eta\lambda)$: con $\eta\lambda = 0{,}001$, dopo 1000 passi resta $e^{-1}\approx0{,}37$.
+
+**Dropout invertito** ([L13, slide 65](L13-reti-neurali.md#p-65))
+
+$$
+\tilde{\mathbf h} = \frac{\mathbf m\odot\mathbf h}{1-p},\quad m_j\sim\mathrm{Bernoulli}(1-p),\quad E[\tilde h_j] = h_j
+$$
+
+Nuova maschera a ogni mini-batch; al test nessun dropout. $p\approx0{,}1$ nei transformer, fino a 0,5 negli MLP.
+
+**Inizializzazione Xavier e He** ([L13, slide 66](L13-reti-neurali.md#p-66))
+
+$$
+\mathrm{Var}(W_{ij}) = \frac{1}{n_{\text{in}}}\ (\text{Xavier}),\qquad \frac{2}{n_{\text{in}}}\ (\text{He, ReLU})
+$$
+
+Per $n_{\text{in}} = 300$: deviazioni standard 0,058 e 0,082. Pesi tutti uguali: simmetria mai rotta.
+
+**LayerNorm** ([L13, slide 66](L13-reti-neurali.md#p-66))
+
+$$
+\hat{\mathbf h} = \boldsymbol\gamma\odot\frac{\mathbf h - \mu}{\sigma} + \boldsymbol\beta
+$$
+
+$\mu$ e $\sigma$ sulle feature di un esempio (LayerNorm) o su un batch per ogni feature (BatchNorm); $\boldsymbol\gamma$, $\boldsymbol\beta$ appresi.
+
+**Connessione residua** ([L13, slide 67](L13-reti-neurali.md#p-67))
+
+$$
+\mathbf h^{[\ell+1]} = \mathbf h^{[\ell]} + F(\mathbf h^{[\ell]}),\qquad \frac{\partial\mathbf h^{[\ell+1]}}{\partial\mathbf h^{[\ell]}} = I + \frac{\partial F}{\partial\mathbf h^{[\ell]}}
+$$
+
+Il termine $I$ dà ai gradienti un percorso diretto; il blocco impara una correzione.
+
+### Transformer
+
+**Attenzione semplificata** ([L14, slide 18](L14-transformer-l-attenzione.md#p-18))
+
+$$
+a_i = \sum_{j\le i}\alpha_{ij}\,x_j,\qquad \alpha_{ij} = \mathrm{softmax}_j(x_i\cdot x_j)
+$$
+
+Somma pesata degli input fino a $i$ con pesi dalla softmax dei prodotti scalari. Nessun parametro. Esempio chicken/road/it: pesi 0,24; 0,09; 0,67.
+
+**Softmax sui token del contesto** ([L14, slide 18](L14-transformer-l-attenzione.md#p-18))
+
+$$
+\alpha_{ij} = \frac{\exp(\mathrm{score}(x_i,x_j))}{\sum_{k\le i}\exp(\mathrm{score}(x_i,x_k))}
+$$
+
+Normalizzazione solo sulle posizioni $k\le i$ (causale); pesi in $[0,1]$ che sommano a 1.
+
+**Proiezioni query, key, value** ([L14, slide 23](L14-transformer-l-attenzione.md#p-23))
+
+$$
+q_i = x_iW^Q,\quad k_j = x_jW^K,\quad v_j = x_jW^V
+$$
+
+$W^Q, W^K$: $[d\times d_k]$; $W^V$: $[d\times d_v]$. Stesse matrici a ogni posizione, diverse per testa e per strato.
+
+**Scaled dot product** ([L14, slide 24](L14-transformer-l-attenzione.md#p-24))
+
+$$
+\mathrm{score}(x_i,x_j) = \frac{q_i\cdot k_j}{\sqrt{d_k}}
+$$
+
+Il prodotto scalare ha deviazione standard circa $\sqrt{d_k}$; dividendo si evita una softmax satura e gradienti minuscoli.
+
+**Output di una testa** ([L14, slide 25](L14-transformer-l-attenzione.md#p-25))
+
+$$
+\mathrm{head}_i = \sum_{j\le i}\alpha_{ij}v_j,\qquad a_i = \mathrm{head}_i\,W^O
+$$
+
+$\mathrm{head}_i$: $[1\times d_v]$; $W^O$: $[d_v\times d]$; $a_i$: $[1\times d]$ come l'input. Esempio della lezione: $a_3 = [0{,}93;\ 1{,}31;\ 1{,}31]$.
+
+**Multi-head attention** ([L14, slide 39](L14-transformer-l-attenzione.md#p-39))
+
+$$
+a_i = (\mathrm{head}_i^1\oplus\mathrm{head}_i^2\oplus\dots\oplus\mathrm{head}_i^A)\,W^O
+$$
+
+$A$ teste con matrici proprie; concatenazione $[1\times Ad_v]$; $W^O$: $[Ad_v\times d]$. Di solito $d_k = d_v = d/A$.
+
+**Pesi dell'attenzione di uno strato** ([L14, slide 40](L14-transformer-l-attenzione.md#p-40))
+
+$$
+3A\,d\,d_k + A\,d_v\,d = 4d^2\quad (d_k = d_v = d/A)
+$$
+
+Senza bias. Originale ($d = 512$, $A = 8$): 1.048.576. Uguale a una testa sola di dimensione piena.
+
+**Feedforward position-wise** ([L14, slide 46](L14-transformer-l-attenzione.md#p-46))
+
+$$
+\mathrm{FFN}(x) = \mathrm{ReLU}(xW_1+b_1)W_2+b_2,\qquad d_{ff} = 4d
+$$
+
+Stessi pesi a ogni posizione. $2d\,d_{ff} = 8d^2$ pesi: con $d = 512$, 2.097.152, il doppio dell'attenzione.
+
+**SwiGLU** ([L14, slide 47](L14-transformer-l-attenzione.md#p-47))
+
+$$
+\mathrm{FFN}_{\mathrm{SwiGLU}}(x) = \big(\mathrm{Swish}_\beta(xW_1+b_1)\otimes(xW_2+b_2)\big)W_3+b_3,\quad \mathrm{Swish}_\beta(x) = x\,\sigma(\beta x)
+$$
+
+Feedforward con gate degli LLM moderni (Shazeer, 2020); $\otimes$ prodotto componente per componente; $d_{ff}$ un po' meno di $4d$.
+
+**Layer norm** ([L14, slide 49](L14-transformer-l-attenzione.md#p-49))
+
+$$
+\mathrm{LayerNorm}(x) = \gamma\,\frac{x-\mu}{\sigma}+\beta,\quad \mu = \tfrac1d\sum_j x[j],\ \sigma = \sqrt{\tfrac1d\sum_j (x[j]-\mu)^2}
+$$
+
+Sul vettore di un token. $\gamma$ gain, $\beta$ offset imparabili ($2d$ parametri). $[2,4,6,8]\to[-1{,}34;\ -0{,}45;\ 0{,}45;\ 1{,}34]$.
+
+**RMSNorm** ([L14, slide 49](L14-transformer-l-attenzione.md#p-49))
+
+$$
+\mathrm{RMSNorm}(x) = \frac{x}{\sqrt{\frac1d\sum_j x[j]^2}}
+$$
+
+Senza sottrarre la media (di solito con un gain imparabile). Usata da molte reti moderne.
+
+**Transformer block (prenorm)** ([L14, slide 50](L14-transformer-l-attenzione.md#p-50))
+
+$$
+t^1 = \mathrm{LN}(x_i),\ t^2 = \mathrm{MHA}(t^1_i,[t^1_1..t^1_{i-1}]),\ t^3 = t^2+x_i,\ t^4 = \mathrm{LN}(t^3),\ t^5 = \mathrm{FFN}(t^4),\ h_i = t^5+t^3
+$$
+
+Quindi $h_i = x_i + t_i^2 + t_i^5$: la residual stream.
+
+**Attenzione in forma matriciale** ([L14, slide 59](L14-transformer-l-attenzione.md#p-59))
+
+$$
+\mathrm{head} = \mathrm{softmax}\Big(\mathrm{mask}\Big(\frac{QK^\top}{\sqrt{d_k}}\Big)\Big)V,\qquad Q = XW^Q,\ K = XW^K,\ V = XW^V
+$$
+
+$X$: $[N\times d]$; $QK^\top$: $[N\times N]$; head: $[N\times d_v]$; $A = \mathrm{head}\,W^O$: $[N\times d]$.
+
+**Maschera causale** ([L14, slide 56](L14-transformer-l-attenzione.md#p-56))
+
+$$
+M_{ij} = \begin{cases}0 & j\le i\\ -\infty & j>i\end{cases},\qquad \mathrm{mask}(QK^\top) = QK^\top + M
+$$
+
+Dopo la softmax i pesi sul futuro sono 0 ($e^{-\infty} = 0$).
+
+**Blocco in forma matriciale** ([L14, slide 62](L14-transformer-l-attenzione.md#p-62))
+
+$$
+O = X + \mathrm{MultiHeadAttention}(\mathrm{LayerNorm}(X)),\qquad H = O + \mathrm{FFN}(\mathrm{LayerNorm}(O))
+$$
+
+Eq. 7.39-7.40 del libro. $X$ e $H$: $[N\times d]$, quindi i blocchi si impilano.
+
+**Costo dell'attenzione** ([L14, slide 60](L14-transformer-l-attenzione.md#p-60))
+
+$$
+N^2\ \text{punteggi per testa e strato};\quad N(N+1)/2\ \text{non mascherati}
+$$
+
+Quadratico nella lunghezza del contesto: $N = 1000\to10^6$, $N = 10^5\to10^{10}$.
+
+**Parametri per blocco** ([L14, slide 46](L14-transformer-l-attenzione.md#p-46))
+
+$$
+4d^2\ (\text{attenzione}) + 8d^2\ (\text{FFN},\ d_{ff}=4d) \approx 12d^2
+$$
+
+GPT-3 175B: $96\cdot12\cdot12288^2\approx1{,}74\cdot10^{11}$.
+
+**Embedding come prodotto con un one-hot** ([L15, slide 11](L15-transformer-embedding-lm-head-e-decoding.md#p-11))
+
+$$
+x\,E = E_{k,:},\qquad x\in\{0,1\}^{1\times|V|},\ x_k = 1
+$$
+
+Selezionare la riga $k$ di $E$ $[|V|\times d]$ equivale a moltiplicare il one-hot del token $k$ per $E$. Per la sequenza: one-hot $[N\times|V|]$ per $E$ = $[N\times d]$.
+
+**Pesi della matrice di embedding** ([L15, slide 13](L15-transformer-embedding-lm-head-e-decoding.md#p-13))
+
+$$
+\#E = |V|\cdot d
+$$
+
+Esempi: $50.000\cdot512 = 25{,}6$ milioni; $50.000\cdot768 = 38{,}4$ milioni.
+
+**Input con posizioni assolute** ([L15, slide 16](L15-transformer-embedding-lm-head-e-decoding.md#p-16))
+
+$$
+X_i = E[\mathrm{id}(i)] + E_{pos}[i],\qquad X\in\mathbb{R}^{N\times d}
+$$
+
+Somma (non concatenazione) dell'embedding del token e di quello della posizione, entrambi $[1\times d]$. $E_{pos}$ appresa $[N\times d]$, oppure sostituita da una funzione fissa.
+
+**Embedding di posizione sinusoidali** ([L15, slide 19](L15-transformer-embedding-lm-head-e-decoding.md#p-19))
+
+$$
+PE(p,2i) = \sin\frac{p}{10000^{2i/d}},\qquad PE(p,2i+1) = \cos\frac{p}{10000^{2i/d}}
+$$
+
+$p$ posizione, $d$ dimensione del modello, $i = 0,\dots,d/2-1$. Frequenze $\omega_i = 10000^{-2i/d}$, da 1 (un radiante per posizione) a circa $10^{-4}$. Con $d = 4$: $PE(p) = [\sin p, \cos p, \sin(p/100), \cos(p/100)]$.
+
+**Prodotto scalare fra posizioni sinusoidali** ([L15, slide 21](L15-transformer-embedding-lm-head-e-decoding.md#p-21))
+
+$$
+PE(p)\cdot PE(q) = \sum_{i=0}^{d/2-1}\cos\big(\omega_i\,(p-q)\big)
+$$
+
+Dipende solo dalla distanza; vale $d/2$ per $p = q$. Con $d = 64$: $PE(4)\cdot PE(5) = 30{,}9$, $PE(4)\cdot PE(17) = 21{,}0$.
+
+**RoPE (una coppia di dimensioni)** ([L15, slide 23](L15-transformer-embedding-lm-head-e-decoding.md#p-23))
+
+$$
+(R(m\theta)\,q)\cdot(R(n\theta)\,k) = q^\top R\big((n-m)\theta\big)\,k,\qquad R(\alpha) = \begin{pmatrix}\cos\alpha & -\sin\alpha\\ \sin\alpha & \cos\alpha\end{pmatrix}
+$$
+
+Query in posizione $m$ ruotata di $m\theta$, key in posizione $n$ di $n\theta$: il punteggio dipende dal contenuto e da $m-n$. Una velocità $\theta_i = 10000^{-2i/d}$ per coppia; si applica a query e key in ogni strato.
+
+**Language modeling head (con weight tying)** ([L15, slide 28](L15-transformer-embedding-lm-head-e-decoding.md#p-28))
+
+$$
+u = h^L_N\,E^\top,\qquad y = \mathrm{softmax}(u)
+$$
+
+$h^L_N$ $[1\times d]$, $E^\top$ $[d\times|V|]$, logit $u$ e probabilità $y$ $[1\times|V|]$. Il logit del token $k$ è $h\cdot E_k$. Senza tying $E^\top$ è sostituita da una matrice $U$ appresa (altri $|V|d$ pesi).
+
+**Input encoding** ([L16](L16-laboratorio-dagli-n-gram-a-gpt.md))
+
+$$
+X=E[\text{idx}]+E_{pos}[0{:}T],\qquad X\in\mathbb R^{B\times T\times d}
+$$
+
+Embedding del token più embedding appreso della posizione assoluta (J&M §7.4).
+
+**Testa di attenzione causale (forma matriciale)** ([L16](L16-laboratorio-dagli-n-gram-a-gpt.md))
+
+$$
+\text{head}=\operatorname{softmax}\!\Big(\frac{QK^\top}{\sqrt{d_k}}+M\Big)V,\quad Q=XW^Q,\;K=XW^K,\;V=XW^V
+$$
+
+$M_{ij}=0$ se $j\le i$, $-\infty$ se $j&gt;i$ (in PyTorch: `masked_fill(tril == 0, -inf)`). Forme: $[T\times d_k]$, punteggi $[T\times T]$.
+
+**Multi-head attention** ([L16](L16-laboratorio-dagli-n-gram-a-gpt.md))
+
+$$
+\text{MHA}(X)=(\text{head}_1\oplus\cdots\oplus\text{head}_A)\,W^O,\qquad d_k=d_v=d/A
+$$
+
+Nel lab $A=4$, $d=96$, $d_k=24$; $W^O$ quadrata $96\times96$ (con bias).
+
+**Blocco prenorm** ([L16](L16-laboratorio-dagli-n-gram-a-gpt.md))
+
+$$
+O=X+\text{MHA}(\text{LN}(X)),\qquad H=O+\text{FFN}(\text{LN}(O))
+$$
+
+J&M Eq. 7.39-7.40. FFN: $d\to4d\to d$ con GELU.
+
+**Loss di language modeling** ([L16](L16-laboratorio-dagli-n-gram-a-gpt.md))
+
+$$
+\mathcal L=-\frac{1}{BT}\sum_{b=1}^{B}\sum_{t=1}^{T}\ln \operatorname{softmax}(\mathbf z_{b,t})[y_{b,t}]
+$$
+
+Media sulle $B\times T$ posizioni del batch (J&M Eq. 7.55); $y_{b,t}=x_{b,t+1}$. `F.cross_entropy` riceve i logit.
+
+**Parametri di un blocco** ([L16](L16-laboratorio-dagli-n-gram-a-gpt.md))
+
+$$
+\underbrace{4d^2}_{\text{attenzione}}+\underbrace{2\,d\,d_{ff}}_{\text{FFN}}=12d^2\quad(d_{ff}=4d)
+$$
+
+A meno di bias e layer norm. Con $d=96$: $110.592$ contro i $111.552$ esatti; il tiny GPT ha 244.301 parametri.
+
+**Memoria della KV cache** ([L16](L16-laboratorio-dagli-n-gram-a-gpt.md))
+
+$$
+M_{KV}=2\cdot L\cdot N\cdot d\cdot b\ \text{byte per sequenza}
+$$
+
+$b$ byte per numero (2 in float16). Llama 3.1 8B a 128k token: 64 GiB senza GQA, 16 GiB con GQA.
+
+**Memoria della matrice di attenzione** ([L16](L16-laboratorio-dagli-n-gram-a-gpt.md))
+
+$$
+B\cdot A\cdot T^2\ \text{elementi per strato}
+$$
+
+Quadratica in $T$: raddoppiare il contesto quadruplica la memoria. $T=10^5$, $A=32$, float32: 1.280 GB per strato e per sequenza.
+
+**Parametri di un transformer (conto semplice)** ([L17, slide 43](L17-pretraining-dei-modelli-linguistici.md#p-43))
+
+$$
+N \approx 12\,L\,d^2 + |V|\,d
+$$
+
+$4d^2$ attenzione + $8d^2$ feedforward ($d_{ff} = 4d$) per strato, più l'embedding $E$ (weight tying, niente bias e layer norm). GPT-3: 174,6B; GPT-2 XL: 1,55B.
+
+**Memoria della KV cache** ([L17, slide 47](L17-pretraining-dei-modelli-linguistici.md#p-47))
+
+$$
+M_{KV} = 2\cdot L\cdot d_{kv}\cdot b\cdot T
+$$
+
+Key e value ($d_{kv}$ numeri ciascuno, $= d$ senza GQA) per strato, $b$ byte per numero, $T$ token. GPT-3 a 16 bit: 4,7 MB per token, 9,7 GB per 2.048 token.
+
+**Calcoli di key e value in generazione** ([L17, slide 45](L17-pretraining-dei-modelli-linguistici.md#p-45))
+
+$$
+\text{senza cache: } \sum_{i=1}^{n} i = \frac{n(n+1)}{2},\qquad \text{con cache: } n
+$$
+
+Per strato, generando $n$ token. Per $n = 1000$: 500.500 contro 1.000.
+
+### Decoding
+
+**Greedy decoding** ([L15, slide 38](L15-transformer-embedding-lm-head-e-decoding.md#p-38))
+
+$$
+\hat w_t = \operatorname{argmax}_{w\in V} P(w\mid w_{\lt t})
+$$
+
+Sempre il token più probabile; deterministico. Coincide con l'argmax dei logit.
+
+**Probabilità di una sequenza generata** ([L15, slide 40](L15-transformer-embedding-lm-head-e-decoding.md#p-40))
+
+$$
+P(w_1,\dots,w_T) = \prod_{t=1}^{T} P(w_t\mid w_{\lt t})
+$$
+
+Base del confronto fra greedy e beam search: yes yes EOS $0{,}5\cdot0{,}4\cdot1 = 0{,}20$, ok ok EOS $0{,}4\cdot0{,}7\cdot1 = 0{,}28$.
+
+**Random sampling** ([L15, slide 42](L15-transformer-embedding-lm-head-e-decoding.md#p-42))
+
+$$
+w_t\sim P(w\mid w_{\lt t}),\qquad w_t = \min\{k : \textstyle\sum_{j\le k} y_j \gt r\},\ r\sim U[0,1)
+$$
+
+Si estrae il token secondo la sua probabilità, fino a EOS; in pratica con le cumulate e un numero casuale $r$.
+
+**Temperature sampling** ([L15, slide 47](L15-transformer-embedding-lm-head-e-decoding.md#p-47))
+
+$$
+y = \mathrm{softmax}(u/\tau)
+$$
+
+$\tau\lt1$ più appuntita ($\tau\to0$: greedy), $\tau\gt1$ più piatta ($\tau\to\infty$: uniforme), $\tau = 1$ softmax normale. Conserva l'ordine. Esempio: logit 1,2; 0,9; 0,1; -0,5 con $\tau = 0{,}5$: 0,59; 0,32; 0,07; 0,02.
+
+**Top-k (rinormalizzazione)** ([L15, slide 51](L15-transformer-embedding-lm-head-e-decoding.md#p-51))
+
+$$
+\tilde P(w) = \frac{P(w)}{\sum_{w'\in V^{(k)}} P(w')}\ \ \text{per } w\in V^{(k)},\ \ 0 \text{ altrimenti}
+$$
+
+$V^{(k)}$ = i $k$ token più probabili. $k = 1$ greedy, $k = |V|$ random sampling. Esempio $k = 2$: 0,44/0,77 = 0,57 e 0,33/0,77 = 0,43.
+
+**Top-p (nucleus)** ([L15, slide 54](L15-transformer-embedding-lm-head-e-decoding.md#p-54))
+
+$$
+V^{(p)} = \text{il più piccolo insieme tale che } \sum_{w\in V^{(p)}} P(w\mid w_{\lt t}) \ge p
+$$
+
+Token presi in ordine di probabilità decrescente fino a superare (o raggiungere) $p$, poi rinormalizzati. Esempio $p = 0{,}9$ sulle cumulate 0,44; 0,77; 0,92: tre token, 0,48; 0,36; 0,16.
+
+### Decodifica
+
+**Softmax con temperatura** ([L16](L16-laboratorio-dagli-n-gram-a-gpt.md))
+
+$$
+p_i=\frac{e^{z_i/\tau}}{\sum_j e^{z_j/\tau}}
+$$
+
+$\tau&lt;1$ più appuntita (verso il greedy), $\tau&gt;1$ più piatta; i pesi non cambiano. Top-$k$: si tengono i $k$ logit maggiori.
+
+### Pretraining
+
+**Cross-entropy loss su una posizione** ([L17, slide 17](L17-pretraining-dei-modelli-linguistici.md#p-17))
+
+$$
+L_{CE}(\hat y_t, y_t) = -\sum_{w\in V} y_t[w]\log\hat y_t[w]
+$$
+
+Distanza fra distribuzione predetta $\hat y_t$ e corretta $y_t$ sul vocabolario (Eq. 7.53).
+
+**Loss con target one-hot** ([L17, slide 17](L17-pretraining-dei-modelli-linguistici.md#p-17))
+
+$$
+L_{CE}(\hat y_t, y_t) = -\log\hat y_t[w_{t+1}]
+$$
+
+Con $y_t$ one-hot resta meno il log della probabilità del vero token successivo (Eq. 7.54). Esempio: 0,44 dà 0,82 nat.
+
+**Loss media di una sequenza** ([L17, slide 21](L17-pretraining-dei-modelli-linguistici.md#p-21))
+
+$$
+L_{CE}(\text{batch di lunghezza }T) = \frac1T\sum_{t=1}^{T}-\log\hat y_t[w_{t+1}]
+$$
+
+Media sulle $T$ posizioni (Eq. 7.55); esempio della lezione 4,26/5 = 0,85.
+
+**Loss di un modello uniforme** ([L17, slide 18](L17-pretraining-dei-modelli-linguistici.md#p-18))
+
+$$
+L_{CE} = \ln|V|,\qquad \mathrm{PP} = |V|
+$$
+
+Probabilità $1/|V|$ a ogni token: loss di partenza tipica. $\ln 50.000 = 10{,}82$, $\ln1.500 = 7{,}31$.
+
+**Finestre per batch** ([L17, slide 23](L17-pretraining-dei-modelli-linguistici.md#p-23))
+
+$$
+\#\text{finestre} = \frac{\text{token per batch}}{N},\qquad \#\text{passi per epoca} = \frac{D}{\text{token per batch}}
+$$
+
+GPT-3: $3{,}2\cdot10^6/2048\approx1.560$ finestre; 300B token in 93.750 passi.
+
+### Scaling
+
+**Scaling law di Kaplan** ([L17, slide 50](L17-pretraining-dei-modelli-linguistici.md#p-50))
+
+$$
+L(N) = \left(\frac{N}{8{,}8\cdot10^{13}}\right)^{-0{,}076},\quad L(D) = \left(\frac{D}{5{,}4\cdot10^{13}}\right)^{-0{,}095},\quad L(C_{min}) = \left(\frac{C_{min}}{2{,}3\cdot10^{8}}\right)^{-0{,}050}
+$$
+
+Test loss in nat; $N$ parametri senza embedding, $D$ token, $C$ in PF-giorni. Rette in log-log. $L(10^9) = 2{,}38$.
+
+**Costo di training** ([L17, slide 51](L17-pretraining-dei-modelli-linguistici.md#p-51))
+
+$$
+C \approx 6\,N\,D
+$$
+
+FLOP: 2 per parametro per token nel forward, 4 nel backward. Chinchilla $5{,}88\cdot10^{23}$, GPT-3 $3{,}15\cdot10^{23}$, Llama 3.1 8B $7{,}2\cdot10^{23}$.
+
+**Allocazione compute-optimal (Hoffmann et al., 2022)** ([L17, slide 51](L17-pretraining-dei-modelli-linguistici.md#p-51))
+
+$$
+N_{opt}\propto C^{1/2},\qquad D_{opt}\propto C^{1/2},\qquad D\approx20N\ \Rightarrow\ N_{opt} = \sqrt{C/120}
+$$
+
+Modello e dati crescono insieme; con 4 volte il calcolo raddoppiano entrambi. Chinchilla: 70B e 1,4T.
+
+### Post-training
+
+**Loss dell'instruction tuning (solo risposta)** ([L18, slide 18](L18-post-training-i-instruction-tuning-lora-e-prompting.md#p-18))
+
+$$
+L = -\frac{1}{|R|}\sum_{t\in R}\log P(w_t\mid w_{<t}) = \frac{\sum_t m_t\,\ell_t}{\sum_t m_t},\quad \ell_t = -\log P(w_t\mid w_{<t})
+$$
+
+Cross-entropy media sul token successivo, ma solo sulle posizioni $R$ della risposta (maschera $m_t = 1$; 0 per istruzione e marcatori). Esempio *buona notte*: 0,415 (0,42 nella slide) contro 1,06 su tutti i token.
+
+**Memoria del fine-tuning completo (Adam, mixed precision)** ([L18, slide 31](L18-post-training-i-instruction-tuning-lora-e-prompting.md#p-31))
+
+$$
+\text{byte per parametro} = \underbrace{2}_{\text{pesi 16 bit}} + \underbrace{2}_{\text{gradienti}} + \underbrace{4+4+4}_{\text{copia 32 bit, } m,\ v} = 16
+$$
+
+Senza attivazioni (Rajbhandari et al., 2020). Modello da $N$ parametri: $16N$ byte; 7B: 112 GB.
+
+**Forward pass di LoRA** ([L18, slide 35](L18-post-training-i-instruction-tuning-lora-e-prompting.md#p-35))
+
+$$
+h = xW + xAB,\qquad W\in\mathbb R^{k\times d},\ A\in\mathbb R^{k\times r},\ B\in\mathbb R^{r\times d},\ r\ll\min(k,d)
+$$
+
+$W$ congelata; si addestrano solo $A$ e $B$. $\Delta W = AB$ ha rango al più $r$. Si calcola come $(xA)B$.
+
+**Parametri addestrati da LoRA** ([L18, slide 38](L18-post-training-i-instruction-tuning-lora-e-prompting.md#p-38))
+
+$$
+\#\text{LoRA} = r(k+d),\qquad \frac{r(k+d)}{kd} = \frac{r}{d}+\frac{r}{k}
+$$
+
+Contro $kd$ del fine-tuning completo. $k = d = 4096$, $r = 8$: 65 536 contro 16 777 216, lo 0,39%. Pareggio per $r = kd/(k+d)$ (2048 per $k = d = 4096$).
+
+**Inizializzazione e gradienti di LoRA** ([L18, slide 35](L18-post-training-i-instruction-tuning-lora-e-prompting.md#p-35))
+
+$$
+A\sim\text{casuale},\ B = 0;\qquad \frac{\partial L}{\partial A} = G B^\top,\quad \frac{\partial L}{\partial B} = A^\top G,\quad G = \frac{\partial L}{\partial (W+AB)}
+$$
+
+All'inizio $AB = 0$: il modello è quello preaddestrato. Se anche $A = 0$ entrambi i gradienti sono nulli e l'addestramento non parte.
+
+**Fusione dei pesi LoRA (merge)** ([L18, slide 39](L18-post-training-i-instruction-tuning-lora-e-prompting.md#p-39))
+
+$$
+x(W + AB) = xW + (xA)B \;\Rightarrow\; W' = W + AB
+$$
+
+Dopo l'addestramento si sostituisce $W$ con $W'$: nessun costo in più all'inferenza. Per cambiare modulo: $W + A_1B_1 - A_1B_1 + A_2B_2$.
+
+**Costo del prodotto con LoRA** ([L18, slide 37](L18-post-training-i-instruction-tuning-lora-e-prompting.md#p-37))
+
+$$
+(xA)B:\ r(k+d)\ \text{moltiplicazioni}\qquad x(AB):\ krd + kd
+$$
+
+Esempio $k = d = 3$, $r = 1$: 6 contro 18. Nell'addestramento non si costruisce mai $AB$.
+
+**Fattore di scala di LoRA (implementazioni)** ([L18, slide 35](L18-post-training-i-instruction-tuning-lora-e-prompting.md#p-35))
+
+$$
+h = xW + \frac{\alpha}{r}\,xAB
+$$
+
+Non nelle slide (equivale ad $\alpha = r$); nell'articolo di Hu et al. e nelle librerie. Esempio $r = 8$, $\alpha = 16$: scala 2.
+
+**Livelli di quantizzazione e bit effettivi** ([L18, slide 40](L18-post-training-i-instruction-tuning-lora-e-prompting.md#p-40))
+
+$$
+\#\text{livelli} = 2^b,\qquad \text{bit/peso} = b + \frac{32}{\text{blocco}}
+$$
+
+$b = 16$: 65 536 valori; $b = 4$: 16 livelli. Con scala a 32 bit ogni 64 pesi: 4,5 bit per peso, 7B in circa 3,9 GB.
+
+**Memoria di LoRA e QLoRA (pesi congelati)** ([L18, slide 41](L18-post-training-i-instruction-tuning-lora-e-prompting.md#p-41))
+
+$$
+M_{\text{full}} \approx 16N,\quad M_{\text{LoRA}} \approx 2N,\quad M_{\text{QLoRA}} \approx 0{,}5N\ \text{byte}
+$$
+
+Trascurando le matrici LoRA e le attivazioni. 7B: 112 / 14 / 3,5 GB; 65B in QLoRA: 32,5 GB (una GPU da 48 GB).
+
+### Preferenze
+
+**Coppie da una classifica** ([L19, slide 10](L19-post-training-ii-preferenze-rlhf-dpo-e-rl-per-il-ragionamento.md#p-10))
+
+$$
+N \succ \dots:\quad \binom{N}{2} = \frac{N(N-1)}{2}\ \text{coppie};\qquad \text{solo il migliore: } N-1
+$$
+
+Classifica di $N$ output: tutte le coppie. $N = 4$: 6; InstructGPT da 4 a 9 output: da 6 a 36. Scelta del solo migliore: $N-1$ coppie.
+
+**Modello di Bradley-Terry** ([L19, slide 14](L19-post-training-ii-preferenze-rlhf-dpo-e-rl-per-il-ragionamento.md#p-14))
+
+$$
+P(o_i \succ o_j \mid x) = \frac{1}{1+e^{-(z_i - z_j)}} = \sigma(z_i - z_j)
+$$
+
+Sigmoide della differenza dei punteggi nascosti. $\sigma(-1) = 0{,}27$, $\sigma(0) = 0{,}5$, $\sigma(1) = 0{,}73$, $\sigma(3) = 0{,}95$. Invariante se si aggiunge una costante a tutti i punteggi.
+
+**Differenza come log-odds** ([L19, slide 14](L19-post-training-ii-preferenze-rlhf-dpo-e-rl-per-il-ragionamento.md#p-14))
+
+$$
+z_i - z_j = \log\frac{P(o_i\succ o_j\mid x)}{1 - P(o_i\succ o_j\mid x)}
+$$
+
+La differenza dei punteggi è il logit della preferenza; risolvendo per $P$ si ottiene Bradley-Terry. Per $P = 0{,}8$: $\ln 4 = 1{,}386$.
+
+### Reward model
+
+**Probabilità con il reward model** ([L19, slide 15](L19-post-training-ii-preferenze-rlhf-dpo-e-rl-per-il-ragionamento.md#p-15))
+
+$$
+P(o_i \succ o_j \mid x) = \sigma\big(r(x,o_i) - r(x,o_j)\big)
+$$
+
+Il reward appreso $r(x,o)$ prende il posto del punteggio $z$.
+
+**Loss del reward model** ([L19, slide 16](L19-post-training-ii-preferenze-rlhf-dpo-e-rl-per-il-ragionamento.md#p-16))
+
+$$
+L_{CE} = -\mathbb{E}_{(x,o_w,o_l)\sim D}\big[\log\sigma\big(r(x,o_w) - r(x,o_l)\big)\big]
+$$
+
+Binary cross-entropy (negative log-likelihood) delle preferenze osservate, target $P(o_w\succ o_l) = 1$. Coppia a pari reward: $\ln 2 = 0{,}693$. Esempio della slide: media 1,04.
+
+**Gradiente rispetto alla differenza** ([L19, slide 18](L19-post-training-ii-preferenze-rlhf-dpo-e-rl-per-il-ragionamento.md#p-18))
+
+$$
+\frac{\partial L}{\partial r_w} = -(1-\sigma(r_w - r_l)),\qquad \frac{\partial L}{\partial r_l} = 1-\sigma(r_w - r_l)
+$$
+
+La discesa alza $r_w$ e abbassa $r_l$ con forza $1-\sigma$: massima per le coppie ordinate male.
+
+### RLHF
+
+**Reward atteso** ([L19, slide 25](L19-post-training-ii-preferenze-rlhf-dpo-e-rl-per-il-ragionamento.md#p-25))
+
+$$
+\mathbb{E}_{o\sim\pi(\cdot\mid x)}[r(x,o)] = \sum_o \pi(o\mid x)\,r(x,o)
+$$
+
+Media dei reward pesata con le probabilità, $\pi(o\mid x)$ prodotto delle probabilità dei token. Giocattolo: 1,5 prima, 2,35 dopo. Con un LLM si stima campionando.
+
+**Obiettivo di RL** ([L19, slide 27](L19-post-training-ii-preferenze-rlhf-dpo-e-rl-per-il-ragionamento.md#p-27))
+
+$$
+\pi^* = \arg\max_{\pi_\theta}\ \mathbb{E}_{x\sim D,\ o\sim\pi_\theta(o\mid x)}\big[r(x,o)\big]
+$$
+
+Prompt dal dataset, output dalla policy in training, punteggio dal reward model.
+
+**Obiettivo con penalità KL** ([L19, slide 28](L19-post-training-ii-preferenze-rlhf-dpo-e-rl-per-il-ragionamento.md#p-28))
+
+$$
+\pi^* = \arg\max_{\pi_\theta}\ \mathbb{E}_{x\sim D,\ o\sim\pi_\theta}\Big[r(x,o) - \beta\log\frac{\pi_\theta(o\mid x)}{\pi_{\mathrm{ref}}(o\mid x)}\Big]
+$$
+
+$\pi_{\mathrm{ref}}$ è il modello di partenza (SFT), $\beta$ il peso della penalità. Esempio: $r = 0{,}8$, rapporto 4, $\beta = 0{,}2$: $0{,}8 - 0{,}277 = 0{,}523$.
+
+**Divergenza KL** ([L19, slide 28](L19-post-training-ii-preferenze-rlhf-dpo-e-rl-per-il-ragionamento.md#p-28))
+
+$$
+D_{KL}(\pi_\theta\,\|\,\pi_{\mathrm{ref}}) = \mathbb{E}_{o\sim\pi_\theta}\Big[\log\frac{\pi_\theta(o\mid x)}{\pi_{\mathrm{ref}}(o\mid x)}\Big] \ge 0
+$$
+
+Media del log-rapporto sugli output della policy; 0 solo se le distribuzioni coincidono; non simmetrica.
+
+**Passo di SFT** ([L19, slide 29](L19-post-training-ii-preferenze-rlhf-dpo-e-rl-per-il-ragionamento.md#p-29))
+
+$$
+\theta \leftarrow \theta + \eta\,\nabla_\theta\log\pi_\theta(o\mid x)
+$$
+
+$o$ è la risposta del dataset: la si rende più probabile.
+
+**REINFORCE (policy gradient)** ([L19, slide 29](L19-post-training-ii-preferenze-rlhf-dpo-e-rl-per-il-ragionamento.md#p-29))
+
+$$
+\theta \leftarrow \theta + \eta\,r(x,o)\,\nabla_\theta\log\pi_\theta(o\mid x),\quad o\sim\pi_\theta
+$$
+
+SFT sui propri campioni pesato dal reward (Williams, 1992). Viene da $\nabla\mathbb{E}[r] = \mathbb{E}[r\,\nabla\log\pi]$.
+
+**Policy gradient con baseline (advantage)** ([L19, slide 30](L19-post-training-ii-preferenze-rlhf-dpo-e-rl-per-il-ragionamento.md#p-30))
+
+$$
+\theta \leftarrow \theta + \eta\,\big(r(x,o) - b\big)\,\nabla_\theta\log\pi_\theta(o\mid x)
+$$
+
+$b$ = reward atteso della policy; $r - b$ è l'advantage. Giocattolo con $b = 1{,}5$: $+1{,}5$, $+0{,}5$, $-0{,}5$, $-1{,}5$.
+
+### DPO
+
+**Loss di DPO** ([L19, slide 35](L19-post-training-ii-preferenze-rlhf-dpo-e-rl-per-il-ragionamento.md#p-35))
+
+$$
+L_{\mathrm{DPO}} = -\log\sigma\Big(\beta\log\frac{\pi_\theta(o_w\mid x)}{\pi_{\mathrm{ref}}(o_w\mid x)} - \beta\log\frac{\pi_\theta(o_l\mid x)}{\pi_{\mathrm{ref}}(o_l\mid x)}\Big)
+$$
+
+Loss del reward model con reward implicito $\beta\log\pi_\theta/\pi_{\mathrm{ref}}$. $\beta$ tipico 0,01-0,1. Vale $\ln2$ all'inizio ($\pi_\theta = \pi_{\mathrm{ref}}$). Esempio: log-rapporti $+1$ e $-1$, $\beta = 0{,}5$: 0,313.
+
+**Reward in funzione della policy ottima** ([L19, slide 35](L19-post-training-ii-preferenze-rlhf-dpo-e-rl-per-il-ragionamento.md#p-35))
+
+$$
+r(x,o) = \beta\log\frac{\pi^*(o\mid x)}{\pi_{\mathrm{ref}}(o\mid x)} + \beta\log Z(x),\qquad Z(x) = \sum_o \pi_{\mathrm{ref}}(o\mid x)\,e^{r(x,o)/\beta}
+$$
+
+Inversione della soluzione in forma chiusa dell'obiettivo con KL (eq. 8.10-8.11 del libro); in Bradley-Terry $Z(x)$ si cancella. Non nelle slide, nel libro.
+
+### RL per il ragionamento
+
+**Reward verificabile** ([L19, slide 41](L19-post-training-ii-preferenze-rlhf-dpo-e-rl-per-il-ragionamento.md#p-41))
+
+$$
+r(x,o) = \begin{cases}1 & \text{risposta corretta o vincoli rispettati}\\ 0 & \text{altrimenti}\end{cases}
+$$
+
+Calcolato da un programma, senza reward model.
+
+**Advantage di GRPO** ([L19, slide 42](L19-post-training-ii-preferenze-rlhf-dpo-e-rl-per-il-ragionamento.md#p-42))
+
+$$
+A_i = \frac{r_i - \mathrm{mean}(r_1,\dots,r_G)}{\mathrm{std}(r_1,\dots,r_G) + \varepsilon}
+$$
+
+Baseline = media del gruppo di $G$ risposte, std per la scala ($\varepsilon$ piccolo, la costante della slide). $[1,1,0,0,0,1]$: advantage $\pm1$. Gli advantage di un gruppo sommano a 0.
+
 ## Correzioni alle slide
 
 - **L2, slide 35** (Training su un corpus piccolo: inizio): n e non è «più frequente di ogni altra coppia»: è un pareggio. [Dettagli](L02-parole-e-token.md#p-35)
@@ -1229,6 +2717,9 @@ Come per l'HMM, ma con somme di pesi al posto di prodotti di probabilità (log-s
 - **L8, slide 12** (Il tagset Penn Treebank): La tabella mostra 33 tag, non 36: manca l'ultima riga. [Dettagli](L08-sequence-labelling-pos-tagging-e-ner.md#p-12)
 - **L8, slide 57** (Il backtrace di Viterbi): Due valori della figura sono sbagliati. [Dettagli](L08-sequence-labelling-pos-tagging-e-ner.md#p-57)
 - **L8, slide 65** (BIO tagging: un esempio): La tabella non è il BIO della frase sopra. [Dettagli](L08-sequence-labelling-pos-tagging-e-ner.md#p-65)
+- **L10, slide 42** (L'idf in Shakespeare): idf di Falstaff: 0,966, non 0,967. [Dettagli](L10-semantica-vettoriale.md#p-42)
+- **L10, slide 54** (PPMI: un esempio svolto): pmi(cherry, computer) = −6,70, non −6,47. [Dettagli](L10-semantica-vettoriale.md#p-54)
+- **L11, slide 50** (Analogie: le cautele): potato, non «potatoe». [Dettagli](L11-embedding-word2vec.md#p-50)
 
 ## Bug trovati nei notebook del corso
 
@@ -1241,6 +2732,15 @@ Come per l'HMM, ma con somme di pesi al posto di prodotti di probabilità (log-s
 - **L4** · Un corpus più grande: le docstring della libreria standard: Bug: getdoc eredita le docstring, e il test set contiene frasi del training
 - **L5** · Corpus delle docstring: training, development e test: Bug: le docstring ereditate contaminano ancora development e test
 - **L5** · Interpolazione lineare: ricerca a griglia: Bug: l'interpolazione non è una distribuzione nei contesti mai visti
+- **L9** · VADER su una recensione: i quattro punteggi: neg, neu e pos non sono percentuali del testo
+- **L9** · VADER su una recensione: i quattro punteggi: (compound + 1)/2 non è una probabilità
+- **L9** · A2. Quanto è ambiguo l'inglese?: La check cell di A2 accetta una funzione sbagliata (e l'output salvato è sbagliato)
+- **L9** · A5. Fuori dal dominio: spaCy legge Dante: Dante non scende al 56%
+- **L12** · Concorrente B: TF-IDF: L'output salvato della TF-IDF (0,865) non viene da questo codice
+- **L12** · Esercizio 1: la correlazione di Spearman: La check cell dell'esercizio 1 non riconosce una funzione non implementata
+- **L16** · Cross-entropy e perplexity su testo held-out: La colonna contexts conta anche i contesti della validazione
+- **L17** · Scaling in miniatura: Il commento della cella 23 non è robusto
+- **L18** · Che cosa ha imparato: formato e quando fermarsi: Fragilità: molte istruzioni non dicono quale funzione
 
 ## Domande d'orale, per lezione
 
@@ -2055,5 +3555,1029 @@ Traccia: (1) training supervisionato come la regressione logistica: massimizzare
 <details><summary>Come si valuta un sistema di NER e perché non si usa l'accuracy sui token?</summary>
 
 Traccia: (1) il PoS si valuta con l'accuracy perché ogni token ha un tag; (2) nella NER l'unità è l'entità: uno span predetto è corretto solo se confini e tipo coincidono col gold; precision = corrette/predette, recall = corrette/gold, $F_1$ media armonica; (3) un errore di confine (*Jane* invece di *Jane Villanueva*) costa un FP e un FN; (4) l'accuracy per token è gonfiata dai tanti O (classi sbilanciate) e pesa poco gli errori di confine; (5) disallineamento: si addestra per token, si valuta per entità; (6) per confrontare due sistemi: paired bootstrap sulle $F_1$.
+
+</details>
+
+### L9 · Laboratorio: NLTK e spaCy
+
+<details><summary>Che differenza c'è fra NLTK e spaCy, come filosofia e come modelli?</summary>
+
+Traccia: (1) NLTK cassetta degli attrezzi: funzioni indipendenti su liste di token, le combini tu (tokenizza, poi `pos_tag`, poi `ne_chunk`); (2) spaCy pipeline: `nlp(testo)` restituisce un `Doc` con frasi, lemmi, PoS UD e Penn, dipendenze, entità già calcolati; (3) modelli: NLTK classici (averaged perceptron per il PoS, massima entropia = regressione logistica multinomiale per la NER, regole per Porter e VADER), spaCy piccole reti neurali con un `tok2vec` condiviso; (4) NLTK ricco di corpora e risorse (treebank, WordNet, movie\_reviews), spaCy più veloce e accurato su NER e parsing; (5) entrambi statistici, addestrati su corpora annotati: il dominio conta.
+
+</details>
+
+<details><summary>Come funzionano sent_tokenize e word_tokenize di NLTK, e perché lo stesso codice dà conteggi diversi con versioni diverse?</summary>
+
+Traccia: (1) Punkt: segmentatore non supervisionato che impara abbreviazioni e iniziali per decidere se un punto chiude la frase ([scheda 32 della L3](L03-elaborazione-del-testo.md#p-32)); (2) `word_tokenize` = Punkt + tokenizzatore a regex con convenzioni Penn Treebank: punteggiatura separata, clitici staccati (*it'll* → *it* + *'ll*); (3) il punto viene staccato solo a fine frase, quindi un errore di segmentazione lascia token come *it.*; (4) su Pinocchio NLTK 3.9 dà 2.298 frasi e 53.332 token, la 3.10 3.410 frasi e 53.814 token; (5) conseguenza: tokenizzazione e versione della libreria vanno documentate, perché cambiano tutti i numeri a valle.
+
+</details>
+
+<details><summary>Che cos'è la PMI e come si usa per trovare collocazioni? Quali sono i suoi limiti?</summary>
+
+Traccia: (1) collocazione = parole che co-occorrono più del caso; (2) $\text{PMI} = \log_2 P(w_1w_2)/(P(w_1)P(w_2)) = \log_2 P(w_2\mid w_1)/P(w_2)$, con stime MLE $\log_2 C(w_1w_2)N/(C(w_1)C(w_2))$; (3) 0 se indipendenti, positiva se si attraggono; esempio *Talking Cricket* 10,5 bit, *of the* 2,4; (4) limite: bias verso gli eventi rari, conteggi 1-1-1 danno il massimo $\log_2 N$ (130 bigrammi a pari merito su Pinocchio), quindi filtro di frequenza e filtro sulle stopword; (5) il risultato rivela il corpus: in cima uscivano bigrammi della licenza Gutenberg (datasheet, [scheda 48 della L2](L02-parole-e-token.md#p-48)); (6) la PMI tornerà negli embedding.
+
+</details>
+
+<details><summary>Stemming e lemmatizzazione: differenze, e perché il lemmatizzatore ha bisogno della parte del discorso?</summary>
+
+Traccia: (1) entrambi riducono forme diverse a una forma canonica ([scheda 33 della L3](L03-elaborazione-del-testo.md#p-33)); (2) stemming (Porter): regole sui suffissi, niente dizionario, veloce, il risultato può non essere una parola (*policy → polici*, *was → wa*) e confonde parole diverse (*university, universal → univers*); (3) lemmatizzazione: cerca il lemma in un dizionario (WordNet), restituisce una parola vera; (4) serve la PoS perché il lemma dipende dalla categoria: *better* → *good* (aggettivo) o *well* (avverbio), *was* → *be* solo come verbo, come nome WordNet dà *wa*; (5) spaCy fa il tagging prima e lemmatizza dopo, NLTK richiede di passare `pos` a mano.
+
+</details>
+
+<details><summary>Che cos'è il bag of words? Che cosa perde, e come si recupera un po' di informazione?</summary>
+
+Traccia: (1) un classificatore vuole un vettore di lunghezza fissa; (2) vocabolario $V$, documento → $\mathbf x \in \mathbb R^{|V|}$ binario ($x_j = 1$ se $w_j \in d$) o a conteggi; (3) una feature per parola, decine di migliaia, vettore sparso, nessun lessico scelto a mano: i pesi si imparano ([scheda 30 della L6](L06-regressione-logistica.md#p-30)); (4) perde l'ordine: *I won, you lose* e *I lose, you won* hanno la stessa bag, così *good movie, not bad* e *bad movie, not good*; (5) bigrammi di parole recuperano l'ordine locale (e la negazione: *not bad*), al costo di più feature; n-grammi di caratteri danno robustezza a refusi e parole nuove (Jaccard *rainbow/rainbaw* 3/7).
+
+</details>
+
+<details><summary>Come funziona VADER? Che cosa significano neg, neu, pos e compound?</summary>
+
+Traccia: (1) analizzatore a regole, niente training: lessico di circa 7.500 voci con valenza in $[-4, 4]$ (media di 10 annotatori); (2) regole: negazione $\times(-0{,}74)$, intensificatori $\pm 0{,}293$, maiuscole $+0{,}733$, punti esclamativi $+0{,}292$, *but* (0,5 prima, 1,5 dopo); (3) compound $= s/\sqrt{s^2+15}$ in $(-1, 1)$, soglia convenzionale $\pm 0{,}05$; (4) neg/neu/pos sono quote di una somma in cui le parole neutre valgono 1 e quelle con sentiment $1+|v|$: quote di intensità, **non** percentuali di testo (sulla recensione d'esempio 1 parola negativa su 31 dà neg 8,6%); (5) $(\text{compound}+1)/2$ non è una probabilità; (6) limiti: niente contesto (*sucked me in*), nomi propri con parole negative, *however* non trattato come *but*.
+
+</details>
+
+<details><summary>Togliere le stopword è sempre una buona idea?</summary>
+
+Traccia: (1) le stopword sono parole funzionali frequenti (198 nella lista inglese di NLTK); (2) toglierle aiuta quando interessa *di che cosa* parla un testo: le frequenze di Pinocchio passano da virgole e articoli a *Pinocchio, Marionette, Fairy, Geppetto*; (3) fa danni quando interessa il *come*: la lista contiene *not, no, nor, but, very, too*; (4) esempi: la recensione d'esempio sembra più positiva perché sparisce *very* davanti a *disappointed* (compound da 0,700 a 0,726); *The movie was not good* (−0,34) diventa *movie good* (+0,44); (5) quindi è una scelta che dipende dal compito, da validare sul dev set, non un passo di default.
+
+</details>
+
+<details><summary>Sentiment a regole, con feature fatte a mano, con bag of words, con un transformer: che cosa mostra il confronto sul corpus movie_reviews?</summary>
+
+Traccia: (1) VADER F1 0,715 ma accuracy 0,66: dice positivo al 69,5%, precision 0,615 e recall 0,855; (2) regressione logistica sulle 6 feature della Fig. 4.2: accuracy 0,713, feature povere e correlate con la lunghezza; (3) regressione logistica su bag of words binario: F1 0,871, accuracy 0,868, 39.768 pesi imparati dai dati; tra le parole più pesanti anche indizi di stile del corpus (*script, supposed, both*); (4) DistilBERT su SST-2, mai visto questo corpus: F1 0,840, precision alta e recall bassa; (5) paired bootstrap: bag of words significativamente meglio di VADER e delle 6 feature, non distinguibile da DistilBERT ($p = 0{,}27$); (6) lezione: imparare dai dati del dominio batte le regole, ma il vantaggio può non trasferirsi ad altri domini.
+
+</details>
+
+<details><summary>Quanto è ambiguo il PoS tagging dell'inglese? Che cosa misura la Fig. 18.4 e che cosa si ottiene sul campione di NLTK?</summary>
+
+Traccia: (1) un tipo è ambiguo se compare con 2+ tag; si misura la quota sui tipi e quella sui token; (2) WSJ completo: 14% dei tipi, 55% dei token ([scheda 17 della L8](L08-sequence-labelling-pos-tagging-e-ner.md#p-17)); (3) la differenza: i tipi ambigui sono le parole frequenti (*the, a, back, set, that*); (4) campione del 10%: 9,9% e 36,5%, più bassi perché l'ambiguità si osserva solo se una parola compare abbastanza volte con tag diversi; (5) attenzione al test della funzione: la versione salvata nel notebook dava 11,5% e 2,7% e la check cell non se ne accorgeva (2,7% sui token è incompatibile con l'idea che le parole ambigue siano le frequenti).
+
+</details>
+
+<details><summary>La baseline most-frequent-tag: come funziona, quanto fa nel laboratorio, e perché il confronto con NLTK e spaCy non è alla pari?</summary>
+
+Traccia: (1) ogni parola riceve il tag più frequente nel training, le ignote NN ([scheda 20 della L8](L08-sequence-labelling-pos-tagging-e-ner.md#p-20)); (2) libro 92%; nel laboratorio 87,0% (94,5% sulle note, 19,0% sulle ignote, che sono il 10% del test perché il training è piccolo, 75.000 token); (3) poche regole su forma e suffissi (maiuscola → NNP, cifre → CD, *-ing*, *-ed*, *-ly*, *-s*) portano le ignote al 77% e il totale al 92,8%: le feature che un CRF sa usare; (4) NLTK (96,3%) e spaCy (95,4%) sono addestrati su dati che includono il WSJ, quindi probabilmente anche le frasi di test: contaminazione, numeri ottimistici; (5) un confronto equo richiede lo stesso training e un test mai visto da nessuno.
+
+</details>
+
+<details><summary>Perché la NER si valuta sugli span e non sui token? Fai un esempio numerico.</summary>
+
+Traccia: (1) l'unità di risposta è l'entità: uno span predetto è corretto solo se inizio, fine e tipo coincidono (§18.6, [scheda 81 della L8](L08-sequence-labelling-pos-tagging-e-ner.md#p-81)); (2) $P$ = span corretti / span predetti, $R$ = span corretti / span gold, $F_1$ media armonica; (3) i token O sono la maggioranza (70% nell'esercizio A4), quindi l'accuracy per token è alta anche per sistemi scarsi: spaCy 89,5% sui token ma $F_1 = 0{,}68$ sugli span, NLTK 88,6% e 0,62; (4) un errore di confine (*the University of Padua* contro *University of Padua*) costa un falso positivo e un falso negativo; (5) per passare dai tag BIO agli span serve una funzione come `bio_to_spans`, con la convenzione conlleval per gli I- isolati.
+
+</details>
+
+<details><summary>Che cosa succede a un tagger fuori dal suo dominio? Discuti l'esempio di Dante.</summary>
+
+Traccia: (1) il 97% vale sul dominio di training; su testi lontani l'accuratezza crolla (Dante 75%, Middle English 56%, Twitter 74%: [scheda 21 della L8](L08-sequence-labelling-pos-tagging-e-ner.md#p-21)); (2) cause: parole sconosciute e forme antiche (*cammin*), ordine delle parole diverso (*diritta via* → NOUN + ADV), costruzioni rare nei dati (passato remoto: *ritrovai → ritrovaire*, 3a plurale); (3) esperimento: normalizzando solo forme e ordine, *diritta via* torna giusto ma *ritrovai* resta sbagliato, quindi le cause si separano; (4) anche l'italiano moderno ha errori (*bosco buio* PROPN); (5) caso estremo: il tagger inglese di NLTK sull'italiano (*Mi chiamo Andrea* → NNP NN NNP).
+
+</details>
+
+<details><summary>Come si implementa il paired bootstrap test e come si leggono i risultati del laboratorio?</summary>
+
+Traccia: (1) $\delta(x)$ = accuracy di A meno quella di B sul test set; (2) $b$ test set virtuali di $n$ esempi estratti **con reinserimento** e **appaiati** (stesso esempio per A e B); (3) $p$ = frazione con $\delta(x^{(i)}) \ge 2\delta(x)$ (Eq. 4.48; equivale a centrare la distribuzione in 0); (4) dettagli: conteggi interi invece di accuracy (niente errori di virgola mobile), maggiore o uguale (con il maggiore stretto l'esempio del libro dà 0,145 invece di 0,27); (5) risultati: bag of words contro VADER e contro 6 feature $p &lt; 10^{-4}$, contro DistilBERT $p = 0{,}27$; (6) $p &gt; 0{,}05$ non prova l'equivalenza: servono più dati o cross-validation ([scheda 43 della L7](L07-regressione-logistica-multinomiale-e-valutazione.md#p-43)).
+
+</details>
+
+<details><summary>Perché i pesi di un classificatore vanno sempre insieme al suo estrattore di feature? Usa l'esempio della Fig. 4.2.</summary>
+
+Traccia: (1) Fig. 4.2: sei feature, pesi $[2{,}5, -5, -1{,}2, 0{,}5, 2, 0{,}7]$, $b = 0{,}1$, $P(+\mid x) = \sigma(0{,}833) = 0{,}70$ ([scheda 28 della L6](L06-regressione-logistica.md#p-28)); (2) con `word_tokenize` e il lessico VADER il vettore diventa $[4, 2, 1, 3, 0, 4{,}22]$: lessico diverso (*surprises* positiva, *hokey* e *second-rate* assenti) e clitici separati (68 token); (3) stessi pesi, $P(+\mid x) = 0{,}97$; (4) i pesi sono stimati per una precisa distribuzione delle feature: cambiare tokenizzatore o lessico dopo il training cambia le predizioni in silenzio; (5) la cura è riaddestrare con l'estrattore nuovo, e documentare l'intera pipeline (model card, [scheda 51 della L7](L07-regressione-logistica-multinomiale-e-valutazione.md#p-51)).
+
+</details>
+
+### L10 · Semantica vettoriale
+
+<details><summary>Che cosa dovrebbe saper rappresentare un modello del significato delle parole? Distingui similarità e relatedness.</summary>
+
+Traccia: (1) rappresentare il significato con una stringa o un indice (DOG, LIFE') non dice niente; (2) desiderata: parole simili (cat/dog) e antonimi (hot/cold), connotazioni (happy/sad), prospettive sullo stesso evento (buy/sell/pay), inferenze per QA e dialogo; (3) sensi e polisemia (mouse), sinonimia approssimata e principio di contrasto (H2O/water); (4) similarità: le parole condividono proprietà (cat/dog, SimLex-999); relatedness o associazione: partecipano allo stesso evento o campo semantico (coffee/cup, surgeon/scalpel); (5) i vettori distribuzionali catturano entrambe, in misura che dipende dalla finestra.
+
+</details>
+
+<details><summary>Che cos'è l'ipotesi distribuzionale? Raccontala con l'esempio di ongchoi.</summary>
+
+Traccia: (1) parole che compaiono in contesti simili tendono ad avere significati simili (Joos 1950, Harris 1954, Firth 1957; oculist/eye-doctor vicino a eye, examined); (2) la differenza di significato corrisponde grosso modo alla differenza di ambienti; (3) ongchoi compare con garlic, rice, delicious, salty, leaves; gli stessi contesti di spinach, chard, collard greens: quindi è una verdura a foglia (è lo spinacio d'acqua); (4) il confronto è indiretto, fra i contesti; (5) computazionalmente: contare le parole nel contesto e confrontare i vettori di conteggi.
+
+</details>
+
+<details><summary>Che cosa sono gli embedding? Sparsi contro densi, statici contro contestuali.</summary>
+
+Traccia: (1) rappresentazioni vettoriali del significato delle parole apprese dalla loro distribuzione nei testi; esempio di representation learning self-supervised, al posto delle feature a mano; (2) l'idea parte da Osgood (valence, arousal, dominance: una parola è un punto); (3) sparsi: $|V|$ dimensioni (10-50 mila), conteggi o loro pesature (tf-idf, PPMI), quasi tutti zeri, dimensioni interpretabili; densi: 50-1000 numeri reali senza interpretazione, appresi (word2vec), migliori nei compiti; (4) statici: un vettore per parola; contestuali (BERT): un vettore per occorrenza, risolvono la polisemia; (5) utilità: un classificatore generalizza a parole mai viste se ha visto parole con vettori vicini.
+
+</details>
+
+<details><summary>Come si costruisce una matrice parola-contesto? Che effetto ha la dimensione della finestra?</summary>
+
+Traccia: (1) righe = parole target, colonne = parole di contesto, $|V|\times|V|$; (2) cella $(w,c)$ = numero di volte che $c$ compare entro ±k parole da un'occorrenza di $w$ (k = 4 nell'esempio); (3) esempio delle quattro finestre: cherry = [1, 0, 1] su a, computer, pie; (4) su Wikipedia: cherry e strawberry hanno la massa su pie e sugar, digital e information su computer e data; (5) la matrice è sparsa (Zipf), si memorizza in forma sparsa; (6) finestre corte (1-3) danno vicini sintatticamente simili, lunghe danno vicini dello stesso argomento.
+
+</details>
+
+<details><summary>Perché non si usa il prodotto scalare grezzo come misura di similarità? Definisci il coseno e il suo intervallo.</summary>
+
+Traccia: (1) $\mathbf v\cdot\mathbf w = \sum_i v_iw_i$: alto se i vettori hanno valori grandi nelle stesse dimensioni, 0 se ortogonali; (2) cresce con la lunghezza $|\mathbf v| = \sqrt{\sum v_i^2}$, e le parole frequenti hanno vettori più lunghi: bias della frequenza ($\text{dot}(c\mathbf v,\mathbf w) = c\,\text{dot}$); (3) coseno = prodotto scalare diviso le due lunghezze = $\cos\theta$, dipende solo dalla direzione, invariante alla scala; (4) intervallo $[-1, 1]$; per conteggi non negativi $[0, 1]$; (5) per vettori unitari prodotto scalare = coseno: si normalizza una volta e poi si fanno prodotti scalari; (6) esempio: cos(digital, information) = 0,996, cos(cherry, information) = 0,018.
+
+</details>
+
+<details><summary>Calcola a mano un coseno fra due vettori di conteggi e interpreta il risultato.</summary>
+
+Traccia: (1) scrivere i vettori sulle stesse dimensioni, nello stesso ordine; (2) prodotto scalare; (3) le due lunghezze; (4) rapporto. Esempio: cherry [442, 8, 2] e information [5, 3982, 3325] su pie, data, computer: dot = 2210+31.856+6650 = 40.716; lunghezze 442,08 e 5187,7; coseno 0,018, quasi ortogonali. digital [5, 1683, 1670] con information: dot 12.254.481, lunghezze 2371,0 e 5187,7, coseno 0,996. (5) Interpretazione: information è molto più vicina a digital; le lunghezze diverse (frequenza) non contano.
+
+</details>
+
+<details><summary>Che cos'è la matrice termine-documento e perché sui conteggi grezzi As You Like It sembra simile a Julius Caesar?</summary>
+
+Traccia: (1) righe = parole, colonne = documenti; cella = occorrenze della parola nel documento (fool 58 volte in Twelfth Night); vector space model di Salton, bag of words; (2) un documento è un vettore colonna, una parola è un vettore riga; (3) sulle dimensioni fool e battle le commedie si separano bene dalle tragedie; (4) ma sui quattro conteggi cos(AYLI, TN) = 0,950 e cos(AYLI, JC) = 0,945: good (114, 80, 62, 89) compare in tutte le opere e domina tutti i vettori (79% e 99% dei prodotti scalari); (5) serve pesare: togliere peso alle parole presenti dappertutto.
+
+</details>
+
+<details><summary>Definisci tf, idf e tf-idf. Quale problema risolve ciascun ingrediente?</summary>
+
+Traccia: (1) tf $= 1+\log_{10}\text{count}(t,d)$ se count > 0, altrimenti 0: 100 occorrenze non valgono 100 volte una; ogni fattore 10 aggiunge 1; il +1 distingue 1 da 0; (2) df = numero di documenti che contengono il termine; idf $= \log_{10}(N/\text{df})$ (Sparck Jones 1972): 0 per un termine in tutti i documenti, alto per uno raro (Romeo 1,57, battle 0,246, good 0); (3) tf-idf = tf × idf: alto per parole frequenti nel documento e rare nella collezione; (4) esempio: battle in Julius Caesar $(1+\log_{10}7)\cdot0{,}246 = 0{,}454$; (5) catena: conteggio → tf (crescita lenta) → idf (good a 0) → tf-idf.
+
+</details>
+
+<details><summary>Come funziona il recupero di documenti con tf-idf? Fai l'esempio della query sweet love.</summary>
+
+Traccia: (1) ad hoc retrieval: una query, una collezione, documenti ordinati per rilevanza; (2) la query è un documento corto pesato con tf e con l'idf della collezione; (3) punteggio = coseno fra vettore della query e del documento; equivalentemente prodotto scalare dei vettori normalizzati; contribuiscono solo i termini della query; (4) esempio: idf sweet 0,125, love 0,301; Doc 1 (sweet sweet nurse love) coseno 0,747, Doc 2 (sweet sorrow) 0,078; (5) in pratica indice invertito per trovare i documenti candidati, varianti come BM25 (parametri $k$ e $b$); (6) limite: confronta le parole, non il significato (datetime non trovato da "date" nel notebook).
+
+</details>
+
+<details><summary>Che cos'è la PMI? Come si legge il suo valore? Che differenza c'è con la mutual information?</summary>
+
+Traccia: (1) la frequenza grezza non è associazione: the co-occorre con tutto; (2) $\text{PMI}(w,c) = \log_2\frac{P(w,c)}{P(w)P(c)}$: co-occorrenza osservata contro quella attesa sotto indipendenza, in bit (Fano 1961; Church e Hanks 1989); (3) 0 = come il caso, positiva = più del caso (cherry-pie 4,38, circa 21 volte), negativa = meno (cherry-computer −6,70); (4) forma con i conteggi: $\log_2(f_{wc}N/(f_wf_c))$; (5) la mutual information fra due variabili è la media della PMI su tutte le coppie, sempre $\ge 0$; la PMI è di una cella e può essere negativa.
+
+</details>
+
+<details><summary>Perché si usa la PPMI invece della PMI? Calcolane un valore dalla tabella.</summary>
+
+Traccia: (1) PMI va da $-\infty$ a $+\infty$; i negativi sono inaffidabili: con $P(w) = P(c) = 10^{-6}$ servirebbe un corpus enorme per dire che $P(w,c)$ è significativamente sotto $10^{-12}$; e $\log 0 = -\infty$ per le coppie mai viste; (2) PPMI = max(PMI, 0) (Niwa e Nitta 1994), la matrice resta sparsa; (3) dalla tabella: $p_{ij} = f_{ij}/N$, marginali da righe e colonne, $N = 11.716$; (4) information-data: $\log_2(0{,}3399/(0{,}6575\cdot0{,}4842)) = 0{,}094$, piccola perché entrambe frequenti (atteso 3730, osservato 3982); cherry-pie 4,38; (5) attenzione agli arrotondamenti: con 0,0002 al posto di 0,000171 si ottiene −6,47 invece di −6,70.
+
+</details>
+
+<details><summary>Qual è il problema della PMI con gli eventi rari e come si corregge?</summary>
+
+Traccia: (1) una parola vista una volta in un contesto visto una volta riceve PMI altissima: con $N = 10^6$, $\log_2 10^6 = 19{,}9$ bit da una sola co-occorrenza; nel notebook le celle più alte sono coppie viste 2 volte; (2) correzione di Levy et al. (2015): $P_\alpha(c) = \text{count}(c)^\alpha/\sum\text{count}(c')^\alpha$ con α = 0,75 al denominatore; (3) la potenza < 1 appiattisce la distribuzione: i contesti rari guadagnano probabilità (0,01 → 0,03), quindi PMI più bassa; (4) sulla tabella: cherry-pie 4,38 → 3,64, information-data 0,09 → 0,23; (5) alternativa: add-k sui conteggi (k da 0,1 a 3), come per gli n-gram; troppo smoothing su una matrice grande appiattisce tutto.
+
+</details>
+
+<details><summary>Che cosa cambia nei coseni passando dai conteggi alla PPMI? Usa cherry/strawberry e digital/information.</summary>
+
+Traccia: (1) sui conteggi i coseni sono dominati dalle colonne frequenti: cherry-strawberry 0,969, digital-information 0,996; (2) PPMI: cherry e strawberry hanno associazioni forti sulle stesse colonne (pie, sugar), coseno 0,960; (3) digital e information hanno PPMI quasi nulla su computer e data (contesti che compaiono con tutto) e il resto cade su colonne diverse: coseno 0,079 (0,085 con i valori arrotondati); (4) il coseno PPMI confronta ciò che è distintivo, non la frequenza; (5) nel notebook: i vicini di error, directory, socket passano da parole funzionali a parole dello stesso campo.
+
+</details>
+
+<details><summary>Riassumi la ricetta contare-pesare-confrontare per parole e per documenti.</summary>
+
+Traccia: (1) domanda di partenza: che cosa voglio confrontare; (2) documenti: contesto = documento intero, matrice termine-documento (colonne), tf-idf (frequente qui, raro altrove), coseno; usi: ricerca, similarità fra documenti; (3) parole: contesto = parole vicine (finestra ±k), matrice parola-contesto (righe), PPMI con α = 0,75 (più del caso), coseno; usi: vicini, parafrasi, cambiamenti di significato; (4) le due pesature fanno lo stesso lavoro (tolgono peso a ciò che compare dappertutto): idf contando documenti, PMI confrontando con il caso; (5) prossimo passo: vettori densi appresi, word2vec, che ottimizza implicitamente una PMI spostata.
+
+</details>
+
+### L11 · Embedding word2vec
+
+<details><summary>Perché si preferiscono embedding corti e densi ai vettori sparsi della lezione precedente?</summary>
+
+Traccia: (1) sparsi: $|V|$ dimensioni (50.000), una per parola, quasi tutti zeri, dimensioni interpretabili; densi: $d$ = 50-1000, valori reali anche negativi, dimensioni senza interpretazione; (2) il libro: i densi funzionano meglio in ogni compito, ragioni non del tutto capite; (3) meno parametri per i classificatori che li usano (300 contro 50.000 pesi), meno overfitting; (4) sinonimia: car e automobile sono colonne scollegate nello sparso, vettori vicini nel denso; (5) i densi si imparano (word2vec), gli sparsi si contano.
+
+</details>
+
+<details><summary>Spiega l'idea di word2vec e il ruolo della self-supervision.</summary>
+
+Traccia: (1) invece di contare le co-occorrenze, si addestra un classificatore binario: c compare vicino a w?; (2) il compito è un pretesto: si tengono i pesi, che sono gli embedding; (3) self-supervision: il testo fornisce le risposte gold (le parole vicine sono positive), nessuna annotazione manuale, quindi si possono usare miliardi di parole; (4) idea nata nei language model neurali (Bengio 2003, Collobert 2011); (5) due semplificazioni: compito binario invece di predire la parola tra |V|, regressione logistica invece di rete con strati nascosti; (6) embedding statici.
+
+</details>
+
+<details><summary>Come calcola skip-gram la probabilità che c sia un contesto di w? E per una finestra intera?</summary>
+
+Traccia: (1) similarità ≈ prodotto scalare $\mathbf c\cdot\mathbf w$; (2) il prodotto va da $-\infty$ a $+\infty$, la sigmoide lo porta in (0, 1): $P(+\mid w,c) = \sigma(\mathbf c\cdot\mathbf w)$; (3) $P(-\mid w,c) = 1-P(+) = \sigma(-\mathbf c\cdot\mathbf w)$; (4) finestra: ipotesi di indipendenza, prodotto delle sigmoidi, somma dei log; (5) esempio: apricot·jam = 1, $\sigma(1) = 0{,}73$; apricot·matrix = −0,25, 0,44; (6) nessun bias, solo il prodotto scalare.
+
+</details>
+
+<details><summary>Perché skip-gram ha due embedding per parola? Quale si usa alla fine?</summary>
+
+Traccia: (1) servono un vettore per la parola come target ($W$, input embedding) e uno come contesto o rumore ($C$, output embedding); (2) parametri $\theta$: $2|V|$ vettori di dimensione $d$ (30 milioni con 50.000 × 300); (3) parallelo con la matrice parola-contesto: $W$ righe, $C$ colonne; (4) un motivo: con un solo vettore $\mathbf w\cdot\mathbf w$ sarebbe sempre alto, ogni parola sarebbe un buon contesto di sé stessa; (5) alla fine si usa $\mathbf w_i$ oppure $\mathbf w_i + \mathbf c_i$.
+
+</details>
+
+<details><summary>Che cos'è il negative sampling? Come si scelgono le parole di rumore e perché con α = 0,75?</summary>
+
+Traccia: (1) per ogni coppia positiva (dalla finestra) si generano $k$ coppie negative con parole casuali del lessico diverse dal target; più negativi che positivi; (2) evita di confrontare con tutte le |V| parole (softmax); (3) estrazione con $P_\alpha(w) = \text{count}(w)^\alpha/\sum\text{count}^\alpha$, $\alpha = 0{,}75$; (4) effetto: le parole rare guadagnano probabilità (0,01 → 0,03 nell'esempio a due eventi), le frequenti ne perdono; (5) con $P$ pura il rumore sarebbe quasi solo the, of; embedding migliori sperimentalmente; (6) stessa pesatura della PPMI-α della L10.
+
+</details>
+
+<details><summary>Scrivi la loss di skip-gram con negative sampling e spiega i due termini.</summary>
+
+Traccia: (1) $L = -[\log P(+\mid w,c_{pos}) + \sum_i\log P(-\mid w,c_{neg_i})]$, negative log likelihood con indipendenza; (2) forma finale $-[\log\sigma(\mathbf c_{pos}\cdot\mathbf w) + \sum_i\log\sigma(-\mathbf c_{neg_i}\cdot\mathbf w)]$; (3) primo termine: prodotto alto col contesto vero; secondo: prodotti bassi con il rumore; (4) è la cross-entropy binaria della regressione logistica su 1 positivo e $k$ negativi; (5) valori di riferimento: $(k+1)\ln2$ con prodotti nulli, 0 per un classificatore perfetto; le due curve si incrociano a 0 in $\ln2$.
+
+</details>
+
+<details><summary>Ricava i gradienti di SGNS e interpretali.</summary>
+
+Traccia: (1) lemma $\frac{d}{dz}\log\sigma(z) = 1-\sigma(z)$; (2) $\partial L/\partial\mathbf c_{pos} = [\sigma(\mathbf c_{pos}\cdot\mathbf w)-1]\mathbf w$; (3) $\partial L/\partial\mathbf c_{neg_i} = \sigma(\mathbf c_{neg_i}\cdot\mathbf w)\mathbf w$ usando $1-\sigma(-z) = \sigma(z)$; (4) $\partial L/\partial\mathbf w$ = somma dei due tipi, ciascuno per il proprio vettore di contesto; (5) forma della regressione logistica: (previsto − vero) × input; (6) il passo avvicina $\mathbf c_{pos}$ e $\mathbf w$, allontana i $\mathbf c_{neg}$; tanto più quanto il classificatore sbaglia.
+
+</details>
+
+<details><summary>Descrivi un passo di SGD per skip-gram, con l'esempio di apricot.</summary>
+
+Traccia: (1) aggiornamenti: ogni vettore meno $\eta$ per il suo gradiente, tutti calcolati con i valori al tempo $t$; (2) un passo tocca solo $k+2$ righe (target, contesto, $k$ rumori); (3) esempio: apricot, jam, matrix, Tolstoy, $\eta = 0{,}5$: prodotti da 1,00/−0,25/−1,25 a 1,52/−1,01/−1,66, loss da 1,14 a 0,68; (4) nuovo apricot [0,744; 1,069; −0,775]; (5) ciclo: inizializzazione casuale di $W$ e $C$, molte passate sul corpus; (6) parole con contesti simili vengono spinte verso gli stessi vettori: l'ipotesi distribuzionale.
+
+</details>
+
+<details><summary>Confronta skip-gram, CBOW, fasttext e GloVe.</summary>
+
+Traccia: (1) skip-gram: target → contesto, una previsione per parola di contesto; default, buono per parole rare; (2) CBOW: contesto (media dei vettori, ordine ignorato) → target; più veloce, un po' meglio per le parole frequenti; (3) fasttext: skip-gram su parola + n-grammi di caratteri (3-6) con confini; parole sconosciute, morfologia ricca; (4) GloVe: rapporti di probabilità dalla matrice di co-occorrenza globale; (5) tutti statici: un vettore per parola, mouse ha un solo vettore; (6) Levy e Goldberg: SGNS fattorizza implicitamente una matrice PMI.
+
+</details>
+
+<details><summary>In che senso word2vec e i metodi basati sui conteggi sono vicini?</summary>
+
+Traccia: (1) stesso testo, stessa finestra, stessa ipotesi distribuzionale; cambia il metodo (contare e pesare contro predire con SGD); (2) Levy e Goldberg (2014): SGNS ottimizza implicitamente una funzione di una matrice di conteggi pesata con PMI (all'ottimo $\mathbf w\cdot\mathbf c = \text{PMI} - \log k$); (3) $\alpha = 0{,}75$ è comune ai due mondi: Levy et al. (2015) l'hanno portato alla PPMI; (4) GloVe usa esplicitamente i conteggi globali; (5) in entrambi i casi si confrontano le parole con il coseno.
+
+</details>
+
+<details><summary>Che effetto ha la dimensione della finestra sugli embedding?</summary>
+
+Traccia: (1) tipicamente da 1 a 10 parole per lato; (2) finestre corte: rappresentazioni più sintattiche, vicini simili con la stessa parte del discorso; (3) finestre lunghe: vicini collegati per argomento, non simili; (4) esempio di Hogwarts: ±2 Sunnydale, Evernight (altre scuole); ±5 Dumbledore, Malfoy, half-blood; (5) è la distinzione similarità/relatedness della L10; (6) la scelta dipende dallo scopo e si fa spesso su un devset.
+
+</details>
+
+<details><summary>Come si risolve un'analogia con gli embedding? Quali sono i limiti?</summary>
+
+Traccia: (1) modello del parallelogramma (Rumelhart e Abrahamson, 1973): apple:tree::grape:vine; (2) $\hat b^* = \text{argmin}_x\,\text{distance}(\mathbf x, \mathbf b - \mathbf a + \mathbf a^*)$; (3) king − man + woman ≈ queen, Paris − France + Italy ≈ Rome, offset comparativo-superlativo; (4) cautele: il più vicino è spesso un input o una sua variante (potato, potatoes invece di brown), vanno esclusi; (5) funziona per parole frequenti, distanze piccole, certe relazioni (capitali, flessione); (6) troppo semplice come modello dell'analogia umana (Peterson et al., 2020).
+
+</details>
+
+<details><summary>Come si usano gli embedding per studiare il cambiamento di significato?</summary>
+
+Traccia: (1) uno spazio di embedding per decennio, da corpora storici (Google n-grams, COHA); (2) si confrontano posizione e vicini della stessa parola nel tempo (Hamilton et al., 2016); (3) gay: da cheerful, frolicsome a homosexual; broadcast: da seminare a trasmettere (radio, television); awful: da full of awe a terrible (peggiorazione); (4) gli spazi vanno allineati, perché due training diversi hanno coordinate non comparabili; (5) gli stessi embedding storici misurano anche i bias del passato (Garg et al., 2018).
+
+</details>
+
+<details><summary>Quali bias riproducono gli embedding? Distingui danno allocativo e rappresentazionale.</summary>
+
+Traccia: (1) gli embedding riproducono gli stereotipi latenti nel testo: man:computer programmer::woman:homemaker, father:doctor::mother:nurse (Bolukbasi et al., 2016); (2) amplificazione: più marcati che nel testo e nelle statistiche sul lavoro; (3) IAT e Caliskan et al. (2017): coseni di GloVe al posto delle latenze, nomi afroamericani più vicini a parole spiacevoli; (4) danno allocativo: risorse distribuite in modo ingiusto (ricerca di candidati che penalizza nomi femminili); danno rappresentazionale: un gruppo sminuito o ignorato (sentiment da embedding); (5) il debiasing riduce ma non elimina.
+
+</details>
+
+<details><summary>Come si valutano gli embedding?</summary>
+
+Traccia: (1) valutazione estrinseca, la più importante: usare i vettori in un compito e misurare il miglioramento; (2) intrinseca: correlazione (di rango, Spearman) fra coseni e giudizi umani; (3) WordSim-353: 353 coppie di nomi, 0-10, plane/car 5,77, più relatedness; SimLex-999: solo similarità (cup/mug sì, cup/coffee no); TOEFL: 80 domande sui sinonimi (levied → imposed); (4) limite: parole senza contesto; esistono SCWS e WiC con contesto, e il compito di analogia; (5) variabilità fra training: più embedding su campioni bootstrap.
+
+</details>
+
+### L12 · Laboratorio: word embedding
+
+<details><summary>Come si costruisce un embedding da conteggi e perché serve la PPMI?</summary>
+
+Traccia: (1) ipotesi distribuzionale; (2) matrice parola-contesto: finestra $\pm L$, ogni coppia (target, contesto) aggiunge 1 a $C(w,c)$, la riga è il vettore della parola, sparso e interpretabile, $|V|$ dimensioni; (3) similarità con il coseno, non con il prodotto scalare (bias della lunghezza); (4) problema: le parole frequenti (*the*) sono contesto di tutto e rendono simile tutto (nel lab *cats*-*pizza* 0,667 solo per *the*); (5) PPMI: $\max(\log_2\frac{P(w,c)}{P(w)P(c)},0)$ con probabilità sulle coppie (somme di riga e colonna), pesa poco i contesti presenti ovunque, porta *cats*-*pizza* a 0,045; (6) valori negativi tagliati perché inaffidabili; variante $\alpha = 0{,}75$ contro il bias verso i contesti rari.
+
+</details>
+
+<details><summary>Nella PMI di una matrice parola-contesto, perché P(w) è la somma della riga e non la frequenza della parola?</summary>
+
+Traccia: (1) l'evento elementare è una coppia (target, contesto), le $N$ sono le coppie (somma di tutte le celle); (2) una parola al bordo di una frase genera meno coppie di una al centro: nel corpus giocattolo *cats* e *chase* compaiono 2 volte ma generano 2 e 4 coppie; (3) usando somme di riga e colonna le tre probabilità sono stimate sullo stesso spazio di eventi e la PMI vale esattamente 0 in caso di indipendenza; (4) esempio: PPMI(*cats*, *chase*) $= \log_2\frac{1\cdot32}{2\cdot4} = 2$; (5) attenzione a non confondere questa $N$ con quella del tf-idf (documenti).
+
+</details>
+
+<details><summary>Che cosa impara skip-gram con negative sampling? Scrivi la loss e i gradienti.</summary>
+
+Traccia: (1) classificatore binario coppia vera/finta, $P(+\mid w,c) = \sigma(\mathbf c\cdot\mathbf w)$: una regressione logistica in cui i parametri sono gli embedding; (2) positivi dalla finestra, $k$ negativi per positivo estratti con $P_\alpha$, $\alpha = 0{,}75$; (3) loss $-\log\sigma(\mathbf c_{pos}\cdot\mathbf w)-\sum_i\log\sigma(-\mathbf c_{neg_i}\cdot\mathbf w)$; (4) gradienti $[\sigma-1]\mathbf w$, $\sigma_i\mathbf w$, $[\sigma-1]\mathbf c_{pos}+\sum\sigma_i\mathbf c_{neg_i}$, forma (previsto − vero) × input; (5) SGD: il positivo si avvicina, i negativi si allontanano; (6) due matrici $W$ e $C$, si tiene $W$ (gensim) o $W+C$; (7) nel lab la loss iniziale vale $(k+1)\ln2 = 4{,}16$ e il controllo con le derivate numeriche verifica i gradienti.
+
+</details>
+
+<details><summary>Perché word2vec usa due vettori per parola?</summary>
+
+Traccia: (1) $\mathbf w$ come target, $\mathbf c$ come contesto, matrici $W$ e $C$ di $|V|\times d$; (2) con un solo vettore il punteggio di $(w,w)$ sarebbe $\|\mathbf w\|^2\ge0$, sempre alto, mentre una parola quasi mai compare accanto a sé stessa: il training dovrebbe accorciare i vettori, in conflitto con il resto; (3) i due ruoli sono diversi: parole con gli stessi contesti hanno $\mathbf w$ simili perché vengono spinte verso gli stessi $\mathbf c$; (4) dopo il training si tiene $W$ o si usa $W+C$; in gensim $W$ è `wv`, $C$ è `syn1neg`.
+
+</details>
+
+<details><summary>Che effetto ha la dimensione della finestra? E skip-gram contro CBOW?</summary>
+
+Traccia: (1) finestra stretta: vicini che occupano lo stesso ruolo sintattico, similarità di tipo (nel lab, con finestra 2 *hands* ha come vicini *arms, teeth, legs*); (2) finestra larga: vicini tematici, ciò che accade nella stessa scena (*clapped, shook, swore* con finestra 10); (3) per avvicinarsi alla similarità di SimLex conviene una finestra stretta; (4) skip-gram fa un passo per ogni coppia target-contesto (circa $2L$ per token), CBOW uno per token con la media del contesto: CBOW è più veloce (0,8 s contro 3,0 s con finestra 10) e il suo costo cresce poco con la finestra; skip-gram di solito è migliore sulle parole rare.
+
+</details>
+
+<details><summary>Che differenza c'è fra word2vec, GloVe e fasttext?</summary>
+
+Traccia: (1) word2vec: predizione locale, scorre le finestre una alla volta (SGNS o CBOW); (2) GloVe: parte dalla matrice di co-occorrenza globale e impara vettori tali che $\mathbf w\cdot\mathbf c\approx\log X_{wc}$ (più bias): a metà fra conteggi e predizione, stessa materia prima; (3) fasttext: skip-gram su parola e n-grammi di caratteri (3-6), la parola è la somma dei suoi n-grammi, quindi costruisce vettori anche per parole mai viste (`pinocchiesque`) ed è utile per lingue morfologicamente ricche; (4) tutti statici: un vettore per tipo; (5) word2vec e PPMI sono legati: SGNS fattorizza implicitamente una matrice PMI spostata (Levy e Goldberg).
+
+</details>
+
+<details><summary>Come funziona il metodo del parallelogramma e quali cautele richiede?</summary>
+
+Traccia: (1) $a : b :: c : ?$, si cerca la parola più vicina a $\mathbf b-\mathbf a+\mathbf c$; funziona se la relazione è una direzione ($\mathbf{king}-\mathbf{man}\approx\mathbf{queen}-\mathbf{woman}$); (2) distanza euclidea o coseno: per vettori unitari danno la stessa classifica ($\|\mathbf t-\mathbf x\|^2 = \|\mathbf t\|^2+1-2\mathbf t\cdot\mathbf x$); (3) le parole di input vanno escluse: $\mathbf t$ dista da $\mathbf c$ solo $\|\mathbf b-\mathbf a\|$, e nel lab senza esclusione vincono *king, bad, child, swim*; (4) funziona bene per alcune relazioni (capitali, flessione) e male per altre; i risultati dipendono da modello e corpus (*good : best :: bad* → *worst, movie*); (5) la valutazione a corrispondenza esatta può punire risposte plausibili (*larger*).
+
+</details>
+
+<details><summary>Perché un embedding statico non basta per bank? Che cosa contiene il suo vettore?</summary>
+
+Traccia: (1) un vettore per tipo, lo stesso in tutte le frasi; (2) il vettore è una miscela dei sensi pesata per frequenza: in GloVe i 10 vicini di *bank* sono tutti finanziari; (3) il senso minoritario è nascosto ma presente ($\cos(\textit{bank},\textit{shore}) = 0{,}51$, e $\mathbf{bank}-\mathbf{money}+\mathbf{river}$ porta a *danube, estuary*); (4) il senso dominante dipende dal corpus (*fox*: personaggio in Pinocchio, rete TV in GloVe); (5) soluzione: embedding contestuali, in cui la rappresentazione del token è ricalcolata dall'attention in base alla frase; (6) anche i dataset di valutazione senza contesto (WordSim, SimLex) hanno lo stesso limite.
+
+</details>
+
+<details><summary>Come si valutano intrinsecamente gli embedding? Commenta i risultati di GloVe su WordSim-353 e SimLex-999.</summary>
+
+Traccia: (1) valutazione intrinseca: correlazione fra i coseni e i giudizi umani su coppie di parole, con la $\rho$ di Spearman (Pearson sui ranghi, pari con rango medio): conta l'ordine, non la scala; (2) WordSim-353 di fatto misura la relatedness, SimLex-999 la similarità; (3) GloVe: 0,533 contro 0,298; (4) il coseno distribuzionale premia la relatedness: antonimi come *accept-reject* (0,82) o *short-long* hanno contesti uguali; sinonimi di registro diverso (*creator-maker* 0,24) no; (5) $\rho$ calcolate su coppie diverse non si confrontano (Pinocchio: 25 coppie); (6) altre valutazioni: TOEFL, analogie, ed estrinseca su compiti a valle.
+
+</details>
+
+<details><summary>Perché la media degli embedding perde contro la TF-IDF nella classificazione del sentiment?</summary>
+
+Traccia: (1) numeri: media GloVe 0,7325, TF-IDF 1-2 grammi 0,8725 (bag of words del lab L9: 0,868); (2) il sentiment dipende da indizi lessicali specifici, che la TF-IDF tiene come feature separate e pesate per informatività; (3) la media di circa 800 parole diluisce le poche parole polari e cancella ordine e negazione (*good* e *not good* hanno coseno 0,991); (4) i bigrammi recuperano una parte della composizione; (5) gli embedding statici non sono addestrati sul compito (*good* e *bad* sono vicini); (6) non è la densità il problema: una SVD a 100 dimensioni della TF-IDF arriva a 0,855; (7) metà del divario è regolarizzazione: con le feature standardizzate la media arriva a 0,7725.
+
+</details>
+
+<details><summary>Nell'esercizio 3 la standardizzazione da sola migliora la media degli embedding di 4 punti. Perché?</summary>
+
+Traccia: (1) la media di centinaia di vettori varia poco da una recensione all'altra: deviazione standard media 0,038 per feature; (2) per usare differenze così piccole servono pesi grandi; (3) la regressione logistica di scikit-learn ha una penalità L2 di default ($C = 1$) che schiaccia i pesi grandi: modello troppo regolarizzato; (4) standardizzare (z-score sul training) porta ogni feature a varianza 1, e la stessa penalità diventa ragionevole: 0,7325 → 0,7725; in alternativa alzare $C$ ($C = 100$: 0,770); (5) l'effetto è significativo ma di poco (paired bootstrap, $p\approx0{,}028$; 40 contro 24 recensioni discordi); (6) stopword e IDF non aiutano.
+
+</details>
+
+<details><summary>Come si misura e come si prova a rimuovere il bias di genere negli embedding? Funziona?</summary>
+
+Traccia: (1) misura: differenza di coseni con *woman* e *man* (nel lab *nurse* +0,158, *manager* −0,214), o proiezione su una direzione di genere; analogia di Bolukbasi *man : programmer :: woman : homemaker*; (2) direzione: media delle differenze normalizzate su coppie definitorie (*she/he*, ...), coseno 0,89 con $\mathbf{she}-\mathbf{he}$; (3) neutralize: $\mathbf v-(\mathbf v\cdot\mathbf d)\mathbf d$, componente nulla; (4) Gonen e Goldberg: dopo il neutralize un 10-NN ritrova l'orientamento nel 93,1% dei casi: il bias è distribuito nella geometria e nei vicinati; (5) conseguenze: danno allocativo e rappresentazionale, il debiasing riduce ma non elimina, va valutato il comportamento del sistema finale.
+
+</details>
+
+<details><summary>Che cosa mostra (e che cosa non mostra) una proiezione PCA di embedding? Differenza con t-SNE.</summary>
+
+Traccia: (1) PCA: proiezione lineare sulle direzioni di massima varianza, deterministica e veloce; (2) nel lab 16 parole formano quattro gruppi (cibo, animali, reali, città), PC1 separa il cibo; (3) è un'ombra: punti vicini nel piano possono non esserlo in 100 dimensioni (*king* e *queen* sovrapposti ma coseno 0,75), e viceversa; (4) t-SNE: non lineare, preserva meglio i vicinati locali, ma distanze fra gruppi e dimensioni dei gruppi non hanno significato, e la figura cambia con il seme; (5) le conclusioni vanno verificate sui coseni veri.
+
+</details>
+
+<details><summary>Perché due addestramenti di word2vec sullo stesso corpus danno vicini diversi? Che cosa implica?</summary>
+
+Traccia: (1) fonti di casualità: inizializzazione, estrazione dei negativi, subsampling, e in gensim l'ordine degli aggiornamenti fra thread (`workers=3`), che il seme non controlla; (2) nel lab i vicini di *pinocchio* cambiano fra esecuzioni, la $\rho$ di Pinocchio su WordSim va da 0,045 a 0,108; (3) su corpora piccoli la variabilità è grande; (4) per riprodurre: `workers=1` e seme fisso (il word2vec fatto a mano del lab è deterministico); (5) per studiare associazioni in un corpus: addestrare più modelli (bootstrap sui documenti) e mediare (J&M §5.9).
+
+</details>
+
+### L13 · Reti neurali
+
+<details><summary>Che cosa calcola un'unità neurale, e che rapporto c'è con la regressione logistica?</summary>
+
+Traccia: (1) somma pesata più bias $z = \mathbf w\cdot\mathbf x + b$, poi attivazione non lineare $a = f(z)$ applicata elemento per elemento; (2) $\mathbf x$ dati, $\mathbf w, b$ parametri, $z$ pre-attivazione; (3) con la sigmoide l'unità è esattamente una regressione logistica binaria, l'output in $(0,1)$ si legge come probabilità; la multinomiale è uno strato di $K$ unità con softmax: una rete a uno strato, zero strati nascosti; (4) lettura dei parametri: pesi positivi/negativi/nulli, bias come default (tutti i pesi a zero: costante $f(b)$); (5) esempio del libro: $z = 0{,}87$, $\sigma = 0{,}70$; il segno di $z$ basta a dire sopra o sotto 0,5.
+
+</details>
+
+<details><summary>Confronta sigmoide, tanh, ReLU e GELU. Perché ReLU è il default per gli strati nascosti?</summary>
+
+Traccia: (1) codomini: $(0,1)$, $(-1,1)$, $[0,\infty)$, GELU liscia simile a ReLU con minimo circa −0,17; (2) ruoli: sigmoide e softmax all'output (scelta dal compito), ReLU/GELU/tanh nascoste (scelta da ciò che si addestra bene); (3) saturazione: sigmoide e tanh hanno derivata quasi nulla per $|z|$ grande; $\sigma'\le1/4$, quindi in catena il gradiente svanisce: $(1/4)^{10}\approx10^{-6}$ (vanishing gradient); (4) ReLU: economica, derivata 1 per $z>0$, non satura; limite: derivata 0 per $z<0$ (unità morte); (5) GELU nei transformer, tanh nelle RNN.
+
+</details>
+
+<details><summary>Perché un'unità sola non può calcolare XOR, e come lo risolve uno strato nascosto?</summary>
+
+Traccia: (1) la frontiera di un'unità è $w_1x_1 + w_2x_2 + b = 0$, una retta (iperplano): classificatore lineare (perceptron con gradino, regressione logistica con sigmoide); (2) XOR ha i positivi su una diagonale e i negativi sull'altra: dimostrazione con le quattro disuguaglianze (sommando a coppie: $w_1+w_2+2b$ sia $>0$ sia $\le0$); (3) Minsky e Papert 1969; (4) la rete di Goodfellow: $W$ tutta di 1, $\mathbf b = [0,-1]$, $\mathbf u = [1,-2]$, ReLU; tabella: $\mathbf h$ = [0,0], [1,0], [1,0], [2,1], $y$ = 0, 1, 1, 0; (5) lo strato nascosto fonde [0,1] e [1,0] in $\mathbf h = [1,0]$ e nello spazio $\mathbf h$ il problema è lineare: representation learning.
+
+</details>
+
+<details><summary>Perché le attivazioni non lineari sono indispensabili in una rete profonda?</summary>
+
+Traccia: (1) due strati lineari: $W^{[2]}(W^{[1]}\mathbf x + \mathbf b^{[1]}) + \mathbf b^{[2]} = W'\mathbf x + \mathbf b'$ con $W' = W^{[2]}W^{[1]}$; (2) vale per qualunque numero di strati: una rete lineare di 10 strati ha lo stesso potere di uno strato, con più parametri (e può essere anche meno espressiva se ha un collo di bottiglia: rango); (3) esempio: senza ReLU la rete XOR calcola $2 - x_1 - x_2$; (4) la non linearità permette di piegare lo spazio e fondere punti; è anche ciò che rende la loss non convessa, prezzo da pagare; (5) senza non linearità nessuna approssimazione universale.
+
+</details>
+
+<details><summary>Enuncia il teorema di approssimazione universale. Che cosa garantisce e che cosa no?</summary>
+
+Traccia: (1) Hornik et al. 1989: per ogni $f$ continua su un compatto $K\subset\mathbb R^d$ e ogni $\varepsilon>0$ esiste una rete con un solo strato nascosto di $N$ unità con $\sup_K|f - \sum_j u_j\sigma(\mathbf w_j\cdot\mathbf x + b_j)|<\varepsilon$; (2) intuizione con ReLU: somme di gomiti, spezzate che inseguono la curva (4, 10, 40 unità: errore 0,37, 0,16, 0,01); (3) garantisce solo l'esistenza; (4) non dice: quante unità ($N$ può crescere esponenzialmente con $d$: $10^d$ celle con passo 0,2), come trovare i pesi, se si generalizza da dati finiti; l'architettura è un prior; (5) perché la profondità: feature composte, alcune funzioni richiedono esponenzialmente meno unità con più strati.
+
+</details>
+
+<details><summary>Descrivi la forward pass di una rete feedforward a due strati, con le forme di tutti i tensori, anche per un batch.</summary>
+
+Traccia: (1) $\mathbf h = g(W\mathbf x + \mathbf b)$, $\mathbf z = U\mathbf h$, $\mathbf y = \mathrm{softmax}(\mathbf z)$; rete "a 2 strati" perché l'input non si conta; (2) forme: $\mathbf x$: $d$; $W$: $d_h\times d$ (riga $j$ = pesi dell'unità $j$); $\mathbf b, \mathbf h$: $d_h$; $U$: $K\times d_h$; $\mathbf z, \mathbf y$: $K$; (3) batch: righe come esempi, $H = g(XW^\top + \mathbf b)$, $Z = HU^\top$, $X$: $m\times d$, $Z$: $m\times K$; i parametri non cambiano; è `nn.Linear`; il libro in Eq. 6.22 usa $\mathbf xW$ con $W$ trasposta; (4) esempio: 64 recensioni, $d = 300$, $d_h = 128$, $K = 3$: $Z$ è 64×3, 38.915 parametri; (5) notazione $\mathbf z^{[\ell]}, \mathbf a^{[\ell]}$ per reti profonde.
+
+</details>
+
+<details><summary>Che cosa sono i logit, e come si passa dai logit alla loss? Perché softmax e cross-entropy vanno in coppia?</summary>
+
+Traccia: (1) logit = punteggi non normalizzati dell'ultimo strato, qualunque reale; (2) softmax $p_i = e^{z_i}/\sum_j e^{z_j}$: positivi e somma 1; conserva l'ordine, amplifica le differenze (scarto 2 → rapporto 7,4); (3) invarianza $\mathrm{softmax}(\mathbf z) = \mathrm{softmax}(\mathbf z - c)$, usata con $c = \max\mathbf z$ per la stabilità; (4) cross-entropy con target one-hot $= -\log p_c$ (negative log likelihood): 2,30 / 0,69 / 0,11 per $p_c$ = 0,1 / 0,5 / 0,9; uniforme su 3 classi: $\ln3$; (5) il gradiente rispetto ai logit è $\mathbf p - \mathbf y$: semplice, stabile, e i framework prendono i logit e calcolano log-softmax + NLL insieme.
+
+</details>
+
+<details><summary>Come entra il testo in una rete neurale? Spiega la matrice di embedding e il pooling.</summary>
+
+Traccia: (1) tokenizzazione → id; $E$ è $|V|\times d$, one-hot $\times E$ seleziona una riga, in pratica un lookup; $E$ condivisa fra le posizioni; preaddestrata (word2vec, GloVe), da zero o fine-tuned; (2) vantaggio: parole simili hanno vettori vicini, ciò che si impara su una si trasferisce (cat/dog), relazione emergente; (3) i testi hanno lunghezze diverse: mean pooling $\frac1n\sum\mathbf e(w_i)$ o max pooling per dimensione; vettore di dimensione fissa; (4) limiti: invariante all'ordine (dog bites man), negazione (esercizio 8); baseline forte perché il sentiment dipende soprattutto da quali parole compaiono; (5) padding al più lungo del batch e maschera, altrimenti la media è corrotta.
+
+</details>
+
+<details><summary>Descrivi il language model neurale feedforward di Bengio. In che cosa è migliore di un n-gram, e quale limite ha?</summary>
+
+Traccia: (1) ipotesi di Markov come un 4-gram: $P(w_t\mid w_{t-3},w_{t-2},w_{t-1})$; (2) $\mathbf e = [E\mathbf x_{t-3}; E\mathbf x_{t-2}; E\mathbf x_{t-1}]$ (concatenazione, perché l'ordine conta), $\mathbf h = g(W\mathbf e + \mathbf b)$, $\mathbf z = U\mathbf h$ con $|V|$ logit, softmax; addestramento con cross-entropy sulla parola successiva (self-supervised); (3) parametri: lo strato di output $d_h\times|V|$ domina parametri e calcolo; (4) vantaggio: condivisione fra parole simili (cat gets fed / dog gets \_\_\_); gli n-gram mai visti li gestiva già lo smoothing; (5) limite: finestra fissa; violin… began to \_\_\_; allargarla fa crescere $W$ linearmente e non dice quale parola conta → RNN, attention, transformer.
+
+</details>
+
+<details><summary>Che cos'è un grafo computazionale e come funziona la backward differentiation? Fai l'esempio del libro.</summary>
+
+Traccia: (1) scomporre una funzione in operazioni elementari, un nodo per operazione; $L = c(a+2b)$: $d = 2b$, $e = a+d$, $L = ce$; (2) forward: con $a = 3$, $b = 1$, $c = -2$: $d = 2$, $e = 5$, $L = -10$, conservando i valori intermedi; (3) backward: ogni nodo riceve il gradiente upstream, lo moltiplica per la derivata locale e lo manda indietro (regola della catena locale); (4) numeri: $\partial L/\partial e = c = -2$, $\partial L/\partial c = e = 5$, $\partial L/\partial d = -2$, $\partial L/\partial a = -2$, $\partial L/\partial b = -4$; controllo con differenza finita; (5) i gradienti di rami diversi che convergono in un nodo si sommano; è ciò che fa `loss.backward()`.
+
+</details>
+
+<details><summary>Deriva il gradiente della binary cross-entropy rispetto alla pre-attivazione di un'unità sigmoide, e spiega come si prosegue verso gli strati nascosti.</summary>
+
+Traccia: (1) $L = -[y\log a + (1-y)\log(1-a)]$, $a = \sigma(z)$; (2) $\partial L/\partial a = -(y/a - (1-y)/(1-a))$, $\partial a/\partial z = a(1-a)$; il prodotto dà $a - y$; (3) $\partial L/\partial w_j = (a-y)x_j$: errore per input; stessa forma $\mathbf p - \mathbf y$ per la softmax; (4) verso lo strato nascosto: $\partial L/\partial\mathbf a^{[1]} = \delta^{[2]}\mathbf w^{[2]}$, poi per la ReLU si moltiplica per 1 o 0, $\partial L/\partial W^{[1]} = \boldsymbol\delta^{[1]}\mathbf x^\top$; (5) esempio dell'esercizio 10: $L$ da 1,313 a 0,239 dopo un passo; unità con $z<0$ non ricevono gradiente.
+
+</details>
+
+<details><summary>Confronta SGD, momentum e Adam. Che cosa sono AdamW e uno schedule con warm-up e coseno?</summary>
+
+Traccia: (1) SGD $\theta\leftarrow\theta - \eta\mathbf g$ con $\mathbf g$ dal mini-batch, un passo uguale per tutti; $\eta$ troppo grande diverge, troppo piccolo striscia; (2) momentum $\mathbf v\leftarrow\beta\mathbf v + \mathbf g$: media dei gradienti, gli zig-zag si cancellano (gradiente alternato) e le direzioni costanti accelerano fino a $1/(1-\beta)$; (3) Adam: momenti $\mathbf m, \mathbf s$ con correzione del bias, passo $\eta\hat{\mathbf m}/(\sqrt{\hat{\mathbf s}}+\epsilon)$ scalato per parametro (primo passo $\eta\,\mathrm{sign}(g)$); (4) AdamW: weight decay $(1-\eta\lambda)$ applicato a parte, non dentro Adam; $\beta_1 = 0{,}9$, $\beta_2\approx0{,}999$; (5) schedule: warm-up lineare (statistiche di Adam inaffidabili all'inizio) poi coseno $\frac{\eta_{\max}}2(1+\cos\frac{\pi t}T)$; scelto sul dev set.
+
+</details>
+
+<details><summary>Come si combatte l'overfitting in una rete neurale? Spiega weight decay e dropout.</summary>
+
+Traccia: (1) diagnosi: training loss sempre in discesa, validation loss che risale; early stopping al minimo della validation; train/dev/test, mai scegliere sul test; (2) L2: $L + \frac\lambda2\|\theta\|^2$, gradiente $+\lambda\theta$, aggiornamento $(1-\eta\lambda)\theta - \eta\nabla L$: weight decay; pesi piccoli, funzione più liscia; esempio $0{,}999^{1000}\approx0{,}37$; (3) dropout: maschera Bernoulli nuova a ogni mini-batch, unità spente con probabilità $p$, divisione per $1-p$ (invertito) per conservare il valore atteso; al test nessun dropout; $p\approx0{,}1$ nei transformer, fino a 0,5 negli MLP; (4) altro: inizializzazione piccola, normalizzazione dell'input, meno parametri (embedding congelati).
+
+</details>
+
+<details><summary>Perché l'inizializzazione conta, e a che cosa servono LayerNorm e le connessioni residue?</summary>
+
+Traccia: (1) pesi tutti uguali (o a zero): simmetria, ogni unità nascosta calcola la stessa funzione e riceve lo stesso gradiente per sempre (esercizio 12c); serve un'inizializzazione casuale; (2) scalata sul fan-in: Xavier $1/n_{\text{in}}$, He $2/n_{\text{in}}$ per ReLU, per tenere stabile la varianza delle attivazioni; per $n_{\text{in}} = 300$: 0,058 e 0,082; (3) LayerNorm: media e varianza sulle feature di un esempio, $\gamma$ e $\beta$ appresi; BatchNorm sul batch, scomoda per testi; (4) residual: $\mathbf h^{[\ell+1]} = \mathbf h^{[\ell]} + F(\mathbf h^{[\ell]})$, jacobiana $I + \partial F/\partial\mathbf h$: percorso diretto per il gradiente contro il vanishing gradient; reti con più di 100 strati; il blocco impara una correzione; (5) tutti presenti in ogni blocco transformer.
+
+</details>
+
+<details><summary>Che cosa della lezione di oggi si ritrova in un LLM moderno, e che cosa aggiunge il transformer?</summary>
+
+Traccia: (1) restano: embedding, strati lineari con bias, attivazioni non lineari (GELU), blocchi MLP, logit, softmax, cross-entropy, backpropagation, ottimizzazione a gradiente, rappresentazioni apprese, residual, LayerNorm, AdamW; (2) l'obiettivo è lo stesso del LM feedforward: cross-entropy sul token successivo, softmax su tutto il vocabolario; (3) il transformer aggiunge l'attention: quali posizioni precedenti contano, calcolato e non fissato, che risolve il limite della finestra fissa; (4) e la scala: dati, parametri, calcolo; (5) slogan: un transformer non è un oggetto di tipo diverso, sono questi pezzi disposti meglio e scalati.
+
+</details>
+
+<details><summary>Che cosa significa che gli strati nascosti imparano rappresentazioni? Collega XOR, embedding e feature costruite a mano.</summary>
+
+Traccia: (1) lo strato nascosto trasforma lo spazio dell'input in uno in cui il compito è facile (lineare per l'ultimo strato); XOR: [0,1] e [1,0] fusi in [1,0]; (2) le ultime due righe di una rete sono una regressione logistica multinomiale sulle feature $\mathbf h$ che la rete costruisce; (3) approccio tradizionale: feature a mano (lessico positivo, conteggio di "no"), interpretabili ma limitate dall'immaginazione; una rete su queste aggiunge solo interazioni; (4) approccio neurale: input = embedding, gli strati costruiscono qualunque feature riduca la loss; servono più dati; (5) gli embedding stessi sono rappresentazioni apprese: cat e dog vicini, e il fine-tuning sul sentiment li rende specifici del compito (good e bad si allontanano).
+
+</details>
+
+### L14 · Transformer: l'attenzione
+
+<details><summary>Che cos'è un embedding contestuale e perché serve?</summary>
+
+Traccia: (1) word2vec dà un vettore per parola, uguale in ogni frase; un transformer dà un vettore per token nel suo contesto; (2) esempi: *it* che è il pollo o la strada a seconda di *tired*/*wide*; accordo *keys ... are* con *cabinet* in mezzo; *bank* come riva per via di *pond*; (3) le parole utili possono essere lontane, oltre la finestra di n-gram e LM feedforward; (4) costruzione strato per strato: a ogni strato la rappresentazione di $i$ combina sé stessa e i vicini, tramite l'attenzione; (5) in un modello causale a ogni punto il vettore riflette solo il contesto a sinistra (it con aspetti di chicken e road).
+
+</details>
+
+<details><summary>Descrivi l'attenzione semplificata e il suo limite.</summary>
+
+Traccia: (1) $a_i = \sum_{j\le i}\alpha_{ij}x_j$, somma pesata degli input fino a $i$; (2) score = prodotto scalare $x_i\cdot x_j$ come similarità; (3) $\alpha_{ij}$ = softmax degli score sulla riga, pesi in $[0,1]$ che sommano a 1; (4) esempio chicken/road/it: pesi 0,24, 0,09, 0,67, $a_3 = [0{,}91;\ 0{,}76;\ 0{,}91]$; (5) limiti: nessun parametro da imparare, un solo tipo di similarità, lo stesso vettore fa da elemento confrontato e da contenuto restituito, e il token tende a guardare se stesso (spesso, non sempre). Da qui query, key, value.
+
+</details>
+
+<details><summary>Che cosa sono query, key e value?</summary>
+
+Traccia: (1) tre ruoli di ogni input: query = elemento corrente che si confronta con i precedenti; key = elemento precedente confrontato con la query per avere un peso; value = elemento precedente che viene pesato e sommato; (2) tre proiezioni imparate $q_i = x_iW^Q$, $k_j = x_jW^K$, $v_j = x_jW^V$, stesse matrici a ogni posizione; (3) analogia con una ricerca: la query contro tutte le chiavi, si restituiscono i valori pesati; (4) vantaggio: separare "che cosa cerco", "come mi presento" e "che cosa offro"; il confronto non è più simmetrico e non premia per forza se stessi (esempio: con le proiezioni *it* guarda chicken, 0,62).
+
+</details>
+
+<details><summary>Scrivi le equazioni di una testa di attenzione con le forme di ogni oggetto.</summary>
+
+Traccia: (1) $q_i = x_iW^Q$, $k_j = x_jW^K$, $v_j = x_jW^V$; (2) $\mathrm{score}(x_i,x_j) = q_i\cdot k_j/\sqrt{d_k}$; (3) $\alpha_{ij} = \mathrm{softmax}_j(\mathrm{score})$ per $j\le i$; (4) $\mathrm{head}_i = \sum_{j\le i}\alpha_{ij}v_j$; (5) $a_i = \mathrm{head}_iW^O$. Forme: $x_i$, $a_i$: $[1\times d]$; $W^Q, W^K$: $[d\times d_k]$; $W^V$: $[d\times d_v]$; $q, k$: $[1\times d_k]$; $\mathrm{head}_i$: $[1\times d_v]$; $W^O$: $[d_v\times d]$. Originale: $d = 512$, $d_k = d_v = 64$. Input e output della stessa forma: modularità.
+
+</details>
+
+<details><summary>Perché si divide il prodotto scalare per la radice di d_k?</summary>
+
+Traccia: (1) $q\cdot k$ è una somma di $d_k$ termini; con componenti indipendenti a media 0 e varianza 1 ha media 0 e varianza $d_k$, deviazione standard $\sqrt{d_k}$ (8 per $d_k = 64$); (2) punteggi grandi rendono la softmax quasi one-hot (softmax di $[8,0]$ = $[0{,}9997;\ 0{,}0003]$); (3) lì la softmax è satura, le derivate sono quasi nulle: gradienti minuscoli verso $W^Q$ e $W^K$, training instabile o lento; (4) dividendo per $\sqrt{d_k}$ la deviazione standard torna circa 1 per ogni $d_k$ (verificato nel notebook); (5) nome: scaled dot-product attention.
+
+</details>
+
+<details><summary>Calcola a mano l'output di una testa sull'esempio chicken, road, it.</summary>
+
+Traccia: (1) $q_3 = x_3W^Q = [2,-1]$; key $[1,0], [0,1], [1,1]$; value $[1,1], [0,1], [1,2]$ (regola: ogni componente di $x$ moltiplica una riga di $W$); (2) punteggi $2, -1, 1$, divisi per $\sqrt2$: $1{,}41;\ -0{,}71;\ 0{,}71$; (3) esponenziali $4{,}11;\ 0{,}49;\ 2{,}03$, somma 6,63: pesi $0{,}62;\ 0{,}07;\ 0{,}31$; (4) $\mathrm{head}_3 = [0{,}93;\ 1{,}31]$, $a_3 = \mathrm{head}_3W^O = [0{,}93;\ 1{,}31;\ 1{,}31]$; (5) lettura: il 62% viene dal value di chicken; casi estremi $[1,2,2]$ e $[1,1,1]$.
+
+</details>
+
+<details><summary>Che cos'è la multi-head attention e quanti parametri ha?</summary>
+
+Traccia: (1) $A$ teste in parallelo alla stessa profondità, ognuna con le sue $W^{Qc}, W^{Kc}, W^{Vc}$; (2) motivazione: ogni testa una distribuzione di pesi diversa, relazioni linguistiche o pattern diversi; (3) output $[1\times d_v]$ per testa, concatenati in $[1\times Ad_v]$, proiettati da $W^O$ $[Ad_v\times d]$ a $[1\times d]$; (4) di solito $d_v = d/A$: $W^O$ quadrata e totale $4d^2$ pesi, uguale a una testa piena; (5) originale $d = 512$, $A = 8$: $4\cdot512^2 = 1.048.576$; (6) $W^O$ mescola le teste.
+
+</details>
+
+<details><summary>Descrivi il transformer block e le sue equazioni.</summary>
+
+Traccia: (1) quattro componenti: multi-head attention, feedforward, connessioni residue, layer norm; (2) equazioni: $t^1 = \mathrm{LN}(x_i)$, $t^2 = \mathrm{MHA}(t_i^1, [t_1^1..t_{i-1}^1])$, $t^3 = t^2+x_i$, $t^4 = \mathrm{LN}(t^3)$, $t^5 = \mathrm{FFN}(t^4)$, $h_i = t^5+t^3$; (3) quindi $h_i = x_i + t^2 + t^5$; (4) prenorm: normalizzazione prima di attenzione e FFN (l'originale era postnorm); (5) input e output $[1\times d]$: i blocchi si impilano; versione matriciale $O = X + \mathrm{MHA}(\mathrm{LN}(X))$, $H = O + \mathrm{FFN}(\mathrm{LN}(O))$.
+
+</details>
+
+<details><summary>Che cos'è la residual stream e perché è un modo utile di pensare al transformer?</summary>
+
+Traccia: (1) una corrente di vettori $d$-dimensionali per ogni posizione, che parte da $x_i$; (2) ogni componente legge dalla corrente e aggiunge il suo output, invece di sostituirla; (3) l'attenzione è l'unico componente che legge da altre correnti: può spostare informazione dalla corrente del token A a quella del token B (Elhage et al.); (4) nei blocchi bassi la corrente rappresenta il token corrente, in quelli alti di solito il token successivo; (5) vantaggi: l'informazione originale si conserva, il gradiente ha un percorso diretto (connessioni residue, L13); ultima layer norm prima della testa.
+
+</details>
+
+<details><summary>Lo strato feedforward del transformer: struttura, parametri, varianti.</summary>
+
+Traccia: (1) rete a uno strato nascosto, due matrici, $\mathrm{FFN}(x) = \mathrm{ReLU}(xW_1+b_1)W_2+b_2$; (2) position-wise: stessi pesi a ogni posizione, non mescola le posizioni; pesi diversi fra strati; (3) $d_{ff} = 4d$ (512 → 2048): $2d\,d_{ff} = 8d^2$ pesi, il doppio dell'attenzione, due terzi del blocco; (4) sembra contenere gran parte della conoscenza fattuale (Geva 2021, Meng 2022); (5) oggi SwiGLU: $(\mathrm{Swish}_\beta(xW_1+b_1)\otimes(xW_2+b_2))W_3+b_3$, un valore e un gate, $\mathrm{Swish}_\beta(x) = x\sigma(\beta x)$; con tre matrici $d_{ff}$ un po' meno di $4d$.
+
+</details>
+
+<details><summary>Layer norm: definizione, esempio, differenza con RMSNorm.</summary>
+
+Traccia: (1) z-score sul vettore di un token: $\mu$ e $\sigma$ sulle $d$ componenti (con $\frac1d$); (2) $\mathrm{LN}(x) = \gamma\frac{x-\mu}{\sigma}+\beta$, $\gamma$ gain e $\beta$ offset imparabili; (3) esempio $[2,4,6,8]$: $\mu = 5$, $\sigma = \sqrt5$, $[-1{,}34;\ -0{,}45;\ 0{,}45;\ 1{,}34]$; (4) non su tutto uno strato o un batch, ma su un vettore: $d$ in, $d$ out; invariante a scala e spostamento; (5) RMSNorm divide per $\sqrt{\frac1d\sum x_j^2}$ senza sottrarre la media, più semplice e usata nei modelli moderni; (6) serve a tenere i valori in un intervallo stabile nella rete profonda.
+
+</details>
+
+<details><summary>Come si calcola l'attenzione per tutti i token insieme? Scrivi la formula e le forme.</summary>
+
+Traccia: (1) $X$ $[N\times d]$, una riga per token; $Q = XW^Q$, $K = XW^K$ $[N\times d_k]$, $V = XW^V$ $[N\times d_v]$; (2) $QK^\top$ $[N\times N]$: elemento $(i,j) = q_i\cdot k_j$, tutti i punteggi con una moltiplicazione; (3) divisione per $\sqrt{d_k}$, maschera, softmax per riga; (4) $\mathrm{head} = \mathrm{softmax}(\mathrm{mask}(QK^\top/\sqrt{d_k}))V$ $[N\times d_v]$, $A = \mathrm{head}\,W^O$ $[N\times d]$; (5) multi-head: $(\mathrm{head}_1\oplus\dots\oplus\mathrm{head}_A)W^O$; (6) è lo stesso calcolo del token singolo per tutte le righe insieme (il notebook lo verifica), eseguito in parallelo su GPU.
+
+</details>
+
+<details><summary>A che cosa serve la maschera causale e come è fatta?</summary>
+
+Traccia: (1) $QK^\top$ contiene anche i confronti con i token successivi ($j > i$); in un LM causale sarebbe barare: il target di ogni posizione è il token dopo, che sarebbe visibile; (2) $M$: $-\infty$ sopra la diagonale, 0 altrove; si somma ai punteggi prima della softmax; (3) $e^{-\infty} = 0$: pesi nulli sul futuro, e la riga somma ancora a 1 sulle posizioni $j\le i$; (4) esempio: riga 1 $(1,0,0)$, il primo token guarda solo sé stesso; riga 2 $(0{,}67;\ 0{,}33;\ 0)$; (5) senza maschera si ottiene un encoder bidirezionale; il test del notebook (cambiare l'ultimo token non cambia gli altri output) fallirebbe.
+
+</details>
+
+<details><summary>Perché l'attenzione ha costo quadratico, e che cosa implica?</summary>
+
+Traccia: (1) $QK^\top$ ha $N\times N$ elementi: un punteggio per ogni coppia di token, per ogni testa di ogni strato; (2) esempi: $N = 1000$ → $10^6$; $N = 100.000$ → $10^{10}$; raddoppiare $N$ quadruplica; (3) la maschera ne lascia $N(N+1)/2$, ma l'ordine resta $N^2$; (4) il numero di parametri non dipende da $N$; raddoppiare $d$ non cambia il numero di punteggi ma il costo di ciascuno; (5) conseguenza: contesti molto lunghi (romanzi interi) sono costosi; esempio dell'esercizio 12: 2048 token, 12 strati, 12 teste → circa 600 milioni di punteggi per sequenza.
+
+</details>
+
+<details><summary>Dove stanno i parametri di un transformer? Stima quelli di GPT-3.</summary>
+
+Traccia: (1) attenzione: $4d^2$ per strato (con $d_v = d/A$); (2) feedforward: $2d\,d_{ff} = 8d^2$ con $d_{ff} = 4d$; (3) layer norm: $2d$ ciascuna, trascurabili; bias trascurabili; (4) quindi circa $12d^2$ per blocco, due terzi nella feedforward; originale: 1,05 e 2,10 milioni; (5) GPT-3: $96\cdot12\cdot12288^2\approx1{,}74\cdot10^{11}$, quasi tutti i 175 miliardi; il resto è soprattutto l'embedding; (6) i parametri crescono con $d^2$ e con il numero di strati, non con la lunghezza del contesto.
+
+</details>
+
+### L15 · Transformer: embedding, LM head e decoding
+
+<details><summary>Come diventa un vettore un token in ingresso a un transformer?</summary>
+
+Traccia: (1) il testo è tokenizzato (BPE) in id interi, posizioni nel vocabolario; (2) la matrice di embedding $E$ $[|V|\times d]$ ha una riga appresa per token; (3) l'embedding è la riga $E[\mathrm{id}]$, che equivale al prodotto del one-hot $[1\times|V|]$ per $E$ (primo strato lineare senza bias); (4) per la sequenza: matrice one-hot $[N\times|V|]$ per $E$ = $[N\times d]$; (5) si somma l'embedding di posizione; (6) numero di pesi $|V|d$, per esempio 25,6 milioni con $|V| = 50.000$, $d = 512$; $V$ qui è il vocabolario, non i value.
+
+</details>
+
+<details><summary>Perché un transformer ha bisogno di informazione sulla posizione?</summary>
+
+Traccia: (1) gli embedding dei token non dipendono dalla posizione: *dog* ha lo stesso vettore in posizione 1 e 3; (2) l'attenzione è una somma pesata con pesi da prodotti scalari: permutando gli input si permutano solo gli addendi; (3) quindi nel primo strato l'output del punto in *dog bites man .* e *man bites dog .* è identico (esercizio 2: $[0{,}677;\ 0{,}677]$); (4) feedforward e layer norm lavorano per posizione e non aiutano; (5) soluzione: sommare un vettore che dipende dalla posizione, così lo stesso token ha input diversi in posizioni diverse.
+
+</details>
+
+<details><summary>Descrivi gli embedding di posizione appresi e i loro limiti.</summary>
+
+Traccia: (1) una matrice $E_{pos}$ $[N\times d]$ con una riga per posizione fino alla lunghezza massima, appresa come $E$; (2) $X_i = E[\mathrm{id}(i)] + E_{pos}[i]$, somma della stessa dimensione; (3) limiti: le posizioni finali compaiono di rado nei dati e sono addestrate male; (4) oltre la lunghezza massima non esistono, il testo va troncato o spezzato; (5) alternativa: una funzione fissa della posizione (sinusoidale) o codifiche relative (RoPE).
+
+</details>
+
+<details><summary>Scrivi gli embedding sinusoidali e spiega le loro proprietà.</summary>
+
+Traccia: (1) $PE(p,2i) = \sin(p/10000^{2i/d})$, $PE(p,2i+1) = \cos(p/10000^{2i/d})$; (2) coppie seno/coseno con frequenze $\omega_i$ da 1 (un radiante per posizione) a circa $1/10000$; (3) coppie veloci distinguono posizioni vicine, lente posizioni lontane (orologio); (4) nessun parametro, definite per ogni posizione; (5) $PE(p)\cdot PE(q) = \sum_i\cos(\omega_i(p-q))$: dipende solo dalla distanza, vale $d/2$ per $p = q$; con $d = 64$: 32, 30,9 per distanza 1, 21,0 per distanza 13; (6) con poche frequenze la somma non è monotòna (esercizio 4).
+
+</details>
+
+<details><summary>Che cos'è RoPE e in che cosa differisce dalle posizioni sinusoidali?</summary>
+
+Traccia: (1) codifica di posizione relativa: conta la distanza fra due token, non la posizione assoluta; (2) ogni coppia di dimensioni di query e key viene ruotata di un angolo proporzionale alla posizione, $m\theta_i$ e $n\theta_i$; (3) il prodotto scalare di due vettori ruotati dipende dal contenuto e dall'angolo relativo, cioè solo da $m-n$; (4) esempio: posizioni (2,1) e (5,4) danno lo stesso punteggio; (5) differenze: applicata dentro l'attenzione, in ogni strato, solo a query e key, moltiplicativa invece che additiva all'input; (6) è il metodo più diffuso negli LLM recenti (Su et al.).
+
+</details>
+
+<details><summary>Descrivi la language modeling head con le forme degli oggetti.</summary>
+
+Traccia: (1) prende $h^L_N$, output dell'ultimo blocco all'ultimo token (dopo l'extra layer norm), $[1\times d]$; (2) unembedding: strato lineare $U$ $[d\times|V|]$ che dà i logit $u$ $[1\times|V|]$, un punteggio per token; (3) softmax: probabilità $y$ $[1\times|V|]$; (4) da $y$ si sceglie il token (decoding); (5) esempio: $h = [2,0,1]$, logit 2,0,1,2,1,3, *all* 0,49; (6) è lo stesso schema della regressione multinomiale con $|V|$ classi.
+
+</details>
+
+<details><summary>Che cos'è il weight tying e perché funziona?</summary>
+
+Traccia: (1) la testa usa $U = E^\top$, la trasposta della matrice di embedding: $u = hE^\top$; (2) $E$ manda one-hot in embedding, $E^\top$ riporta un embedding sul vocabolario (unembedding); (3) il logit di un token è il prodotto scalare fra $h$ e il suo embedding: si favoriscono i token il cui embedding è allineato con lo stato finale; (4) in training $E$ riceve gradiente da entrambe le estremità e impara entrambe le mappe; (5) risparmia $|V|d$ parametri, 38,4 milioni con $|V| = 50.000$, $d = 768$; (6) è comune ma non obbligatorio: la testa può avere una sua matrice.
+
+</details>
+
+<details><summary>Dove si applica la testa in inferenza e in training?</summary>
+
+Traccia: (1) in inferenza solo sull'ultimo token $N$ per predire il token $N+1$; le altre posizioni servono come key e value; (2) in training a ogni posizione: la posizione $i$ predice il token $i+1$, $N$ predizioni per finestra; (3) è possibile grazie alla maschera causale: nessuna posizione vede il proprio target; (4) nei blocchi alti la residual stream rappresenta il token successivo e la testa lo legge (logit lens: la stessa lettura sugli strati intermedi).
+
+</details>
+
+<details><summary>Disegna e descrivi un transformer decoder-only completo per un token.</summary>
+
+Traccia: (1) input $w_i$: embedding $E$ più embedding di posizione = $x^1_i$; (2) $L$ blocchi prenorm (layer norm, attenzione, somma; layer norm, feedforward, somma), $h^\ell_i = x^{\ell+1}_i$; (3) extra layer norm finale; (4) unembedding $E^\top$ e softmax: distribuzione $[1\times|V|]$; (5) si sceglie $w_{i+1}$, lo si aggiunge all'input e si ripete; (6) decoder-only perché corrisponde alla metà decoder dell'encoder-decoder originale, senza cross-attention.
+
+</details>
+
+<details><summary>Che differenza c'è fra il transformer originale e un modello decoder-only?</summary>
+
+Traccia: (1) Vaswani et al. 2017: encoder-decoder per la traduzione; (2) encoder: legge tutta la frase sorgente, attenzione senza maschera; (3) decoder: genera la traduzione da sinistra a destra con attenzione causale e cross-attention sull'encoder; (4) un LM causale (GPT) è la sola metà decoder senza cross-attention; (5) gli encoder-only (BERT) sono l'altra metà, per la comprensione e la classificazione.
+
+</details>
+
+<details><summary>Che cos'è il greedy decoding e quali sono i suoi difetti?</summary>
+
+Traccia: (1) $\hat w_t = \operatorname{argmax}_w P(w\mid w_{\lt t})$, sempre il token più probabile (nell'esempio *all*); (2) scelta localmente ottima; (3) deterministico: stesso contesto, stessa stringa; (4) testo generico e ripetitivo, spesso in ciclo; (5) non trova necessariamente la sequenza più probabile: albero yes/ok, greedy 0,20 contro ok ok EOS 0,28; (6) la beam search con $k$ ipotesi rimedia in parte e si usa nella traduzione; (7) i LLM in pratica non usano il greedy per la generazione libera.
+
+</details>
+
+<details><summary>Spiega il random sampling e il suo problema.</summary>
+
+Traccia: (1) si estrae il token secondo la sua probabilità, fino a EOS (Shannon 1948; come il campionamento dagli n-gram della L4); (2) in pratica: cumulate, numero casuale $r$, primo token con cumulata $\gt r$ (esempio $r = 0{,}81$: *your*); (3) i token probabili escono più spesso ma ogni token può uscire; (4) problema: la coda di molti token improbabili ha massa totale non trascurabile (10.000 token da 0,00003 = 0,30: 3 token su 10); (5) i token strani diventano contesto e il testo deraglia; (6) greedy troppo noioso, random troppo casuale.
+
+</details>
+
+<details><summary>Che cos'è la temperatura e che effetto ha sulla distribuzione?</summary>
+
+Traccia: (1) $y = \mathrm{softmax}(u/\tau)$; (2) $\tau\lt1$ amplifica le differenze fra logit: distribuzione più appuntita; $\tau\to0$ greedy; (3) $\tau\gt1$ le riduce: più piatta; $\tau\to\infty$ uniforme; (4) esempio: $\tau = 0{,}5$ porta *all* da 0,44 a 0,59 e *that* da 0,08 a 0,02; $\tau = 0{,}1$: 0,95; $\tau = 10$: da 0,27 a 0,23; (5) l'ordine dei token non cambia mai; (6) $\tau$ bassa più qualità, alta più diversità.
+
+</details>
+
+<details><summary>Confronta top-k e top-p sampling.</summary>
+
+Traccia: (1) top-k: tieni i $k$ token più probabili, rinormalizza, campiona; $k = 1$ greedy, $k = |V|$ random; esempio $k = 2$: all 0,57, the 0,43; (2) problema: $k$ fisso mentre la forma della distribuzione cambia (top 5 = 97% in un contesto sicuro, 35% in uno aperto); (3) top-p (nucleus, Holtzman et al. 2020): il più piccolo insieme con massa $\ge p$; esempio $p = 0{,}9$: all, the, your (0,48; 0,36; 0,16); $p = 0{,}75$: come top-2; (4) adattivo: più candidati quando il modello è incerto, meno quando è sicuro; (5) in pratica si combinano: prima top-k come filtro, poi top-p.
+
+</details>
+
+<details><summary>Che cosa si intende per compromesso fra qualità e diversità nel decoding?</summary>
+
+Traccia: (1) le parole più probabili danno testi giudicati più accurati, coerenti, fattuali, ma noiosi e ripetitivi; (2) le parole di probabilità media danno testi più creativi e vari ma meno fattuali e a rischio di incoerenza; (3) greedy e random sono i due estremi; (4) temperatura, top-k, top-p regolano il compromesso partendo dalla stessa distribuzione $y$; (5) scelta pratica: greedy o $\tau$ bassa per compiti con una risposta giusta, campionamento con $\tau$ intorno a 1 e top-p per testi creativi.
+
+</details>
+
+### L16 · Laboratorio: dagli n-gram a GPT
+
+<details><summary>Che cosa resta identico e che cosa cambia fra il modello n-gram e il tiny GPT del laboratorio?</summary>
+
+Traccia: (1) identici: unità (carattere), vocabolario di 77 simboli, obiettivo (predire il prossimo carattere, regola della catena), dati, split 90/10, metrica (cross-entropy in nats e perplexity sulla stessa validazione), generazione per campionamento; (2) cambiano la rappresentazione del contesto (ultimi $n-1$ caratteri esatti contro rappresentazione appresa di fino a 64 caratteri), l'apprendimento (contare e normalizzare contro discesa del gradiente con backprop e AdamW), i parametri (tabelle sparse di conteggi contro 244.301 pesi); (3) la decodifica (greedy, temperatura, top-$k$) è indipendente dal modello in entrambi i casi.
+
+</details>
+
+<details><summary>Come si stima un modello bigram di caratteri e perché il greedy produce "che che che"?</summary>
+
+Traccia: (1) assunzione di Markov $P(x_t\mid x_{&lt;t})\approx P(x_t\mid x_{t-1})$; (2) MLE $P(b\mid a)=C(ab)/C(a)$, una matrice $|V|\times|V|$ le cui righe sommano a 1; esempio: dopo `t` la `o` con 0,189, dopo `q` la `u` con probabilità 1; (3) generazione: si guarda la riga del carattere corrente e si sceglie; (4) greedy = funzione deterministica del carattere corrente, quindi prima o poi un ciclo: C→o→␣→c→h→e→␣→c...; (5) il campionamento segue la distribuzione e produce testo vario; il seed cambia la traiettoria, non il modello.
+
+</details>
+
+<details><summary>Perché aumentando n la cross-entropy di training scende quasi sempre, mentre quella di validazione no?</summary>
+
+Traccia: (1) con un contesto più lungo il modello MLE è più specifico e, al limite, memorizza il training: training CE MLE da 3,06 (unigram) a 0,30 (9-gram); (2) in validazione i contesti lunghi sono spesso mai visti (coverage 47% con 8 caratteri) e i conteggi per contesto sono pochi, quindi stime rumorose; (3) senza smoothing un solo zero dà perplexity infinita; con add-0,1 la validation CE ha un minimo al 5-gram (1,77, PPL 5,85) e risale al 9-gram (3,50, PPL 33); (4) è overfitting; il dev set serve a scegliere $n$; (5) "quasi sempre": con lo smoothing la training CE del 9-gram risale perché i contesti visti una volta perdono quasi tutta la massa.
+
+</details>
+
+<details><summary>Che cosa ripara l'add-α e che cosa non ripara?</summary>
+
+Traccia: (1) formula $\frac{C(\text{ctx}\,b)+\alpha}{C(\text{ctx})+\alpha V}$; $\alpha=1$ Laplace, $\alpha=0$ MLE; (2) ripara gli **zeri**: ogni carattere ha probabilità positiva, quindi la perplexity è finita; un contesto mai visto riceve l'uniforme $1/V$; (3) non ripara la **sparsità**: un contesto mai visto non riceve informazione dai contesti simili, solo l'uniforme (6,27 bit); (4) toglie troppa massa ai contesti visti poche volte (con $V=77$, $\alpha V=7{,}7$); (5) non generalizza: servono backoff/interpolazione o, meglio, rappresentazioni apprese.
+
+</details>
+
+<details><summary>Cross-entropy e perplexity: definizioni, unità, legame con la loss di training.</summary>
+
+Traccia: (1) $H=-\frac1N\sum_i\ln P(x_i\mid\text{context}_i)$ su testo held-out; (2) PPL $=e^H$ (nats) $=2^{H_\text{bit}}$ (bit), stesso numero; $H_\text{bit}=H_\text{nat}/\ln2$; (3) la loss di training del GPT è la stessa quantità sul batch (J&M Eq. 7.55), quindi PPL $=e^{\text{loss}}$; (4) baseline uniforme: $\ln V=4{,}344$, PPL 77; (5) media delle surprisal $-\log_2 p$ = CE in bit; (6) confrontabile solo a parità di tokenizzazione e di testo di valutazione.
+
+</details>
+
+<details><summary>Che cos'è il muro degli n-gram e perché una tabella a 64 caratteri è diversa da un transformer con contesto di 64 caratteri?</summary>
+
+Traccia: (1) contesti possibili $V^h$: con $V=77$, $h=8$ già $10^{15}$, $h=64$ circa $10^{120{,}7}$; il training ne contiene al più mezzo milione; (2) quasi ogni contesto lungo di validazione è nuovo, la tabella risponderebbe con l'uniforme; (3) un n-gram tratta stringhe diverse come oggetti non collegati: nessuna condivisione statistica; (4) il transformer ha parametri fissi (244k) indipendenti da $V^h$, rappresenta i caratteri con embedding e combina le posizioni con l'attenzione, quindi contesti diversi ma simili producono rappresentazioni simili e previsioni simili; (5) il contesto lungo è usabile perché non serve averlo visto identico.
+
+</details>
+
+<details><summary>In che senso gli embedding permettono la condivisione statistica fra contesti diversi?</summary>
+
+Traccia: (1) nell'n-gram ogni contesto ha i suoi conteggi, separati; (2) con gli embedding ogni carattere (e, dopo l'attenzione, ogni contesto) è un vettore denso appreso; (3) caratteri che si comportano in modo simile (vocali, `A` e `a`) finiscono vicini, e i pesi che li elaborano sono condivisi; (4) ciò che il gradiente impara su un contesto sposta parametri usati da tutti i contesti simili; (5) analogia con *eat lunch* / *eat dinner* della L5 e con la forza statistica condivisa della L13; (6) nel lab: il GPT alla posizione 0 impara una mappa bigram vicina a quella contata (KL 0,141 nats) senza tabella.
+
+</details>
+
+<details><summary>Descrivi una testa di attenzione causale del tiny GPT, con le forme dei tensori.</summary>
+
+Traccia: (1) ingresso $X$ `[B, T, d]` = `[24, 64, 96]`; (2) $Q=XW^Q$, $K=XW^K$, $V=XW^V$, ognuno `[B, T, 24]` (`nn.Linear` senza bias, peso memorizzato trasposto); (3) punteggi $QK^\top/\sqrt{d_k}$ `[B, T, T]`; (4) maschera: `tril` e `masked_fill(-inf)` sopra la diagonale; (5) softmax per riga, dropout; (6) uscita pesi @ $V$ `[B, T, 24]`; (7) multi-head: 4 teste concatenate in `[B, T, 96]` e $W^O$; (8) costo $O(T^2)$ in tempo e memoria.
+
+</details>
+
+<details><summary>Perché la maschera causale è essenziale nel training di GPT? Che cosa succede se la si toglie?</summary>
+
+Traccia: (1) il target in posizione $t$ è `y[t] = x[t+1]`, che sta dentro l'input; (2) la maschera impedisce alla posizione $t$ di leggere le posizioni $&gt;t$: $QK^\top+M$ con $-\infty$ sopra la diagonale, peso 0 dopo la softmax; (3) senza maschera il modello copia il carattere successivo: nell'ablazione la loss crolla molto sotto ogni modello onesto; (4) ma in generazione il futuro non c'è, il modello non ha imparato a predire e produce spazzatura; (5) la maschera permette anche di addestrare tutte le $T$ posizioni in parallelo con un solo forward (teacher forcing).
+
+</details>
+
+<details><summary>Descrivi il blocco transformer prenorm del laboratorio e il ruolo di residual stream, layer norm e feedforward.</summary>
+
+Traccia: (1) $O=X+\text{MHA}(\text{LN}(X))$, $H=O+\text{FFN}(\text{LN}(O))$ (J&M Eq. 7.39-7.40); (2) residual stream: ogni componente legge e aggiunge, ingresso e uscita `[B, T, d]`, blocchi impilabili; il gradiente passa dalle somme; (3) layer norm prima di ogni sotto-blocco (prenorm) con $\gamma,\beta$ appresi, più `ln_f` finale; (4) attenzione = mescola i token, feedforward $d\to4d\to d$ con GELU = elabora ogni posizione da sola, contiene circa due terzi dei parametri del blocco; (5) nelle ablazioni: senza attenzione il modello degenera in un bigram.
+
+</details>
+
+<details><summary>Descrivi il ciclo di training del tiny GPT. Che cosa è cambiato rispetto agli n-gram?</summary>
+
+Traccia: (1) minibatch di 24 finestre casuali da 64 caratteri, target spostati di uno; (2) forward e loss (cross-entropy media sulle $24\cdot64$ posizioni); (3) `zero_grad` (i gradienti si accumulano); (4) `backward`: backprop sul grafo computazionale, gradienti per tutti i parametri, embedding compresi; (5) `step` di AdamW, lr $3\cdot10^{-4}$; (6) valutazione periodica in `eval` (dropout spento) su train e val; (7) rispetto agli n-gram: niente conteggi esatti, una stima iterativa e approssimata; l'esito dipende da budget, iperparametri, inizializzazione (loss iniziale $\approx\ln 77$); dopo 500 passi il GPT (2,23) perde contro il 5-gram (1,77).
+
+</details>
+
+<details><summary>Perché la qualità del testo generato cambia con la temperatura, mentre la loss di validazione no?</summary>
+
+Traccia: (1) temperatura: logit divisi per $\tau$ prima della softmax; $\tau&lt;1$ appuntisce, $\tau&gt;1$ appiattisce, $\tau\to0$ greedy; (2) la loss di validazione misura le probabilità che il modello assegna al testo vero, con teacher forcing, senza mai campionare: non dipende da $\tau$; (3) la temperatura è una scelta di decodifica, come top-$k$ e top-$p$; (4) nel lab: $\tau=0{,}4$ ripetizioni (*che che che*), $\tau=1{,}2$ combinazioni improbabili; (5) stessa distinzione dei bigram: modello di probabilità contro politica di generazione.
+
+</details>
+
+<details><summary>Che cosa mostrano le ablazioni dell'esercizio 2?</summary>
+
+Traccia: (1) ablazione = togliere un componente e riaddestrare a parità di dati, batch e budget; (2) nella mia esecuzione su CPU (300 passi per variante): baseline 2,361, senza posizioni 2,356, senza feedforward 2,420, senza attenzione 2,444, senza layer norm 2,900, senza residue 3,062, senza maschera 0,512; (3) senza attenzione le posizioni non si parlano: il modello è un bigram e tende alla sua loss (2,35); (4) senza maschera causale la loss crolla perché il modello copia il carattere successivo, ma il testo generato è spazzatura; (5) senza residue il modello resta inchiodato all'unigram (3,06 contro 3,05): l'identità del carattere corrente non attraversa i blocchi; senza layer norm il training è molto più lento; l'effetto cresce con la profondità; (6) senza position embedding, a questo budget, nessuna differenza: un po' di informazione d'ordine passa dalla maschera causale (la posizione $t$ vede $t+1$ token).
+
+</details>
+
+<details><summary>Che cos'è la KV cache e perché si cachano K e V ma non Q?</summary>
+
+Traccia: (1) la `generate` ingenua ricalcola tutto il contesto a ogni passo: il tempo per passo cresce con la lunghezza, il totale in modo quadratico; (2) i $K$ e $V$ dei token passati non cambiano (attenzione causale: un token non vede quelli successivi), quindi si salvano per ogni strato, forma `(B, A, T, d_k)`; (3) a ogni passo si calcolano solo $q,k,v$ del nuovo token, si accodano $k,v$ e si fa un'attenzione di una riga; (4) $Q$ dei token passati non serve più: le loro uscite sono già calcolate; (5) memoria $2LNd$ numeri per sequenza (64 GiB per Llama 3.1 8B a 128k in fp16 senza GQA); (6) con la cache niente finestra scorrevole: le posizioni assolute delle key salvate non si possono spostare.
+
+</details>
+
+<details><summary>Perché un'attenzione vettorizzata e una SDPA fusa sono più veloci, e che cosa non cambiano?</summary>
+
+Traccia: (1) il ciclo sulle teste lancia molte operazioni piccole; una proiezione `qkv` unica e la dimensione delle teste come dimensione di batch fanno un solo grande prodotto, che sfrutta meglio CPU e GPU (meno overhead, meno lanci di kernel); (2) `F.scaled_dot_product_attention` usa kernel fusi (FlashAttention) che non materializzano la matrice $T\times T$: calcolano a blocchi con massimo e somma correnti della softmax, risparmiando memoria e trasferimenti; (3) la funzione matematica è la stessa: uscite uguali a meno di $10^{-6}$; (4) il costo resta $O(T^2)$ in operazioni: cambia la costante e la memoria, non l'ordine.
+
+</details>
+
+<details><summary>Se gli LLM usano sottoparole e non caratteri, che cosa del laboratorio resta valido?</summary>
+
+Traccia: (1) l'obiettivo (prossimo token, regola della catena) e la loss (cross-entropy); (2) la valutazione con perplexity su held-out, ma confrontabile solo a parità di tokenizer; (3) l'architettura identica, con $|V|$ di decine di migliaia invece di 77 (embedding e unembedding più grandi); (4) maschera causale, teacher forcing, training in parallelo, decodifica con temperatura, top-$k$, top-$p$, KV cache; (5) il muro degli n-gram è ancora peggiore: $V^h$ con $V$ grande; (6) cambia la granularità: con sottoparole un contesto di $N$ token copre molto più testo.
+
+</details>
+
+### L17 · Pretraining dei modelli linguistici
+
+<details><summary>Che cos'è il pretraining e perché si dice self-supervised?</summary>
+
+Traccia: (1) primo dei quattro stadi di training, su trilioni di token, produce un base model; (2) obiettivo: predire il token successivo a ogni posizione (Shannon game con correzione); (3) self-supervised: i target sono nel testo, nessuna annotazione; formalmente MLE condizionata, ogni token è un esempio; (4) si aggiornano tutti i pesi con backpropagation e un ottimizzatore come Adam, compresi gli embedding; (5) il modello impara lingua e conoscenza come effetto collaterale; (6) limite: continua testo, non segue istruzioni.
+
+</details>
+
+<details><summary>Scrivi la cross-entropy loss del language modeling e spiega perché si riduce a meno il log di una probabilità.</summary>
+
+Traccia: (1) $L_{CE} = -\sum_w y_t[w]\log\hat y_t[w]$ fra distribuzione predetta e corretta su $V$; (2) $y_t$ one-hot sul vero token $w_{t+1}$, tutti gli altri termini si annullano; (3) resta $-\log\hat y_t[w_{t+1}]$; (4) probabilità 1 dà loss 0, probabilità vicina a 0 loss enorme; esempio 0,44 dà 0,82; (5) sulla sequenza si fa la media sulle $T$ posizioni; (6) stessa loss della regressione logistica con $|V|$ classi; minimizzarla = massimizzare la verosimiglianza; log naturale, nat.
+
+</details>
+
+<details><summary>Che cos'è il teacher forcing? Quali vantaggi ha e che differenza crea con l'inferenza?</summary>
+
+Traccia: (1) in training a ogni posizione il contesto è il testo vero, non la previsione del modello; (2) esempio: il modello scommette *the*, il vero è *all*, si prosegue con *all*; (3) la previsione serve solo per la loss; (4) vantaggi: errori che non si propagano, contesti noti in anticipo quindi tutte le posizioni in parallelo; (5) in inferenza il modello si nutre delle proprie uscite: situazione mai vista in training (exposure bias).
+
+</details>
+
+<details><summary>Perché il pretraining di un transformer si può fare in parallelo su tutte le posizioni, e come si riempie la finestra?</summary>
+
+Traccia: (1) target noti: il token successivo di ogni posizione è nel testo; (2) maschera causale: nessuna posizione vede il proprio target, l'output di ciascuna non dipende dal futuro; (3) un forward con la forma matriciale dà $N$ distribuzioni e $N$ loss; (4) senza maschera il modello copierebbe il successivo; (5) packing: documenti corti concatenati con `eot` per riempire la finestra, niente padding sprecato; (6) batch grandi: GPT-3 3,2M token, circa 1.560 finestre da 2.048.
+
+</details>
+
+<details><summary>Come può un modello addestrato solo a predire il token successivo fare sentiment analysis o rispondere a domande?</summary>
+
+Traccia: (1) generazione condizionata: il task scritto nel prompt, il modello lo continua; (2) sentiment: prompt *The sentiment of ... is:* e confronto di $P(\textit{positive})$ e $P(\textit{negative})$, 0,42 contro 0,03; (3) QA: *Q: ... A:*, poi *Charles*, poi *Darwin*, un token alla volta; (4) riassunto con `tl;dr`; (5) funziona perché il web è pieno di task svolti; (6) limite: un base model non segue istruzioni in modo affidabile, serve instruction tuning.
+
+</details>
+
+<details><summary>Da dove vengono i dati di pretraining e come si filtrano? Quali problemi pongono i filtri?</summary>
+
+Traccia: (1) soprattutto Common Crawl (istantanee del web, miliardi di pagine), più dati curati (Wikipedia, libri); The Pile come esempio di mix di 22 fonti; (2) scala: Llama 3.1 15T token, circa 71.000 anni di lettura; (3) filtri di qualità: deduplicazione, boilerplate, contenuti per adulti, spesso classificatori con punteggio; (4) filtri di sicurezza: classificatori di tossicità; (5) problemi: falsi allarmi su dialetti minoritari come l'AAE, modelli meno tossici ma peggiori a riconoscere la tossicità; filtrare meglio è un problema aperto.
+
+</details>
+
+<details><summary>Quali questioni etiche e legali pongono i dati di pretraining?</summary>
+
+Traccia: (1) copyright: libri e articoli protetti; fair use negli USA incerto, compenso non risolto; (2) casi: Bartz v. Anthropic (training fair use, ma non i libri piratati: 1,5 miliardi), NYT v. OpenAI aperto, GEMA v. OpenAI (testi memorizzati nei pesi = copia); (3) privacy: telefoni, email; (4) consenso dei siti; (5) skew verso autori di USA e paesi sviluppati; (6) data-centric AI: chiedersi provenienza, autori, compenso, liceità.
+
+</details>
+
+<details><summary>Conta i parametri di un transformer come GPT-3 e verifica i 175B.</summary>
+
+Traccia: (1) attenzione $W^Q,W^K,W^V,W^O$: $4d^2$; (2) feedforward $d\times4d$ e $4d\times d$: $8d^2$; (3) strato $12d^2$, modello $12Ld^2 + |V|d$; (4) ipotesi: niente bias e layer norm, weight tying; (5) GPT-3: $12\cdot96\cdot12288^2 = 174{,}0$B più $50\text{K}\cdot12288 = 0{,}6$B, 174,6B; GPT-2 XL 1,55B; (6) i modelli moderni (GQA, SwiGLU, embedding non legati) si discostano: Llama 3.1 8B 6,97B dalla formula contro 8,03B.
+
+</details>
+
+<details><summary>Che cos'è la KV cache, perché funziona e quanto costa in memoria?</summary>
+
+Traccia: (1) in training tutti i token insieme; in inferenza un token nuovo alla volta; (2) key e value dei token precedenti non cambiano (causalità), ricalcolarli è uno spreco; (3) si salvano key e value, si calcola solo $q_i, k_i, v_i$ del nuovo token; le query e i punteggi no; (4) calcoli di key/value: $n(n+1)/2$ senza cache contro $n$; (5) memoria $2Ld$ numeri per token: GPT-3 $2\cdot96\cdot12288 = 2{,}36$M, 4,7 MB a 16 bit, 9,7 GB per 2.048 token; (6) cresce con contesto e sequenze; GQA la riduce condividendo key e value fra teste.
+
+</details>
+
+<details><summary>Che cosa dicono le scaling law di Kaplan et al. (2020)?</summary>
+
+Traccia: (1) tre fattori: parametri $N$, token $D$, calcolo $C$; (2) la test loss scende come legge di potenza di ciascuno, $L = (X/X_c)^{-\alpha}$, retta in log-log; (3) esponenti: 0,076 per $N$, 0,095 per $D$, 0,050 per $C$; (4) ogni legge vale se gli altri fattori non limitano; (5) esempio: $L(10^9) = 2{,}38$ nat, perplexity 10,8; per dimezzare la loss serve un modello circa 9.000 volte più grande; (6) conseguenza: più grande è meglio, in modo prevedibile, quindi modelli sempre più grandi, con costi di energia e acqua.
+
+</details>
+
+<details><summary>Come si spende in modo ottimale un budget di calcolo? Spiega Chinchilla e il 6ND.</summary>
+
+Traccia: (1) $C\approx6ND$: 2 FLOP per parametro per token nel forward, 4 nel backward; (2) a $C$ fisso, più parametri vuol dire meno token; (3) Hoffmann et al.: $N_{opt}\propto C^{1/2}$, $D_{opt}\propto C^{1/2}$; (4) circa 20 token per parametro, quindi $C = 120N^2$; (5) Chinchilla 70B e 1,4T batte Gopher 280B e 300B con budget simile ($5{,}9$ contro $5{,}0\cdot10^{23}$ con 6ND); (6) GPT-3 con 1,7 token per parametro era troppo grande per i suoi dati.
+
+</details>
+
+<details><summary>Perché Llama 3.1 8B è stato addestrato con quasi 1.900 token per parametro, ben oltre Chinchilla?</summary>
+
+Traccia: (1) Chinchilla minimizza la loss a parità di calcolo di training; (2) ma l'inferenza costa a ogni prompt, circa proporzionale a $N$; (3) un modello piccolo addestrato più a lungo è più economico da servire; (4) la loss continua a scendere oltre i 20 token per parametro, solo più lentamente; (5) numeri: 15T/8B = 1.875; calcolo $7{,}2\cdot10^{23}$, simile a Chinchilla con un modello 9 volte più piccolo; (6) Llama 3.1 405B invece 37 token per parametro.
+
+</details>
+
+<details><summary>Definisci la perplexity e dimostra che è l'esponenziale della cross-entropy media.</summary>
+
+Traccia: (1) likelihood = prodotto delle probabilità dei token, decresce con la lunghezza; (2) perplexity $= P(w_{1:T})^{-1/T}$, inverso normalizzato per la lunghezza, misura per token; (3) $\ln\mathrm{PP} = \frac1T\sum -\ln P(w_t\mid w_{&lt;t}) = L_{CE}$; (4) quindi $\mathrm{PP} = e^{L_{CE}}$, con loss in nat; in bit $2^{H}$, stesso numero; (5) esempio: prodotto 0,01408, $0{,}01408^{-1/5} = 2{,}35 = e^{0{,}853}$; (6) interpretazione: scelta fra circa 2,35 token equiprobabili; più bassa è meglio.
+
+</details>
+
+<details><summary>Perché non si possono confrontare le perplexity di modelli con tokenizzatori diversi?</summary>
+
+Traccia: (1) la perplexity normalizza per il numero di token $T$; (2) stesso testo, stessa probabilità 0,001: con 4 token 5,6, con 6 token 3,2; (3) la qualità del modello sul testo è identica, cambia solo la divisione; (4) un tokenizzatore che spezza di più fa sembrare il modello migliore; (5) regola: stessa tokenizzazione, oppure normalizzare per un'unità comune (parole, caratteri, byte).
+
+</details>
+
+<details><summary>Come si valutano gli LLM oltre la perplexity? Che cos'è la data contamination?</summary>
+
+Traccia: (1) accuratezza su test set etichettati e mai visti; (2) benchmark da esami umani: MMLU (15.908 domande in 57 aree), BigBench Hard, GSM8k, AIME24; proxy di conoscenza e ragionamento; (3) contaminazione: il test finisce nel training perché entrambi sono sul web; la metrica sovrastima; (4) esempio: 90% complessivo, ma 86% sulle 70 domande pulite; (5) rimedio: pubblicare i dati o la sovrapposizione con i test, modelli completamente open.
+
+</details>
+
+<details><summary>Come si valutano i task con molte risposte corrette? Che cosa sono le metriche proxy e la legge di Goodhart?</summary>
+
+Traccia: (1) task soggettivi: conversazione, traduzione, sycophancy; (2) giudici umani con rubrica (fedeltà, fluenza), scelti per competenza o varietà di provenienza; (3) LLM-as-a-judge: più economico e meno dannoso per le persone, prompt curato e verificato su un campione umano, singolo o a coppie; (4) metriche proxy: sovrapposizione di token (chrF, BLEU, ROUGE), WER; esempio 5/6 contro 2/7; comode ma imperfette, verificare la significatività; (5) Goodhart: ottimizzando la metrica si ottimizzano proprietà casuali e la metrica peggiora come proxy.
+
+</details>
+
+<details><summary>Oltre all'accuratezza, quali altri fattori conta valutare in un modello?</summary>
+
+Traccia: (1) efficienza: dimensione, tempo di training e inferenza, memoria GPU, prestazione a budget fisso; (2) energia: kWh, kg di CO$_2$, green AI; (3) sicurezza e bias: linguaggio tossico e stereotipi, con StereoSet, RealToxicityPrompts, BBQ; (4) equità: prestazioni buone per tutti i gruppi, criterio del gruppo più svantaggiato invece della media; (5) collegamento con i dati: skew e filtri influenzano bias ed equità.
+
+</details>
+
+### L18 · Post-training I: instruction tuning, LoRA e prompting
+
+<details><summary>Perché un base model non segue le istruzioni?</summary>
+
+Traccia: (1) è addestrato a predire il token successivo nel testo del web: continua il prompt in modo plausibile; (2) esempi di Ouyang et al.: *Explain the moon landing to a six year old* diventa un'altra consegna, *Translate to French: The small dog* diventa *The small dog crossed the road*; (3) due problemi: poco utile (non segue istruzioni, debole nel ragionamento lungo) e dannoso (risposte pericolose, false, offensive; esempio del furto al supermercato); (4) causa: obiettivo del pretraining disallineato con ciò che serve alle persone; (5) rimedio: post-training.
+
+</details>
+
+<details><summary>Quali sono le fasi del post-training e che dati usa ciascuna?</summary>
+
+Traccia: (1) base model = dopo il pretraining, prima del post-training; (2) instruction tuning (SFT): coppie istruzione-risposta, cross-entropy sulla risposta; (3) preference alignment (RLHF, DPO): coppie di risposte con la preferita; (4) RLVR: problemi con risposta verificabile (matematica, codice), ricompensa se corretta; (5) ognuna parte dal modello precedente (figura delle quattro fasi); (6) costo molto minore del pretraining.
+
+</details>
+
+<details><summary>Che cos'è l'instruction tuning e perché si chiama supervised fine-tuning?</summary>
+
+Traccia: (1) fine-tuning di un base model su istruzioni di molti compiti con le loro risposte; (2) stesso obiettivo del pretraining, cross-entropy sul token successivo, ma solo sui token della risposta; (3) supervised perché ogni istruzione ha una risposta corretta, come un'etichetta, mentre nel pretraining il target è solo il testo che segue (self-supervised); (4) fine-tuning = ulteriori passate di addestramento su dati nuovi a partire da un modello preaddestrato; (5) risultato: impara i compiti e a seguire istruzioni in generale (meta-learning); (6) dati: al più milioni di esempi, poche epoche.
+
+</details>
+
+<details><summary>Perché nell'instruction tuning la loss si calcola solo sulla risposta? Fai un esempio numerico.</summary>
+
+Traccia: (1) l'istruzione è il contesto: passa nella rete ma non entra nella loss (maschera $m_t = 0$); (2) l'istruzione è sempre data dall'utente, il modello non deve imparare a scriverla; (3) esempio *Translate to Italian: good night* / *buona notte*: media sulla risposta $(0{,}92 + 0{,}22 + 0{,}11)/3 \approx 0{,}42$, su tutti i token $8{,}49/8 \approx 1{,}06$, dominata da *good* ($-\ln 0{,}05 = 3{,}00$), imprevedibile per natura; (4) il `</s>` della risposta invece è addestrato: insegna a fermarsi; (5) nel notebook la loss sulla risposta dà una loss di test sulle risposte un po' migliore (3,71 contro 3,79).
+
+</details>
+
+<details><summary>Che cos'è un chat template? Che cosa si addestra e come si usa all'inferenza?</summary>
+
+Traccia: (1) converte una conversazione in una sequenza di token con marcatori di ruolo (`<|system|>`, `<|user|>`, `<|assistant|>`) e un terminatore di turno `</s>` (TinyLlama); (2) loss solo sui turni dell'assistente e i loro `</s>`; (3) all'inferenza il programma scrive la conversazione e termina con `<|assistant|>`; il modello genera la risposta e si ferma a `</s>`; (4) ogni famiglia di modelli ha il suo template, va usato lo stesso dell'addestramento.
+
+</details>
+
+<details><summary>Da dove vengono i dati per l'instruction tuning?</summary>
+
+Traccia: (1) scritti da persone: alta qualità, costosi (parte di Aya, volontari in 65 lingue); (2) convertiti da dataset NLP annotati: campi in coppie chiave/valore, inseriti in template (*Suppose {{premise}} Can we infer that {{hypothesis}}? Yes, no, or maybe?*), l'etichetta diventa la risposta; template parafrasati da LLM per varietà; (3) generati da LLM: es. dati di sicurezza di Bianchi et al. (domande dannose parafrasate, risposte sicure controllate da persone; 500 bastano a ridurre la dannosità); (4) dimensioni: Aya 513M, Super-NaturalInstructions 5M/1600 compiti, Flan 2022 15M/1836, OPT-IML 18M/2000.
+
+</details>
+
+<details><summary>Come si valuta un modello instruction-tuned?</summary>
+
+Traccia: (1) l'obiettivo è seguire istruzioni per compiti nuovi, quindi il test va su compiti esclusi dall'addestramento; (2) leave-one-out: instruction tuning su molti compiti, test su quello escluso; (3) compiti simili (25 dataset di entailment in Super-NaturalInstructions) renderebbero il test troppo facile: si raggruppano in cluster e si esclude un cluster intero; (4) un modello per ogni cluster da valutare; (5) esempio della figura: training su NLI, QA, traduzione, riassunto, test sul sentiment.
+
+</details>
+
+<details><summary>Quanta memoria serve per fare fine-tuning completo di un modello da 7B e perché?</summary>
+
+Traccia: (1) Adam in mixed precision: pesi 16 bit (2 byte), gradienti 16 bit (2), copia dei pesi a 32 bit e due momenti a 32 bit (12): 16 byte per parametro; (2) $7\cdot10^9\cdot16 = 112$ GB senza attivazioni; (3) una A100/H100 ha 80 GB: non basta; un 70B richiede 1120 GB, almeno 14 GPU; (4) da qui il bisogno di PEFT: con LoRA restano i 2 byte dei pesi congelati (14 GB), con QLoRA 0,5 byte (3,5 GB).
+
+</details>
+
+<details><summary>Spiega LoRA: forme delle matrici, forward pass e numero di parametri.</summary>
+
+Traccia: (1) le matrici dense ($W^Q, W^K, W^V, W^O$, feedforward) restano congelate; (2) l'aggiornamento $\Delta W$ ($k\times d$) è scritto come $AB$, $A$ $k\times r$, $B$ $r\times d$, $r \ll \min(k,d)$; (3) forward $h = xW + xAB$, calcolato come $(xA)B$; (4) parametri $r(k+d)$ invece di $kd$: per $k = d = 4096$, $r = 8$, 65 536 contro 16 777 216, lo 0,39%; (5) perché funziona: l'aggiornamento necessario ha bassa dimensione intrinseca (Aghajanyan et al.); (6) $r$ tipico 4-64, compromesso costo/capacità; (7) esempio a mano: $h = [5,4,1]$.
+
+</details>
+
+<details><summary>Come si inizializzano A e B in LoRA, e perché non entrambe a zero?</summary>
+
+Traccia: (1) $A$ casuale, $B = 0$: $AB = 0$ e il modello parte esattamente dal preaddestrato; (2) gradienti: con $G = \partial L/\partial W$, $\partial L/\partial A = GB^\top$, $\partial L/\partial B = A^\top G$; (3) se $A = B = 0$ entrambi i gradienti sono nulli e l'addestramento non parte; (4) con $A$ casuale $B$ riceve subito gradiente non nullo; (5) eventuale fattore $\alpha/r$ delle implementazioni.
+
+</details>
+
+<details><summary>Quali sono i vantaggi pratici di LoRA?</summary>
+
+Traccia: (1) memoria: niente gradienti né stato di Adam per i pesi congelati; (2) nessun costo all'inferenza: $x(W + AB) = xW + xAB$, si fonde $AB$ in $W$ una volta; (3) moduli intercambiabili: un LoRA per dominio o compito, si somma o si sottrae da $W$; checkpoint piccoli (GPT-3, $r = 4$ su $W^Q$, $W^V$: circa 18,9 milioni di parametri, 37,7 MB); (4) originariamente solo sulle matrici dell'attenzione, oggi molte varianti; (5) limite: rango basso, meno espressivo di un $\Delta W$ completo.
+
+</details>
+
+<details><summary>Che cos'è la quantizzazione e come la usa QLoRA?</summary>
+
+Traccia: (1) memorizzare i pesi con meno bit: 16 bit = 65 536 valori, 4 bit = 16 livelli; (2) ogni peso diventa l'indice del livello più vicino, a blocchi con una scala propria; (3) livelli non uniformi, più fitti dove i pesi (circa normali) sono densi: 4-bit NormalFloat; (4) memoria circa 4 volte minore (4,5 bit effettivi con una scala a 32 bit ogni 64 pesi), piccola perdita di precisione; (5) QLoRA: modello base congelato a 4 bit, LoRA a 16 bit; 65B su una GPU da 48 GB; un 7B in 3,5 GB invece di 14 o 112.
+
+</details>
+
+<details><summary>Che differenza c'è fra prompting zero-shot e few-shot? Che cosa insegnano le dimostrazioni?</summary>
+
+Traccia: (1) zero-shot: solo l'istruzione; few-shot: istruzione più alcune dimostrazioni, esempi etichettati nel prompt; (2) esempio one-shot di MMLU: una domanda con risposta C, poi la domanda vera, risposta (B), `"aab"`; (3) il compito è mostrato, non solo descritto; le dimostrazioni insegnano soprattutto formato e spazio delle risposte; anche etichette sbagliate possono aiutare (Min et al.); (4) poche: rendimenti decrescenti e rischio di adattarsi agli esempi; (5) chain-of-thought: dimostrazioni con i passi di ragionamento.
+
+</details>
+
+<details><summary>Che cos'è il system prompt?</summary>
+
+Traccia: (1) prima istruzione al modello, anteposta in silenzio a qualunque testo dell'utente; (2) definisce compito o ruolo, tono, contesto (*You are a helpful and knowledgeable assistant...*); (3) può essere lungo migliaia di token grazie ai contesti lunghi (quello di Claude); (4) nel chat template ha un marcatore proprio ed è contesto senza loss; (5) costo: va elaborato a ogni conversazione; la KV cache lo evita all'interno di una conversazione.
+
+</details>
+
+<details><summary>Che cos'è l'in-context learning e come si confronta con il fine-tuning?</summary>
+
+Traccia: (1) apprendimento durante il prompting senza aggiornare i pesi; (2) cambiano solo il contesto e le attivazioni; le dimostrazioni aiutano a eseguire un compito nuovo; (3) finita la conversazione si perde tutto; (4) il fine-tuning cambia i pesi, ciò che si impara resta; (5) due modi di adattare un modello: cambiare il prompt (immediato, nessun dato di training, costa token a ogni chiamata) o cambiare i pesi (dati e addestramento, reso economico da LoRA/QLoRA, effetto permanente).
+
+</details>
+
+<details><summary>Riassumi il percorso da base model ad assistente visto in questa lezione.</summary>
+
+Traccia: (1) il base model continua il testo; (2) SFT con lo stesso obiettivo del pretraining, su dati diversi, loss sulla risposta, chat template; (3) dati da persone, dataset NLP con template, LLM; valutazione su cluster esclusi; (4) per farlo a basso costo LoRA ($h = xW + xAB$, frazione minima dei parametri) e QLoRA (base a 4 bit); (5) all'uso, prompting zero-shot, few-shot e system prompt, con in-context learning senza modificare i pesi; (6) prossimi passi: preferenze e RLVR.
+
+</details>
+
+### L19 · Post-training II: preferenze, RLHF, DPO e RL per il ragionamento
+
+<details><summary>Perché dopo l'instruction tuning serve un altro stadio? Che cosa hanno di diverso le preferenze?</summary>
+
+Traccia: (1) un modello SFT può ancora dare risposte dannose o sbagliate, o corrette ma poco utili; (2) l'SFT impara solo da esempi positivi, non riceve mai il segnale di che cosa non dire; (3) le preferenze sono confronti, meglio o peggio, non giusto o sbagliato: non richiedono competenza per essere date, quindi si raccolgono facilmente; (4) ogni coppia contiene anche una risposta scartata; (5) obiettivo: più helpful, honest, harmless; (6) la scelta deve essere solo migliore, non buona (esempio del ketchup).
+
+</details>
+
+<details><summary>Come si ottengono coppie di preferenza e da quali fonti?</summary>
+
+Traccia: (1) tripla prompt, scelto, scartato, $o_w \succ o_l \mid x$; (2) confronti diretti; classifica di $N$ output, $N(N-1)/2$ coppie (InstructGPT 4-9 output, da 6 a 36 coppie); scelta del migliore, $N-1$ coppie; (3) fonti: annotatori addestrati (InstructGPT, prompt di utenti reali), voti online (Reddit, StackExchange: post come prompt, risposte ordinate dai voti), LLM come giudici (UltraFeedback con GPT-4); (4) costo e rumore diversi; (5) anche punteggi per aspetti.
+
+</details>
+
+<details><summary>Scrivi il modello di Bradley-Terry e spiega da dove viene.</summary>
+
+Traccia: (1) ogni output ha un punteggio nascosto $z$; (2) $P(o_i\succ o_j\mid x) = \sigma(z_i - z_j)$; (3) la differenza è il log-odds della preferenza: $\delta = \log\frac{P}{1-P}$, da cui $P = 1/(1+e^{-\delta})$, come nella regressione logistica; (4) differenza piccola, probabilità vicina a 0,5; grande, vicina a 0 o 1; (5) $P(o_j\succ o_i) = 1 - P(o_i\succ o_j)$; (6) invarianza per traslazione: i punteggi sono definiti a meno di una costante.
+
+</details>
+
+<details><summary>Come si addestra un reward model? Scrivi la loss e il suo gradiente.</summary>
+
+Traccia: (1) si impara $r(x,o)$ al posto di $z$; (2) loss di una coppia $-\log\sigma(r(x,o_w) - r(x,o_l))$, media sul dataset: binary cross-entropy con target 1, massima verosimiglianza delle preferenze; (3) derivata rispetto alla differenza: $-(1-\sigma)$, alza $r_w$ e abbassa $r_l$; (4) le coppie ordinate male pesano di più (esempio della slide: 0,88 contro 0,27); (5) in pratica un LLM preaddestrato con la LM head sostituita da uno strato lineare a un'uscita (Ziegler 2019); (6) usi: best-of-$N$, selezione dati, alignment.
+
+</details>
+
+<details><summary>Come si mappa il reinforcement learning su un LLM?</summary>
+
+Traccia: (1) RL: agente, policy, azioni, ambiente, reward, nessuno dà l'azione giusta; (2) per un LLM: azioni = token, stato = prompt più token generati, policy = l'LLM (distribuzione del token successivo), reward = reward model sull'intera risposta, alla fine; (3) $\pi(o\mid x)$ prodotto delle probabilità dei token; (4) differenze dal RL classico: reward appreso e rumoroso, non osservabile; si parte da un modello già buono da spingere, non da zero.
+
+</details>
+
+<details><summary>Scrivi l'obiettivo di RLHF con la penalità KL e spiega ogni termine.</summary>
+
+Traccia: (1) $\max_{\pi_\theta}\mathbb{E}_{x\sim D,o\sim\pi_\theta}[r(x,o) - \beta\log\frac{\pi_\theta(o\mid x)}{\pi_{\mathrm{ref}}(o\mid x)}]$; (2) prompt dal dataset, output dalla policy stessa, reward dal reward model; (3) reward atteso: media dei reward pesata dalle probabilità (giocattolo: 1,5 poi 2,35), stimata campionando; (4) penalità: log-rapporto per output, in media la KL da $\pi_{\mathrm{ref}}$ (il modello SFT), non simmetrica; (5) senza penalità: oblio del pretraining e reward hacking; (6) $\beta$ ne regola il peso.
+
+</details>
+
+<details><summary>Che cos'è il policy gradient e perché si usa una baseline?</summary>
+
+Traccia: (1) in SFT $\theta \leftarrow \theta + \eta\nabla\log\pi_\theta(o\mid x)$ con $o$ dal dataset; (2) in RL $o$ campionato da $\pi_\theta$ e il passo moltiplicato per $r(x,o)$: REINFORCE, SFT sui propri output pesato dal reward; (3) $\nabla\log\pi$ è la direzione, $r$ la lunghezza del passo; in media la direzione che alza il reward atteso (trucco del log); (4) con reward tutti positivi ogni campione viene alzato: gradiente rumoroso; (5) baseline $b$ = reward atteso, advantage $r - b$: sopra la media su, sotto giù, stessa direzione media, meno varianza; (6) in PPO $b$ dal value model, in GRPO media del gruppo.
+
+</details>
+
+<details><summary>Descrivi RLHF di InstructGPT e PPO.</summary>
+
+Traccia: (1) tre passi: SFT su dimostrazioni scritte da persone; reward model da classifiche di 4-9 output; RL con PPO e penalità KL; (2) InstructGPT 1,3B preferito a GPT-3 175B; base delle prime versioni di ChatGPT; (3) PPO: quattro modelli, policy (addestrata), riferimento (congelato, per la KL), reward model (congelato), value model (addestrato, baseline); (4) aggiornamento in base all'advantage; (5) proximal: aggiornamenti piccoli, la policy cambia gradualmente; (6) costoso: quattro modelli e campionamento a ogni passo.
+
+</details>
+
+<details><summary>Scrivi la loss di DPO, spiegala e confrontala con PPO.</summary>
+
+Traccia: (1) $-\log\sigma(\beta\log\frac{\pi_\theta(o_w)}{\pi_{\mathrm{ref}}(o_w)} - \beta\log\frac{\pi_\theta(o_l)}{\pi_{\mathrm{ref}}(o_l)})$; (2) è la loss del reward model con reward implicito $\beta\log\pi_\theta/\pi_{\mathrm{ref}}$; (3) derivazione: la soluzione dell'obiettivo con KL dà $r = \beta\log\pi^*/\pi_{\mathrm{ref}} + \beta\log Z(x)$, e in Bradley-Terry $Z$ si cancella; (4) $\beta$ tipicamente 0,01-0,1, stesso ruolo della KL; (5) all'inizio la loss vale $\ln2$; conta solo il margine fra i log-rapporti; (6) contro PPO: niente reward model, niente campionamento, due modelli; più semplice e stabile, ma offline e soggetto agli stessi bias dei dati.
+
+</details>
+
+<details><summary>Che cos'è il reward hacking? Fai esempi.</summary>
+
+Traccia: (1) il reward model è un surrogato appreso delle preferenze, non ciò che vogliamo davvero; (2) ottimizzandolo troppo la policy trova risposte che lo ingannano: alto reward, bassa qualità vera; (3) esempi: length bias (risposte lunghe premiate in sé; notebook: con $\beta$ piccolo la risposta lunga sbagliata diventa certa), sycophancy (dare ragione all'utente); (4) rimedi parziali: penalità KL, reward verificabili, dati migliori; (5) la KL limita il danno ma non corregge un reward model distorto, e DPO eredita i bias dei dati.
+
+</details>
+
+<details><summary>Che cos'è il chain-of-thought prompting e che cosa c'entra con i reasoning model?</summary>
+
+Traccia: (1) Wei et al. 2022: ogni dimostrazione include i passi di ragionamento, il modello imita e scrive passi prima della risposta; (2) esempio delle mele: 27 sbagliato senza passi, 9 corretto con $23-20=3$, $3+6=9$; (3) test-time compute: più calcolo all'inferenza sui problemi difficili; (4) i reasoning model sono addestrati con RLVR a scrivere la chain of thought da soli, anche se il reward guarda solo la risposta finale.
+
+</details>
+
+<details><summary>Che cos'è RLVR? Che cosa vuol dire verificabile?</summary>
+
+Traccia: (1) domini dove una risposta si giudica in automatico: matematica (GSM8K fino al livello dottorato), codice con test; (2) vincoli verificabili (IFEval): parole chiave, formato JSON, lunghezza, lingua, risposte da un insieme fisso; si controllano i vincoli, non il contenuto; (3) reward 1 o 0 calcolato da un programma, nessun reward model; (4) stesso policy gradient di RLHF; (5) produce reasoning model con chain of thought; (6) limite: si premia solo ciò che si controlla.
+
+</details>
+
+<details><summary>Come funziona GRPO? Calcola gli advantage di un gruppo.</summary>
+
+Traccia: (1) per una domanda si campiona un gruppo di $G$ risposte; (2) reward 1 o 0; (3) $A_i = (r_i - \mathrm{mean})/\mathrm{std}$, con una costante sulla std; (4) la media del gruppo è la baseline: niente value model; la std mette le domande sulla stessa scala; (5) aggiornamento con penalità KL; (6) esempio $[1,1,0,0,0,1]$: media 0,5, std 0,5, advantage $\pm1$; (7) gruppo tutto giusto o tutto sbagliato: nessun segnale; utili le domande a difficoltà intermedia.
+
+</details>
+
+<details><summary>Che cosa si intende per alignment e quali problemi restano aperti?</summary>
+
+Traccia: (1) far evitare danni ai modelli, agendo secondo bisogni e valori umani; parte dell'AI safety; (2) sottospecificato: valori di chi? conflitti? (Kirk 2023); (3) sycophancy: le preferenze premiano l'accordo, non la verità (Sharma 2024); (4) mitigazioni: esempi di danni nei dati di post-training, constitutional AI, red teaming, value sensitive design; problema sociotecnico; (5) limiti: allucinazioni, overconfidence, calibrazione; il post-training li riduce, non li risolve.
+
+</details>
+
+<details><summary>Riassumi la pipeline completa di training di un LLM.</summary>
+
+Traccia: (1) pretraining: trilioni di token, next token, dà la conoscenza; (2) SFT: istruzioni e risposte, next token solo sulla risposta; (3) preferenze: scelte e scartate, reward model + PPO oppure DPO; (4) RLVR: problemi verificabili, reward 0/1, GRPO; (5) ogni stadio parte dal modello precedente, che fa da riferimento per la KL; (6) passaggio dall'imitazione (risposta data) al reward (risposta generata e giudicata); il post-training plasma il comportamento.
 
 </details>

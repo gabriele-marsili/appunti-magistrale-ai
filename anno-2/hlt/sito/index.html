@@ -203,6 +203,7 @@ details.qa .ans{padding:6px 0 4px 22px}
 .filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
 .filters .lbl{margin-right:4px}
 .corr{display:grid;gap:12px}
+.pdl,.ptopic{margin:10px 0}.pdl .where{font-size:14px;margin-bottom:6px}.pdl.past{opacity:.55}.ptopic summary{cursor:pointer;font-size:16px;line-height:1.5}.ptopic summary .stat{font-size:12px;margin-left:6px}.ptopic.ours,.ptopic.cand{border-color:var(--accent)}.ptopic .prose{margin-top:8px}
 .corr .panel .where{font-size:12px;color:var(--muted);margin-bottom:4px}
 .map-wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px}
 .map-wrap svg{display:block}
@@ -431,7 +432,8 @@ async function copyRich(html,fallbackEl,btn){
 function renderNav(){
   const cur=S.cur;
   $('#lessonNav').innerHTML=S.course.lessons.map(l=>`<a class="chip" href="#${l.id}" aria-current="${cur===l.id}" title="${esc(l.title)}">${l.id}</a>`).join('')
-   +`<a class="chip rip" href="#ripasso" aria-current="${S.route.startsWith('ripasso')}">Ripasso esame</a>`;
+   +`<a class="chip rip" href="#ripasso" aria-current="${S.route.startsWith('ripasso')}">Ripasso esame</a>`
+   +(S.course.project?`<a class="chip rip" href="#progetto" aria-current="${S.route==='progetto'}">Progetto</a>`:'');
   const a=$('#lessonNav [aria-current="true"]');if(a)a.scrollIntoView({block:'nearest',inline:'nearest'});
 }
 
@@ -464,6 +466,12 @@ function renderHome(){
       <p>Formule divise per argomento, tutte le domande d'orale filtrabili per lezione, l'elenco delle correzioni alle slide e la mappa dei collegamenti fra argomenti.</p>
       <div class="stats"><span class="stat">${S.rip.formulas.length} formule</span><span class="stat">${S.rip.concepts.length} concetti</span></div>
     </a>
+    ${c.project?`<a class="lcard rip-card" href="#progetto">
+      <div class="num"><b>PROGETTO</b><span>gruppo 5</span></div>
+      <h3>Progetto di gruppo<small>scadenze, temi, scelta del tema</small></h3>
+      <p>Le scadenze del gruppo 5, i 18 temi con le lezioni del sito che servono a ciascuno e il confronto fra il tema 5 e il 17.</p>
+      <div class="stats"><span class="stat">privato</span></div>
+    </a>`:''}
   </div>`;
   window.scrollTo(0,0);
 }
@@ -711,7 +719,7 @@ function renderRipasso(tab){
   let body='';
   if(tab==='formule'){
     const by={};R.formulas.forEach(f=>(by[f.topic]||(by[f.topic]=[])).push(f));
-    body=Object.keys(by).map(t=>`<section class="ftopic"><h3>${esc(t)}</h3><div class="flist">${by[t].map(f=>`<div class="fcard"><div class="fh"><span>${f.name}</span><a href="#${f.lesson}-p${f.page}">${f.lesson} · p. ${f.page}</a></div><div class="ftex">$$${esc(f.tex)}$$</div><div class="prose">${f.html||''}</div></div>`).join('')}</div></section>`).join('')||'<div class="empty">Nessuna formula.</div>';
+    body=Object.keys(by).map(t=>`<section class="ftopic"><h3>${esc(t)}</h3><div class="flist">${by[t].map(f=>`<div class="fcard"><div class="fh"><span>${f.name}</span>${f.page?`<a href="#${f.lesson}-p${f.page}">${f.lesson} · p. ${f.page}</a>`:`<a href="#${f.lesson}">${f.lesson}</a>`}</div><div class="ftex">$$${esc(f.tex)}$$</div><div class="prose">${f.html||''}</div></div>`).join('')}</div></section>`).join('')||'<div class="empty">Nessuna formula.</div>';
   }else if(tab==='domande'){
     const sel=LS.get('hlt-oral-filter','tutte');
     const L=S.course.lessons.filter(l=>R.oral.some(o=>o.lesson===l.id));
@@ -761,12 +769,31 @@ function mapSelect(id){
   info.querySelectorAll('a[data-node]').forEach(a=>a.onclick=e=>{e.preventDefault();mapSelect(a.dataset.node)});
   typeset(info)}
 
+/* ---------------- progetto ---------------- */
+async function renderProject(){
+  S.cur=null;$('#secRow').hidden=true;renderNav();
+  let P;try{P=S.proj||(S.proj=await getJSON('progetto.json'))}catch(e){app.innerHTML='<div class="empty">Pagina del progetto non disponibile.</div>';return}
+  const today=new Date().toISOString().slice(0,10);
+  const lname=id=>{const l=lessonMeta(id);return l?`${id} · ${esc(l.title)}`:id};
+  const dl=P.deadlines.map(d=>`<div class="panel pdl${d.date<today?' past':''}"><div class="where"><b>${esc(d.when)}</b> · ${esc(d.what)}</div><div class="prose">${d.html}</div></div>`).join('');
+  const tp=P.topics.map(t=>`<details class="panel ptopic${t.n===P.topic?' ours':''}${t.n===P.candidate?' cand':''}" ${t.n===P.topic||t.n===P.candidate?'open':''}>
+    <summary><b>${t.n}.</b> ${esc(t.title)}${t.n===P.topic?' <span class="stat att">il nostro, provvisorio</span>':''}${t.n===P.candidate?' <span class="stat">candidato</span>':''}${t.n>12?' <span class="stat">altre opzioni</span>':''}</summary>
+    <div class="prose"><p>${esc(t.problem)}</p><p><strong>Focus</strong>: ${esc(t.focus)}.</p><p><strong>Dati (esempi)</strong>: ${esc(t.data)}.</p>
+    <p><strong>Sul sito</strong>: ${t.lessons.map(id=>`<a href="#${id}">${lname(id)}</a>`).join(' · ')}</p></div></details>`).join('');
+  app.innerHTML=`<header class="lhead"><div class="eyebrow">Progetto · gruppo ${P.group}</div><h1>${esc(P.title)}</h1></header>
+   <div class="prose">${P.intro}</div>
+   <div class="sec-title"><h2>Scadenze</h2><span>${P.deadlines.length}</span></div>${dl}
+   <div class="sec-title"><h2>Tema 5 o tema 17?</h2></div><div class="panel"><div class="prose">${P.compare}</div></div>
+   <div class="sec-title"><h2>I 18 temi</h2><span>con le lezioni che servono</span></div>${tp}`;
+  window.scrollTo(0,0)}
+
 /* ---------------- router ---------------- */
 async function route(){
   const h=decodeURIComponent(location.hash.slice(1));S.route=h;
   if(Viewer.el&&!Viewer.el.hidden&&!/^L\d+-p\d+$/.test(h)){Viewer.el.hidden=true;document.body.style.overflow=''}
   if(!h){renderHome();return}
   if(h.startsWith('ripasso')){renderRipasso(h.split('-')[1]);return}
+  if(h==='progetto'){await renderProject();return}
   const m=/^(L\d+)(?:-(.+))?$/.exec(h);
   if(m){const [,lid,rest]=m;let anchor=null;
     if(rest){if(/^p\d+$/.test(rest))anchor=`${lid}-${rest}`;else if(rest.startsWith('s-'))anchor=`${lid}-${rest}`;else anchor=`${lid}-${rest}`}
