@@ -1,0 +1,113 @@
+<div class="sec" id="l17-libro"><h2>Studia dal libro</h2><span>visionbook cap. 24 (§ 24.8–24.11) e cap. 26 per intero (circa 2 ore), più cap. 50 § 50.5–50.6, cap. 21 § 21.4, cap. 43 § 43.4, cap. 49 § 49.2; Prince § 10.4, 11.5.3, 12.2–12.4, 12.10; Szeliski § 5.4.1, 5.5.3, 6.4, 9.3.1, 12.8</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Cosa leggere, in ordine</h3>
+    <div class="meta">Torralba, Isola, Freeman, <i>Foundations of Computer Vision</i>, gratis online; Prince, <i>Understanding Deep Learning</i> e Szeliski 2a ed. nella cartella materiale</div>
+    <ol>
+      <li><a href="https://visionbook.mit.edu/convolutional_neural_nets.html" target="_blank">Cap. 24, Convolutional Neural Nets</a>, le parti saltate in L15: § 24.1 (una CNN mappa un'immagine in un'immagine), § 24.2.5 (strati di downsampling e upsampling, eq. 24.7), § 24.7 (campo recettivo), § 24.8 <b>Spatial Outputs</b>, § 24.9 <b>CNN as a Sliding Filter</b> (la FCN come filtro non lineare), § 24.11.1 <b>Encoder and Decoders</b>, § 24.11.2 <b>U-Nets</b>. Sono le slide 9–17.</li>
+      <li><a href="https://visionbook.mit.edu/upsamplig_downsampling_2.html" target="_blank">Cap. 21, Downsampling and Upsampling</a>, § 21.4 (nearest, bilineare, espansione con zeri come trasposta della decimazione, filtri di interpolazione, upsampling = espansione + filtro, fig. 21.21): è il ripasso di L6 che serve per capire la convoluzione trasposta e la scacchiera (slide 15, 18).</li>
+      <li><a href="https://visionbook.mit.edu/object_recognition_v3.html" target="_blank">Cap. 50, Object Recognition</a>, § 50.5 <b>Class Segmentation</b> (encoder-decoder, cross-entropy per pixel, pesi di classe, pixel accuracy contro IoU medio) e § 50.6 <b>Instance Segmentation</b> (una maschera per box, loss di classificazione + box + maschera). Slide 3–4, 22–23.</li>
+      <li><a href="https://visionbook.mit.edu/3d_learning.html" target="_blank">Cap. 43</a>, § 43.4 (dati per la profondità da una immagine, loss, architettura encoder-decoder, fig. 43.4); <a href="https://visionbook.mit.edu/optical_flow.html" target="_blank">cap. 48</a>, § 48.2 (definizione del flusso, fig. 48.1, problema dell'apertura) e <a href="https://visionbook.mit.edu/motion_estimation.html" target="_blank">cap. 49</a>, § 49.2.1 (FlowNet, pipeline con cost volume, endpoint error, dataset). Slide 5–6, 20–21.</li>
+      <li><a href="https://visionbook.mit.edu/transformers.html" target="_blank">Cap. 26, Transformers</a>, <b>tutto</b>: è il capitolo centrale della seconda metà. § 26.2 (limite delle CNN), § 26.3–26.5 (attenzione, token, tokenizzazione), § 26.6 (attenzione query-key-value, self-attention, multi-testa), § 26.7 (architettura completa = fig. del ViT), § 26.8 (equivarianza alle permutazioni), § 26.9 <b>CNNs in Disguise</b>, § 26.11 (codifiche posizionali), § 26.12 (fc, conv e attenzione come matrici). Il § 26.10 (attenzione mascherata) si può leggere velocemente. Slide 24–39.</li>
+      <li><a href="https://visionbook.mit.edu/neural_nets.html" target="_blank">Cap. 12</a>, § 12.7.3 (batchnorm e layernorm), già letto per L15. Slide 33–34.</li>
+      <li>Prince: § 10.4.2 (upsampling e convoluzione trasposta, fig. 10.12–10.13), § 10.4.3 (conv 1×1), § 10.5.3 (una delle prime reti di segmentazione encoder-decoder), § 11.5.3 <b>U-Nets and hourglass networks</b>, le note del cap. 11 sulle varianti di normalizzazione (fig. 11.14: LayerNorm, GroupNorm, InstanceNorm), cap. 12 § 12.2–12.4 (self-attention, codifiche posizionali assolute e relative, scala √D<sub>q</sub>, multi-testa, strato transformer) e § 12.10.2–12.10.3 (ViT con token &lt;cls&gt;, transformer multi-scala).</li>
+      <li>Szeliski 2a ed.: § 5.4.1 (pooling, unpooling, convoluzione trasposta, U-Net e feature pyramid network), § 5.5.3 (transformer, fig. 5.57 del ViT), § 6.4 <b>Semantic segmentation</b> (6.4.1 applicazioni mediche, 6.4.2 istanza, 6.4.3 panottica, 6.4.5 pose), § 9.3.1 (flusso ottico con reti, RAFT), § 12.8 (profondità monoculare, MiDaS).</li>
+    </ol>
+    <p><b>Si può saltare</b>: § 26.10 (attenzione causale, servirà per i modelli autoregressivi), § 50.3–50.4 (classificazione e localizzazione con box, servirà per la detection della prossima lezione), il resto dei cap. 48–49 (Lucas-Kanade, Horn-Schunck, metodi non supervisionati). <b>Non nei libri</b>: Dice e focal loss, AbsRel, RMSE, PCK, pixel shuffle, MiDaS nei dettagli della loss, RAFT (solo in Szeliski, in breve), bias di posizione relativa di Swin, RoPE, attention rollout, SETR, DPT, SegFormer: per questi bastano le slide e gli articoli citati a slide 42.</p>
+  </div>
+
+  <div class="card">
+    <h3>Le idee centrali, come le spiega il libro</h3>
+    <div class="meta">Da saper ricostruire senza slide</div>
+    <p><b>1 · Una CNN è già una macchina image-to-image.</b> Senza global pooling e senza strati densi, una rete di sole conv e non linearità puntuali è un filtro non lineare che applica la stessa funzione a ogni patch (§ 24.9): l'uscita ha la topologia dell'ingresso. Gli strati densi finali sono conv con kernel grande quanto la mappa (o 1×1), quindi si «convolutionalizzano» (FCN, post di LeCun). Il problema non è il tipo di strato ma la risoluzione persa con stride e pooling.</p>
+    <p><b>2 · Encoder-decoder = piramide di analisi e sintesi appresa.</b> L'encoder sottocampiona e astrae, il decoder sovracampiona (espansione con zeri + filtro, cioè convoluzione trasposta, oppure interpolazione + conv). Il collo di bottiglia risparmia memoria e forza l'astrazione ma perde le alte frequenze; le skip della U-Net (concatenazione a specchio) le riportano, come i livelli di dettaglio della piramide laplaciana di L6 (§ 24.11).</p>
+    <p><b>3 · L'attenzione è un pooling dinamico.</b> L'uscita di ogni token è una media pesata dei value di tutti i token, con pesi softmax(qᵀk/√d) che dipendono dai dati: uno strato lineare la cui matrice si calcola dall'ingresso (§ 26.6, 26.12). Dà campo recettivo globale dal primo strato, al prezzo di un costo O(N²). Più teste = più modi di misurare la somiglianza.</p>
+    <p><b>4 · Un transformer è quasi tutto convoluzionale.</b> Tokenizzazione = conv con kernel e stride P; QKV e MLP = conv 1×1; normalizzazione e residui come nelle CNN. L'unica parte non convoluzionale è l'attenzione. Siccome i kernel sono 1×1 e l'attenzione è equivariante alle permutazioni, la rete non sa nulla della disposizione spaziale: la posizione deve entrare con le codifiche posizionali (§ 26.8–26.9, 26.11).</p>
+    <p><b>5 · La segmentazione è sbilanciata, e loss e metriche devono tenerne conto.</b> La cross-entropy per pixel è dominata dalle classi grandi: il libro propone pesi di classe, la letteratura focal e Dice. Per la stessa ragione la pixel accuracy è ingannevole e si usa l'IoU medio per classe (§ 50.5).</p>
+    <p><b>Notazione e refusi</b>: il visionbook mette i token come righe (T ∈ ℝ<sup>N×d</sup>, come X nella slide 30) e chiama m la dimensione di query e key (d<sub>k</sub> nelle slide). Non usa il token [CLS]: classifica sommando i token d'uscita. Concatena il codice posizionale al token (il ViT lo somma) e usa solo seni (eq. 26.12, B e P non specificati). Nel pseudocodice del § 26.7 la softmax è scritta con dim=0 (per colonne) mentre l'eq. 26.6 la vuole per riga: vale per riga. Nel § 26.7 la «token norm» è senza parametri, nel § 12.7.3 la layernorm ha γ e β. Nel § 26.8 afferma che ogni strato equivariante alle permutazioni è equivariante alle traslazioni: vale per l'attenzione senza codifiche posizionali. Nell'eq. 26.9 la somma da −K a K darebbe 2K + 1 tap per una patch di lato K. Refusi minori: 26.4.4 F<sub>θ</sub>: ℝ<sup>N</sup> → ℝ<sup>N</sup> (va ℝ<sup>d</sup> → ℝ<sup>d</sup>), 26.9.4 «Transfomers», 26.9.5.1 «invarianza» per «equivarianza». Nel § 49.2.1.2 l'endpoint error è descritto come media delle distanze ma scritto come somma di distanze al quadrato. Nelle slide: un riquadro Attenzione alla 22 (Dice non è IoU) e alla 33 (tre normalizzazioni annunciate, quattro elencate).</p>
+  </div>
+</div>
+
+<div class="sec" id="l17-guida"><h2>Guida allo studio</h2><span>circa 4 ore in quattro blocchi; il cuore è U-Net e la self-attention con i conti</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Prima di iniziare</h3>
+    <div class="meta">15 minuti</div>
+    <p>Ripassa da L15 campo recettivo, stride e aliasing, conv 1×1, BatchNorm e LayerNorm, ResNet; da L6 sottocampionamento, espansione con zeri, interpolazione e piramide laplaciana (analisi e sintesi); da L13 il cost volume dello stereo e l'ambiguità di scala della profondità monoculare; da L14 la segmentazione LiDAR e il mIoU; da L3 la convoluzione come matrice (la trasposta della matrice di una conv con stride è la convoluzione trasposta).</p>
+  </div>
+  <div class="two">
+    <div class="card">
+      <h3>1 · Compiti densi e aritmetica</h3>
+      <div class="meta">Slide 1–10 · circa 40 minuti</div>
+      <p>Obiettivo: per ogni compito saper dire ingresso, GT, tipo di uscita per pixel e testa.</p>
+      <ul>
+        <li>Semantica, istanza, panottica (stuff e things); profondità, flusso, pose come heatmap.</li>
+        <li>La tabella della slide 8: stessa struttura, testa 1×1 e loss diverse.</li>
+        <li>Formule di dimensione d'uscita e campo recettivo, con gli esempi della slide 10 rifatti a mano. Leggi § 24.7–24.8.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>2 · Encoder-decoder, FCN e U-Net</h3>
+      <div class="meta">Slide 11–19 · circa 1 ora</div>
+      <p>Obiettivo: disegnare FCN-8s e U-Net con le dimensioni e spiegare ogni operatore di upsampling.</p>
+      <ul>
+        <li>Conv 1×1 e «convolutionalizzazione» degli strati densi; FCN-32s, 16s, 8s.</li>
+        <li>U-Net: catena 572 → 388, canali, crop, concatenazione contro somma.</li>
+        <li>Convoluzione trasposta e scacchiera, resize + conv, pixel shuffle. Leggi § 24.9–24.11 e § 21.4.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>3 · Casi di studio, loss e metriche</h3>
+      <div class="meta">Slide 20–23 · circa 40 minuti</div>
+      <p>Obiettivo: scrivere a memoria le loss e le metriche e dire quando si usano.</p>
+      <ul>
+        <li>MiDaS: fonti di GT incompatibili e loss invariante a scala e spostamento.</li>
+        <li>RAFT: volume di correlazione 4D e raffinamento iterativo; perché si addestra su dati sintetici.</li>
+        <li>CE, focal (con il conto su p<sub>t</sub>), Dice (e la differenza con IoU); mIoU, AbsRel, RMSE, EPE, PCK. Leggi § 50.5, § 43.4, § 49.2.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>4 · Vision Transformer</h3>
+      <div class="meta">Slide 24–41 · circa 1 ora e mezza</div>
+      <p>Obiettivo: costruire un ViT da zero, contarne token, parametri e costo, e confrontarlo con una CNN.</p>
+      <ul>
+        <li>Patch embedding (N, 197 token, E, E<sub>pos</sub>), [CLS], codifiche posizionali 1D, 2D, relative, RoPE.</li>
+        <li>Self-attention con √d<sub>k</sub> e multi-testa; blocco pre-norm; 12D² e 85 M; costo N² contro ND².</li>
+        <li>Normalizzazioni, CNN «travestite», token come griglia per la predizione densa. Leggi tutto il cap. 26.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Formule da sapere a memoria</h3>
+    <span class="f">uscita: H<sub>out</sub> = ⌊(H<sub>in</sub> + 2p − d(k − 1) − 1)/s⌋ + 1;   k<sub>eff</sub> = d(k − 1) + 1</span>
+    <span class="f">campo recettivo: r<sub>L</sub> = 1 + ∑<sub>l</sub> (k<sub>l</sub> − 1) ∏<sub>i&lt;l</sub> s<sub>i</sub></span>
+    <span class="f">conv 1×1: y<sub>h,w</sub> = W x<sub>h,w</sub> + b,   W ∈ ℝ<sup>C<sub>out</sub>×C<sub>in</sub></sup></span>
+    <span class="f">CE: −∑<sub>i</sub>∑<sub>c</sub> y<sub>i,c</sub> log p̂<sub>i,c</sub>;   focal: −∑<sub>i</sub> (1 − p<sub>t,i</sub>)<sup>γ</sup> log p<sub>t,i</sub>;   Dice: 1 − (2∑p̂y + ε)/(∑p̂² + ∑y² + ε)</span>
+    <span class="f">IoU = |Ŷ ∩ Y|/|Ŷ ∪ Y|;   Dice = 2J/(1 + J);   AbsRel = media |d̂ − d|/d;   RMSE = √media(d̂ − d)²;   EPE = media ‖(û, v̂) − (u, v)‖</span>
+    <span class="f">ViT: N = HW/P²,   z<sub>0</sub> = [x<sub>cls</sub>; x<sub>p</sub><sup>1</sup>E; …; x<sub>p</sub><sup>N</sup>E] + E<sub>pos</sub>,   E ∈ ℝ<sup>(P²C)×D</sup></span>
+    <span class="f">attenzione: softmax(QKᵀ/√d<sub>k</sub>) V,   Var(qᵀk) = d<sub>k</sub>,   costo ≈ 12ND² + 2N²D per blocco</span>
+    <span class="f">blocco: x ← x + MHSA(LN(x)),   x ← x + MLP(LN(x));   parametri ≈ 12D² (3D² + D² + 8D²)</span>
+  </div>
+
+  <div class="card">
+    <h3>Domande tipo orale</h3>
+    <div class="meta">Prova a rispondere, poi apri per la traccia</div>
+    <div class="qa">
+      <details><summary>Perché una CNN da classificazione non basta per la segmentazione? Quali soluzioni conosci?</summary><p>È un imbuto: stride e pooling portano 224 × 224 a 7 × 7 per avere campo recettivo e semantica, e il global pooling butta via la posizione; risponde a «cosa» ma non a «dove». Soluzioni: sottocampionare meno (costoso, campo recettivo piccolo); convoluzioni dilatate (contesto senza perdere risoluzione); encoder-decoder che risale con upsampling; skip connection che riportano il dettaglio dagli strati alti (FCN-8s, U-Net). Il compromesso è fra contesto globale e dettaglio spaziale (slide 9–11; § 24.8, 24.11).</p></details>
+      <details><summary>Cos'è una FCN e perché si può applicare a immagini di qualunque dimensione?</summary><p>Una rete fatta solo di convoluzioni e non linearità puntuali: gli strati densi del classificatore sono sostituiti dalle conv equivalenti (kernel grande quanto la mappa, poi 1×1). Ogni strato è un filtro scorrevole, quindi tutta la rete è un filtro non lineare che applica la stessa funzione a ogni patch (§ 24.9): su un'immagine più grande produce una mappa di punteggi più grande. La FCN di Long et al. sovracampiona con una convoluzione trasposta inizializzata bilineare; FCN-8s somma le predizioni di pool4 e pool3 per recuperare i bordi (slide 13–15).</p></details>
+      <details><summary>Descrivi la U-Net con le dimensioni. Perché l'uscita è più piccola dell'ingresso?</summary><p>Encoder: 4 stadi di [conv 3×3 + ReLU] × 2 e max pool 2×2, canali 64 → 1024, risoluzione 572 → 28. Decoder: up-conv 2×2 (risoluzione × 2, canali / 2), concatenazione con la mappa dell'encoder ritagliata, due conv 3×3; conv 1×1 finale a 2 classi, uscita 388 × 388. Le conv sono senza padding e tolgono 2 pixel ciascuna, per questo l'uscita è più piccola e le skip vanno ritagliate (568 → 392 ecc.); si segmentano immagini grandi a tile sovrapposte. Le skip per concatenazione recuperano le alte frequenze perse nel collo di bottiglia (slide 16–17; § 24.11.2).</p></details>
+      <details><summary>Confronta convoluzione trasposta, resize + conv e pixel shuffle. Da dove vengono gli artefatti a scacchiera?</summary><p>La trasposta inserisce zeri fra i campioni e convolve con un kernel appreso (eq. 24.7; la sua matrice è la trasposta di quella di una conv con stride). Se il kernel non è divisibile per lo stride, le posizioni pari e dispari ricevono un numero diverso di contributi (sovrapposizione disuguale): anche un ingresso costante dà un'uscita alternata. Il filtro bilineare [1/2, 1, 1/2] non lo fa perché somma 1 su entrambe le fasi. Resize + conv interpola in modo fisso e poi rifinisce: niente scacchiera. Il pixel shuffle convolve a bassa risoluzione in C·r² canali e li riordina in blocchi r × r: efficiente, ma con un'inizializzazione casuale può ancora dare un motivo periodico (slide 18–19; § 21.4).</p></details>
+      <details><summary>Scrivi cross-entropy, focal loss e Dice loss. Quando useresti le ultime due?</summary><p>CE = −∑<sub>i</sub>∑<sub>c</sub> y<sub>i,c</sub> log p̂<sub>i,c</sub>. Focal = −∑ (1 − p<sub>t</sub>)<sup>γ</sup> log p<sub>t</sub>: con γ = 2 un pixel con p<sub>t</sub> = 0,9 pesa 100 volte meno, quindi il gradiente lo fanno i pixel difficili (spesso classi rare). Dice = 1 − (2∑p̂y + ε)/(∑p̂² + ∑y² + ε): misura la sovrapposizione, ignora i veri negativi, quindi non è sommersa dallo sfondo; si usa per strutture piccole (lesioni, vasi), spesso sommata alla CE. Dice non è IoU ma ne è una funzione crescente: D = 2J/(1 + J). Il libro propone in alternativa pesi di classe nella CE (slide 22; § 50.5).</p></details>
+      <details><summary>Quali metriche si usano per segmentazione, profondità, flusso e pose? Perché loss e metrica sono diverse?</summary><p>mIoU (IoU per classe, mediata), AbsRel e RMSE (spesso anche in log), EPE (distanza euclidea media fra vettori di flusso), PCK (percentuale di keypoint entro una soglia normalizzata per la scala). La loss deve essere differenziabile e stabile da ottimizzare; la metrica deve solo essere significativa: il mIoU contiene conteggi non derivabili, e la pixel accuracy sarebbe dominata dalle classi grandi (slide 23; § 50.5).</p></details>
+      <details><summary>Perché la profondità monoculare è difficile da supervisionare e come la risolve MiDaS?</summary><p>Una sola immagine non fissa la scala assoluta, e le fonti di GT non sono compatibili: LiDAR e RGB-D sono metrici ma parziali, lo stereo dà disparità a meno di scala e spostamento, la SfM non ha scala. MiDaS addestra su molti dataset insieme e, per ogni immagine, allinea la predizione (in disparità) alla GT con la scala e lo spostamento migliori prima di calcolare la loss; la rete impara la struttura relativa e generalizza zero-shot. Per la scala assoluta servono indizi in più (slide 20, 40; § 43.4; collegamento con lo stereo di L13).</p></details>
+      <details><summary>Spiega come un ViT trasforma un'immagine in token. Quanti token e quanti parametri per l'embedding in ViT-B/16 a 224²?</summary><p>Si taglia l'immagine in patch P × P, si appiattisce ogni patch (P²C numeri) e la si proietta con la stessa matrice E ∈ ℝ<sup>(P²C)×D</sup>; si antepone il token [CLS] e si somma E<sub>pos</sub> ∈ ℝ<sup>(N+1)×D</sup>. Con 224² e P = 16: N = 196, 197 token; E ha 768 × 768 ≈ 0,59 M pesi, E<sub>pos</sub> 197 × 768 ≈ 0,15 M. Equivale a una conv con kernel 16 e stride 16 da 3 a 768 canali (slide 26, 37; § 26.4.1, 26.9.1).</p></details>
+      <details><summary>Scrivi la self-attention. Perché si divide per √d<sub>k</sub>? A cosa servono più teste?</summary><p>Q = XW<sup>Q</sup>, K = XW<sup>K</sup>, V = XW<sup>V</sup>, uscita softmax(QKᵀ/√d<sub>k</sub>)V con softmax per riga: ogni token diventa una media pesata dei value, pesi dati dalla somiglianza della sua query con tutte le key. Con componenti indipendenti a varianza 1, Var(qᵀk) = d<sub>k</sub>; senza scala i logit crescono con d<sub>k</sub>, la softmax satura e i gradienti si annullano. Con h teste di dimensione D/h si misurano h tipi di somiglianza diversi allo stesso costo O(N²D); le uscite si concatenano e si proiettano (slide 29–30; § 26.6; Prince § 12.3).</p></details>
+      <details><summary>Perché servono le codifiche posizionali? Confronta sinusoidali, apprese, fattorizzate, relative e RoPE.</summary><p>Attenzione e MLP per token sono equivarianti alle permutazioni: senza posizioni il ViT non distingue un'immagine dal suo puzzle rimescolato. Sinusoidali: fisse, senza parametri, definite per ogni posizione. Apprese assolute (ViT): una tabella, da interpolare se cambia la risoluzione. Fattorizzate riga + colonna: O(H + W) vettori invece di O(HW). Bias relativo (Swin): un bias appreso per spostamento sommato ai logit, invariante alla traslazione. RoPE: ruota q e k in base alla posizione, così nel prodotto la posizione entra solo come spostamento relativo. Il visionbook concatena un codice di seni; il ViT somma (slide 27–28; § 26.8, 26.11).</p></details>
+      <details><summary>Quanti parametri ha un blocco di ViT e come scala il costo con la dimensione delle patch?</summary><p>QKV 3D², proiezione d'uscita D², MLP con rapporto 4 8D²: circa 12D² (25%, 8%, 67%). Con D = 768: 7,08 M per blocco, 84,9 M per 12 blocchi; con embedding, bias, LayerNorm e testa si arriva ai ~86 M di ViT-B/16. Il costo per blocco è circa 12ND² (lineare) + 2N²D (attenzione). Dimezzando P, N si quadruplica: la parte d'attenzione cresce 16×, quella lineare 4×. A 224² domina la parte lineare; ad alta risoluzione (N &gt; 6D) domina l'attenzione, da cui encoder gerarchici o a finestre come SegFormer e Swin (slide 32).</p></details>
+      <details><summary>Perché i transformer usano la LayerNorm e non la BatchNorm? Dove la mettono?</summary><p>La BatchNorm dipende dalle statistiche del batch, si comporta diversamente in training e in test e soffre con batch piccoli e sequenze di lunghezza variabile; la LayerNorm normalizza ogni token sulle sue D feature, indipendentemente dagli altri esempi. Nel ViT è pre-norm: x ← x + MHSA(LN(x)), x ← x + MLP(LN(x)), così il cammino residuo resta un'identità. GroupNorm (gruppi di canali per esempio) è la scelta per CNN con batch piccoli; InstanceNorm e LayerNorm sono i suoi due estremi (slide 31, 33–34; § 12.7.3; Prince cap. 11).</p></details>
+      <details><summary>«Un ViT è una CNN travestita»: in che senso, e qual è la vera differenza?</summary><p>Tokenizzazione = conv con kernel e stride P; proiezioni QKV e MLP = conv 1×1; normalizzazioni e residui come nelle CNN. La differenza è l'attenzione: le CNN mescolano lo spazio con kernel locali e uguali per ogni immagine, il ViT con pesi calcolati dall'ingresso su tutta l'immagine. Siccome i suoi kernel sono 1×1, il ViT non ha bias di località: la posizione entra solo dalle codifiche, e serve un grande pre-training per imparare quello che una CNN ha per costruzione (slide 37, 39; § 26.9; Prince § 12.10.2).</p></details>
+      <details><summary>Come si usa un ViT per la segmentazione?</summary><p>Si scarta il [CLS], si rimodellano gli N token in una griglia (H/P) × (W/P) × D (14 × 14 × 768 per ViT-B/16 a 224²) e la si dà a un decoder che sovracampiona: SETR usa le feature dell'ultimo strato, DPT prende token da più strati e li fonde a risoluzioni diverse come una U-Net. Le codifiche posizionali apprese vanno interpolate se la risoluzione cambia. SegFormer e Swin producono direttamente feature multi-scala, come una backbone CNN, e riducono il costo quadratico (slide 25, 28, 38).</p></details>
+    </div>
+  </div>
+</div>

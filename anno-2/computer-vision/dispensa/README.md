@@ -19,3 +19,5 @@ Una dispensa per lezione, scritta da zero integrando slide e libro (Torralba, Is
 | [L13 · Stereo e profondità](L13-stereo-e-profondita.md) | Stereo Vision and Depth Prediction | 9471 |
 | [L14 · Attacchi avversari](L14-attacchi-avversari.md) | Seminar: CoEvolution – Adversarial Examples | 8414 |
 | [L15 · Reti convoluzionali](L15-reti-convoluzionali.md) | Convolutional Neural Networks | 8391 |
+| [L16 · Lab CNN su CIFAR-10](L16-lab-cnn-su-cifar-10.md) | Lab: CNNs for Image Classification | 7490 |
+| [L17 · Dense prediction e ViT](L17-dense-prediction-e-vit.md) | ViT, U-Net, Dense Prediction | 10006 |

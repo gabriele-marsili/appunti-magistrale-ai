@@ -1,0 +1,244 @@
+<div class="sec" id="l16-libro"><h2>Studia dal libro</h2><span>Torralba, Isola, Freeman · cap. 10, 12, 14, 24, 36 · Prince cap. 6, 9, 11 · circa 2 ore e mezza</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Cosa leggere, in ordine</h3>
+    <div class="meta">Il lab non ha slide: la teoria è nella <a href="#L15">L15</a> e in questi paragrafi</div>
+    <ol>
+      <li><a href="https://visionbook.mit.edu/convolutional_neural_nets.html">Cap. 24 Convolutional Neural Nets</a>: § 24.3.2 (global pooling), § 24.4 (il classificatore minimo conv → relu → gap → fc → softmax), § 24.6 (feature map, fig. 24.24 e la PCA a colori della fig. 24.25, che è la tecnica del notebook), § 24.7 (campo recettivo), § 24.11.3 (ResNet). Se hai già studiato la L15, rileggi solo questi.</li>
+      <li><a href="https://visionbook.mit.edu/neural_nets.html">Cap. 12 Neural Networks</a>: § 12.7.3 (batchnorm e layernorm, statistiche di training e di test).</li>
+      <li><a href="https://visionbook.mit.edu/gradient_descent.html">Cap. 10 Gradient-Based Learning Algorithms</a>: § 10.3 (discesa del gradiente), § 10.4 (schedule del learning rate), § 10.5 (momentum, fig. 10.2), § 10.7 (SGD a minibatch).</li>
+      <li><a href="https://visionbook.mit.edu/backpropagation.html">Cap. 14 Backpropagation</a>: § 14.4 (prima forward, poi backward) e § 14.5 (batch = media dei gradienti). Il resto del capitolo (§ 14.6–14.7) se vuoi vedere il backward di lineare, ReLU e dei rami che si sommano, come nei blocchi residui.</li>
+      <li><a href="https://visionbook.mit.edu/data_augmentation.html">Cap. 36 Training for Robustness and Generality</a>: § 36.2 (data augmentation: invarianza, equivarianza, fig. 36.2).</li>
+      <li><a href="https://visionbook.mit.edu/problem_of_generalization.html">Cap. 11 The Problem of Generalization</a>: § 11.2–11.3 (underfitting, overfitting, regolarizzazione), per leggere il divario fra accuratezza di training e di test.</li>
+      <li><b>Prince, Understanding Deep Learning</b>: § 6.2 (SGD, batch ed epoche, schedule), § 6.3 (momentum), § 6.4 (Adam e il problema del learning rate unico), § 9.3.8 (augmentation), § 11.2–11.5 (blocchi residui, BatchNorm e i suoi benefici, ResNet e bottleneck), § 10.5.1 (classificazione su ImageNet, per il contesto).</li>
+    </ol>
+    <p><b>Si può saltare</b> per questo lab: § 10.6 (funzioni senza buon gradiente, evolution strategies), § 24.2.4 (filtri a basso rango), § 24.5 (esempio di linee orizzontali e verticali, già visto in L15), § 24.8–24.11.2 (uscite spaziali, encoder-decoder, U-Net: tornano in <a href="#L17">L17</a>), § 36.2.1 e seguenti (augmentation appresa, adversarial training: <a href="#L14">L14</a>).</p>
+  </div>
+  <div class="two">
+    <div class="card">
+      <h3>1 · Il blocco residuo</h3>
+      <div class="meta">visionbook § 24.11.3 · Prince § 11.2</div>
+      <p>x<sub>out</sub> = F(x<sub>in</sub>) + x<sub>in</sub>, oppure + W x<sub>in</sub> se cambiano le dimensioni (la conv 1×1 dello shortcut). Imparare l'identità è facile (F = 0), quindi aggiungere blocchi non può peggiorare molto: la rete si sceglie la profondità. Il gradiente passa sempre per il cammino identità. Il Prince la legge come somma di cammini di lunghezza diversa.</p>
+    </div>
+    <div class="card">
+      <h3>2 · BatchNorm: train contro eval</h3>
+      <div class="meta">visionbook § 12.7.3 · Prince § 11.4</div>
+      <p>Standardizza ogni canale con media e varianza del batch (su esempi e posizioni), poi γ e β appresi. In training usa le statistiche del batch, a test quelle aggregate del training: da qui <code>model.train()</code> e <code>model.eval()</code>. Benefici: varianza stabile nelle reti residue, learning rate più alti, un po' di regolarizzazione.</p>
+    </div>
+    <div class="card">
+      <h3>3 · SGD, learning rate e schedule</h3>
+      <div class="meta">visionbook § 10.3–10.4, 10.7 · Prince § 6.2</div>
+      <p>θ ← θ − η∇J, con il gradiente stimato su un minibatch. η regola tutto: piccolo = lento, grande = instabile. Gli schedule partono alti e scendono: a gradini (η moltiplicato per un fattore ogni tot epoche, cioè <code>MultiStepLR</code>), esponenziale, lineare, coseno. Idea del Prince: prima esplorare, poi rifinire.</p>
+    </div>
+    <div class="card">
+      <h3>4 · Momentum</h3>
+      <div class="meta">visionbook § 10.5 · Prince § 6.3</div>
+      <p>La direzione di aggiornamento combina la direzione precedente e il gradiente attuale: v ← μv − η∇J, θ ← θ + v. Smorza le oscillazioni nelle valli strette e accelera dove il gradiente è coerente; troppo momentum fa oltrepassare il minimo (fig. 10.2: un po' di momentum aiuta, troppo fa oscillare). Il notebook non lo usa; le ricette per CIFAR usano μ = 0.9.</p>
+    </div>
+    <div class="card">
+      <h3>5 · Augmentation come invarianza</h3>
+      <div class="meta">visionbook § 36.2 · Prince § 9.3.8</div>
+      <p>Aggiungere (T(x; θ), y) presuppone y(T(x)) = y(x). Crop e flip vanno bene per oggetti, non per i caratteri; per la segmentazione la stessa T va applicata anche all'etichetta (equivarianza). Funziona perché allarga la distribuzione di training verso quella di test.</p>
+    </div>
+    <div class="card">
+      <h3>6 · Feature map, PCA e campo recettivo</h3>
+      <div class="meta">visionbook § 24.6–24.7</div>
+      <p>Scendendo nella rete la risoluzione cala, i canali crescono e le mappe passano da bordi e colori a regioni semantiche. Con la PCA dei canali a 3 componenti ogni posizione diventa un colore. Il campo recettivo cresce a ogni conv e più in fretta dopo ogni sottocampionamento; il global pooling vede tutta l'immagine.</p>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Notazione: libro, Prince e PyTorch</h3>
+    <div class="meta">Per non confondersi passando da una fonte all'altra</div>
+    <ul>
+      <li><b>Learning rate</b>: η nel visionbook, α nel Prince, <code>lr</code> in PyTorch.</li>
+      <li><b>Momentum</b>: il visionbook scrive v ← μv − η∇J, θ ← θ + v; il Prince m ← βm + (1 − β)g, θ ← θ − αm (con il fattore 1 − β); PyTorch v ← μv + g, θ ← θ − η v (senza 1 − β). Con μ = 0.9, a parità di learning rate il passo di PyTorch a regime è circa 10 volte quello della formula del Prince: i valori di lr non si trasferiscono da una formula all'altra.</li>
+      <li><b>Gradiente sul batch</b>: il visionbook (eq. 14.3, § 10.7) usa la media, il Prince (eq. 6.10) la somma; <code>CrossEntropyLoss</code> per default fa la media.</li>
+      <li><b>BatchNorm</b>: γ e β nel visionbook e in PyTorch (<code>weight</code> e <code>bias</code> del modulo), γ e δ nel Prince; il visionbook non scrive ε, il Prince e PyTorch sì (<code>eps=1e-05</code>). Il <code>momentum</code> della BN di PyTorch è il tasso delle medie mobili, non quello dell'ottimizzatore.</li>
+      <li><b>Tensori</b>: N×C×H×W ovunque (visionbook § 12.6.1). La fc del libro (§ 24.4) è <code>nn.Linear</code>, il gap è <code>AdaptiveAvgPool2d(1)</code>.</li>
+      <li><b>Softmax</b>: il libro la mette nella rete; in PyTorch la rete restituisce i logit e la softmax è dentro <code>CrossEntropyLoss</code>.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Cosa c'è nel libro e non nel notebook</h3>
+    <div class="meta">Serve a capire, e all'orale fa la differenza</div>
+    <ul>
+      <li>Perché un blocco residuo rende facile l'identità e cosa significa che la rete "sceglie la propria profondità".</li>
+      <li>Perché la BatchNorm permette learning rate più alti e regolarizza (Prince § 11.4.1), e il problema della varianza che raddoppia a ogni blocco residuo (fig. 11.6).</li>
+      <li>Il ruolo del <b>momentum</b> e degli <b>schedule</b>, che il notebook omette e gli esercizi chiedono.</li>
+      <li>La regolarizzazione implicita dello SGD a minibatch (visionbook § 10.7, Prince § 9.2).</li>
+      <li>La condizione di invarianza dietro l'augmentation e il caso equivariante.</li>
+      <li>Il bottleneck e le ResNet profonde (Prince § 11.5.1).</li>
+    </ul>
+  </div>
+</div>
+
+<div class="sec" id="l16-guida"><h2>Guida allo studio</h2><span>3–4 ore, con il notebook aperto</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Prima di iniziare</h3>
+    <div class="meta">15 minuti</div>
+    <p>Ripassa dalla <a href="#L15">L15</a> strato conv, stride, global pooling, BatchNorm, cross-entropy e la slide sulla ResNet, poi leggi i paragrafi di <b>Studia dal libro</b>. Esegui il notebook su Colab con la GPU (su CPU un'epoca richiede mezz'ora): correggi subito <code>num_classes=10</code> e la visualizzazione dell'immagine, e fai partire il training mentre leggi le schede sul modello.</p>
+  </div>
+  <div class="two">
+    <div class="card">
+      <h3>1 · Dati e preprocessing</h3>
+      <div class="meta">Schede 1–6 · 40 minuti</div>
+      <ul>
+        <li>Calcola media e deviazione standard per canale del training set e confrontale con quelle del notebook (scheda 4).</li>
+        <li>Mostra 8 versioni augmentate della stessa immagine, denormalizzate, con <code>permute</code>.</li>
+        <li>Verifica: sai dire quanti batch fa un'epoca con B = 32 e quanto è grande l'ultimo?</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>2 · Il modello</h3>
+      <div class="meta">Schede 7–13 · 1 ora</div>
+      <ul>
+        <li>Rifai a mano la tabella della scheda 13: forme, parametri di uno stadio, campo recettivo.</li>
+        <li>Conta gli strati: 17 conv + fc = 18; le 3 conv 1×1 degli shortcut a parte.</li>
+        <li>Verifica: sai spiegare cosa cambia fra la ResNet-18 per ImageNet e quella per CIFAR, e perché?</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>3 · Training e valutazione</h3>
+      <div class="meta">Schede 14–17 · 45 minuti</div>
+      <ul>
+        <li>Scrivi a memoria le cinque righe del ciclo e cosa fa ciascuna.</li>
+        <li>Salva la loss di ogni batch e disegna la curva con una media mobile.</li>
+        <li>Verifica: cosa succede se togli <code>zero_grad</code>? E se dimentichi <code>model.eval()</code>?</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>4 · Feature map ed esercizi</h3>
+      <div class="meta">Schede 18–24 · 1 ora</div>
+      <ul>
+        <li>Aggancia l'hook a tutti e cinque gli stadi e confronta le PCA sulla stessa immagine (figura in <a href="#l16-risultati">Risultati</a>).</li>
+        <li>Fai almeno l'esercizio sul learning rate e quello sull'augmentation, con poche epoche.</li>
+        <li>Verifica: sai leggere una mappa PCA senza dare significato ai colori?</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Cosa devi sapere</h3>
+    <div class="meta">La lista minima per l'orale</div>
+    <ul>
+      <li><b>Pipeline dei dati</b>: Dataset con transform applicata a ogni accesso, augmentation solo in training, Normalize con statistiche del training, DataLoader con shuffle, batch N×C×H×W ed etichette intere.</li>
+      <li><b>ResNet-18 per CIFAR</b>: stem 3×3 senza pooling, quattro stadi da due BasicBlock, risoluzioni 32-32-16-8-4, canali 64-128-256-512, global average pooling, fc; circa 11.2 milioni di parametri.</li>
+      <li><b>Blocco residuo</b>: ReLU(F(x) + x), shortcut 1×1 con stride quando cambiano forma o canali, bias=False prima della BN.</li>
+      <li><b>BatchNorm</b>: statistiche per canale su batch e posizioni, γ e β appresi, medie mobili, differenza fra train ed eval.</li>
+      <li><b>Ciclo di training</b>: zero_grad, forward, loss, backward, step; CrossEntropyLoss sui logit; SGD, momentum, weight decay, schedule.</li>
+      <li><b>Valutazione</b>: eval + no_grad, argmax, accuratezza su tutte le immagini.</li>
+      <li><b>Conti</b>: forma d'uscita di una conv, parametri, campo recettivo, batch per epoca.</li>
+      <li><b>Feature map</b>: forward hook, PCA dei canali, cosa cambia con la profondità.</li>
+      <li><b>Bug del notebook</b>: transpose(0,2), num_classes=100, σ della Normalize, nota "slim" non vera.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Domande tipo orale</h3>
+    <div class="meta">Prova a rispondere, poi apri per la traccia</div>
+    <div class="qa">
+      <details><summary>Perché la ResNet-18 per CIFAR ha uno stem diverso da quella per ImageNet?</summary><p>Lo stem ImageNet (conv 7×7 stride 2 + max pool stride 2) riduce la risoluzione di 4 volte: su 224×224 si arriva a 7×7, su 32×32 a 8×8 dopo lo stem e 1×1 all'ultimo stadio, perdendo subito quasi tutta l'informazione spaziale. Per CIFAR lo stem è una conv 3×3 stride 1 senza pooling: risoluzioni 32, 16, 8, 4. Stessi canali e blocchi, quasi gli stessi parametri, circa 15 volte più calcolo per immagine 32×32.</p></details>
+      <details><summary>Scrivi il blocco residuo e spiega quando serve la conv 1×1 nello shortcut.</summary><p>y = ReLU(F(x) + s(x)) con F = conv3×3-BN-ReLU-conv3×3-BN. s è l'identità se forma e canali non cambiano; se il blocco ha stride 2 o cambia i canali, s è una conv 1×1 con lo stesso stride più BN (la W x del libro), altrimenti la somma non è definita. Nella ResNet-18 succede nel primo blocco degli stadi 3, 4, 5.</p></details>
+      <details><summary>Perché un blocco residuo aiuta l'ottimizzazione delle reti profonde?</summary><p>Fare l'identità richiede solo F = 0, quindi aggiungere blocchi non peggiora la rete: la rete può usare solo quelli utili (visionbook § 24.11.3). Il gradiente ha un cammino diretto, ∂y/∂x = ∂F/∂x + I. He et al. osservano che le reti piane molto profonde peggiorano anche sul training: è un problema di ottimizzazione, non di overfitting (Prince § 11.1.1, gradienti "frantumati").</p></details>
+      <details><summary>Cosa fa la BatchNorm in training e in valutazione? Cosa succede se dimentico model.eval()?</summary><p>In training standardizza ogni canale con media e varianza del batch corrente (su esempi e posizioni), applica γ e β e aggiorna le medie mobili. In eval usa le medie mobili. Senza eval la predizione di un'immagine dipende dalle altre del batch e dalla sua dimensione, e le medie mobili vengono sporcate con i dati di test.</p></details>
+      <details><summary>Perché le conv seguite da BatchNorm hanno bias=False?</summary><p>La BN sottrae la media del canale, quindi un bias costante sul canale viene annullato; il β della BN fa già da bias. Il bias sarebbe un parametro inutile.</p></details>
+      <details><summary>Quali sono le forme delle feature map della ResNet-18 su CIFAR, e il campo recettivo all'uscita di ogni stadio?</summary><p>conv1 e conv2_x 64×32×32, conv3_x 128×16×16, conv4_x 256×8×8, conv5_x 512×4×4, avg_pool 512×1×1, fc 10. Campo recettivo 3, 11, 25, 53, 109: r cresce di (k − 1)·j a ogni conv, con j prodotto degli stride precedenti.</p></details>
+      <details><summary>Elenca i passi del ciclo di training e spiega zero_grad.</summary><p>Per ogni batch: zero_grad, forward (logit), loss, backward (gradienti per backpropagation: prima forward, poi backward, § 14.4), step. backward somma nei campi .grad: senza zero_grad il gradiente di un batch si sommerebbe a quelli precedenti.</p></details>
+      <details><summary>Il notebook addestra resnet18(num_classes=100) su CIFAR-10. Perché funziona e perché è sbagliato?</summary><p>CrossEntropyLoss richiede solo etichette minori del numero di classi, e 0–9 &lt; 100. Ma 90 logit non corrispondono a nessuna classe: la rete deve imparare a sopprimerli, la loss iniziale è circa ln 100 ≈ 4.6 invece di ln 10 ≈ 2.3, ci sono 46 170 parametri inutili. Va num_classes=10.</p></details>
+      <details><summary>Cosa ti aspetti aumentando il learning rate di 10 e di 100 volte?</summary><p>Nelle prime iterazioni la loss esplode (passi troppo lunghi, Prince § 6.4); poi, con la BatchNorm, la rete in genere non diverge ma resta vicina alla predizione uniforme e impara più lentamente. Nel nostro mini esperimento la loss media dei primi 25 batch è 2.6, 5.7 e 8.7 per lr 0.04, 0.4 e 4, e degli ultimi 25 (dopo 300 batch) 1.7, 2.0 e 2.2. Con uno schedule si parte alti e si scende.</p></details>
+      <details><summary>A cosa serve la data augmentation, e quando non va usata una certa trasformazione?</summary><p>Allarga la distribuzione di training e insegna l'invarianza dell'etichetta a trasformazioni irrilevanti; riduce l'overfitting. Una trasformazione va evitata se cambia l'etichetta: il flip per i caratteri (b/d), le rotazioni grandi per "6" e "9". Se l'etichetta è una mappa (segmentazione) la trasformazione va applicata anche all'etichetta.</p></details>
+      <details><summary>Come si visualizza una feature map con 256 canali?</summary><p>Canale per canale come immagini in scala di grigi (con scala comune per confrontarli), oppure con la PCA: ogni posizione è un vettore di 256 numeri, si proiettano sulle prime 3 componenti principali e si usano come RGB. Colori simili = descrittori simili; i colori non sono confrontabili fra immagini perché la PCA è calcolata su ciascuna.</p></details>
+      <details><summary>Cosa è un forward hook e perché si fa h.remove()?</summary><p>Una funzione (modulo, ingresso, uscita) che PyTorch chiama dopo il forward del modulo: permette di leggere attivazioni interne senza toccare il modello. Senza remove resterebbe attivo a ogni forward successivo, accumulando tensori.</p></details>
+    </div>
+  </div>
+</div>
+
+<div class="sec" id="l16-risultati"><h2>Risultati dell'esecuzione</h2><span>notebook del docente e nostra esecuzione ridotta</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Uscite salvate del docente</h3>
+    <div class="meta">Esecuzione su CPU, Windows</div>
+    <ul>
+      <li>Prima epoca: 1563 batch in 36 min 23 s (1.40 s/batch), loss dell'ultimo batch 1.1877.</li>
+      <li>Seconda epoca interrotta (KeyboardInterrupt) a 261/1563 batch dopo 10 min 3 s: in tutto circa 1824 aggiornamenti.</li>
+      <li>Accuratezza di test: <b>0.6323</b> (10 000 immagini, 313 batch, 2 min 29 s).</li>
+      <li>Feature map sull'ultimo batch del test: 16 immagini, <code>conv4_x</code> 16×256×8×8, <code>conv1</code> 16×64×32×32.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Nostra esecuzione ridotta</h3>
+    <div class="meta">PyTorch 2.14.1 CPU, torchvision 0.29.1, 2 thread, seme 0; stesso codice del notebook, training di 300 batch invece di 10 epoche</div>
+    <ul>
+      <li>Tutte le celle girano senza errori; forme, numero di batch (1563 e 313) e ultimo batch da 16 coincidono con le uscite salvate, e anche l'avviso di clipping della cella 7 (range [−2.43, 2.56]).</li>
+      <li>Statistiche del training set: μ = (0.4914, 0.4822, 0.4465) come nel notebook; σ per canale (0.2470, 0.2435, 0.2616); media delle σ per immagine (0.2022, 0.1993, 0.2009), cioè i valori usati dal notebook.</li>
+      <li>Parametri: 11 173 962 con 10 classi, 11 220 132 con 100; ResNet-50 per CIFAR-100 (BottleNeck) 23 705 252. Circa 555 milioni di moltiplicazioni-somme per immagine 32×32.</li>
+      <li>Training (num_classes=100 come nel notebook, lr 0.04): 300 batch in 170 s; loss del primo batch 4.35, media dei primi 50 batch 2.74, degli ultimi 50 1.72.</li>
+      <li>Dopo il training: logit medio 6.8 per le classi 0–9 e −0.8 per le classi 10–99; nessuna predizione fuori da 0–9.</li>
+      <li>Accuratezza di test dopo 300 batch: 0.4111 (non confrontabile con lo 0.6323 del docente, che ha addestrato sei volte di più).</li>
+      <li>Varianza spiegata dalle prime 3 componenti PCA (media su 6 immagini): conv1 0.69, conv2_x 0.61, conv3_x 0.54, conv4_x 0.56, conv5_x 0.57. Attivazioni nulle dopo la ReLU: 50% a conv1, 34–39% negli stadi successivi.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>PCA delle feature map stadio per stadio</h3>
+    <div class="meta">Nostra esecuzione (300 batch di training): 6 immagini dell'ultimo batch del test, uscita di conv1 e dei quattro stadi</div>
+    <p><img src="{{IMG:img/nb_pca_stadi.png}}" alt="PCA a 3 componenti delle feature map di conv1, conv2_x, conv3_x, conv4_x, conv5_x per sei immagini del test" loading="lazy" style="max-width:100%;height:auto"></p>
+    <p>Da sinistra a destra la risoluzione scende (32, 32, 16, 8, 4) e l'immagine si perde: a <code>conv1</code> e <code>conv2_x</code> si riconoscono contorni e regioni di colore (la nave, l'aereo, il cavallo con cavaliere), a <code>conv3_x</code> restano le strutture principali (le fasce di cielo e mare nelle immagini delle navi), a <code>conv4_x</code> e <code>conv5_x</code> solo poche regioni grossolane. È la stessa progressione della fig. 24.25 del libro.</p>
+  </div>
+</div>
+
+<div class="sec" id="l16-soluzioni"><h2>Soluzioni degli esercizi</h2><span>con i mini esperimenti che abbiamo eseguito</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>1 · resnet: capire il codice e le forme</h3>
+    <div class="meta">Scheda 13</div>
+    <p>Per ogni conv: uscita ⌊(H + 2p − k)/s⌋ + 1. Con k = 3, p = 1 la dimensione si conserva a stride 1 e si dimezza a stride 2; la conv 1×1 dello shortcut con p = 0 e s = 2 dà ⌊(H − 1)/2⌋ + 1, cioè la stessa metà, così la somma è possibile. Solo il primo blocco di ogni stadio ha stride 2 (<code>strides = [stride] + [1]·(n − 1)</code>). Verifica pratica: un hook per stadio, oppure stampare <code>x.shape</code> dopo ogni stadio in un forward scritto a mano. Prova istruttiva: passare un'immagine 64×64; grazie a <code>AdaptiveAvgPool2d</code> la rete funziona lo stesso e conv5_x diventa 512×8×8.</p>
+  </div>
+  <div class="card">
+    <h3>2 · augmentations matter</h3>
+    <div class="meta">Mini esperimento: num_classes=10, sottoinsieme casuale di 5000 immagini di training, 10 epoche (1570 batch da 32), lr 0.04 senza momentum, accuratezza in modalità eval sulle 5000 di training (senza augmentation) e sulle prime 2000 di test, seme 0</div>
+    <p><img src="{{IMG:img/es_aug.png}}" alt="Accuratezza di training e test e loss di training per epoca, con e senza augmentation" loading="lazy" style="max-width:100%;height:auto"></p>
+    <table>
+      <tr><th>dopo 10 epoche</th><th>acc. training</th><th>acc. test</th><th>loss di training</th></tr>
+      <tr><td>con augmentation (crop + flip)</td><td>0.58</td><td>0.55</td><td>1.03</td></tr>
+      <tr><td>senza augmentation</td><td>0.98</td><td>0.54</td><td>0.10</td></tr>
+    </table>
+    <ul>
+      <li><b>Senza augmentation</b> la rete <b>memorizza</b> il training: loss quasi zero e 98% di accuratezza sulle immagini viste, ma 54% sul test. Il divario di 44 punti è overfitting (visionbook § 11.2): 11 milioni di parametri contro 5000 immagini sempre uguali.</li>
+      <li><b>Con augmentation</b> training e test restano vicini (58% e 55%): la rete non vede mai due volte la stessa immagine, non può memorizzarle e la loss di training scende lentamente.</li>
+      <li>Dopo 10 epoche l'accuratezza di test è quasi la stessa. Il vantaggio dell'augmentation si vede proseguendo: senza, la rete ha già "finito" di imparare dal training (loss ≈ 0, gradienti piccoli) e il test non può migliorare molto; con, c'è ancora margine. Questo è ciò che ci si aspetta, non l'abbiamo misurato oltre le 10 epoche.</li>
+      <li>Le curve di accuratezza sono irregolari da un'epoca all'altra (per esempio la caduta all'epoca 5 senza augmentation): con lr fisso e senza momentum le medie mobili della BatchNorm, usate in eval, seguono pesi che cambiano molto. La loss di training, calcolata in modalità train, è molto più regolare.</li>
+      <li>Per rifarlo nel notebook basta usare <code>eval_transform</code> anche per il training e misurare l'accuratezza su training e test alla fine di ogni epoca.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>3 · training stability and lr</h3>
+    <div class="meta">Mini esperimento: stesso modello (num_classes=10), batch 32, SGD senza momentum, augmentation del notebook, 300 batch, seme 0</div>
+    <p><img src="{{IMG:img/es_lr.png}}" alt="Loss di training per learning rate 0.04, 0.4 e 4 nelle prime 300 iterazioni" loading="lazy" style="max-width:100%;height:auto"></p>
+    <table>
+      <tr><th>lr</th><th>loss primi 25 batch</th><th>loss ultimi 25 batch</th><th>accuratezza (2000 immagini di test)</th></tr>
+      <tr><td>0.04 (notebook)</td><td>2.64</td><td>1.73</td><td>0.32</td></tr>
+      <tr><td>0.4 (10×)</td><td>5.71</td><td>1.96</td><td>0.28</td></tr>
+      <tr><td>4 (100×)</td><td>8.65</td><td>2.16</td><td>0.17</td></tr>
+    </table>
+    <ul>
+      <li><b>Cosa si vede</b>: con 10× e 100× la loss <b>esplode subito</b> (passi troppo lunghi che portano i logit a valori enormi), poi crolla verso ln 10 ≈ 2.3, la loss di una predizione uniforme, e da lì scende molto più lentamente. Nessun NaN in 300 batch: in questa rete non c'è una divergenza vera, c'è un training più lento e peggiore. Con un solo seme e 300 batch le accuratezze sono indicative.</li>
+      <li><b>Perché non diverge</b> (interpretazione, non misurata qui): quasi ogni conv è seguita da una BatchNorm, che rende l'uscita insensibile alla scala dei pesi della conv; un passo enorme cambia la scala più che la funzione. Il Prince (§ 11.4.1) cita proprio i learning rate più alti come beneficio della BN. Senza BN ci si aspetterebbe la divergenza.</li>
+      <li><b>Il motivo generale</b> (Prince § 6.4, visionbook § 10.3): un solo learning rate deve andare bene per direzioni con curvatura molto diversa; se è troppo grande per le direzioni ripide, il passo le oltrepassa e oscilla.</li>
+      <li><b>Scheduler</b>: <code>MultiStepLR(optimizer, milestones=[m1, m2], gamma=0.1)</code> moltiplica η per γ a ogni milestone (lo schedule a gradini del § 10.4); si chiama <code>scheduler.step()</code> una volta per epoca, dopo gli <code>optimizer.step()</code>. Effetto atteso sulla curva: un gradino verso il basso della loss (e in su dell'accuratezza) a ogni milestone, perché con passi più piccoli lo SGD smette di "rimbalzare" nel fondo della valle. Non l'abbiamo misurato: servono decine di epoche.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>4 · reproduce sota for CIFAR100</h3>
+    <div class="meta">Non eseguito: 200 epoche richiedono una GPU</div>
+    <p>Cosa cambiare nel notebook per avvicinarsi al 24.39% di errore top-1 dichiarato dal repository per la resnet18:</p>
+    <ol>
+      <li><code>CIFAR100</code> al posto di <code>CIFAR10</code> e <code>num_classes=100</code> (qui finalmente giusto), con media (0.5071, 0.4865, 0.4409) e σ (0.2673, 0.2564, 0.2762) di CIFAR-100 (valori del repository);</li>
+      <li>augmentation: <code>RandomCrop(32, padding=4)</code>, <code>RandomHorizontalFlip()</code>, <code>RandomRotation(15)</code>;</li>
+      <li>batch 128, <code>SGD(lr=0.1, momentum=0.9, weight_decay=5e-4)</code>;</li>
+      <li>200 epoche con <code>MultiStepLR(milestones=[60, 120, 160], gamma=0.2)</code> e un'epoca di warm-up in cui il learning rate cresce linearmente;</li>
+      <li><code>num_workers</code> &gt; 0 e GPU.</li>
+    </ol>
+    <p>La rete non va cambiata: il codice è identico a quello del repository (scheda 7). Le differenze rispetto al notebook sono tutte nella ricetta: momentum, weight decay (regolarizzazione esplicita, visionbook eq. 11.1), schedule, epoche.</p>
+  </div>
+</div>
