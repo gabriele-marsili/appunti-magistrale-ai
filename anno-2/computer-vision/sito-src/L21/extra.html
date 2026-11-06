@@ -1,0 +1,138 @@
+<div class="sec" id="l21-libro"><h2>Studia dal libro</h2><span>visionbook cap. 30 § 30.2–30.10 e cap. 37 § 37.2–37.3 (circa 1 ora e mezza), più Szeliski § 5.3.4 e § 5.4.7 e Prince § 9.3.7 (mezz'ora)</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Cosa leggere, in ordine</h3>
+    <div class="meta">Torralba, Isola, Freeman, <i>Foundations of Computer Vision</i>, gratis online; Szeliski 2a ed. e Prince, <i>Understanding Deep Learning</i>, nella cartella materiale</div>
+    <ol>
+      <li><a href="https://visionbook.mit.edu/representation_learning.html" target="_blank">Cap. 30, Representation Learning</a>, § 30.1–30.3: cosa rende buona una rappresentazione (compressione e predizione) e la Tab. 30.1 che classifica i metodi. Slide 3–5.</li>
+      <li>Stesso capitolo, § 30.4 e soprattutto § 30.4.1 (l'esperimento con 1-NN strato per strato: colore meglio nei pixel, forma meglio in profondità). Slide 9, 18.</li>
+      <li>§ 30.5–30.8: predictive encodings, detector che emergono (§ 30.5.1), self-supervised learning con V<sub>1</sub>(X), V<sub>2</sub>(X) (§ 30.6), imputation e colorizzazione (§ 30.7), pretext task astratti: rotazione e posizione relativa (§ 30.8). Slide 12–19.</li>
+      <li>§ 30.10 <b>Contrastive Learning</b>: è il cuore. Alignment loss e collasso, coppie positive e negative, contrastivo per trasformazioni e per co-occorrenza, l'eq. 30.4 con Hadsell, triplet e InfoNCE; § 30.10.1 alignment e uniformity; § 30.10.2 l'esperimento con embedding 2D. Slide 20–35.</li>
+      <li><a href="https://visionbook.mit.edu/transfer_learning.html" target="_blank">Cap. 37, Transfer Learning and Adaptation</a>, § 37.2 (pretraining e adaptation), § 37.3 (finetuning, sostituire l'ultimo strato), § 37.3.1 (congelare parti della rete, esempio con DINO), § 37.3.2 (heads and probes). Slide 3, 7–8. Leggi anche § 37.4.1 (knowledge distillation) come preparazione alla L22.</li>
+      <li>Szeliski 2a ed., § 5.3.4 Loss functions, dalla contrastive loss di Hadsell (eq. 5.57) alla InfoNCE / NT-Xent (eq. 5.58), pagine stampate 281–282; § 5.4.7 Self-supervised learning (pagine 312–317): pretext task con la fig. 5.51, poi Wu et al., MoCo, PIRL, SimCLR, MoCo v2, clustering, CLIP, BYOL e SimSiam senza negativi.</li>
+      <li>Prince § 9.3.6–9.3.7 (transfer learning e SSL generativo contro contrastivo, fig. 9.12) e le note del cap. 9 (paragrafo «Self-supervised learning», con SimCLR). Una pagina.</li>
+    </ol>
+    <p><b>Si può saltare</b>: § 30.4 sull'autoencoder oltre l'idea (lo ritrovi nella L22 con MAE), § 30.9 sul clustering e k-means (basta l'osservazione che il clustering è il caso estremo del contrastivo), § 37.5–37.11 (prompting, domain adaptation, catalogo). <b>Non nei libri</b>: SimCLR nei dettagli (testa di proiezione, batch, pipeline di augmentation), SimSiam e il suo pseudocodice, temperatura alla Wang e Liu, collasso dimensionale (Jing et al.), k-NN pesato e prototipi come valutazione, N-pair loss. Per questi le slide, le schede e gli articoli citati.</p>
+  </div>
+
+  <div class="card">
+    <h3>Le idee centrali, come le spiega il libro</h3>
+    <div class="meta">Da saper ricostruire senza slide</div>
+    <p><b>1 · Il pretraining è un pretesto.</b> Il libro divide il transfer learning in pretraining e adaptation (§ 37.2) e chiama «pretext task» qualunque compito di predizione che serve solo a ottenere un buon encoder (§ 30.5). Self-supervision = costruire ingresso V<sub>1</sub>(X) e bersaglio V<sub>2</sub>(X) dallo stesso dato (§ 30.6). La colorizzazione è imputation di canali, la rotazione un pretext task astratto. Con quasi ogni pretext task ragionevole emergono detector di oggetti negli strati nascosti (§ 30.5.1, 30.7).</p>
+    <p><b>2 · Il contrastivo è compressione supervisionata.</b> Invece di limitare i bit, si dice quale informazione buttare: si impone l'invarianza a T con l'alignment loss ‖f(T(x)) − f(x)‖². Da sola collassa (f = 0 la azzera); si aggiunge un termine che allontana coppie di dati indipendenti. Le CNN ottengono l'invarianza alla traslazione con l'architettura, il contrastivo la ottiene con l'obiettivo per qualunque trasformazione (§ 30.10).</p>
+    <p><b>3 · Tre loss, una struttura.</b> Ancora, positivo, negativi. Hadsell e triplet usano margini (spingono solo finché i punti non sono abbastanza lontani); InfoNCE è un log softmax dei prodotti scalari divisi per τ, cioè una classificazione in cui la classe giusta è il positivo (eq. 30.4). Szeliski aggiunge che τ controlla quanto sono stretti i cluster e che la stessa loss si chiama NT-Xent in SimCLR (eq. 5.58).</p>
+    <p><b>4 · Alignment e uniformity.</b> InfoNCE fa due cose: allinea i positivi (ℒ<sub>align</sub> = 𝔼‖f(x) − f(x<sup>+</sup>)‖<sup>α</sup>) e sparpaglia tutti i punti sulla sfera (ℒ<sub>unif</sub> = log 𝔼 e<sup>−t‖f(x) − f(x<sup>−</sup>)‖²</sup>). La normalizzazione è indispensabile, altrimenti i negativi andrebbero all'infinito (§ 30.10.1).</p>
+    <p><b>5 · Le augmentation decidono la rappresentazione.</b> Esperimento § 30.10.2: con i soli ritagli l'embedding 2D raggruppa per colore; aggiungendo cambi di tinta, luminosità e saturazione raggruppa per forma. Ogni rappresentazione è un compromesso (§ 30.11), come dice la slide 30.</p>
+    <p><b>6 · Adattare: finetuning, parti congelate, probe.</b> Si taglia l'ultimo strato e se ne mette uno nuovo; si può congelare una parte (un featurizer generico come DINO) e rifinire il resto; un linear probe serve sia ad adattare sia a <b>sondare</b> cosa sa uno strato (§ 37.3).</p>
+  </div>
+
+  <div class="two">
+    <div class="card">
+      <h3>Differenze di notazione fra slide e libro</h3>
+      <ul>
+        <li><b>Viste</b>: slide t(x), t′(x) con t, t′ ∈ 𝒯; libro T(x) o due viste V<sub>1</sub>(X), V<sub>2</sub>(X) (anche per co-occorrenza).</li>
+        <li><b>Embedding</b>: slide h = f(x) (rappresentazione) e z = g(h) (proiezione); libro z = f(x) senza testa di proiezione.</li>
+        <li><b>Similarità</b>: slide sim(u, v) coseno; libro prodotto scalare f(x)<sup>⊤</sup>f(x<sup>+</sup>) (uguale con vettori normalizzati); Szeliski v̂<sub>i</sub> · v̂<sub>j</sub>.</li>
+        <li><b>Margine</b>: slide α nella triplet; libro m (triplet) e m<sub>pos</sub>, m<sub>neg</sub> (Hadsell); il libro usa α per l'esponente di ℒ<sub>align</sub>.</li>
+        <li><b>Distanze</b>: slide ‖·‖² esplicita; libro distanza generica D.</li>
+        <li><b>Negativi</b>: slide N − 1 negativi (N classi); libro {x<sub>i</sub><sup>−</sup>}<sub>i=1..N</sub>, cioè N negativi e N + 1 classi.</li>
+        <li><b>Temperatura</b>: slide e Szeliski dividono per τ; il cap. 12 del libro scrive il softmax con e<sup>−τx</sup>.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Refusi del libro da conoscere</h3>
+      <ul>
+        <li>Eq. 30.4, Hadsell: parentesi fuori posto (m<sub>pos</sub> dentro D) e segno <b>−</b> davanti al termine sui negativi: va <b>+</b>, ℒ = max(D(f(x), f(x<sup>+</sup>)) − m<sub>pos</sub>, 0) + max(m<sub>neg</sub> − D(f(x), f(x<sup>−</sup>)), 0).</li>
+        <li>Eq. 30.3 (k-means, § 30.9): l'aggiornamento del centro divide per N invece che per il numero di punti del cluster.</li>
+        <li>Fig. 30.13: il testo dice «y = V1(X)», va V<sub>2</sub>(X) (verificato sulla pagina web; non incide sulla lezione).</li>
+        <li>Szeliski eq. 5.57 scrive la loss di Hadsell in forma «log L<sub>S</sub>, log L<sub>D</sub>» per analogia con la cross-entropy; nell'articolo originale è una somma di quadrati: ½ d² per le coppie simili, ½ max(0, m − d)² per le dissimili.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="sec" id="l21-guida"><h2>Guida allo studio</h2><span>circa 4 ore in quattro blocchi; il cuore è InfoNCE (gradiente e temperatura) con SimCLR</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Prima di iniziare</h3>
+    <div class="meta">15 minuti</div>
+    <p>Ripassa da <a href="#L15">L15</a> softmax con temperatura, cross-entropy e il gradiente «p − y» rispetto ai logit, BatchNorm; da <a href="#L16">L16</a> le augmentation (crop, flip) e la PCA delle feature; da <a href="#L17">L17</a>–<a href="#L18">L18</a> il ViT e il token [CLS]; da <a href="#L14">L14</a> l'idea di scorciatoia. La lezione è quasi tutta costruita su un'unica formula, InfoNCE: arrivaci con il softmax fresco.</p>
+  </div>
+  <div class="two">
+    <div class="card">
+      <h3>1 · Perché SSL e come si valuta</h3>
+      <div class="meta">Slide 1–11 · circa 45 minuti</div>
+      <p>Obiettivo: definire SSL, pretext e downstream, e confrontare i quattro modi di usare una rappresentazione.</p>
+      <ul>
+        <li>Finetuning completo, linear probe, k-NN pesato, prototipi: costo, iperparametri, cosa misurano.</li>
+        <li>Dimostra che il NCM è lineare (w<sub>c</sub> = μ<sub>c</sub>, b<sub>c</sub> = −½‖μ<sub>c</sub>‖²).</li>
+        <li>Leggi § 37.2–37.3 del libro.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>2 · Pretext task e scorciatoie</h3>
+      <div class="meta">Slide 12–19 · circa 45 minuti</div>
+      <p>Obiettivo: raccontare rotazione, posizione relativa, jigsaw, colorizzazione con il loro trucco anti-scorciatoia.</p>
+      <ul>
+        <li>Perché 90° e non 45°; perché spazi fra le tessere; perché classificazione dei colori.</li>
+        <li>Quattro limiti dei pretext task e il passo verso il contrastivo.</li>
+        <li>Leggi § 30.5–30.8 del libro.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>3 · Contrastivo e InfoNCE</h3>
+      <div class="meta">Slide 20–35 · circa 1 ora e mezza</div>
+      <p>Obiettivo: scrivere e derivare InfoNCE, spiegare negativi, temperatura e collasso.</p>
+      <ul>
+        <li>Triplet con l'esempio numerico; Hadsell con i due margini (e il refuso del libro).</li>
+        <li>Gradiente ∂ℒ/∂s<sub>k</sub> = (p<sub>k</sub> − 1[k=+])/τ: rifallo a mano.</li>
+        <li>Rifai la figura della temperatura con s = (0.8, 0, −0.3, 0.2) a τ = 0.5.</li>
+        <li>Alignment e uniformity; collasso completo e dimensionale e come si misurano.</li>
+        <li>Leggi § 30.10 tutto e Szeliski § 5.3.4.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>4 · SimCLR e SimSiam</h3>
+      <div class="meta">Slide 36–51 · circa 1 ora</div>
+      <p>Obiettivo: disegnare SimCLR e SimSiam e dire cosa li distingue.</p>
+      <ul>
+        <li>NT-Xent, 2B viste, 2B − 2 negativi, loss simmetrica.</li>
+        <li>Testa di proiezione: perché h è meglio di z.</li>
+        <li>Crop + colore; batch ed epoche (fig. 9 e 7 dell'articolo).</li>
+        <li>SimSiam: stop-gradient, predictor, niente negativi (correggi la slide 43 sui tuoi appunti).</li>
+        <li>Leggi Szeliski § 5.4.7.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Formule da sapere a memoria</h3>
+    <span class="f">linear probe: ŷ = softmax(W f<sub>θ</sub>(x) + b);   k-NN: ŷ = argmax<sub>c</sub> ∑<sub>i∈𝒩<sub>k</sub></sub> exp(sim(z, z<sub>i</sub>)/τ) 1[y<sub>i</sub> = c]</span>
+    <span class="f">NCM: μ<sub>c</sub> = (1/|D<sub>c</sub>|) ∑ f<sub>θ</sub>(x),  ŷ = argmin<sub>c</sub> ‖f<sub>θ</sub>(x) − μ<sub>c</sub>‖² = argmax<sub>c</sub> (μ<sub>c</sub><sup>⊤</sup>h − ½‖μ<sub>c</sub>‖²)</span>
+    <span class="f">triplet: ℒ = max(0, ‖z<sub>a</sub> − z<sub>p</sub>‖² − ‖z<sub>a</sub> − z<sub>n</sub>‖² + α)</span>
+    <span class="f">InfoNCE: ℒ = −log exp(s<sub>+</sub>/τ) / ∑<sub>k</sub> exp(s<sub>k</sub>/τ);   ∂ℒ/∂s<sub>k</sub> = (p<sub>k</sub> − 1[k=+])/τ;   I ≥ log N − ℒ</span>
+    <span class="f">NT-Xent: ℓ<sub>i,j</sub> = −log exp(sim(z<sub>i</sub>, z<sub>j</sub>)/τ) / ∑<sub>k≠i</sub> exp(sim(z<sub>i</sub>, z<sub>k</sub>)/τ);   2B viste, 2B − 2 negativi</span>
+    <span class="f">ℒ<sub>align</sub> = 𝔼‖f(x) − f(x<sup>+</sup>)‖<sub>2</sub><sup>α</sup>;   ℒ<sub>unif</sub> = log 𝔼 e<sup>−t‖f(x) − f(x<sup>−</sup>)‖<sub>2</sub><sup>2</sup></sup>;   ‖u − v‖² = 2 − 2cos(u, v) per vettori unitari</span>
+    <span class="f">SimCLR: x → f → h → g → z,  g(h) = W<sub>2</sub> ReLU(W<sub>1</sub>h);   SimSiam: ℒ = ½𝒟(p<sub>1</sub>, sg(z<sub>2</sub>)) + ½𝒟(p<sub>2</sub>, sg(z<sub>1</sub>)),  𝒟 = −cos</span>
+  </div>
+
+  <div class="card">
+    <h3>Domande tipo orale</h3>
+    <div class="meta">Prova a rispondere, poi apri per la traccia</div>
+    <div class="qa">
+      <details><summary>Che cos'è il self-supervised learning? Che differenza c'è fra pretext task e downstream task?</summary><p>Addestrare su dati non etichettati con un compito le cui etichette si generano dai dati (V<sub>1</sub>(X) → V<sub>2</sub>(X), libro § 30.6). Il pretext task serve solo a ottenere l'encoder; i downstream task sono quelli che interessano, risolti dopo con finetuning o probe (slide 4).</p></details>
+      <details><summary>Come si valuta una rappresentazione auto-supervisionata? Confronta linear probe, k-NN, prototipi e finetuning.</summary><p>Finetuning: migliore accuratezza, costoso, molti iperparametri. Linear probe: encoder congelato + classificatore lineare, misura la separabilità lineare, standard per ImageNet. k-NN pesato: nessun addestramento, misura la struttura locale, utile durante il pretraining. Prototipi (NCM): una media per classe, ottimo con pochi esempi; è lineare (slide 7–10).</p></details>
+      <details><summary>Dimostra che il classificatore nearest class mean è un classificatore lineare.</summary><p>‖h − μ<sub>c</sub>‖² = ‖h‖² − 2μ<sub>c</sub><sup>⊤</sup>h + ‖μ<sub>c</sub>‖²; ‖h‖² non dipende da c, quindi argmin = argmax(μ<sub>c</sub><sup>⊤</sup>h − ½‖μ<sub>c</sub>‖²): pesi μ<sub>c</sub>, bias −½‖μ<sub>c</sub>‖². Confini = iperpiani assi fra prototipi.</p></details>
+      <details><summary>Descrivi due pretext task storici e il trucco che impedisce le scorciatoie.</summary><p>Rotazione (4 classi, multipli di 90° per non avere artefatti di interpolazione); jigsaw (permutazioni scelte fra 1000, spazi e jitter fra tessere contro la continuità dei bordi); colorizzazione (L → ab come classificazione su bin, perché la regressione darebbe colori medi); posizione relativa (aberrazione cromatica come scorciatoia). Limiti: feature specifiche, scorciatoie, progettazione a mano, divario dal supervisionato (slide 14–19).</p></details>
+      <details><summary>Che cos'è l'instance discrimination e perché è il pretext task del contrastivo?</summary><p>Ogni immagine è una classe; due augmentation della stessa immagine sono positive, viste di altre immagini negative. Obbliga a feature che identificano l'immagine ma sono invarianti alle augmentation. ExemplarCNN usava una testa per classe; Wu et al. e SimCLR/MoCo confrontano gli embedding direttamente, che è InfoNCE (slide 24).</p></details>
+      <details><summary>Scrivi InfoNCE e calcola il gradiente rispetto alle similarità. Cosa significa?</summary><p>ℒ = −s<sub>+</sub>/τ + log ∑<sub>k</sub> e<sup>s<sub>k</sub>/τ</sup>, ∂ℒ/∂s<sub>k</sub> = (p<sub>k</sub> − 1[k=+])/τ. Il positivo viene tirato con forza (1 − p<sub>+</sub>)/τ, ogni negativo spinto con forza p<sub>j</sub>/τ: i negativi difficili (alta p) pesano di più. È cross-entropy con le similarità come logit e il positivo come classe giusta (slide 32).</p></details>
+      <details><summary>Che effetto ha la temperatura? Fai un esempio numerico.</summary><p>Similarità (0.8, 0, −0.3, 0.2): a τ = 0.1 p<sub>+</sub> ≈ 1 e quasi tutto il peso dei negativi (88%) sul più difficile; a τ = 0.5 p = (0.62, 0.13, 0.07, 0.19); a τ = 2 p = (0.33, 0.22, 0.19, 0.25), quasi uniforme, gradienti piccoli e uguali. τ piccola = attenzione ai negativi difficili ma rischio di respingere vicini semantici; τ grande = gradienti deboli (slide 33).</p></details>
+      <details><summary>Perché servono i negativi? Che cos'è il collasso e come si riconosce?</summary><p>Con i soli positivi f costante minimizza la loss (collasso completo: std degli embedding normalizzati → 0, k-NN al caso). I negativi danno uniformità; con InfoNCE il collasso dà ℒ = log N, non zero. Collasso dimensionale: embedding in un sottospazio, valori singolari della covarianza che crollano (slide 25, 35).</p></details>
+      <details><summary>Spiega alignment e uniformity sull'ipersfera. Perché si normalizzano gli embedding?</summary><p>InfoNCE ≈ ℒ<sub>align</sub> (positivi vicini) + ℒ<sub>unif</sub> (punti sparsi uniformemente). Senza normalizzazione il termine sui negativi spingerebbe gli embedding all'infinito invece di sparpagliarli. Esperimento del libro: le augmentation scelte decidono se i cluster sulla sfera sono per colore o per forma (§ 30.10.1–30.10.2, slide 26).</p></details>
+      <details><summary>Disegna SimCLR. Quanti negativi ha ogni vista? Perché la testa di proiezione?</summary><p>x → t, t′ → f (ResNet-50) → h → g (MLP) → z → NT-Xent su 2B viste: 1 positivo e 2B − 2 negativi, loss mediata su (i, j) e (j, i). g assorbe la perdita di informazione dovuta all'invarianza: il probe su h supera quello su z di oltre 10 punti; g si butta (slide 38–39).</p></details>
+      <details><summary>Quali augmentation contano in SimCLR e perché il colore è così importante?</summary><p>Crop + distorsione del colore sono la coppia decisiva: senza colore i ritagli si riconoscono dagli istogrammi di colore (scorciatoia). Le augmentation sono il bias induttivo: ogni invarianza costa informazione, che può servire a valle (colore per i fiori, orientamento per il testo) (slide 28–30, 40).</p></details>
+      <details><summary>Che cos'è SimSiam e perché non collassa senza negativi?</summary><p>Rete siamese con encoder f condiviso (backbone + projector), predictor h su un ramo a turno, loss coseno negativo simmetrizzata con stop-gradient sul bersaglio. Non è contrastivo (niente negativi). Senza stop-gradient o senza predictor collassa (0.1%); con entrambi funziona (circa 68% a 100 epoche con batch 256–512). Correzione della slide 43: il modulo asimmetrico è il predictor, non il projector (slide 43–44).</p></details>
+    </div>
+    <p><b>Errori e imprecisioni delle slide segnalati nelle schede</b>: slide 3 (refusi «eng», «fing»), 34 (batch di default 4096, non «&gt; 4096»), 35 (con InfoNCE il collasso non dà loss zero ma log N), 43 (SimSiam non è contrastivo; il modulo su un solo ramo è il predictor, e agisce su entrambe le viste per la simmetria).</p>
+  </div>
+</div>

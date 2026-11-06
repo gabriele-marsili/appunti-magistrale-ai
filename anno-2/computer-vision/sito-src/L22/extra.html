@@ -1,0 +1,139 @@
+<div class="sec" id="l22-libro"><h2>Studia dal libro</h2><span>visionbook cap. 30 (§ 30.3–30.8, 30.10) e cap. 37 (§ 37.2–37.4.1), più § 31.3.2, § 26.4.1, § 43.4: circa 2 ore; Szeliski § 5.4.7 e Prince § 9.3.7 come ripasso. I metodi recenti non sono nei libri</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Cosa leggere, in ordine</h3>
+    <div class="meta">Torralba, Isola, Freeman, <i>Foundations of Computer Vision</i>, gratis online; Szeliski 2a ed. e Prince, <i>Understanding Deep Learning</i>, nella cartella materiale</div>
+    <ol>
+      <li><a href="https://visionbook.mit.edu/representation_learning.html" target="_blank">Cap. 30, Representation Learning</a>: § 30.2–30.3 (cosa rende buona una rappresentazione, compressione contro predizione, Tab. 30.1), § 30.4 e 30.4.1 (autoencoder e l'esperimento con il k-NN strato per strato: colore nei pixel, forma in profondità), § 30.5–30.8 (pretext task, rilevatori di oggetti che emergono, self-supervision come V<sub>1</sub>(X) → V<sub>2</sub>(X), imputation, rotazione e posizione relativa). Slide 3–9, 29–31.</li>
+      <li>Stesso capitolo, § 30.10 (alignment loss, collasso, positivi e negativi, InfoNCE come classificazione) e § 30.10.1–30.10.2 (alignment e uniformity sull'ipersfera; l'esperimento con ritagli e jitter di colore). Ripasso della <a href="#L21">L21</a> e base per le slide 11–13 e 23–27.</li>
+      <li><a href="https://visionbook.mit.edu/transfer_learning.html" target="_blank">Cap. 37, Transfer Learning and Adaptation</a>: § 37.2 (pretraining + adaptation), § 37.3 e 37.3.1 (finetuning, sostituzione dell'ultimo strato, moduli congelati con DINO come featurizer), § 37.3.2 (heads e linear probe), § 37.4 e 37.4.1 (teacher, knowledge distillation con pmf morbide). Slide 5–8, 15, 42–43, 49.</li>
+      <li><a href="https://visionbook.mit.edu/perceptual_organization.html" target="_blank">Cap. 31, Perceptual Grouping</a>, § 31.3.2 Affinity-Based Segmentation: feature DINO calcolate densamente e k-means (fig. 31.7). Slide 46.</li>
+      <li>Da rileggere al volo: <a href="https://visionbook.mit.edu/transformers.html" target="_blank">cap. 26</a> § 26.4.1 (token come patch vettorizzate e proiettate; slide 31), <a href="https://visionbook.mit.edu/3d_learning.html" target="_blank">cap. 43</a> § 43.4 (profondità da una immagine; slide 51), <a href="https://visionbook.mit.edu/generative_modeling_and_rep_learning.html" target="_blank">cap. 33</a> § 33.4.1 (il decoder come generatore: basta per capire il tokenizer di BEiT, slide 35).</li>
+      <li>Szeliski 2a ed., § 5.4.7 Self-supervised learning (pagine stampate 312–317): pretext task storici, memory bank, MoCo, PIRL, SimCLR, MoCo v2, clustering, CLIP e soprattutto il paragrafo su <b>BYOL e SimSiam senza negativi</b>, poi student-teacher e distillazione.</li>
+      <li>Prince, § 9.3.7 Self-supervised learning (generativo contro contrastivo) e le note del cap. 9.</li>
+    </ol>
+    <p><b>Si può saltare</b>: § 30.9 (clustering e k-means in dettaglio: basta l'idea; il libro ha un refuso, 1/N invece di 1/|cluster| nell'eq. 30.3), § 37.5–37.10 (prompting, domain adaptation, dati generativi), le tecniche di ottimizzazione del VAE in § 33.4.3. <b>Non nei libri</b>: BYOL e MoCo nei dettagli (solo un paragrafo di Szeliski), Barlow Twins, VICReg, SimMIM, MAE, BEiT, DINO come metodo (il libro lo usa soltanto), DINOv2, DINOv3 e la Gram anchoring, Depth Anything, I-JEPA e V-JEPA: per questi valgono le schede, con i numeri controllati sugli articoli.</p>
+  </div>
+
+  <div class="card">
+    <h3>Le idee centrali, come le spiega il libro</h3>
+    <div class="meta">Da saper ricostruire senza slide</div>
+    <p><b>1 · Una rappresentazione si giudica da cosa rende facile.</b> Il libro valuta l'autoencoder con un 1-NN strato per strato (§ 30.4.1): il colore si riconosce meglio nei pixel, la forma negli strati profondi. Non c'è una rappresentazione migliore in assoluto; i protocolli della slide 8 (k-NN, linear probe, fine-tuning) misurano cose diverse, e per questo i metodi contrastivi vincono in linear probe e quelli mascherati in fine-tuning (slide 40).</p>
+    <p><b>2 · Le famiglie di metodi seguono due principi.</b> Compressione (autoencoder, contrastivo, clustering) e predizione (futuro, imputation, pretext task astratti). In questa lezione: BYOL, MoCo, Barlow Twins, VICReg, DINO sono compressione per invarianza; SimMIM, MAE, BEiT, I-JEPA sono imputation (cambia solo cosa si predice: pixel, codici, feature).</p>
+    <p><b>3 · L'alignment loss da sola collassa.</b> ‖f(T(x)) − f(x)‖² è zero per f costante (§ 30.10). Il libro risolve con i negativi; Szeliski § 5.4.7 aggiunge che BYOL e SimSiam ne fanno a meno con predictor e stop-gradient (più l'EMA in BYOL). Questa lezione aggiunge la terza via (Barlow Twins, VICReg: vincoli sulle statistiche delle feature) e la quarta (ricostruire l'ingresso, che non può essere costante).</p>
+    <p><b>4 · Uniformity = contro il collasso.</b> Con embedding normalizzati, il termine sui negativi dell'InfoNCE spinge i punti a distribuirsi uniformemente sull'ipersfera (§ 30.10.1, Wang e Isola). Barlow Twins, VICReg e il KoLeo di DINOv2 ottengono un effetto simile senza negativi: decorrelare le dimensioni e dare loro varianza è un altro modo di «spargere» gli embedding.</p>
+    <p><b>5 · Le trasformazioni decidono le invarianze.</b> Solo ritagli → embedding che raggruppa per colore; ritagli + jitter di colore → per forma (§ 30.10.2). È il motivo per cui le augmentation sono il vero iperparametro dei metodi a due viste, e uno degli argomenti a favore di MIM e JEPA, che non ne hanno bisogno.</p>
+    <p><b>6 · Teacher e distillazione.</b> Nel § 37.4.1 il teacher è un modello già addestrato e lo student ne imita la pmf, più informativa di un'etichetta one-hot. DINOv2 usa esattamente questa distillazione per passare da ViT-g a ViT-S/B/L; BYOL e DINO usano invece un teacher che è la media mobile dello student stesso (self-distillation).</p>
+    <p><b>7 · Feature congelate + teste.</b> Fig. 37.3: un featurizer generico congelato (DINO) sotto moduli specifici. Con k-means sulle feature dense di DINO si ottiene una segmentazione (§ 31.3.2). È lo schema d'uso dei foundation model (slide 42, 51, 55).</p>
+    <p><b>Differenze di notazione e imprecisioni del libro</b>: il libro chiama <i>alignment loss</i> l'L<sub>agree</sub> della slide 12; scrive i token come righe di una matrice (come la X di Gram nella slide 54); nel § 31.3.2 raggruppa DINO fra i metodi contrastivi che allontanano patch di immagini diverse, ma DINO non ha negativi espliciti; nel § 12.7.4 la softmax è scritta con e<sup>−τx</sup> (τ temperatura inversa con segno insolito), mentre slide e articoli dividono i logit per τ; nel § 30.4 la loss L2 compare con una radice in più. I refusi del § 30.10 (Hadsell con il segno sbagliato davanti al termine dei negativi, fig. 30.13 con V<sub>1</sub> al posto di V<sub>2</sub>) riguardano la <a href="#L21">L21</a>.</p>
+  </div>
+</div>
+
+<div class="sec" id="l22-guida"><h2>Guida allo studio</h2><span>circa 5 ore in quattro blocchi; il cuore è come ogni metodo evita il collasso, con i conti di EMA, Barlow Twins, MAE e DINO rifatti a mano</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Prima di iniziare</h3>
+    <div class="meta">15 minuti</div>
+    <p>Ripassa dalla <a href="#L21">L21</a> pretraining e finetuning, InfoNCE, SimCLR (projector, augmentation, batch grandi) e SimSiam (predictor e stop-gradient); da <a href="#L15">L15</a> softmax con temperatura, cross-entropy e BatchNorm; da <a href="#L17">L17</a> e <a href="#L18">L18</a> patch, token, [CLS], mappe di attenzione, MiDaS e profondità; da <a href="#L19">L19</a> DPT.</p>
+  </div>
+  <div class="two">
+    <div class="card">
+      <h3>1 · Valutazione e collasso</h3>
+      <div class="meta">Slide 1–13 · circa 45 minuti</div>
+      <p>Obiettivo: dire cosa misura ogni protocollo e riconoscere i due collassi.</p>
+      <ul>
+        <li>k-NN, linear probe, fine-tuning: cosa si addestra, cosa misurano (libro § 37.3.2, 30.4.1).</li>
+        <li>Pretext task: difficoltà, scorciatoie, trasferimento; loss bassa ≠ buona rappresentazione.</li>
+        <li>Collasso completo e dimensionale con la matrice di covarianza (esempio di rango 1).</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>2 · Teacher-student e statistiche delle feature</h3>
+      <div class="meta">Slide 14–27 · circa 1 ora e mezza</div>
+      <p>Obiettivo: disegnare BYOL, MoCo, SimSiam, Barlow Twins, VICReg dicendo dove passa il gradiente.</p>
+      <ul>
+        <li>EMA a mano: 2,01 dopo un passo, tempo di dimezzamento ≈ 69 passi con τ = 0,99.</li>
+        <li>Stop-gradient sull'esempio lineare (w²σ<sub>n</sub>² contro 2(w − ξ)); ‖â − b̂‖² = 2 − 2 cos.</li>
+        <li>MoCo: coda + EMA per avere molti negativi coerenti.</li>
+        <li>Barlow Twins sull'esempio 2 × 2 (L = 1); i due collassi in C; VICReg con la hinge sulla deviazione standard.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>3 · Ricostruzione e MIM</h3>
+      <div class="meta">Slide 28–40 · circa 1 ora e un quarto</div>
+      <p>Obiettivo: confrontare SimMIM, MAE e BEiT riga per riga e dire quando vince il MIM.</p>
+      <ul>
+        <li>N = HW/P² = 196; MAE con 49 token visibili, costo dell'encoder circa 4 volte minore.</li>
+        <li>Perché il 75% (ridondanza delle immagini) e perché la loss solo sulle patch mascherate.</li>
+        <li>BEiT: tokenizer dVAE di DALL-E (8192 codici), 40% a blocchi, la loss con il segno meno.</li>
+        <li>Park et al.: forma contro texture, linear probe contro fine-tuning.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>4 · Foundation model</h3>
+      <div class="meta">Slide 41–59 · circa 1 ora e mezza</div>
+      <p>Obiettivo: raccontare DINO → DINOv2 → DINOv3 e collocare JEPA.</p>
+      <ul>
+        <li>DINO: multi-crop, cross-entropy fra distribuzioni, centering e sharpening sull'esempio a 3 uscite.</li>
+        <li>DINOv2: dati curati (LVD-142M), DINO + iBOT, distillazione con teacher fisso, famiglia 21 M–1,1 B.</li>
+        <li>Depth Anything: DINOv2 + DPT, pseudo-etichette.</li>
+        <li>DINOv3: 7 B parametri e 1,689 miliardi di immagini, degradazione densa, Gram anchoring (G invariante alle rotazioni delle feature).</li>
+        <li>I-JEPA e V-JEPA: predire feature invece di pixel.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Tabella riassuntiva dei metodi</h3>
+    <div class="meta">Da saper ricostruire a memoria: è la domanda d'orale più probabile</div>
+    <table>
+      <tr><th>Metodo</th><th>Segnale</th><th>Come evita il collasso</th><th>Negativi</th><th>Teacher EMA</th><th>Cosa si tiene dopo</th></tr>
+      <tr><td>SimCLR (L21)</td><td>due viste aumentate, InfoNCE</td><td>negativi nel batch (uniformity)</td><td>sì, batch</td><td>no</td><td>encoder (senza projector)</td></tr>
+      <tr><td>MoCo</td><td>due viste, InfoNCE fra query e chiavi</td><td>negativi da una coda FIFO</td><td>sì, coda</td><td>sì (encoder delle chiavi)</td><td>encoder delle query</td></tr>
+      <tr><td>BYOL</td><td>predire la proiezione del teacher sull'altra vista</td><td>predictor + stop-gradient + EMA (dinamica, non loss)</td><td>no</td><td>sì</td><td>encoder dello student f<sub>θ</sub></td></tr>
+      <tr><td>SimSiam (L21)</td><td>predire l'altra vista</td><td>predictor + stop-gradient</td><td>no</td><td>no</td><td>encoder</td></tr>
+      <tr><td>Barlow Twins</td><td>cross-correlazione fra viste → identità</td><td>diagonale = 1 (varianza), fuori diagonale = 0 (decorrelazione)</td><td>no</td><td>no</td><td>encoder (senza projector)</td></tr>
+      <tr><td>VICReg</td><td>invarianza + varianza + covarianza</td><td>hinge sulla deviazione standard, covarianza fuori diagonale</td><td>no</td><td>no</td><td>encoder (senza expander)</td></tr>
+      <tr><td>SimMIM</td><td>pixel delle patch mascherate, L1</td><td>bersaglio = immagine (non può essere costante)</td><td>no</td><td>no</td><td>encoder</td></tr>
+      <tr><td>MAE</td><td>pixel delle patch mascherate, MSE</td><td>bersaglio = immagine</td><td>no</td><td>no</td><td>encoder (decoder buttato)</td></tr>
+      <tr><td>BEiT</td><td>ID del tokenizer, cross-entropy</td><td>bersaglio fisso da un tokenizer congelato</td><td>no</td><td>no</td><td>encoder</td></tr>
+      <tr><td>DINO</td><td>distribuzioni del teacher fra ritagli (cross-entropy)</td><td>centering + sharpening, con EMA e stop-gradient</td><td>no</td><td>sì</td><td>backbone (di solito quella del teacher)</td></tr>
+      <tr><td>DINOv2</td><td>DINO sul [CLS] + iBOT sulle patch</td><td>come DINO (con Sinkhorn-Knopp) + KoLeo</td><td>no</td><td>sì</td><td>ViT-g e i modelli distillati</td></tr>
+      <tr><td>DINOv3</td><td>come DINOv2 + Gram anchoring</td><td>come DINOv2; Gram verso un checkpoint precedente</td><td>no</td><td>sì (più il Gram teacher)</td><td>ViT-7B e i distillati</td></tr>
+      <tr><td>I-JEPA</td><td>feature dei blocchi bersaglio dal contesto</td><td>predictor + stop-gradient + EMA</td><td>no</td><td>sì</td><td>encoder</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>Formule da sapere a memoria</h3>
+    <span class="f">EMA: ξ ← τξ + (1 − τ)θ;   ξ<sub>k</sub> = θ − (θ − ξ<sub>0</sub>)τ<sup>k</sup>;   k<sub>½</sub> = ln 0,5 / ln τ</span>
+    <span class="f">BYOL: L = ‖p̂<sub>θ</sub> − sg(ẑ'<sub>ξ</sub>)‖² = 2 − 2 cos(p<sub>θ</sub>, z'<sub>ξ</sub>),   simmetrizzata L<sub>v,v'</sub> + L<sub>v',v</sub></span>
+    <span class="f">Barlow Twins: C = Z<sup>A⊤</sup>Z<sup>B</sup>/B (colonne standardizzate sul batch);   L = ∑<sub>i</sub>(1 − C<sub>ii</sub>)² + λ∑<sub>i≠j</sub>C<sub>ij</sub>²</span>
+    <span class="f">VICReg: L = λs + μ[v(Z) + v(Z')] + ν[c(Z) + c(Z')],   v = (1/d)∑<sub>j</sub> max(0, γ − √(Var(z<sup>j</sup>) + ε)),   c = (1/d)∑<sub>i≠j</sub>C(Z)<sub>ij</sub>²</span>
+    <span class="f">N = HW/P²;   MAE: L = (1/|M|)∑<sub>i∈M</sub> MSE(x̂<sub>i</sub>, x<sub>i</sub>);   SimMIM: L = ‖y<sub>M</sub> − x<sub>M</sub>‖<sub>1</sub>/Ω(x<sub>M</sub>)</span>
+    <span class="f">BEiT: L = −𝔼<sub>M</sub>[∑<sub>i∈M</sub> log p<sub>MIM</sub>(z<sub>i</sub> | x<sup>M</sup>)]</span>
+    <span class="f">DINO: P<sub>t</sub> = softmax((u<sub>t</sub> − c)/τ<sub>t</sub>),  P<sub>s</sub> = softmax(u<sub>s</sub>/τ<sub>s</sub>),  L = ∑ −P<sub>t</sub> log P<sub>s</sub>;   c ← m c + (1 − m) mean(u<sub>t</sub>)</span>
+    <span class="f">Gram: G = XX<sup>⊤</sup>,  L<sub>Gram</sub> = ∑<sub>ij</sub>(G<sup>s</sup><sub>ij</sub> − G<sup>t</sup><sub>ij</sub>)²;   I-JEPA: L ∝ ∑<sub>i∈M</sub>‖ẑ<sub>i</sub> − sg(z<sub>i</sub>)‖²</span>
+  </div>
+
+  <div class="card">
+    <h3>Domande tipo orale</h3>
+    <div class="meta">Prova a rispondere, poi apri per la traccia</div>
+    <div class="qa">
+      <details><summary>Che differenza c'è fra k-NN, linear probe e fine-tuning? Perché un metodo può vincere in uno e perdere in un altro?</summary><p>k-NN: niente da addestrare, misura se le immagini della stessa classe sono vicine. Linear probe: encoder congelato e classificatore lineare, misura la separabilità lineare. Fine-tuning: si riaddestra tutto, misura quanto la rete è un buon punto di partenza. I metodi contrastivi danno feature già compresse sulla semantica (vincono in k-NN e linear probe); MAE conserva più dettaglio, che il fine-tuning riorganizza (vince in fine-tuning e nei compiti densi). Slide 8, 40; libro § 37.3.2, 30.4.1.</p></details>
+      <details><summary>Cos'è il collasso? Distingui collasso completo e dimensionale e dimmi come li riconosci.</summary><p>Con la sola loss di accordo, f costante dà loss zero (completo, Cov(z) = 0). Nel dimensionale le feature variano ma in un sottospazio: rank(Cov(z)) ≪ d, lo spettro degli autovalori crolla. Ogni metodo SSL è una risposta a questo problema. Slide 12; libro § 30.10.</p></details>
+      <details><summary>Come funziona BYOL e perché non collassa senza negativi?</summary><p>Student con encoder, projector e predictor; teacher = EMA dello student senza predictor; loss = distanza fra vettori normalizzati (2 − 2 cos), stop-gradient sul teacher, simmetrizzata. Il collasso è ancora un minimo della loss, ma la dinamica non ci arriva: lo stop-gradient impedisce di muovere il bersaglio (esempio lineare: senza sg L = w²σ<sub>n</sub>² e si va a w = 0; con sg il gradiente 2(w − ξ) non spinge verso 0), il predictor rompe la simmetria e approssima E[z' | z], l'EMA rende il bersaglio lento. Funziona «empiricamente»; Szeliski § 5.4.7. Slide 14–20.</p></details>
+      <details><summary>Fai un passo di EMA a mano e spiega cosa cambia con τ = 0,99 o τ = 0,999.</summary><p>0,99 · 2 + 0,01 · 3 = 2,01. Dopo k passi con student fermo: ξ<sub>k</sub> = θ − (θ − ξ<sub>0</sub>)τ<sup>k</sup>; dimezzamento in ln 0,5/ln τ ≈ 69 passi (τ = 0,99) o ≈ 693 (τ = 0,999). La memoria è circa 1/(1 − τ) passi. τ = 1 congela il teacher, τ = 0 lo rende uguale allo student (SimSiam). Slide 17.</p></details>
+      <details><summary>Perché MoCo usa una coda e un momentum encoder? Cosa cambia rispetto a SimCLR?</summary><p>SimCLR prende i negativi dal batch, quindi servono batch enormi. MoCo tiene una coda FIFO di chiavi dei batch passati (65 536 nell'articolo) e le calcola con un encoder a momentum (m = 0,999) perché siano coerenti fra loro anche se calcolate in passi diversi. Stesso strumento EMA di BYOL, scopo diverso. Slide 21.</p></details>
+      <details><summary>Scrivi la loss di Barlow Twins e calcolala su un esempio. Come penalizza i due collassi?</summary><p>C<sub>ij</sub> = correlazione sul batch fra la feature i della vista A e la j della vista B (colonne standardizzate, C = Z<sup>A⊤</sup>Z<sup>B</sup>/B). L = ∑(1 − C<sub>ii</sub>)² + λ∑<sub>i≠j</sub>C<sub>ij</sub>². Esempio 2 × 2 con B = 4: C = [[1, 0], [0, 0]] e L = 1. Collasso completo: C = 0, L = d (termine di invarianza). Dimensionale: C tutta a 1, L = λd(d − 1) (termine di ridondanza). Slide 24–26.</p></details>
+      <details><summary>Che differenza c'è fra Barlow Twins e VICReg?</summary><p>VICReg separa i tre obiettivi: invarianza come MSE fra le viste, varianza come hinge max(0, γ − √(Var + ε)) per dimensione, covarianza fuori diagonale dentro ogni vista. Barlow Twins mette invarianza e varianza nella diagonale di una cross-correlazione standardizzata. VICReg non richiede che i due rami condividano i pesi. Entrambi senza negativi né EMA. Slide 27.</p></details>
+      <details><summary>Spiega MAE: perché il 75%, perché l'encoder vede solo le patch visibili, perché la loss solo sulle mascherate?</summary><p>Le immagini sono ridondanti: con poco mascheramento basta interpolare. L'encoder su 49 token invece di 196 costa circa 4 volte meno (domina la parte lineare; l'attenzione scende di 16 volte) e non vede mai token di maschera che a valle non esistono; il decoder leggero aggiunge i token di maschera. Sulle visibili il compito sarebbe copiare. A valle si butta il decoder. Slide 31–34.</p></details>
+      <details><summary>Confronta SimMIM, MAE e BEiT. Cosa c'è di sbagliato nella formula della slide 37?</summary><p>Tabella della slide 38: griglia completa contro solo visibili, maschere prima dell'encoder o del decoder, testa lineare / decoder / classificatore, pixel L1 / pixel MSE / ID con cross-entropy, tokenizer (dVAE di DALL-E, 8192 codici, già addestrato da altri) solo in BEiT. La formula di BEiT è una log-verosimiglianza da massimizzare: come loss serve il segno meno. Slide 35–38.</p></details>
+      <details><summary>Come funziona DINO? A cosa servono centering e sharpening? Fai un esempio.</summary><p>Student (ritagli globali e locali) e teacher EMA (solo globali), uscite a K dimensioni trasformate in distribuzioni, cross-entropy fra teacher e student su viste diverse, stop-gradient. Centering: sottrae la media mobile dei logit del teacher e impedisce che una dimensione domini per tutte le immagini, ma da solo spinge verso l'uniforme. Sharpening (τ<sub>t</sub> = 0,04–0,07): bersagli piccati, ma da solo collassa su una dimensione. Esempio: logit (5, 1, 0) e (5, 0, 1): senza centering entrambe → (1, 0, 0); centrati e con τ = 0,04 → (0, 1, 0) e (0, 0, 1). Slide 43–45.</p></details>
+      <details><summary>Cosa aggiunge DINOv2 a DINO, e perché distillare?</summary><p>Dati curati (LVD-142M da un pool web, con deduplicazione e retrieval che usa dataset curati come query), loss iBOT sulle patch mascherate (bersagli = uscite del teacher) oltre a DINO sul [CLS], KoLeo, patch 14. Poi distillazione: ViT-g (1,1 B) congelato come teacher fisso per ViT-S/B/L (21, 86, 300 M), per avere backbone adatte a budget diversi. Teacher fisso contro teacher EMA. Slide 47–50; libro § 37.4.1.</p></details>
+      <details><summary>Qual è il problema che la Gram anchoring di DINOv3 risolve, e perché funziona?</summary><p>Con addestramenti lunghi e modelli grandi le feature dense degradano (mappe di similarità rumorose) anche se la loss scende, perché l'obiettivo globale compete con quello locale. Gram: G = XX<sup>⊤</sup> sulle feature normalizzate delle patch; si fa coincidere la G dello student con quella di un checkpoint precedente con feature dense buone. G è invariante alle rotazioni delle feature (XRR<sup>⊤</sup>X<sup>⊤</sup> = XX<sup>⊤</sup>): vincola chi somiglia a chi, non le feature stesse. Slide 52–54.</p></details>
+      <details><summary>Cos'è JEPA e in cosa differisce da MAE e da BYOL?</summary><p>Predice le feature (date da un target encoder EMA) dei blocchi nascosti a partire dal contesto, con predictor e stop-gradient. Da MAE prende il mascheramento ma non ricostruisce pixel (niente capacità sprecata su dettagli imprevedibili); da BYOL prende il bersaglio nello spazio delle feature e l'EMA, ma non usa augmentation scelte a mano. V-JEPA estende a video e, con le azioni del robot, a un modello del mondo. Slide 56–58.</p></details>
+    </div>
+    <p><b>Errori e imprecisioni delle slide già segnalati nelle schede</b>: slide 37 (loss di BEiT senza il segno meno), slide 35 (il tokenizer di BEiT non è addestrato da BEiT: è il dVAE pubblico di DALL-E), slide 54 (riga «Why: keep.» troncata), slide 16 (domanda con il soggetto mancante), slide 13 (MoCo nel footer ma non nella tabella). Da precisare, non errori: la «normalizzazione» di Barlow Twins è lungo il batch (slide 24), la varianza di VICReg nell'articolo usa √(Var + ε) (slide 27), la «masked reconstruction» di DINOv2 predice uscite del teacher, non pixel (slide 48).</p>
+  </div>
+</div>

@@ -1,0 +1,665 @@
+{
+ "L": "L19",
+ "segs": [
+  {
+   "a": "In una frase: la detection non produce u",
+   "b": 0,
+   "t": "Pensa a un'auto che guida da sola. Davanti a lei c'è una strada, e a un certo punto le serve sapere non solo che ci sono dei pedoni, ma quanti sono e dove sono esattamente. Oggi parliamo di come una rete neurale risponde a questa domanda, cioè della detection, e poi di come si passa dalle scatole alle maschere, cioè alla segmentazione di istanza e panottica."
+  },
+  {
+   "a": "In una frase: la detection non produce u",
+   "b": 0,
+   "t": "Alla fine saprai spiegare i detector della famiglia R-CNN, perché YOLO è veloce, come DETR elimina un passo di post-elaborazione, come si misura la mAP e come evolve la segmentazione. Il filo rosso sono due domande: quante predizioni faccio, e quale va con quale oggetto vero."
+  },
+  {
+   "a": "Questa lezione (tenuta da Donald Shenaj,",
+   "b": 2,
+   "t": "Prima di iniziare, i prerequisiti. Questa lezione continua la precedente sulla predizione densa, quindi ti servono la segmentazione semantica, la U-Net, il Vision Transformer e la self-attention con il suo costo quadratico. Ti servono anche campo recettivo, stride e dilatazione dalla lezione sulle CNN, e le piramidi di immagini, perché serviranno per cercare oggetti a più scale."
+  },
+  {
+   "a": "Le slide sono 63 pagine: la 63 non è una",
+   "b": 4,
+   "t": "Una nota pratica. Le slide sono 63 pagine, ma l'ultima è solo un indice a miniature, e le pagine 8, 38, 49 e 58 sono divisorie. Soprattutto: la maggior parte degli argomenti di oggi non sta nei libri, quindi questa dispensa è la tua fonte principale."
+  },
+  {
+   "a": "Video Lecture 15: Object Detection (UMic",
+   "b": 6,
+   "t": "Sotto trovi tre video, un complemento e non un obbligo: la lezione di Justin Johnson sulla detection, una spiegazione di DETR, e la lezione sulla segmentazione fino a Mask R-CNN. Guardali prima o dopo."
+  },
+  {
+   "a": "1. Dall'immagine all'insieme di oggetti",
+   "b": 7,
+   "t": "Cominciamo dal problema di fondo: finora l'uscita di una rete aveva forma fissa, con la detection non più."
+  },
+  {
+   "a": "Il problema. Un'auto a guida autonoma de",
+   "b": 8,
+   "t": "Un'auto a guida autonoma vuole sapere che davanti ci sono tre pedoni e dove. Il numero di pedoni cambia da una foto all'altra. Quindi l'uscita non è una mappa, è un insieme di scatole, ognuna con una classe e un punteggio di confidenza, e la lunghezza di questo insieme non è nota in anticipo."
+  },
+  {
+   "a": "Stessa immagine, tre uscite. Classificaz",
+   "b": 9,
+   "t": "Guarda la figura, tre pannelli sulla stessa scena. A sinistra la classificazione dà una sola etichetta, strada. Al centro la detection dà una lista di scatole con classe e punteggio, due auto e una persona. A destra la segmentazione dà una classe per pixel, ma non dice quante auto ci sono."
+  },
+  {
+   "a": "L'idea. Con un'uscita a dimensione fissa",
+   "b": 10,
+   "t": "Perché è più difficile? Quando l'uscita ha dimensione fissa, ogni elemento d'uscita ha un bersaglio ovvio, e bastano la cross-entropy e la regressione. Con un insieme mancano due cose. Non sai quante predizioni servano, e non sai quale predizione corrisponda a quale oggetto vero. Prima di calcolare una loss devi decidere chi è positivo e chi è sfondo."
+  },
+  {
+   "a": "I dati. Per addestrare servono annotazio",
+   "b": 12,
+   "t": "Per addestrare servono annotazioni più ricche, scatole o maschere. I dataset da conoscere: PASCAL VOC con 20 classi, COCO con 80 classi di oggetti, su cui si misura la mAP, Cityscapes per le scene urbane, ADE20K per la segmentazione."
+  },
+  {
+   "a": "Il punto Detection significa predire un ",
+   "b": 13,
+   "t": "Da portare a casa: detection vuol dire predire un insieme di lunghezza variabile. Ogni metodo che vedremo è una risposta a due domande, quante predizioni, e quale va con quale oggetto."
+  },
+  {
+   "a": "2. Scatole e IoU: come si misura una sov",
+   "b": 14,
+   "t": "Prima di tutto ci serve un metro per misurare quanto due scatole si sovrappongono. Senza questo non possiamo dire se una predizione è giusta, né se due predizioni parlano dello stesso oggetto."
+  },
+  {
+   "a": "L'idea. L' IoU ( intersection over union",
+   "b": 16,
+   "t": "Il metro si chiama IoU, intersection over union, cioè intersezione su unione. Prendi l'area in cui le due scatole si sovrappongono e la dividi per l'area totale che coprono insieme. Se sono disgiunte vale zero, se coincidono vale uno."
+  },
+  {
+   "a": "Tre sovrapposizioni crescenti. Il numero",
+   "b": 19,
+   "t": "Nella figura vedi tre coppie di rettangoli. Nella prima si toccano appena, e l'IoU è circa zero virgola zero cinque. Nella seconda si sovrappongono a metà, circa un terzo. Nella terza quasi coincidono, zero virgola settantaquattro. Come regola pratica, sopra zero virgola cinque si dice che le due scatole sono lo stesso oggetto."
+  },
+  {
+   "a": "Esempio svolto (slide 30). A = [0, 0, 10",
+   "b": 20,
+   "t": "Facciamo un conto. Una scatola va da zero a dieci in entrambe le direzioni, l'altra da cinque a quindici. L'intersezione è il quadrato da cinque a dieci, area venticinque. Ciascuna scatola ha area cento, quindi l'unione è cento più cento meno venticinque, cioè centosettantacinque. L'IoU è venticinque su centosettantacinque, circa zero virgola quattordici."
+  },
+  {
+   "a": "Il punto L'IoU è il metro di tutto : ass",
+   "b": 21,
+   "t": "Da portare a casa: l'IoU è il metro di tutto. Serve ad assegnare le ancore agli oggetti, a decidere quali duplicati eliminare con la NMS, e a stabilire se una detection è corretta quando calcoliamo la precisione media."
+  },
+  {
+   "a": "3. Prima del deep learning: finestra sco",
+   "b": 22,
+   "t": "Adesso un salto nel passato. Come si trovava un volto in una foto prima delle reti neurali, e in tempo reale? La risposta è un algoritmo famoso, Viola e Jones, del 2001."
+  },
+  {
+   "a": "L'idea più semplice: la finestra scorrev",
+   "b": 24,
+   "t": "Il punto di partenza è la finestra scorrevole. Fai scorrere una finestra di dimensione fissa su tutta l'immagine e un classificatore decide, per ogni posizione, oggetto o sfondo; per oggetti di taglia diversa ripeti su una piramide di immagini. Il costo è enorme: una finestra di 64 pixel con passo 4 su una foto 640 per 480 dà già 15225 posizioni, per una sola scala. Serve un classificatore economicissimo, oppure scartare in fretta quasi tutto lo sfondo."
+  },
+  {
+   "a": "(a) Le feature di Haar. Sono rettangoli ",
+   "b": 26,
+   "t": "Primo ingrediente, le feature di Haar. Sono rettangoli adiacenti, uno bianco e uno nero. La risposta è la somma dei pixel del rettangolo bianco meno la somma di quello nero. Per esempio la zona degli occhi è più scura delle guance, e una feature fatta così lo cattura. Servono migliaia di rettangoli diversi, quindi ogni somma deve costare pochissimo."
+  },
+  {
+   "a": "(b) L'immagine integrale. L'immagine int",
+   "b": 27,
+   "t": "Secondo ingrediente, e qui c'è il trucco, l'immagine integrale. Ogni suo punto contiene la somma di tutti i pixel che stanno sopra e a sinistra. La calcoli una volta sola per immagine. Poi la somma su un qualsiasi rettangolo costa quattro accessi, qualunque sia la sua dimensione."
+  },
+  {
+   "a": "A sinistra l'immagine I con un rettangol",
+   "b": 30,
+   "t": "Guarda la figura. A sinistra c'è un'immagine piccola di sei per sei pixel, con un rettangolo azzurro di tre per tre che somma undici. A destra c'è la sua immagine integrale, con quattro celle marcate A, B, C e D. Leggendo i loro valori, ventisei meno dieci meno sei più uno, ottieni undici senza sommare i nove pixel."
+  },
+  {
+   "a": "Perché funziona: II(D) è tutto ciò che s",
+   "b": 31,
+   "t": "Perché funziona? Il valore in D è la somma di tutto quello che sta sopra e a sinistra di D. Togli B e C, cioè due fasce. Ma la zona in alto a sinistra l'hai tolta due volte, quindi la riaggiungi con A. Gli accessi sono sempre quattro."
+  },
+  {
+   "a": "(c) AdaBoost e la cascata. Un classifica",
+   "b": 32,
+   "t": "Terzo ingrediente, AdaBoost e la cascata. Un classificatore debole è solo una soglia su una singola feature di Haar. AdaBoost ne sceglie poche decine fra migliaia e dà a ciascuno un peso. Poi li mette in cascata. I primi stadi sono economici e scartano subito quasi tutto lo sfondo. Solo le finestre sopravvissute arrivano agli stadi più severi e costosi."
+  },
+  {
+   "a": "Esempio ipotetico (non i numeri veri di ",
+   "b": 33,
+   "t": "Nel grafico, un esempio inventato e non i numeri veri di Viola e Jones: se ogni stadio scarta metà delle finestre di sfondo, da centomila ne restano 781 dopo sette stadi. Nota la scala logaritmica. Il costo medio per finestra resta vicino a quello del primo stadio."
+  },
+  {
+   "a": "Attenzione: il segno in AdaBoost La slid",
+   "b": 35,
+   "t": "Attenzione, errore nelle slide del professore. L'appendice scrive la combinazione dei classificatori con la funzione segno, ma i classificatori deboli valgono zero o uno e i pesi sono positivi: la somma è sempre positiva e il segno direbbe volto per ogni finestra. Con classificatori da meno uno a più uno, funziona."
+  },
+  {
+   "a": "Il punto Viola-Jones è veloce perché le ",
+   "b": 36,
+   "t": "Da portare a casa: Viola e Jones è veloce per due motivi. Le somme su rettangoli costano quattro accessi grazie all'immagine integrale, e la cascata spende poco sullo sfondo."
+  },
+  {
+   "a": "4. Le proposte di regioni: selective sea",
+   "b": 37,
+   "t": "Le proposte di regioni: invece di provare centomila finestre, indovino poche centinaia di zone dove probabilmente c'è un oggetto."
+  },
+  {
+   "a": "L'idea. La selective search è un algorit",
+   "b": 39,
+   "t": "La selective search è fissa, senza apprendimento, e produce circa 2000 scatole in tre passi. Dividi l'immagine in superpixel, regioni piccole e coerenti. Fondi ripetutamente la coppia adiacente più simile. Ogni regione che compare, superpixel compresi, dà la sua scatola, a tutte le scale."
+  },
+  {
+   "a": "La similarità mescola quattro indizi, pe",
+   "b": 40,
+   "t": "Il punteggio di somiglianza mescola quattro indizi, perché nessuno basta da solo. Il colore, la texture, la dimensione, che favorisce la fusione delle regioni piccole per prime, e il riempimento, che premia le unioni compatte, quelle in cui la scatola attorno non ha troppo spazio vuoto."
+  },
+  {
+   "a": "Esempio svolto. Istogrammi c i = (0.5, 0",
+   "b": 43,
+   "t": "Un conto per capire il confronto fra istogrammi. Frazioni zero virgola cinque, zero virgola tre, zero virgola due da una parte; zero virgola due, zero virgola tre, zero virgola cinque dall'altra. Minimo bin per bin: zero virgola due, zero virgola tre, zero virgola due. Somma zero virgola sette."
+  },
+  {
+   "a": "Il punto La selective search trasforma «",
+   "b": 45,
+   "t": "Da portare a casa: la selective search trasforma cerca ovunque in controlla duemila candidati. Ma è lenta e non viene appresa dai dati, ed è proprio questo che Faster R-CNN migliorerà."
+  },
+  {
+   "a": "5. R-CNN, Fast R-CNN, Faster R-CNN",
+   "b": 46,
+   "t": "Ora la famiglia R-CNN: tre modelli, ognuno risolve il limite del precedente."
+  },
+  {
+   "a": "Tre righe, tre pipeline. R-CNN: 2000 pas",
+   "b": 48,
+   "t": "Nella figura, tre righe. R-CNN: circa 2000 regioni, una CNN su ognuna, classificatori a parte. Fast R-CNN: la CNN gira una volta sola, poi RoI pooling. Faster R-CNN: anche le proposte vengono da una rete, e tutto è appreso insieme."
+  },
+  {
+   "a": "R-CNN (2014). Si prendono ~2000 proposte",
+   "b": 49,
+   "t": "R-CNN, del 2014, prende le 2000 proposte della selective search, ritaglia e deforma ciascuna, e le passa una per una in una CNN pesante: decine di secondi per immagine. Poi un classificatore per classe e un regressore, addestrati a parte, in tre fasi separate."
+  },
+  {
+   "a": "Fast R-CNN (2015). Idea: la feature map ",
+   "b": 50,
+   "t": "Fast R-CNN ha un'idea semplice: la mappa di feature si calcola una volta per immagine, non una per proposta. Ogni proposta viene proiettata sulla mappa condivisa e uno strato di RoI pooling ne estrae un vettore di dimensione fissa, per esempio 7 per 7. Due strati densi danno classe e scatola, e tutto si addestra insieme. Ricorda: il RoI pooling arrotonda le coordinate alla griglia intera."
+  },
+  {
+   "a": "Faster R-CNN (2015). Restano le proposte",
+   "b": 51,
+   "t": "Faster R-CNN toglie le proposte esterne: una piccola rete, la Region Proposal Network, scorre sulla stessa mappa e per ogni posizione dice se c'è un oggetto e di quanto correggere una scatola di riferimento. L'addestramento originale è a quattro passi, quello moderno è congiunto."
+  },
+  {
+   "a": "Il punto R-CNN → Fast → Faster è la stor",
+   "b": 53,
+   "t": "Da portare a casa: la storia da R-CNN a Faster R-CNN è condividere il calcolo, con una sola passata della CNN, e imparare anche le proposte. Faster R-CNN è l'architettura two-stage di riferimento."
+  },
+  {
+   "a": "6. Ancore e RPN",
+   "b": 54,
+   "t": "Le ancore: predire coordinate assolute è difficile, è più facile dire di quanto correggere una scatola di partenza già vicina."
+  },
+  {
+   "a": "L'idea. Un' ancora ( anchor ) è una scat",
+   "b": 56,
+   "t": "Un'ancora è una scatola di riferimento fissa, centrata in una posizione della mappa, con una scala e un rapporto d'aspetto decisi in anticipo. La rete non predice la scatola, predice uno scostamento dall'ancora."
+  },
+  {
+   "a": "A sinistra le 9 ancore tratteggiate (3 s",
+   "b": 57,
+   "t": "Nella figura, a sinistra, nove ancore tratteggiate attorno allo stesso punto, tre scale per tre rapporti, l'oggetto in verde e in rosso l'ancora migliore. A destra l'IoU di ogni ancora con l'oggetto: solo la barra rossa supera zero virgola sette ed è positiva; le altre, qui, sono ignorate."
+  },
+  {
+   "a": "Quante. Nell'articolo ogni posizione ha ",
+   "b": 58,
+   "t": "Quante sono? Nell'articolo nove per posizione: su una mappa 40 per 60 fanno 21600 ancore, ciascuna con 2 punteggi e 4 numeri di scatola."
+  },
+  {
+   "a": "Assegnamento. Per addestrare, ogni ancor",
+   "b": 59,
+   "t": "Per addestrare serve etichettare ogni ancora. Nell'articolo è positiva se l'IoU con un oggetto vero supera zero virgola sette, negativa se sta sotto zero virgola tre, e quelle in mezzo non contano. Questa è la risposta di Faster R-CNN alla domanda quale predizione va con quale oggetto."
+  },
+  {
+   "a": "Il punto Le ancore trasformano la detect",
+   "b": 61,
+   "t": "Da portare a casa: con le ancore la detection diventa classificazione e correzione di scatole di riferimento, e ogni ancora è positiva o negativa in base all'IoU con la ground truth."
+  },
+  {
+   "a": "7. Dall'offset alla scatola, e le loss",
+   "b": 62,
+   "t": "Ora come scrivere la correzione in numeri che una rete può imparare, e con quale loss."
+  },
+  {
+   "a": "Codifica. Data un'ancora (x a , y a , w ",
+   "b": 64,
+   "t": "Prendi un'ancora con centro, larghezza e altezza, e l'oggetto vero. Il bersaglio ha quattro numeri. Lo spostamento orizzontale del centro diviso per la larghezza dell'ancora, lo spostamento verticale diviso per l'altezza dell'ancora, e poi il logaritmo del rapporto fra larghezza vera e larghezza dell'ancora, e lo stesso per l'altezza."
+  },
+  {
+   "a": "Gli spostamenti del centro sono divisi p",
+   "b": 66,
+   "t": "Perché dividere gli spostamenti per le dimensioni dell'ancora? Perché dieci pixel di errore pesano molto su una scatola piccola e poco su una grande. Perché il logaritmo per larghezza e altezza? Un rapporto è sempre positivo; il logaritmo lo rende un numero libero, e decodificando con l'esponenziale le larghezze escono sempre positive."
+  },
+  {
+   "a": "Esempio numerico. Ancora blu tratteggiat",
+   "b": 68,
+   "t": "Guarda la figura. L'ancora blu tratteggiata ha centro in 100 e 80, larghezza 40, altezza 80. L'oggetto verde ha centro in 110 e 90, larghezza 60, altezza 72. Il centro si sposta di 10 in orizzontale e 10 in verticale, le due frecce: bersagli un quarto e un ottavo. La larghezza cresce di una volta e mezza, logaritmo circa zero virgola quattro; l'altezza scende a nove decimi, logaritmo circa meno zero virgola uno."
+  },
+  {
+   "a": "Verifica decodificando: ŵ = e 0.405 · 40",
+   "b": 69,
+   "t": "Controlla decodificando: l'esponenziale di zero virgola quattrocentocinque per 40 dà 60, quello di meno zero virgola centocinque per 80 dà 72. Torni all'oggetto vero."
+  },
+  {
+   "a": "La loss multi-task (slide 23). Per ogni ",
+   "b": 70,
+   "t": "La loss di Fast R-CNN ha due termini. Il primo è la cross-entropy della classe, calcolata per tutte le regioni. Il secondo è la regressione della scatola, che si calcola solo se la regione è di primo piano, cioè solo se la classe vera non è sfondo."
+  },
+  {
+   "a": "Smooth L1. smL1(x) = ½x² se |x| < 1, alt",
+   "b": 73,
+   "t": "La regressione usa la smooth L1: una parabola vicino a zero, mezzo per x al quadrato, e una retta lontano, il valore assoluto di x meno mezzo. Il gradiente è limitato, quindi una scatola molto sbagliata non domina l'addestramento. Con errore due vale uno virgola cinque, una L2 darebbe due."
+  },
+  {
+   "a": "A sinistra: smooth L1 (blu) segue la par",
+   "b": 74,
+   "t": "Nella figura, a sinistra, la L2 in rosso sale troppo in fretta, la L1 in verde è una V, la smooth L1 in blu segue la parabola e poi la retta. A destra, perché non si usa la loss IoU: uno meno IoU cresce con lo spostamento ma, appena i due quadrati non si sovrappongono, vale uno e resta piatta. Gradiente nullo, nessuna indicazione."
+  },
+  {
+   "a": "Il punto Si regrediscono scostamenti rel",
+   "b": 76,
+   "t": "Da portare a casa: si regrediscono scostamenti relativi all'ancora, con il centro diviso per la dimensione e le dimensioni in logaritmo. La loss è cross-entropy su tutti, più smooth L1 solo sui positivi."
+  },
+  {
+   "a": "8. One-stage: YOLO e SSD",
+   "b": 77,
+   "t": "Le one-stage predicono tutto in una volta, senza proposte: è l'idea di YOLO e SSD."
+  },
+  {
+   "a": "Celle, ancore, posizioni. Una CNN riduce",
+   "b": 79,
+   "t": "Termini da non confondere. La cella è una posizione della mappa di feature; decide chi è responsabile di un oggetto. La scatola predetta è la risposta e non è confinata nella cella: un'auto grande è predetta da una sola cella, quella del suo centro."
+  },
+  {
+   "a": "YOLO ( You Only Look Once , 2016). Si ri",
+   "b": 80,
+   "t": "YOLO, you only look once, divide l'immagine in una griglia S per S. Una cella è responsabile di un oggetto se il centro dell'oggetto cade in lei. Ogni cella predice B scatole, con posizione, dimensioni e confidenza, più un solo insieme di probabilità di classe, condiviso dalle B scatole."
+  },
+  {
+   "a": "A sinistra: il centro dell'oggetto (punt",
+   "b": 81,
+   "t": "Nella figura, a sinistra, una griglia sette per sette: il punto rosso è il centro dell'oggetto, la cella rossa è la responsabile, ma la scatola blu esce dalla cella. A destra l'uscita di una cella, due scatole da cinque numeri e venti classi, trenta in tutto; sette per sette per trenta fa 1470 numeri."
+  },
+  {
+   "a": "Nella versione originale (Prince § 10.5.",
+   "b": 82,
+   "t": "La versione originale usa immagini 448 per 448 e 24 strati convoluzionali. La loss è una somma di quadrati su scatola, confidenza e classe, con radice di larghezza e altezza. Il limite: un solo oggetto per cella, quindi uno stormo di uccelli piccoli viene perso."
+  },
+  {
+   "a": "SSD (2016, slide 28). Predice da più map",
+   "b": 84,
+   "t": "SSD, del 2016, predice da più mappe di feature a risoluzioni diverse in un solo passaggio: ad alta risoluzione per gli oggetti piccoli, piccole e profonde per i grandi. Su VOC ottiene 74 virgola 3 di mAP a 59 immagini al secondo, contro 63 virgola 4 a 45 di YOLO."
+  },
+  {
+   "a": "Il punto One-stage = niente proposte : o",
+   "b": 85,
+   "t": "Da portare a casa: one-stage significa niente proposte. Il numero di predizioni è fissato dall'architettura, non dai dati, e per questo serve la NMS per togliere i duplicati."
+  },
+  {
+   "a": "9. Senza ancore: FCOS",
+   "b": 86,
+   "t": "FCOS prova a fare a meno delle ancore, che hanno scale, rapporti e soglie da tarare."
+  },
+  {
+   "a": "L'idea. Un detector anchor-free lega le ",
+   "b": 88,
+   "t": "In FCOS ogni posizione dentro una scatola vera è positiva e regredisce direttamente quattro distanze: da sinistra, dall'alto, da destra e dal basso."
+  },
+  {
+   "a": "A sinistra: ogni punto rosso dentro la s",
+   "b": 89,
+   "t": "Nella figura, a sinistra, vedi una scatola verde con tanti punti rossi dentro. Ognuno di loro predice le sue quattro distanze, indicate con le frecce per uno dei punti. A destra c'è la mappa della center-ness, che vale uno al centro e scende verso zero sui bordi."
+  },
+  {
+   "a": "Vale 1 al centro esatto (l = r e t = b) ",
+   "b": 92,
+   "t": "Molte posizioni predicono lo stesso oggetto, e quelle vicine al bordo sono scadenti: per questo c'è la center-ness, la radice del prodotto di due rapporti, distanza minore su maggiore in orizzontale e lo stesso in verticale. Con sinistra 10, destra 30, alto 20, basso 20 vale la radice di un terzo, circa zero virgola cinquantotto. A inferenza il punteggio è classe per center-ness, e la NMS elimina le scatole mal centrate."
+  },
+  {
+   "a": "Il punto Anchor-free = niente ancore da ",
+   "b": 93,
+   "t": "Da portare a casa: senza ancore non hai niente da tarare, ma hai più posizioni positive per ogni oggetto. Servono regole di assegnamento, una correzione di qualità e comunque la NMS finale."
+  },
+  {
+   "a": "10. La NMS: togliere i duplicati",
+   "b": 94,
+   "t": "La NMS: i detector producono molte scatole sovrapposte per lo stesso oggetto, e ne vogliamo una sola."
+  },
+  {
+   "a": "L'algoritmo ( non-maximum suppression , ",
+   "b": 96,
+   "t": "L'algoritmo è greedy, cioè avido, e si esegue una volta per classe. Ordini le scatole per punteggio. Tieni la migliore. Sopprimi tutte le altre che hanno IoU con lei sopra una soglia. Poi ripeti con quelle che restano, fino a esaurirle."
+  },
+  {
+   "a": "Esempio con τ = 0.5. Cinque candidate in",
+   "b": 98,
+   "t": "Nella figura, soglia zero virgola cinque, quattro pannelli. Cinque candidate in due gruppi: a sinistra zero virgola novantacinque, ottantasette e settantadue, a destra zero virgola novanta e cinquantacinque. Passo uno: tengo la novantacinque, in verde, e sopprimo le altre due, in rosso. Passo due: tengo la novanta e sopprimo la cinquantacinque. Restano due scatole."
+  },
+  {
+   "a": "Il difetto classico. In una folla due pe",
+   "b": 100,
+   "t": "La soglia è un compromesso: troppo bassa sopprime oggetti vicini, troppo alta lascia duplicati. Il difetto classico è la folla: due persone vicine hanno scatole con IoU alto e la persona con punteggio più basso viene soppressa, il recall scende. Rimedi: Soft-NMS, che attenua il punteggio invece di cancellare, oppure niente NMS come DETR. E falla per classe."
+  },
+  {
+   "a": "Il punto La NMS è una post-elaborazione ",
+   "b": 102,
+   "t": "Da portare a casa: la NMS è una post-elaborazione avida basata sull'IoU. Tiene il migliore di ogni gruppo di duplicati, ma dipende da una soglia e sbaglia nelle folle."
+  },
+  {
+   "a": "11. DETR: la detection come predizione d",
+   "b": 103,
+   "t": "DETR tratta la detection come predizione diretta di un insieme, senza ancore e senza NMS fatte a mano."
+  },
+  {
+   "a": "L'architettura. Una CNN estrae una featu",
+   "b": 105,
+   "t": "L'architettura ha tre blocchi. Una CNN estrae una mappa di feature, appiattita in sequenza con codifiche posizionali. Un encoder transformer applica la self-attention a questa sequenza. Un decoder prende N query apprese e fa cross-attention sull'uscita dell'encoder: le query sono le domande, i token le chiavi e i valori. Una rete densa trasforma ogni uscita in classe e scatola; le query che non trovano nulla dicono nessun oggetto."
+  },
+  {
+   "a": "A sinistra: la pipeline di DETR, senza a",
+   "b": 106,
+   "t": "Nella figura, a sinistra, la catena immagine, CNN, encoder, decoder con le query arancioni, rete densa: nessuna ancora, nessuna NMS, esattamente N predizioni. A destra, tre query e due oggetti: le celle sono costi di abbinamento, più scuro vuol dire costo più basso, e i riquadri rossi sono l'abbinamento ottimo."
+  },
+  {
+   "a": "Il matching ungherese. Si completa la gr",
+   "b": 107,
+   "t": "Come si decide l'abbinamento? Prima completi la ground truth con nessun oggetto fino ad avere N elementi. Poi l'algoritmo ungherese trova la permutazione delle query sugli oggetti che minimizza il costo totale."
+  },
+  {
+   "a": "Cioè: una query è abbinata a un oggetto ",
+   "b": 109,
+   "t": "Il costo è basso se la query prevede bene classe, con probabilità alta, e scatola, con L1 più IoU; per nessun oggetto il costo è zero. Nella figura, la prima query va ad A, costo zero virgola due, la seconda a B, zero virgola tre, la terza resta senza oggetto: totale zero virgola cinque, e qualunque altro abbinamento costa di più."
+  },
+  {
+   "a": "Perché sparisce la NMS. Dopo il matching",
+   "b": 110,
+   "t": "Ed ecco perché sparisce la NMS. La loss si calcola sull'abbinamento ottimo. Il termine di classe riguarda tutte le query, e quelle abbinate a nessun oggetto imparano a dirlo. Il termine di scatola riguarda solo quelle abbinate a oggetti veri. Se due query predicono lo stesso oggetto, solo una può essere abbinata, e l'altra viene penalizzata. I duplicati sono scoraggiati in addestramento, invece di essere rimossi dopo."
+  },
+  {
+   "a": "Attenzione: «lo stesso costo» è un'appro",
+   "b": 111,
+   "t": "Attenzione, imprecisione nelle slide del professore: dicono che la loss minimizza lo stesso costo del matching. Nell'articolo sono simili ma non identici: nel matching c'è la probabilità, nella loss il suo logaritmo, cioè la cross-entropy, e la classe nessun oggetto pesa un decimo."
+  },
+  {
+   "a": "Attenzione: la backbone non è un ViT La ",
+   "b": 112,
+   "t": "Altra precisazione: la backbone di DETR è una CNN, non un Vision Transformer. Un detector nativo con Vision Transformer è YOLOS."
+  },
+  {
+   "a": "Tre modi di organizzare le predizioni (s",
+   "b": 113,
+   "t": "Riassumiamo. Chi decide quante predizioni e chi va con chi? In Faster R-CNN le proposte e l'IoU con le ancore, in YOLO le celle e il centro dell'oggetto, in DETR le N query e l'abbinamento. Il prezzo: NMS per i primi due, nessuna per DETR."
+  },
+  {
+   "a": "Il punto DETR risponde a «quale predizio",
+   "b": 114,
+   "t": "Da portare a casa: DETR risponde a quale predizione va con quale oggetto con un abbinamento ottimo uno a uno. Per questo i duplicati sono penalizzati dalla loss e la NMS non serve."
+  },
+  {
+   "a": "12. Valutare un detector: AP e mAP",
+   "b": 115,
+   "t": "Come si misura un detector? Può vedere oggetti che non ci sono, falsi positivi, perderne di veri, falsi negativi, o trovarli con la scatola storta. Serve un solo numero che li tenga tutti in conto."
+  },
+  {
+   "a": "La procedura (per una classe):",
+   "b": 117,
+   "t": "Si procede una classe alla volta. Ordini tutte le detection per confidenza, dalla più alta. Una detection è un vero positivo se ha IoU sufficiente con un oggetto vero non ancora assegnato, altrimenti è un falso positivo. Scendendo lungo la lista calcoli precisione e recall sulle detection viste fin lì."
+  },
+  {
+   "a": "ordina tutte le detection dell'insieme d",
+   "b": 118,
+   "t": "Con questi punti disegni la curva precisione contro recall. L'AP, la precisione media, è l'area sotto la curva, dopo averla resa monotona: a ogni livello di recall prendi la precisione massima che si ottiene più a destra."
+  },
+  {
+   "a": "Esempio svolto: 3 oggetti veri, 5 detect",
+   "b": 120,
+   "t": "Esempio della figura: tre oggetti veri, cinque detection in ordine di confidenza, vero, falso, vero, vero, falso. A sinistra la tabella: precisione uno, un mezzo, due terzi, tre quarti, tre quinti; recall un terzo, un terzo, due terzi, uno, uno."
+  },
+  {
+   "a": "Esempio svolto: 3 oggetti veri, 5 detect",
+   "b": 120,
+   "t": "A destra la curva. La linea blu a gradini è quella interpolata: uno fino a un terzo di recall, poi tre quarti. L'area è un terzo per uno, più un terzo per tre quarti, più un terzo per tre quarti, circa zero virgola ottantatré. I puntini rossi sono i valori grezzi, sotto o sulla linea."
+  },
+  {
+   "a": "Dall'AP alla mAP. La mAP è la media degl",
+   "b": 122,
+   "t": "La mAP è la media degli AP sulle classi. Conta moltissimo il matching uno a uno: senza, un detector senza NMS con cinque scatole sullo stesso oggetto avrebbe cinque veri positivi e precisione perfetta; con la regola, un vero positivo e quattro falsi positivi."
+  },
+  {
+   "a": "Dall'AP alla mAP. La mAP è la media degl",
+   "b": 122,
+   "t": "COCO è più severa: media la mAP su dieci soglie di IoU, da zero virgola cinque a zero virgola novantacinque. Un modello con mAP alta a zero virgola cinque ma bassa sull'intervallo ha scatole solo grossolanamente allineate."
+  },
+  {
+   "a": "Attenzione: un esempio svolto che non c'",
+   "b": 123,
+   "t": "Attenzione, altra svista nelle slide del professore: l'appendice dice che l'algoritmo produce le colonne dell'esempio svolto della slide principale, ma quella slide non contiene nessun esempio. L'esempio che hai appena visto lo sostituisce."
+  },
+  {
+   "a": "Accuratezza contro efficienza (slide 37)",
+   "b": 124,
+   "t": "Un'ultima cosa: accuratezza contro efficienza. Il grafico di EfficientDet mette l'AP contro il costo in operazioni; non c'è un modello migliore in assoluto, c'è una frontiera, e EfficientDet sta in alto a sinistra grazie alla scalatura congiunta di backbone, rete di fusione e risoluzione. Il costo in operazioni, poi, non è la latenza reale."
+  },
+  {
+   "a": "Il punto L'AP è l'area sotto la curva pr",
+   "b": 125,
+   "t": "Da portare a casa: l'AP è l'area sotto la curva precisione-recall di una classe. La mAP la media sulle classi, e COCO la media anche su dieci soglie di IoU. Il matching uno a uno impedisce di contare i duplicati come successi."
+  },
+  {
+   "a": "13. Segmentazione avanzata: convoluzione",
+   "b": 126,
+   "t": "Torniamo alla segmentazione, con due strade per più contesto: convoluzioni dilatate e transformer. Il problema: il pooling allarga il campo recettivo ma riduce la risoluzione, che la segmentazione non vuole perdere."
+  },
+  {
+   "a": "L'idea: la convoluzione dilatata ( atrou",
+   "b": 128,
+   "t": "La risposta è la convoluzione dilatata: distanzi i pesi del filtro, con zeri nel mezzo. Un filtro di lato k con dilatazione d ha dimensione effettiva d per k meno uno, più uno, ma sempre k al quadrato pesi. Un tre per tre con dilatazione 1, 2, 4 copre 3, 5 e 9 punti per lato, e impilando strati il campo recettivo cresce in modo esponenziale: più contesto, stessa risoluzione, stessi parametri."
+  },
+  {
+   "a": "Dall'uscita (in alto) all'ingresso (in b",
+   "b": 131,
+   "t": "Guarda la figura: in alto l'uscita, in basso l'ingresso, in rosso i punti che influenzano l'uscita. A sinistra tre strati normali: l'uscita vede 7 posizioni. A destra con dilatazione 1, 2 e 4 ne vede 15. Il conto è uno più due per la somma di uno, due e quattro, quindi quindici."
+  },
+  {
+   "a": "Il libro (§ 24.2.3) avverte: come lo str",
+   "b": 132,
+   "t": "Il libro avverte che la dilatazione, come lo stride, può dare artefatti da aliasing. E ha un refuso: scrive nove per nove per questa cascata, ma il supporto vero è quindici per quindici; nove è solo l'ultimo filtro."
+  },
+  {
+   "a": "ASPP ( atrous spatial pyramid pooling , ",
+   "b": 133,
+   "t": "ASPP, atrous spatial pyramid pooling, risponde a un altro problema: gli oggetti hanno scale diverse e un solo campo recettivo non va bene. Guardi la stessa mappa con più campi recettivi in parallelo: un filtro uno per uno, tre filtri tre per tre con dilatazioni 6, 12 e 18, e un pooling globale. Concateni e fondi con un filtro uno per uno, come in un modulo Inception."
+  },
+  {
+   "a": "DeepLabv3+ (slide 41). Encoder: una back",
+   "b": 134,
+   "t": "DeepLab versione tre più usa ASPP nell'encoder e aggiunge un decoder: le feature a basso livello, a un quarto di risoluzione, si concatenano con l'uscita di ASPP sovracampionata di 4 volte, un filtro tre per tre le raffina e un altro sovracampionamento porta alla risoluzione piena. Questa scorciatoia stile U-Net dà bordi più netti."
+  },
+  {
+   "a": "Il punto La dilatazione allarga il campo",
+   "b": 136,
+   "t": "Da portare a casa: la dilatazione allarga il campo recettivo senza pooling, ASPP combina campi recettivi diversi in parallelo, e DeepLab versione tre più aggiunge una scorciatoia per avere bordi netti."
+  },
+  {
+   "a": "14. Segmentazione con i transformer: SET",
+   "b": 137,
+   "t": "La seconda strada per il contesto è la self-attention, globale già dal primo strato; il problema è il costo quadratico."
+  },
+  {
+   "a": "SETR (2021). Un ViT puro: patch 16 × 16,",
+   "b": 139,
+   "t": "SETR è un Vision Transformer puro: patch 16 per 16, 24 strati, nessuna gerarchia e nessuna scala multipla. Su 512 per 512 ci sono 1024 token, circa un milione di coppie di attenzione per testa e per strato; con patch di 8 sarebbero 16 volte di più."
+  },
+  {
+   "a": "Encoder gerarchico : quattro stadi con f",
+   "b": 141,
+   "t": "SegFormer ha tre idee. Un encoder gerarchico a quattro stadi, con feature a un quarto, un ottavo, un sedicesimo e un trentaduesimo dell'ingresso. Un'attenzione efficiente: si riduce di un fattore R la lunghezza di chiavi e valori, e il costo passa da N al quadrato a N al quadrato diviso R. E una convoluzione tre per tre dentro la rete densa, che porta l'informazione di posizione, così non servono codifiche posizionali."
+  },
+  {
+   "a": "Elementi della matrice di attenzione per",
+   "b": 142,
+   "t": "Nell'istogramma, in scala logaritmica, le barre rosse sono l'attenzione standard e le blu quella ridotta. Nel primo stadio, 16384 token e R uguale a 64: da circa 270 milioni di elementi a circa 4 milioni e 200 mila, 64 volte meno. Nel quarto stadio R vale uno e le barre coincidono."
+  },
+  {
+   "a": "Il decoder è tutto MLP : ogni feature F ",
+   "b": 143,
+   "t": "Il decoder è tutto di strati densi: proietta ogni feature a un numero comune di canali, sovracampiona a un quarto, concatena le quattro e dà la mappa di classi. Basta, perché le feature profonde dei transformer hanno già un campo recettivo quasi globale."
+  },
+  {
+   "a": "DPT (slide 46–47) è la stessa idea della",
+   "b": 144,
+   "t": "DPT applica l'idea della U-Net a un encoder piatto: prende i token di quattro profondità, li rimodella in griglie e li ricampiona a quattro scale. Reassemble fa questo, Fusion le fonde una dopo l'altra. Con ViT B 16 a 384 per 384, la griglia 24 per 24 diventa 96, 48, 24 e 12. È il modello dietro MiDaS versione tre."
+  },
+  {
+   "a": "Chi vince (slide 48, mIoU su ADE20K): Se",
+   "b": 145,
+   "t": "Chi vince, su ADE20K? SegFormer B zero ha 37 virgola 4 di mIoU con 3 virgola 7 milioni di parametri, contro 36 virgola 1 di FCN con 49 virgola 6 milioni. SegFormer B quattro fa 50 virgola 3 con 64 milioni, contro i 318 milioni di SETR per 48 virgola 6. L'architettura conta più della taglia."
+  },
+  {
+   "a": "Il punto I transformer portano contesto ",
+   "b": 146,
+   "t": "Da portare a casa: i transformer portano contesto globale, ma il costo quadratico e l'assenza di gerarchia sono i problemi. SegFormer li risolve con scale multiple e attenzione ridotta, DPT ricostruisce le scale a partire dai token."
+  },
+  {
+   "a": "15. Mask R-CNN e RoIAlign",
+   "b": 147,
+   "t": "Ultima parte: unire detection e segmentazione. La semantica non sa contare due auto a contatto; servono maschere per istanza."
+  },
+  {
+   "a": "L'idea. Mask R-CNN (2017) aggiunge a Fas",
+   "b": 149,
+   "t": "Mask R-CNN, del 2017, aggiunge a Faster R-CNN una testa di maschera, una piccola rete convoluzionale che, sopra ogni regione, predice una maschera binaria dell'oggetto. Stessa RPN, stesse ancore, stessa testa di scatola. È la stessa idea del libro: dato il ritaglio di una scatola, dire per ogni pixel se appartiene all'oggetto."
+  },
+  {
+   "a": "Il problema dell'arrotondamento. Il RoI ",
+   "b": 150,
+   "t": "C'è un problema da risolvere. Il RoI pooling arrotonda due volte alla griglia intera, il bordo della regione e quello di ogni cella interna. Con stride 16, un errore di mezza cella sono 8 pixel dell'immagine, enorme per una maschera."
+  },
+  {
+   "a": "A sinistra: la RoI vera (rosso) e quella",
+   "b": 151,
+   "t": "Nella figura, a sinistra, una griglia di valori. Il rettangolo rosso è la regione vera, quello arancione tratteggiato è quella arrotondata, e non coincidono. A destra, la soluzione, RoIAlign. Il punto di campionamento è in due virgola tre e uno virgola sei, non su un pixel. Leggo il valore interpolando i quattro vicini, che valgono 9, 7, 8 e 5, con pesi dati dalla distanza. Il risultato è sette virgola sessantadue."
+  },
+  {
+   "a": "RoIAlign non arrotonda mai: divide la Ro",
+   "b": 152,
+   "t": "RoIAlign non arrotonda mai: divide la regione in celle, in ogni cella prende alcuni punti a coordinate continue e li legge per interpolazione bilineare dai quattro vicini, con pesi che sommano uno. Poi media i punti della cella."
+  },
+  {
+   "a": "La loss. Per ogni RoI: ℒ = ℒ cls + ℒ box",
+   "b": 155,
+   "t": "La loss ha tre pezzi: classe, scatola, maschera. La testa produce una maschera binaria per ogni classe, tipicamente 28 per 28 per 80 classi, ma la loss di maschera, cross-entropy binaria per pixel, usa solo il canale della classe vera. È una sigmoide per pixel, non una softmax fra classi: la classe la decide già il ramo di classificazione, e funziona meglio."
+  },
+  {
+   "a": "Il punto Mask R-CNN = Faster R-CNN più u",
+   "b": 156,
+   "t": "Da portare a casa: Mask R-CNN è Faster R-CNN più una testa di maschera per classe, con RoIAlign, cioè campionamento bilineare senza arrotondamenti, per allineare la maschera ai pixel veri."
+  },
+  {
+   "a": "16. Segmentazione panottica e Panoptic Q",
+   "b": 157,
+   "t": "Infine la panottica: cielo e strada non si contano, le auto sì; serve un'uscita con classe per ogni pixel e identità per gli oggetti contabili."
+  },
+  {
+   "a": "Stuff e things. Lo stuff è la materia am",
+   "b": 159,
+   "t": "Due termini: lo stuff è la materia amorfa e non numerabile, cielo, strada, erba, con sola classe. Le things sono oggetti numerabili, persone e auto, con classe e istanza. La panottica unisce segmentazione semantica per lo stuff e di istanza per le things."
+  },
+  {
+   "a": "La stessa scena in tre modi. Semantica: ",
+   "b": 160,
+   "t": "Guarda la figura, la stessa scena in tre modi. A sinistra la semantica: le due auto hanno lo stesso arancione, la rete dà la classe auto ma non dice quale sia quale. Al centro l'istanza: solo le due auto, una rossa e una verde. A destra la panottica: cielo e strada come stuff, e le due auto separate. Sotto, la formula della qualità."
+  },
+  {
+   "a": "La fusione (Kirillov et al., 2019). Si o",
+   "b": 161,
+   "t": "La fusione: ordini le maschere di istanza per confidenza e le incolli dalla più alta, così ogni pixel è rivendicato al massimo da un'istanza; il resto ricade sulla predizione semantica, e in caso di conflitto vincono le istanze. È un'euristica. Il visionbook non la tratta: la fonte è Szeliski."
+  },
+  {
+   "a": "Panoptic Quality. Si abbinano segmenti p",
+   "b": 162,
+   "t": "Per misurare la panottica si usa la Panoptic Quality. Abbini i segmenti predetti ai segmenti veri: una coppia con IoU sopra zero virgola cinque è un vero positivo. Una predizione senza coppia è un falso positivo, un segmento vero senza coppia è un falso negativo."
+  },
+  {
+   "a": "SQ ( segmentation quality ) è l'IoU medi",
+   "b": 164,
+   "t": "SQ è l'IoU medio dei segmenti abbinati, quanto sono precisi; RQ è come una F uno, quanti ne hai trovati. Esempio: IoU zero virgola nove, otto e sette, un falso positivo, due falsi negativi. SQ zero virgola otto, RQ tre diviso tre più mezzo più uno, cioè due terzi. PQ circa zero virgola cinquantatré."
+  },
+  {
+   "a": "La tabella di sintesi (slide 55): classi",
+   "b": 165,
+   "t": "La tabella finale riassume la lezione: cambiano uscita, annotazioni, loss e post-elaborazione. Classificazione con cross-entropy e argmax; detection con cross-entropy più smooth L1 e NMS; semantica con cross-entropy per pixel; istanza con classe, scatola e maschera; panottica con la fusione. La backbone resta lo strumento comune."
+  },
+  {
+   "a": "Il punto Panottica = stuff (classe per p",
+   "b": 166,
+   "t": "Da portare a casa: panottica vuol dire stuff più things fusi in un'unica mappa, e si misura con la PQ, cioè la precisione dei segmenti trovati per la frazione trovata."
+  },
+  {
+   "a": "La detection predice un insieme di (scat",
+   "b": 168,
+   "t": "Riassunto. La detection predice un insieme di lunghezza variabile, e serve decidere quante predizioni e quale va con quale oggetto. L'IoU misura le sovrapposizioni. Da R-CNN a Faster R-CNN si condivide il calcolo e si imparano le proposte, con ancore e offset relativi. YOLO usa una griglia, FCOS niente ancore, la NMS tiene la scatola migliore, DETR abbina le query e non ha NMS. L'AP è l'area sotto la curva precisione-recall, COCO la media su dieci soglie. In segmentazione: dilatazione e ASPP, attenzione ridotta con SegFormer, Mask R-CNN con RoIAlign, e la panottica con la PQ."
+  },
+  {
+   "a": "Verifica di aver capito",
+   "b": 169,
+   "t": "Ora metti alla prova quello che hai imparato. Dopo ogni domanda fermati e prova a rispondere."
+  },
+  {
+   "a": "1. Perché la detection non si addestra c",
+   "b": 170,
+   "t": "Prima domanda: perché la detection non si addestra con la cross-entropy per pixel? Metti in pausa e prova a rispondere. L'uscita è un insieme di lunghezza variabile: mancano il numero di predizioni e l'assegnamento alle verità, deciso con l'IoU, con il centro o con il matching."
+  },
+  {
+   "a": "2. Calcola IoU di A = [0, 0, 10, 10] e B",
+   "b": 171,
+   "t": "Seconda: IoU fra le scatole da zero a dieci e da cinque a quindici, e offset dell'oggetto rispetto all'ancora. Metti in pausa. IoU circa zero virgola quattordici; offset un quarto, un ottavo, logaritmo di tre mezzi e logaritmo di nove decimi."
+  },
+  {
+   "a": "3. Perché Faster R-CNN è più veloce di R",
+   "b": 172,
+   "t": "Terza: perché Faster R-CNN batte R-CNN, e cosa fa la RPN? Metti in pausa. Una sola passata della CNN invece di 2000, e proposte apprese: la RPN, sulla stessa mappa, predice oggetto o no e uno scostamento per ogni ancora."
+  },
+  {
+   "a": "4. Esegui la NMS (τ = 0.5) su tre scatol",
+   "b": 173,
+   "t": "Quarta: NMS su tre scatole molto sovrapposte, punteggi novantacinque, ottantasette, settantadue, e quando fallisce. Metti in pausa. Tieni la prima, sopprimi le altre. Fallisce nelle folle; rimedi Soft-NMS o DETR."
+  },
+  {
+   "a": "5. Come fa DETR a non avere NMS? Addestr",
+   "b": 174,
+   "t": "Quinta: come fa DETR a non avere NMS? Metti in pausa. Abbina in modo ottimo query e oggetti: una sola query per oggetto, le altre imparano nessun oggetto, e i duplicati sono penalizzati dalla loss."
+  },
+  {
+   "a": "6. Calcola l'AP con 3 oggetti veri e 5 d",
+   "b": 175,
+   "t": "Sesta: AP con tre oggetti veri e cinque detection vero, falso, vero, vero, falso, e perché COCO è più severa. Metti in pausa. Interpolando, un terzo per uno, più due terzi di tre quarti: circa zero virgola ottantatré. COCO media su soglie fino a zero virgola novantacinque."
+  },
+  {
+   "a": "7. Quanto vede un 3 × 3 con dilatazione ",
+   "b": 176,
+   "t": "Settima: quanto vede un tre per tre con dilatazione 4, e tre strati con dilatazione 1, 2, 4? Metti in pausa. Nove, e quindici contro sette senza dilatazione."
+  },
+  {
+   "a": "8. Di quanto si riduce il costo dell'att",
+   "b": 177,
+   "t": "Ottava: di quanto cala il costo dell'attenzione di SegFormer nel primo stadio? Metti in pausa. Con 16384 token e R uguale a 64, da circa 270 milioni a 4 milioni e 200 mila elementi: 64 volte meno."
+  },
+  {
+   "a": "9. Perché RoIAlign e non RoI pooling? Pe",
+   "b": 178,
+   "t": "Nona: perché RoIAlign e non RoI pooling, e perché una sigmoide per classe? Metti in pausa. Il RoI pooling arrotonda, mezza cella sono 8 pixel; RoIAlign interpola. La sigmoide separa maschera e classe."
+  },
+  {
+   "a": "10. Calcola PQ con 3 TP (IoU 0.9, 0.8, 0",
+   "b": 179,
+   "t": "Decima: PQ con tre veri positivi, IoU zero virgola nove, otto e sette, un falso positivo e due falsi negativi. Metti in pausa. SQ zero virgola otto, RQ due terzi, PQ circa zero virgola cinquantatré."
+  },
+  {
+   "a": "Leggi nel visionbook il cap. 50 , § 50.4",
+   "b": 181,
+   "t": "Per proseguire, leggi nel visionbook il capitolo 50, sulla detection e sulla segmentazione, e la sezione sulla dilatazione nel capitolo 24. Poi ripassa con le schede sotto la dispensa, dove i riquadri Attenzione segnalano gli errori delle slide. Il laboratorio successivo mostrerà ancore e NMS in codice."
+  }
+ ]
+}

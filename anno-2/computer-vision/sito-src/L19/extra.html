@@ -1,0 +1,112 @@
+<div class="sec" id="l19-libro"><h2>Studia dal libro</h2><span>visionbook cap. 50 § 50.4–50.6 (circa 1 ora e mezza), più cap. 24 § 24.2.3 e cap. 26 § 26.6 per rileggere dilatazione e attenzione; Prince § 10.2.3, 10.5.2; Szeliski § 6.3–6.4</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Cosa leggere, in ordine</h3>
+    <div class="meta">Torralba, Isola, Freeman, <i>Foundations of Computer Vision</i>, gratis online; Prince, <i>Understanding Deep Learning</i> e Szeliski 2a ed. nella cartella materiale</div>
+    <ol>
+      <li><a href="https://visionbook.mit.edu/object_recognition_v3.html" target="_blank">Cap. 50, Object Recognition</a>, § 50.4 <b>Object Localization and Detection</b>: § 50.4.1 (come si propongono le scatole: finestra scorrevole su piramide con l'Algorithm 50.1, <i>selective search</i> a due stadi, cascata, predizione globale alla YOLO; la NMS in tre righe), § 50.4.2 (la loss: classificazione + localizzazione moltiplicata da un indicatore, confronto fra loss IoU e L2, fig. 50.18 sul gradiente nullo della loss IoU a scatole disgiunte) e § 50.4.3 (la procedura di valutazione di PASCAL, curva precisione-recall, AP, fig. 50.19). Slide 9–13, 15, 23, 25, 30, 35–36.</li>
+      <li>Stesso capitolo, § 50.5 <b>Class Segmentation</b> (rete encoder-decoder, cross-entropy per pixel con pesi di classe, pixel accuracy contro IoU medio) e § 50.6 <b>Instance Segmentation</b> (ritaglio dentro ogni scatola, funzione binaria di segmentazione, loss somma di tre termini con due pesi λ). Slide 4, 42, 50, 52.</li>
+      <li><a href="https://visionbook.mit.edu/convolutional_neural_nets.html" target="_blank">Cap. 24, Convolutional Neural Nets</a>, § 24.2.3 (convoluzione dilatata: il filtro con zeri fra i pesi, fig. 24.9, e l'avvertenza sugli artefatti). Slide 39.</li>
+      <li><a href="https://visionbook.mit.edu/transformers.html" target="_blank">Cap. 26, Transformers</a>, § 26.6.1–26.6.3 (query, chiavi e valori, self-attention, multi-testa): serve per capire encoder, decoder e cross-attention di DETR e l'attenzione efficiente di SegFormer. Slide 32, 43–47. È un ripasso di L17.</li>
+      <li>Prince: § 10.2.3 (convoluzione dilatata), § 10.5.2 (YOLO v1: immagine 448 × 448, griglia 7 × 7, due scatole per cella, soppressione dei non-massimi), § 10.5.3 (una rete di segmentazione encoder-decoder). Slide 25, 39.</li>
+      <li>Szeliski 2a ed.: § 6.3 (object detection) e § 6.4 (segmentazione semantica, d'istanza, panottica, 6.4.3). I numeri esatti dei sottoparagrafi di § 6.3 non sono verificati: cerca per titolo.</li>
+    </ol>
+    <p><b>Si può saltare</b>: § 50.3 (classificazione di immagini intere, già vista), la parte di § 50.4.1 sulle scatole ruotate, i dettagli sulla segmentazione di parti e coordinate in § 50.6. <b>Non nei libri</b>: la famiglia R-CNN (R-CNN, Fast, Faster con RPN e ancore, Mask R-CNN), SSD, FCOS, DETR e il matching ungherese, la mAP di COCO, DeepLab e ASPP, SETR, SegFormer, DPT, RoIAlign, Panoptic Quality: per questi bastano le slide, la dispensa e gli articoli citati a slide 57.</p>
+  </div>
+
+  <div class="card">
+    <h3>Le idee centrali, come le spiega il libro</h3>
+    <div class="meta">Da saper ricostruire senza slide</div>
+    <p><b>1 · Detection = tre passi.</b> Il libro scompone ogni detector in: proporre scatole candidate, far girare un classificatore sul contenuto di ciascuna, ripulire i duplicati con la NMS. La finestra scorrevole prova ogni posizione e scala con un classificatore economico (Algorithm 50.1); la <i>selective search</i> usa prima un meccanismo economico per scegliere dove guardare e poi un classificatore costoso solo lì; la <b>cascata</b> (Viola-Jones) è la versione con molti stadi di costo crescente. Quindi «one-stage» e «two-stage» delle slide sono modi diversi di fare il passo 1.</p>
+    <p><b>2 · La loss di localizzazione conta solo per i positivi.</b> Cross-entropy per la classe su tutte le scatole; termine di scatola moltiplicato da un indicatore che lo azzera per le scatole assegnate allo sfondo. La loss IoU (1 − IoU) è invariante a traslazione e scala ma vale 1 e ha gradiente nullo quando le scatole sono disgiunte; la L2 è invariante alla traslazione ma non alla scala. Per questo si regrediscono scostamenti dalle ancore (con L1 liscia) e DETR somma L1 e IoU.</p>
+    <p><b>3 · La NMS è tre righe.</b> Prendi la scatola con confidenza massima, mettila nell'insieme finale, togli lei e tutte quelle con IoU sopra soglia, ripeti finché l'insieme è vuoto. Dipende dalla soglia: troppo bassa cancella oggetti vicini veri, troppo alta lascia duplicati.</p>
+    <p><b>4 · L'AP è un'area sotto una curva.</b> PASCAL: ordina le detection per punteggio; per ognuna prendi la ground truth con IoU massimo; se supera la soglia (0.5) è corretta e la ground truth esce dalla lista, altrimenti è sbagliata; le ground truth rimaste sono mancate. Precisione e recall cumulative danno la curva (non monotona), l'AP è l'area. Il libro non tratta la mAP@[.5:.95] di COCO.</p>
+    <p><b>5 · La segmentazione semantica «non sa contare»</b> (§ 50.5) e la segmentazione d'istanza (§ 50.6) fa la cosa più naturale: usa le scatole della detection e dentro ogni scatola chiede una maschera binaria. È l'idea di Mask R-CNN; i dettagli (RoIAlign, una maschera per classe con sigmoide) sono nell'articolo.</p>
+    <p><b>6 · La dilatazione distanzia il filtro, non i punti di applicazione.</b> Come lo stride, può dare artefatti da aliasing: un filtro di blur dilatato non è più un blur. Refuso del libro (§ 24.2.3): la cascata con dilatazione 1, 2, 4 copre 15 × 15, non 9 × 9; 9 è solo l'ultimo kernel.</p>
+    <p><b>Differenze di notazione</b>: il libro parla di «scatole candidate» e di localizzazione (§ 50.4); le slide usano il vocabolario degli articoli (proposal, anchor, RoI). L'NMS delle slide e di torchvision si esegue una volta per classe.</p>
+  </div>
+</div>
+
+<div class="sec" id="l19-guida"><h2>Guida allo studio</h2><span>circa 5 ore in quattro blocchi; il cuore è Faster R-CNN con codifica degli offset, l'AP svolto a mano e il matching di DETR</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Prima di iniziare</h3>
+    <div class="meta">15 minuti</div>
+    <p>Ripassa da L17 segmentazione semantica, U-Net, mIoU, ViT e self-attention (query, chiavi, valori, costo N²); da L15 campo recettivo, stride e dilatazione, conv 1×1; da L6 le piramidi (servono per le finestre a più scale). Il lab della L20 mette in pratica ancore, NMS e detector a due stadi: gli stessi oggetti di questa lezione.</p>
+  </div>
+  <div class="two">
+    <div class="card">
+      <h3>1 · Detection classica e two-stage</h3>
+      <div class="meta">Slide 9–23 · circa 1 ora e mezza</div>
+      <p>Obiettivo: raccontare la catena sliding window, Viola-Jones, selective search, R-CNN, Fast R-CNN, Faster R-CNN dicendo ogni volta quale limite risolve.</p>
+      <ul>
+        <li>Immagine integrale e feature di Haar con il conto dei quattro angoli.</li>
+        <li>Similarità della selective search con l'intersezione di istogrammi.</li>
+        <li>RoI pooling, RPN, ancore (k = 9) e loss multi-task con smooth L1.</li>
+        <li>Codifica e decodifica degli offset con l'esempio numerico: rifallo a mano.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>2 · One-stage, NMS e DETR</h3>
+      <div class="meta">Slide 24–34 · circa 1 ora e mezza</div>
+      <p>Obiettivo: dire per ogni detector chi decide il numero di oggetti e chi è assegnato a chi.</p>
+      <ul>
+        <li>YOLOv1: S × S × (5B + C) = 1470; SSD: scale smin … smax; FCOS: (l, t, r, b) e center-ness.</li>
+        <li>NMS greedy: l'algoritmo, il difetto nella folla, Soft-NMS.</li>
+        <li>DETR: object query, cross-attention, matching ungherese, perché non serve la NMS.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>3 · Valutazione e segmentazione avanzata</h3>
+      <div class="meta">Slide 35–48 · circa 1 ora e mezza</div>
+      <p>Obiettivo: calcolare AP e mAP su un esempio, e spiegare perché DeepLab e SegFormer fanno meglio di FCN.</p>
+      <ul>
+        <li>Curva precisione-recall dell'esempio 3 GT / 5 detection e AP ≈ 0.83.</li>
+        <li>mAP@[.5:.95] e il matching uno-a-uno.</li>
+        <li>Dilatazione, ASPP, DeepLabv3+, SETR, SegFormer (attenzione ridotta, Mix-FFN), DPT.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>4 · Istanza e panottica</h3>
+      <div class="meta">Slide 49–56 · circa 45 minuti</div>
+      <p>Obiettivo: spiegare cosa aggiunge Mask R-CNN a Faster R-CNN e come si misura la panottica.</p>
+      <ul>
+        <li>RoIAlign con il conto bilineare; loss di maschera per classe con sigmoide.</li>
+        <li>Fusione panottica (istanze per confidenza, poi stuff) e PQ = SQ × RQ con l'esempio 0.53.</li>
+        <li>La tabella riassuntiva di slide 55.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Formule da sapere a memoria</h3>
+    <span class="f">IoU(A, B) = |A ∩ B| / |A ∪ B|;   immagine integrale: somma su un rettangolo = II(D) − II(B) − II(C) + II(A)</span>
+    <span class="f">encode: t<sub>x</sub> = (x − x<sub>a</sub>)/w<sub>a</sub>,  t<sub>y</sub> = (y − y<sub>a</sub>)/h<sub>a</sub>,  t<sub>w</sub> = log(w/w<sub>a</sub>),  t<sub>h</sub> = log(h/h<sub>a</sub>);   decode: ŵ = e<sup>t̂<sub>w</sub></sup> w<sub>a</sub></span>
+    <span class="f">Fast R-CNN: ℒ = −log p<sub>u</sub> + λ [u ≥ 1] ∑<sub>i</sub> smL1(t<sub>i</sub><sup>u</sup> − v<sub>i</sub>);   smL1(x) = ½x² se |x| &lt; 1, altrimenti |x| − ½</span>
+    <span class="f">ancore: 3 scale × 3 rapporti = 9 per posizione; RPN: 2k punteggi e 4k offset</span>
+    <span class="f">YOLOv1: S · S · (5B + C) = 7 · 7 · 30;   SSD: s<sub>k</sub> = s<sub>min</sub> + (s<sub>max</sub> − s<sub>min</sub>)(k − 1)/(m − 1)</span>
+    <span class="f">FCOS: centerness = √( min(l, r)/max(l, r) · min(t, b)/max(t, b) )</span>
+    <span class="f">DETR: σ̂ = argmin<sub>σ</sub> ∑<sub>i</sub> ℒ<sub>match</sub>(y<sub>i</sub>, ŷ<sub>σ(i)</sub>)   (matching ungherese)</span>
+    <span class="f">P<sub>k</sub> = TP<sub>k</sub>/(TP<sub>k</sub> + FP<sub>k</sub>),  R<sub>k</sub> = TP<sub>k</sub>/g;   AP = area sotto la curva interpolata;   COCO: media su IoU 0.50, 0.55, …, 0.95</span>
+    <span class="f">dilatazione: k<sub>eff</sub> = d(k − 1) + 1;   tre strati con d = 1, 2, 4: campo recettivo 15</span>
+    <span class="f">attenzione ridotta: K̂ = Linear(CR, C)(Reshape(N/R, CR)(K)),  costo N²/R;   RoIAlign: F(x, y) = ∑ w<sub>ij</sub> F[x<sub>0</sub> + i, y<sub>0</sub> + j]</span>
+    <span class="f">Mask R-CNN: ℒ = ℒ<sub>cls</sub> + ℒ<sub>box</sub> + ℒ<sub>mask</sub>;   PQ = SQ × RQ,  SQ = media IoU dei TP,  RQ = TP/(TP + ½FP + ½FN)</span>
+  </div>
+
+  <div class="card">
+    <h3>Domande tipo orale</h3>
+    <div class="meta">Prova a rispondere ad alta voce, poi controlla nella dispensa</div>
+    <ol>
+      <li>Perché la detection non si può addestrare con la cross-entropy per pixel? Cosa manca?</li>
+      <li>Qual è la differenza fra R-CNN, Fast R-CNN e Faster R-CNN? Che cosa risolve ogni passo?</li>
+      <li>Cos'è un'ancora? Perché si predicono scostamenti e perché la larghezza si regredisce con un logaritmo?</li>
+      <li>Disegna e commenta la NMS greedy. In quale caso fallisce e come si rimedia?</li>
+      <li>Come fa DETR a non avere la NMS? Che cosa fa l'algoritmo ungherese?</li>
+      <li>Calcola AP su 3 oggetti veri e 5 detection (TP, FP, TP, TP, FP). Perché la mAP di COCO è più severa?</li>
+      <li>Perché la convoluzione dilatata allarga il campo recettivo senza perdere risoluzione? Cosa fa ASPP?</li>
+      <li>Che cosa cambia in SegFormer rispetto a SETR per ridurre il costo dell'attenzione?</li>
+      <li>Perché Mask R-CNN usa RoIAlign e una sigmoide per classe? Come si misura la panottica?</li>
+    </ol>
+    <p><b>Errori delle slide già segnalati nelle schede</b>: slide 33 (matching e Hungarian loss non sono «lo stesso costo»), 60 (rimando a un esempio svolto che non c'è), 61 (<i>sign</i> con h in {0, 1}), 32 (la backbone di DETR è una CNN, non un ViT). Non riportare a memoria le formule di AdaBoost con il segno sbagliato.</p>
+  </div>
+</div>

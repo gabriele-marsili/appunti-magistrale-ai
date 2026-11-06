@@ -1,0 +1,740 @@
+{
+ "L": "L22",
+ "segs": [
+  {
+   "a": "In una frase: il self-supervised learnin",
+   "b": 0,
+   "t": "Immagina di avere un miliardo di foto prese dal web e nessuna etichetta. Etichettarle a mano costerebbe una fortuna. Oggi vediamo come si addestra una rete proprio così, senza etichette, e come da questa idea nascono i foundation model, cioè reti generiche che si riusano per quasi ogni compito visivo."
+  },
+  {
+   "a": "In una frase: il self-supervised learnin",
+   "b": 0,
+   "t": "Alla fine saprai spiegare perché una rete addestrata senza etichette rischia di dare a tutto la stessa risposta, il cosiddetto collasso, e conoscerai i rimedi principali: il teacher che si muove lentamente, la coda di negativi, le statistiche del batch, il mascheramento. Poi arriveremo a DINO, alle sue versioni due e tre, e alle architetture JEPA."
+  },
+  {
+   "a": "Questa lezione (Giacomo Cignoni, 5 novem",
+   "b": 2,
+   "t": "Prima di iniziare, i prerequisiti. Questa lezione continua quella sull'apprendimento contrastivo, con la loss InfoNCE, SimCLR e SimSiam: li diamo per noti. Ti servono anche la softmax con temperatura e la cross-entropy, il Vision Transformer con le patch come token e il token CLS, e un po' di statistica: media, varianza, correlazione calcolate su un batch."
+  },
+  {
+   "a": "Video · 34 min BYOL: Bootstrap Your Own ",
+   "b": 6,
+   "t": "Sotto trovi tre video, un complemento e non un obbligo: due spiegazioni di Yannic Kilcher, su BYOL e su DINO, e una sintesi breve di DINOv2. Guardali prima o dopo, quando ti fa comodo."
+  },
+  {
+   "a": "1. Imparare senza etichette",
+   "b": 7,
+   "t": "Prima sezione: cosa vuol dire imparare senza etichette, e perché ci interessa."
+  },
+  {
+   "a": "Il problema. ImageNet ha 1.3 milioni di ",
+   "b": 8,
+   "t": "ImageNet ha poco più di un milione di immagini etichettate a mano. Il web ne ha miliardi senza etichetta. E in molti campi, pensa alle cellule al microscopio o alle foreste viste da satellite, le etichette sono rarissime. La domanda è: posso addestrare una rete solo sulle immagini, e poi riusarla?"
+  },
+  {
+   "a": "L'idea. Il self-supervised learning (SSL",
+   "b": 9,
+   "t": "L'idea del self-supervised learning, in italiano apprendimento auto-supervisionato, è inventare un compito di cui conosciamo la risposta gratis. Per esempio: due ritagli della stessa foto devono avere feature simili. Oppure: nascondo un pezzo dell'immagine e chiedo di ricostruirlo. Il compito in sé non ci importa. Ci importa la rete che, per risolverlo, ha dovuto capire qualcosa delle immagini."
+  },
+  {
+   "a": "Non è l'unsupervised classico (slide 4).",
+   "b": 10,
+   "t": "Attenzione a non confonderlo con l'unsupervised classico. Il k-means o la PCA cercano struttura nei dati, e il risultato sono i cluster o le componenti. Il self-supervised usa la struttura dei dati per addestrare una rete, e il risultato è un encoder da attaccare ad altri compiti. Già da solo serve, per esempio, a cercare immagini simili confrontando le feature."
+  },
+  {
+   "a": "La mappa della lezione. A sinistra i met",
+   "b": 11,
+   "t": "Guarda la mappa della lezione. In alto c'è il self-supervised. Sotto, cinque famiglie. Nel riquadro blu a sinistra quelle che usano due viste della stessa immagine: contrastivo, teacher-student, riduzione della ridondanza. Nel riquadro rosso a destra quelle che usano una vista mascherata: ricostruzione e predizione di feature. In basso, in giallo, i foundation model, che combinano teacher-student e mascheramento con tanti dati."
+  },
+  {
+   "a": "Il punto SSL = un compito inventato dai ",
+   "b": 12,
+   "t": "Da portare a casa: il compito è inventato, la rete resta. Tutta la lezione riguarda come scegliere il compito perché la rete impari qualcosa di utile."
+  },
+  {
+   "a": "2. Due fasi, e come si misura una rappre",
+   "b": 13,
+   "t": "Seconda sezione: abbiamo una rete addestrata senza etichette. Come capiamo se è buona?"
+  },
+  {
+   "a": "Le due fasi (slide 6–7). Fase 1, preadde",
+   "b": 15,
+   "t": "Il processo ha due fasi. Nella prima si preaddestra l'encoder sulle immagini senza etichette. Nella seconda si attacca una piccola testa e la si addestra con poche etichette, per classificare, segmentare o stimare la profondità. L'encoder si può lasciare congelato, oppure rifinire, cioè fare fine-tuning."
+  },
+  {
+   "a": "k-NN : non si addestra nulla. Ogni immag",
+   "b": 17,
+   "t": "Per misurare la qualità ci sono tre protocolli. Il k-NN, k vicini più prossimi: non si addestra nulla, ogni immagine di test prende l'etichetta più frequente fra le immagini di addestramento con le feature più vicine. Il linear probe, sonda lineare: encoder congelato, si addestra un solo strato lineare. Il fine-tuning: si addestra tutto. Se basta una sonda lineare per separare le classi, vuol dire che l'informazione è già scritta chiaramente nelle feature."
+  },
+  {
+   "a": "I tre protocolli. In grigio l'encoder co",
+   "b": 18,
+   "t": "Nella figura, da sinistra a destra, si addestra sempre di più. Nel k-NN e nel linear probe l'encoder è grigio, cioè congelato. Nel fine-tuning è rosso, cioè viene modificato. Più si addestra, più il punteggio misura anche quanto è facile adattare la rete, non solo quanto è buona la rappresentazione."
+  },
+  {
+   "a": "Progettare il compito pretesto (slide 9)",
+   "b": 19,
+   "t": "Infine, tre regole per progettare il compito pretesto: difficoltà giusta, niente scorciatoie, e trasferimento ad altri compiti. Le scorciatoie sono pericolose: la rete può sfruttare bordi, aberrazioni della lente o artefatti di compressione invece di capire gli oggetti."
+  },
+  {
+   "a": "Il punto Preaddestri senza etichette, po",
+   "b": 20,
+   "t": "Da portare a casa: preaddestri senza etichette, adatti con poche, e misuri la qualità a valle."
+  },
+  {
+   "a": "3. Il nemico comune: il collasso",
+   "b": 21,
+   "t": "Terza sezione, la più importante per capire tutto il resto: il nemico comune, il collasso."
+  },
+  {
+   "a": "Il problema. L'idea più naturale (slide ",
+   "b": 22,
+   "t": "L'idea più naturale si chiama instance discrimination. Prendi una foto, crei due viste con augmentation casuali, le passi nella stessa rete e chiedi che le due feature siano vicine. La loss è il quadrato della distanza fra f di v uno e f di v due."
+  },
+  {
+   "a": "Il libro (§ 30.10) la chiama alignment l",
+   "b": 24,
+   "t": "Il problema è che questa loss si può minimizzare in modo stupido. Se la rete restituisce sempre lo stesso vettore, qualunque sia l'immagine, la distanza è zero e la loss è perfetta. Ma la rappresentazione non serve a nulla."
+  },
+  {
+   "a": "Collasso completo: f(x) = c per ogni x. ",
+   "b": 26,
+   "t": "Ci sono due collassi. Quello completo: ogni immagine riceve lo stesso vettore. Quello dimensionale, più subdolo: le immagini hanno feature diverse, ma tutte allineate lungo poche direzioni, come punti su una retta dentro uno spazio con migliaia di dimensioni. Guardando una sola immagine non te ne accorgi."
+  },
+  {
+   "a": "Sopra, 60 embedding in 3 dimensioni; sot",
+   "b": 27,
+   "t": "Guarda la figura. In alto a sinistra, sano: sessanta punti sparsi in tutte le direzioni. Al centro, collasso completo: un unico punto. A destra, collasso dimensionale: tutti su una retta. Sotto ci sono gli autovalori della covarianza. Nel caso sano tre valori simili, zero virgola trentanove, zero virgola trentatré, zero virgola ventotto. Nel collasso completo tutti zero. Nel dimensionale uno solo diverso da zero."
+  },
+  {
+   "a": "Come si evita. Il resto della prima part",
+   "b": 28,
+   "t": "Nella lezione precedente hai visto due rimedi: i negativi di SimCLR, cioè immagini diverse che devono stare lontane, e il predictor con stop-gradient di SimSiam. Oggi ne vediamo altri: il teacher lento, i vincoli sulle statistiche, il mascheramento. Una piccola imprecisione delle slide: nella pagina di riepilogo il piè di pagina nomina MoCo, ma nella tabella MoCo non c'è, arriva più avanti."
+  },
+  {
+   "a": "Il punto Chiedere solo «due viste uguali",
+   "b": 29,
+   "t": "Da portare a casa: chiedere solo che due viste coincidano ammette la soluzione costante. Ogni metodo che vedremo è prima di tutto un modo per impedirla."
+  },
+  {
+   "a": "4. Teacher-student: BYOL",
+   "b": 30,
+   "t": "Quarta sezione: BYOL, il primo metodo teacher-student."
+  },
+  {
+   "a": "L'idea. BYOL ( Bootstrap Your Own Latent",
+   "b": 32,
+   "t": "BYOL, che sta per Bootstrap Your Own Latent, usa due reti con ruoli diversi. Lo student guarda una vista e deve predire le feature che il teacher produce sull'altra vista. Lo student impara con il gradiente. Il teacher no: è una media mobile dei pesi dello student. All'inizio è una sua copia, poi lo insegue con un po' di ritardo. La rete impara da una versione passata di sé stessa."
+  },
+  {
+   "a": "BYOL. Sopra lo student (verde) con il pr",
+   "b": 33,
+   "t": "Guarda lo schema. In alto lo student, in verde: encoder, projector e, in arancio, il predictor, che c'è solo da questa parte. In basso il teacher, in grigio, con encoder e projector. Le frecce blu tratteggiate sono la media mobile, che porta i pesi dallo student al teacher. Le barre rosse sono lo stop-gradient: da lì il gradiente non passa. A destra la loss confronta le due uscite."
+  },
+  {
+   "a": "La matematica (slide 16). Con s la predi",
+   "b": 34,
+   "t": "Ora la formula. La loss è il quadrato della distanza fra la predizione dello student, s, e il bersaglio del teacher, t, con lo stop-gradient applicato a t. La derivata rispetto a s vale due volte s meno t, quella rispetto a t vale zero."
+  },
+  {
+   "a": "stop_grad è l'identità nel passaggio in ",
+   "b": 36,
+   "t": "Lo stop-gradient nel passaggio in avanti non fa nulla, ma all'indietro blocca il gradiente. Quindi l'ottimizzatore sposta lo student verso il teacher, mai il teacher verso lo student. Nelle slide c'è una domanda a cui manca il soggetto: come può il teacher cambiare senza ricevere gradienti? La risposta è nella prossima sezione."
+  },
+  {
+   "a": "il predictor solo nello student : i due ",
+   "b": 38,
+   "t": "Perché BYOL non collassa? Per tre ingredienti insieme. Il predictor solo nello student rende i due rami diversi. Lo stop-gradient impedisce al teacher di correre verso la soluzione banale per abbassare la loss. E il teacher lento segue la storia dello student, non il gradiente di adesso."
+  },
+  {
+   "a": "Attenzione: non c'è un teorema che garan",
+   "b": 39,
+   "t": "Una precisazione onesta: non c'è un teorema che lo garantisca. Funziona in pratica, e se togli il predictor BYOL collassa davvero. Lo Szeliski lo riassume così: BYOL toglie i negativi grazie a teacher a momento, predictor e stop-gradient; SimSiam mostra poi che basta lo stop-gradient."
+  },
+  {
+   "a": "Il punto BYOL impara senza coppie negati",
+   "b": 40,
+   "t": "Da portare a casa: BYOL impara senza negativi, con uno student che predice la propria media mobile. Asimmetria, stop-gradient e lentezza del teacher lavorano insieme."
+  },
+  {
+   "a": "5. La media mobile esponenziale (EMA), p",
+   "b": 41,
+   "t": "Quinta sezione: la media mobile esponenziale, che in inglese si abbrevia EMA. La vediamo passo per passo, con i numeri."
+  },
+  {
+   "a": "La formula (slide 17). Dopo ogni passo d",
+   "b": 43,
+   "t": "La formula dice: il nuovo peso del teacher, xi, è tau volte il vecchio xi più uno meno tau volte il peso dello student, theta. Tau è il momento, vicino a uno."
+  },
+  {
+   "a": "θ sono i pesi dello student, ξ quelli de",
+   "b": 45,
+   "t": "In parole: con tau uguale a zero virgola nove nove, il teacher nuovo è il novantanove per cento del teacher vecchio più l'uno per cento dello student attuale. È la stessa media mobile che BatchNorm usa per le statistiche di test, solo applicata ai pesi."
+  },
+  {
+   "a": "passo 1: 0.99 · 2.00 + 0.01 · 3.00 = 1.9",
+   "b": 47,
+   "t": "Facciamo i conti con un solo peso. Teacher a due, student fermo a tre, tau zero virgola nove nove. Primo passo: zero virgola nove nove per due fa uno virgola nove otto, più zero virgola zero uno per tre fa zero virgola zero tre. Totale due virgola zero uno, il numero delle slide. Secondo passo: due virgola zero uno nove nove. Terzo: circa due virgola zero tre."
+  },
+  {
+   "a": "In forma chiusa, la distanza dal bersagl",
+   "b": 48,
+   "t": "C'è una forma chiusa: a ogni passo la distanza dal bersaglio si moltiplica per zero virgola nove nove. Dopo 69 passi il teacher è a metà strada, due virgola cinque. Dopo 100 passi è a due virgola sei tre. Regola pratica: il teacher ricorda circa uno diviso uno meno tau passi, cioè 100 con zero virgola nove nove. BYOL parte da zero virgola nove nove sei, circa 250 passi, e lo fa salire fino a uno."
+  },
+  {
+   "a": "A sinistra: lo student (rosso) è rumoros",
+   "b": 49,
+   "t": "Guarda la figura. A sinistra la linea rossa è lo student: rumorosa, sale a scatti. Le curve blu e verde sono due teacher: lisce e in ritardo. Quella verde, con tau più vicino a uno, è ancora più lenta. A destra c'è il nostro esempio: la curva blu parte da due virgola zero uno, passa per due virgola cinque al passo 69, per due virgola sei tre al passo 100, e si avvicina alla linea rossa a quota tre."
+  },
+  {
+   "a": "Perché mediare (slide 17): smussa gli ag",
+   "b": 50,
+   "t": "Perché mediare? Smussa gli aggiornamenti bruschi, fa cambiare i bersagli gradualmente e conserva memoria degli student precedenti. E spesso la media dei pesi è un modello migliore dello student stesso: per questo in DINO, alla fine, si tiene il teacher."
+  },
+  {
+   "a": "Il punto Lo student impara con il gradie",
+   "b": 51,
+   "t": "Da portare a casa: lo student impara col gradiente, il teacher lo insegue con la media mobile. Un passo sposta il teacher dell'uno per cento della distanza."
+  },
+  {
+   "a": "6. BYOL completo: projector, predictor, ",
+   "b": 52,
+   "t": "Sesta sezione: BYOL nei dettagli, con i tre moduli e la normalizzazione."
+  },
+  {
+   "a": "Tre moduli (slide 19). L' encoder f (una",
+   "b": 53,
+   "t": "I moduli sono tre. L'encoder, una ResNet cinquanta, estrae la rappresentazione. Il projector la porta nello spazio dove si calcola la loss. Il predictor, solo nello student, predice la proiezione del teacher. Dopo il preaddestramento si tiene solo l'encoder dello student. Tutto il resto è impalcatura."
+  },
+  {
+   "a": "Perché la seconda uguaglianza: per due v",
+   "b": 56,
+   "t": "Ecco il conto: per due vettori di lunghezza uno, il quadrato della distanza vale due meno due volte il coseno dell'angolo fra loro. Quindi la loss guarda solo la direzione. Se il coseno è zero virgola otto la loss vale zero virgola quattro; se sono allineati vale zero. Senza normalizzazione la rete potrebbe abbassare la loss rimpicciolendo tutti i vettori, che è una strada verso il collasso."
+  },
+  {
+   "a": "Loss simmetrica. Si scambiano le viste (",
+   "b": 57,
+   "t": "Infine la loss è simmetrica: si scambiano le viste e si sommano i due termini, così ogni vista fa sia da domanda sia da bersaglio. Nell'articolo, con batch da 4096, BYOL arriva al 74 per cento circa in linear probe su ImageNet."
+  },
+  {
+   "a": "Il punto BYOL confronta direzioni (vetto",
+   "b": 58,
+   "t": "Da portare a casa: BYOL confronta direzioni, in entrambi i versi, e alla fine resta solo l'encoder dello student."
+  },
+  {
+   "a": "7. MoCo: tanti negativi con una coda",
+   "b": 59,
+   "t": "Settima sezione: MoCo, che riporta i negativi ma senza batch enormi."
+  },
+  {
+   "a": "un teacher a momento (EMA dello student,",
+   "b": 62,
+   "t": "MoCo, cioè Momentum Contrast, mette insieme tre pezzi. Un teacher a momento, una media mobile dello student come in BYOL, con momento zero virgola nove nove nove. Una loss contrastiva con negativi, come SimCLR. E una coda FIFO, cioè il primo che entra è il primo che esce, dove si conservano le chiavi dei batch precedenti."
+  },
+  {
+   "a": "La coda di MoCo. La chiave appena calcol",
+   "b": 63,
+   "t": "Guarda lo schema. A sinistra in verde la query dello student, sotto in grigio la chiave positiva del teacher, che entra nella coda di rettangoli blu. A destra, in rosso, esce la chiave più vecchia. La query deve riconoscere la sua chiave fra tutte quelle in coda: nell'articolo sono 65536."
+  },
+  {
+   "a": "Perché serve il teacher lento. Le chiavi",
+   "b": 64,
+   "t": "Perché serve il teacher lento? Le chiavi in coda sono state calcolate in momenti diversi. Se la rete cambiasse in fretta, chiavi vecchie e nuove verrebbero da reti diverse e il confronto non avrebbe senso. Con un momento così vicino a uno la rete cambia pochissimo e la coda resta coerente. Risultato: decine di migliaia di negativi con un batch di sole 256 immagini."
+  },
+  {
+   "a": "Dalla slide 22. Riassunto dei metodi a d",
+   "b": 65,
+   "t": "Questa figura delle slide riassume i metodi a due viste. SimCLR a sinistra: similarità e dissimilarità, gradiente su entrambi i rami. BYOL al centro: predictor e momentum encoder, aggiornato con la media mobile. SimSiam a destra: predictor, stessi pesi, gradiente da un solo lato."
+  },
+  {
+   "a": "Il punto MoCo = contrastivo + teacher EM",
+   "b": 66,
+   "t": "Da portare a casa: MoCo è contrastivo più teacher a momento più coda. La coda dà tanti negativi a basso costo, la media mobile li rende confrontabili."
+  },
+  {
+   "a": "8. Riduzione della ridondanza: Barlow Tw",
+   "b": 67,
+   "t": "Ottava sezione: un approccio diverso, la riduzione della ridondanza, con Barlow Twins."
+  },
+  {
+   "a": "Il problema. BYOL e MoCo evitano il coll",
+   "b": 68,
+   "t": "BYOL e MoCo evitano il collasso con trucchi di architettura. Si può invece scrivere direttamente nella loss cosa vogliamo?"
+  },
+  {
+   "a": "L'idea (slide 23). Guardiamo le statisti",
+   "b": 69,
+   "t": "Guardiamo le statistiche delle feature su un batch e chiediamo tre cose. Accordo fra le viste: la feature non cambia con l'augmentation. Variazione fra le immagini: non dare a tutte la stessa feature. Poca ridondanza fra le dimensioni: non copiare lo stesso segnale in tutte le coordinate."
+  },
+  {
+   "a": "La matematica (slide 24–25). Un batch di",
+   "b": 70,
+   "t": "In Barlow Twins si prendono le feature delle due viste per un batch di B immagini, e si standardizza ogni feature lungo il batch, con media zero e deviazione standard uno. Poi si calcola la matrice C, il prodotto della trasposta di Z A per Z B, diviso B."
+  },
+  {
+   "a": "C è d × d e C ij è la correlazione fra l",
+   "b": 72,
+   "t": "Ogni elemento C i j è la correlazione fra la feature i della prima vista e la feature j della seconda, calcolata sulle immagini del batch. La loss vuole la diagonale a uno: la stessa feature varia allo stesso modo nelle due viste. E vuole il resto a zero, pesato da lambda: feature diverse portano informazione diversa. In una parola: C deve somigliare alla matrice identità."
+  },
+  {
+   "a": "Esempio svolto , B = 4 immagini, d = 2 f",
+   "b": 73,
+   "t": "Facciamo un esempio piccolissimo: quattro immagini, due feature, viste identiche. Le righe sono uno uno, uno meno uno, meno uno uno, meno uno meno uno."
+  },
+  {
+   "a": "C 11 = (1·1 + 1·1 + (−1)(−1) + (−1)(−1))",
+   "b": 74,
+   "t": "C uno uno è la media dei prodotti della prima colonna con sé stessa: uno. C uno due è la media di uno, meno uno, meno uno, uno, cioè zero. Quindi C è l'identità e la loss è zero. Ora il collasso completo: tutte le righe uguali. Tolta la media restano zeri, C è tutta zero, e la diagonale costa due. Infine il collasso dimensionale: le due feature copiano lo stesso segnale, C ha tutti uno, la diagonale è perfetta ma i due termini fuori diagonale costano due volte lambda, cioè zero virgola zero uno."
+  },
+  {
+   "a": "La matrice C nei tre casi dell'esempio. ",
+   "b": 75,
+   "t": "Nella figura vedi le tre matrici. A sinistra l'identità, loss zero. Al centro tutti zeri, il collasso completo, che viola la diagonale. A destra tutti uno, il collasso dimensionale, che viola i termini fuori diagonale. Ogni collasso è catturato da un pezzo diverso della loss."
+  },
+  {
+   "a": "0.01 sembra poco, ma con d = 8192 i term",
+   "b": 76,
+   "t": "Zero virgola zero uno sembra poco, ma nell'articolo le feature sono 8192, e i termini fuori diagonale sono circa 67 milioni. Per questo lambda è piccolo, zero virgola zero zero cinque: altrimenti la ridondanza schiaccerebbe tutto il resto."
+  },
+  {
+   "a": "Il punto Barlow Twins spinge la cross-co",
+   "b": 77,
+   "t": "Da portare a casa: Barlow Twins spinge la correlazione fra le viste verso l'identità. Diagonale contro il collasso completo, fuori diagonale contro quello dimensionale. Niente negativi, niente teacher."
+  },
+  {
+   "a": "9. VICReg: tre vincoli espliciti",
+   "b": 78,
+   "t": "Nona sezione: VICReg, che separa i tre desideri in tre termini."
+  },
+  {
+   "a": "L'idea (slide 27). VICReg ( Variance-Inv",
+   "b": 79,
+   "t": "VICReg sta per varianza, invarianza e covarianza. La loss è la somma di tre termini, ciascuno con il suo peso."
+  },
+  {
+   "a": "Invarianza s: media sul batch di ‖z b − ",
+   "b": 81,
+   "t": "L'invarianza chiede che le due viste coincidano. La varianza guarda la deviazione standard di ogni feature sul batch: se è sopra una soglia, uno, non costa nulla; se scende verso zero, viene penalizzata. Questo blocca direttamente il collasso completo. Una precisazione: nell'articolo la deviazione standard si calcola con una piccola costante epsilon sotto la radice, che le slide omettono. La covarianza, infine, spinge a zero le covarianze fra feature diverse, dentro ciascuna vista, contro il collasso dimensionale."
+  },
+  {
+   "a": "Esempio: con γ = 1, una feature con σ = ",
+   "b": 82,
+   "t": "Un esempio: con soglia uno, una feature con deviazione standard zero virgola tre costa zero virgola sette, una con uno virgola quattro costa zero. E siccome ogni vista è regolarizzata per conto suo, i due rami non devono nemmeno avere gli stessi pesi."
+  },
+  {
+   "a": "Il punto VICReg scrive i tre requisiti c",
+   "b": 83,
+   "t": "Da portare a casa: VICReg scrive i tre requisiti come tre termini espliciti, viste uguali, feature che variano, feature scorrelate."
+  },
+  {
+   "a": "10. Ricostruire: autoencoder, mascherame",
+   "b": 84,
+   "t": "Decima sezione: cambiamo famiglia. Invece di confrontare viste, ricostruiamo."
+  },
+  {
+   "a": "L'autoencoder (slide 29; libro § 30.4). ",
+   "b": 86,
+   "t": "Il più antico è l'autoencoder. Un encoder comprime l'immagine, un decoder la ricostruisce, e la loss è l'errore quadratico fra ricostruzione e originale. Il libro mostra un esperimento istruttivo: il colore si riconosce meglio direttamente dai pixel, la forma dagli strati profondi. Il guaio è che copiare l'input è un compito troppo facile."
+  },
+  {
+   "a": "Il mascheramento (slide 30). «Il gatto è",
+   "b": 87,
+   "t": "La svolta è il mascheramento. Pensa alla frase: il gatto è seduto sul, spazio vuoto. Nascondi una parte, usa il contesto per indovinarla, e l'originale fa da bersaglio. È l'idea di BERT per il testo, e il libro la chiama imputazione. Per le immagini la domanda è cosa predire: pixel, codici discreti o feature."
+  },
+  {
+   "a": "Patch come token (slide 31; libro § 26.4",
+   "b": 88,
+   "t": "Con un Vision Transformer il mascheramento è naturale, perché l'immagine è già divisa in patch. Il numero di token è altezza per larghezza diviso il lato della patch al quadrato. Con 224 per 224 pixel e patch da 16 fanno 14 per 14, cioè 196 token."
+  },
+  {
+   "a": "Una foto 224 × 224 in 196 patch. Con il ",
+   "b": 91,
+   "t": "Guarda la figura. A sinistra il gatto diviso in 196 patch. Al centro, 147 patch sono grigie: il 75 per cento è nascosto. A destra le 49 patch rimaste, messe in fila: è tutto quello che vede l'encoder. Da quei pezzetti di pelo, un occhio e il naso, bisogna ricostruire il gatto intero."
+  },
+  {
+   "a": "Il punto Il masked image modeling (MIM) ",
+   "b": 92,
+   "t": "Da portare a casa: il masked image modeling trasforma l'autoencoder in un compito difficile, ricostruire ciò che manca invece di ciò che si vede, e basta una vista per immagine."
+  },
+  {
+   "a": "11. SimMIM e MAE: predire i pixel mancan",
+   "b": 93,
+   "t": "Undicesima sezione: due ricette che predicono i pixel mancanti, SimMIM e MAE."
+  },
+  {
+   "a": "SimMIM (Xie et al. 2022, slide 32). Le p",
+   "b": 94,
+   "t": "SimMIM sostituisce ogni patch mascherata con lo stesso token apprendibile, chiamato m, e dà all'encoder la griglia completa. Una testa lineare predice i colori dei pixel. La loss è l'errore assoluto medio, calcolato solo sui pixel nascosti: la somma degli errori divisa per il numero di pixel mascherati."
+  },
+  {
+   "a": "MAE ( Masked Autoencoder , He et al. 202",
+   "b": 97,
+   "t": "MAE, il masked autoencoder, fa tre scelte diverse. Maschera il 75 per cento delle patch, a caso. L'encoder lavora solo sulle patch visibili, senza token di maschera. I token di maschera si aggiungono dopo, prima di un decoder leggero, molto più piccolo dell'encoder."
+  },
+  {
+   "a": "Esempio svolto: quanto calcolo si rispar",
+   "b": 100,
+   "t": "Facciamo il conto del risparmio. Su 196 token l'encoder ne vede 49, un quarto. Le parti lineari di un transformer costano in proporzione al numero di token, quindi un quarto. L'attenzione costa in proporzione al quadrato, quindi un sedicesimo. Con le dimensioni di un ViT grande l'encoder costa circa il 24 per cento, il decoder aggiunge circa il 9."
+  },
+  {
+   "a": "A sinistra i token che entrano nell'enco",
+   "b": 101,
+   "t": "Nella figura, a sinistra, le barre dei token: 196 contro 49. A destra il calcolo: il ViT completo è al cento per cento, MAE arriva a circa un terzo, con il blu dell'encoder e l'arancio del decoder. L'articolo dichiara un addestramento tre volte più veloce o più."
+  },
+  {
+   "a": "Perché il 75% e non il 15% di BERT? Le i",
+   "b": 102,
+   "t": "E perché proprio il 75 per cento, quando BERT ne maschera il 15? Perché le immagini sono molto ridondanti. Con poche patch nascoste basta interpolare dai vicini, senza capire niente. Con tre quarti nascosti bisogna sapere com'è fatto un gatto."
+  },
+  {
+   "a": "Il punto MAE nasconde il 75%, fa lavorar",
+   "b": 103,
+   "t": "Da portare a casa: MAE nasconde tre quarti dell'immagine, fa lavorare l'encoder grande solo sul quarto visibile, e ricostruisce con un decoder piccolo."
+  },
+  {
+   "a": "12. BEiT: predire codici visivi invece d",
+   "b": 104,
+   "t": "Dodicesima sezione: BEiT, che predice codici invece di pixel."
+  },
+  {
+   "a": "Il problema. Predire pixel esatti spreca",
+   "b": 105,
+   "t": "Predire ogni pixel esatto spreca capacità su dettagli inutili, come il rumore o la trama fine. BERT predice parole da un vocabolario finito. Si può fare lo stesso con le immagini?"
+  },
+  {
+   "a": "Fase 1: un vocabolario visivo (slide 35)",
+   "b": 106,
+   "t": "Prima fase: si costruisce un vocabolario visivo. Un tokenizer trasforma ogni patch in un numero intero, un ID. È la parte encoder di un autoencoder variazionale discreto, addestrato prima e per conto suo; BEiT usa quello pubblico di DALL-E, con 8192 codici. Poi il tokenizer si congela."
+  },
+  {
+   "a": "Dalla slide 36. In alto il tokenizer con",
+   "b": 107,
+   "t": "Guarda la figura delle slide. In alto il tokenizer legge il cane e produce una griglia di ID, come 234 e 456. In basso alcune patch sono sostituite dal token di maschera. L'encoder e la testa devono predire gli ID proprio nelle posizioni mascherate. Il decoder in alto a destra non serve durante il preaddestramento."
+  },
+  {
+   "a": "Fase 2: predire i codici mancanti (slide",
+   "b": 108,
+   "t": "Seconda fase: circa il 40 per cento delle patch, a blocchi, viene mascherato, e la rete deve indovinare l'ID in ogni posizione nascosta. È una classificazione a 8192 classi per patch, con la cross-entropy."
+  },
+  {
+   "a": "Attenzione: manca il segno meno nella sl",
+   "b": 111,
+   "t": "E qui c'è un errore nelle slide. La formula di BEiT è scritta come valore atteso della somma dei logaritmi delle probabilità, e chiamata loss. Ma così è una log-verosimiglianza, che va massimizzata, e infatti nell'articolo c'è max. Come loss da minimizzare serve il segno meno davanti: solo così è la cross-entropy di cui parla la slide."
+  },
+  {
+   "a": "SimMIM e BEiT mettono i token di mascher",
+   "b": 113,
+   "t": "Ora il confronto delle tre ricette, riga per riga. SimMIM e BEiT mettono i token di maschera prima dell'encoder, che vede la griglia completa. MAE li mette solo prima del decoder. SimMIM e MAE predicono pixel, con errore assoluto o quadratico. BEiT predice ID discreti con la cross-entropy, e ha bisogno del tokenizer preaddestrato."
+  },
+  {
+   "a": "Il punto BEiT trasforma la ricostruzione",
+   "b": 114,
+   "t": "Da portare a casa: BEiT trasforma la ricostruzione in classificazione su un vocabolario visivo. E ricorda il segno meno."
+  },
+  {
+   "a": "13. MIM contro instance discrimination: ",
+   "b": 115,
+   "t": "Tredicesima sezione: tra confrontare viste e ricostruire, quale funziona meglio?"
+  },
+  {
+   "a": "Le differenze (slide 39, da Park et al. ",
+   "b": 117,
+   "t": "Le due famiglie imparano cose diverse. Il contrastivo cattura più struttura globale e forma, il mascherato più dettaglio locale e trama. C'è anche un costo pratico: le augmentation forti girano spesso sulla CPU, e generare tante viste può lasciare la GPU ad aspettare. Il mascheramento non ne ha bisogno."
+  },
+  {
+   "a": "Dalla slide 40. Sinistra: i metodi contr",
+   "b": 118,
+   "t": "Guarda i tre grafici delle slide. A sinistra, in rosso i metodi contrastivi, in blu quelli mascherati: i rossi stanno a destra, cioè vincono in linear probe, i blu stanno in alto, cioè vincono in fine-tuning. Al centro, crescendo la dimensione del modello, la curva blu supera quella rossa. A destra, sulla detection in COCO, MAE e BEiT stanno più a destra."
+  },
+  {
+   "a": "linear probe : vince l'instance discrimi",
+   "b": 120,
+   "t": "Quindi: in linear probe vince l'instance discrimination, perché le sue feature sono più separabili linearmente. In fine-tuning, e soprattutto con modelli grandi, i mascherati possono superarla. Nei compiti densi, come la detection, i mascherati vanno bene perché conta il dettaglio spaziale."
+  },
+  {
+   "a": "Il punto La rappresentazione migliore di",
+   "b": 121,
+   "t": "Da portare a casa: la rappresentazione migliore dipende dal compito a valle. E i foundation model, che vediamo ora, combinano le due idee."
+  },
+  {
+   "a": "14. Foundation model e DINO: auto-distil",
+   "b": 122,
+   "t": "Quattordicesima sezione: si entra nella seconda parte, i foundation model, partendo da DINO."
+  },
+  {
+   "a": "Il problema. Ogni volta che serve un nuo",
+   "b": 123,
+   "t": "Un foundation model è un modello grande, preaddestrato in modo ampio, che serve per molti compiti. Contano la scala e la varietà dei dati, e lo schema d'uso tipico è semplice: backbone congelato più una testa per ogni compito."
+  },
+  {
+   "a": "DINO ( self-DIstillation with NO labels ",
+   "b": 124,
+   "t": "DINO è un teacher-student come BYOL, ma con un Vision Transformer e un'uscita diversa. La testa produce decine di migliaia di logit, e una softmax li trasforma in una distribuzione di probabilità. Lo student deve riprodurre la distribuzione del teacher su un'altra vista, e la loss è la cross-entropy fra le due distribuzioni."
+  },
+  {
+   "a": "È la distillazione del libro (§ 37.4.1: ",
+   "b": 126,
+   "t": "È la distillazione del libro: lo student imita la distribuzione morbida di un teacher. Ma qui il teacher è la media mobile dello student stesso, per questo si parla di auto-distillazione."
+  },
+  {
+   "a": "Crop globali e locali (multi-crop). Da o",
+   "b": 127,
+   "t": "L'ingrediente nuovo sono i crop. Da ogni immagine si prendono due crop globali, grandi, a 224 pixel, e diversi crop locali, piccoli, a 96 pixel. Il teacher vede solo i globali, lo student tutti. Così lo student impara a dire, guardando un pezzetto di orecchio, la stessa cosa che il teacher dice guardando tutto il gatto."
+  },
+  {
+   "a": "u t sono i logit del teacher, c la loro ",
+   "b": 131,
+   "t": "La formula: la distribuzione del teacher è la softmax dei logit meno un centro c, divisi per una temperatura tau t. Il centro c è una media mobile dei logit del teacher sui batch. La temperatura del teacher è bassa, fra zero virgola zero quattro e zero virgola zero sette."
+  },
+  {
+   "a": "centering (sottrarre c): impedisce che l",
+   "b": 132,
+   "t": "Le due operazioni si oppongono. Il centering toglie la coordinata che domina per tutte le immagini, ma da solo appiattisce tutto verso l'uniforme. Lo sharpening rende le distribuzioni appuntite, ma da solo fa vincere una sola coordinata. Insieme si bilanciano."
+  },
+  {
+   "a": "Esempio svolto. K = 4, tre immagini con ",
+   "b": 133,
+   "t": "Facciamo i conti. Quattro dimensioni, tre immagini. Logit: cinque uno zero zero, quattro zero due zero, cinque zero zero uno. La prima dimensione domina dappertutto."
+  },
+  {
+   "a": "Senza nulla (τ = 1): p 1 ≈ (0.97, 0.02, ",
+   "b": 134,
+   "t": "Senza nulla, le tre distribuzioni mettono quasi tutto sulla dimensione uno. Con solo sharpening, diventano esattamente uno zero zero zero per tutte: collasso. Con il centering sottraiamo la media, che è quattro virgola sei sette, zero virgola tre tre, zero virgola sei sette, zero virgola tre tre. Ora il primo vettore diventa zero virgola tre tre, zero virgola sei sette, meno zero virgola sei sette, meno zero virgola tre tre, e la softmax a temperatura uno è piatta. Con entrambi, ogni immagine finisce su una dimensione diversa: la prima sulla due, la seconda sulla tre, la terza sulla quattro."
+  },
+  {
+   "a": "L'esempio numerico. Da sinistra: grezzi ",
+   "b": 135,
+   "t": "Guarda i quattro grafici, da sinistra. Grezzi: tutte le barre alte sulla dimensione uno. Solo sharpening: tre barre a uno, tutte sulla dimensione uno. Solo centering: barre basse e sparse. Entrambi: una barra blu sulla due, una rossa sulla tre, una verde sulla quattro. Bersagli netti e diversi."
+  },
+  {
+   "a": "Il punto DINO = student che imita la dis",
+   "b": 137,
+   "t": "Da portare a casa: DINO è uno student che imita la distribuzione di un teacher a media mobile, dal locale al globale, con centering e sharpening che si bilanciano."
+  },
+  {
+   "a": "15. Strutture che emergono da sole",
+   "b": 138,
+   "t": "Quindicesima sezione: la cosa sorprendente di DINO."
+  },
+  {
+   "a": "Cosa succede (slide 46). Si prende un Vi",
+   "b": 139,
+   "t": "Se guardi l'attenzione del token CLS nell'ultimo strato di un ViT addestrato con DINO, alcune teste illuminano esattamente l'oggetto principale. Nessuno ha mai dato alla rete una maschera di segmentazione."
+  },
+  {
+   "a": "Dalla slide 46. Ogni coppia: la foto e l",
+   "b": 140,
+   "t": "Nella figura ogni coppia è una foto e la sua mappa di attenzione. Guarda l'uccello sul ramo, lo spazzolino, le due giraffe, la barca, la bicicletta davanti alla porta: l'oggetto emerge come una sagoma chiara su fondo scuro."
+  },
+  {
+   "a": "Similarità semantica. Le feature di DINO",
+   "b": 141,
+   "t": "Le feature funzionano anche col semplice k-NN: un ViT piccolo arriva a circa il 78 per cento su ImageNet senza addestrare niente sopra. Il libro mostra l'uso pratico: si calcolano le feature DINO per ogni patch e si fa k-means, e ne esce una segmentazione. E ricorda che detector di oggetti emergono quasi con ogni compito pretesto ragionevole, perfino la colorizzazione."
+  },
+  {
+   "a": "Il punto Con DINO, segmentazione grezza ",
+   "b": 142,
+   "t": "Da portare a casa: con DINO segmentazione grezza e similarità semantica emergono senza etichette."
+  },
+  {
+   "a": "16. DINOv2: dati curati, due loss, disti",
+   "b": 143,
+   "t": "Sedicesima sezione: DINOv2, cioè dati, due loss e distillazione."
+  },
+  {
+   "a": "Dati curati (slide 47). Self-supervised ",
+   "b": 144,
+   "t": "Prima lezione di DINOv2: self-supervised non vuol dire qualunque immagine. Si parte da un miliardo e duecento milioni di immagini web, si tolgono i duplicati, e con il retrieval visivo si tengono quelle simili a dataset curati. Ne escono 142 milioni. Un mucchio di foto casuali sarebbe sbilanciato verso pochi soggetti."
+  },
+  {
+   "a": "L DINO , globale: student e teacher devo",
+   "b": 147,
+   "t": "Seconda lezione: due loss sommate. Una globale, quella di DINO, sul token CLS fra crop diversi. Una locale, mascherata: si nascondono alcune patch allo student, che deve predire l'uscita del teacher in quelle posizioni."
+  },
+  {
+   "a": "Distillare un modello grande (slide 49).",
+   "b": 149,
+   "t": "Terza lezione: distillazione. Si addestra un modello enorme, un ViT g da un miliardo e cento milioni di parametri, lo si congela, e si addestrano modelli più piccoli a imitarlo. Attenzione alla differenza: qui il teacher è fisso, non è la media mobile dello student come in BYOL o DINO."
+  },
+  {
+   "a": "ViT-S/14: 21 milioni di parametri, disti",
+   "b": 150,
+   "t": "Ne esce una famiglia: 21 milioni di parametri, 86 milioni, 300 milioni, distillati, e il grande da un miliardo e cento milioni. Il quattordici nel nome è il lato della patch."
+  },
+  {
+   "a": "Il punto DINOv2 = dati curati + loss glo",
+   "b": 152,
+   "t": "Da portare a casa: DINOv2 è dati curati, loss globale più loss mascherata con il teacher come bersaglio, e distillazione in modelli piccoli."
+  },
+  {
+   "a": "17. Un'applicazione: Depth Anything",
+   "b": 153,
+   "t": "Diciassettesima sezione: un'applicazione concreta, Depth Anything."
+  },
+  {
+   "a": "La ricetta (slide 51; Yang et al. 2024).",
+   "b": 155,
+   "t": "Il compito è stimare la profondità da una sola foto. Depth Anything prende l'encoder di DINOv2, aggiunge una testa che produce la mappa di profondità, e la addestra con un milione e mezzo di immagini etichettate più oltre 62 milioni non etichettate, usando pseudo-etichette prodotte da un primo modello."
+  },
+  {
+   "a": "Dalla slide 51. Sopra le foto, sotto la ",
+   "b": 156,
+   "t": "Nella figura, sopra le foto e sotto la profondità: giallo vicino, viola lontano. Funziona su un salotto, su una tavolata di persone, su una scena quasi buia, su una città nella nebbia e su una rotatoria vista dall'alto."
+  },
+  {
+   "a": "Il punto DINOv2 dà le feature, l'addestr",
+   "b": 157,
+   "t": "Da portare a casa: DINOv2 dà le feature, l'addestramento specifico le trasforma in profondità. Backbone generico più testa per il compito."
+  },
+  {
+   "a": "18. DINOv3: scala, feature dense che peg",
+   "b": 158,
+   "t": "Diciottesima sezione: DINOv3, la scala, e un problema nuovo."
+  },
+  {
+   "a": "Più grande (slide 52). DINOv3 (Siméoni e",
+   "b": 159,
+   "t": "DINOv3 porta il teacher a 7 miliardi di parametri e i dati a un miliardo e 689 milioni di immagini curate, e poi distilla di nuovo una famiglia di modelli più piccoli."
+  },
+  {
+   "a": "Il problema nuovo (slide 53). Addestrand",
+   "b": 160,
+   "t": "A questa scala succede una cosa strana: la loss continua a scendere, ma le feature delle singole patch peggiorano. Il motivo è che l'obiettivo globale, sul token CLS, e quello locale, sulle patch, competono, e col tempo vince il globale."
+  },
+  {
+   "a": "Dalla slide 53 (fig. 6 di DINOv3). Simil",
+   "b": 161,
+   "t": "Guarda la figura. Ogni mappa mostra quanto ogni patch somiglia alla patch rossa. A sinistra, a 200 mila iterazioni, le mappe sono pulite: si vedono le pecore e la corolla del fiore. Andando a destra, fino a un milione, compaiono puntini sparsi ovunque."
+  },
+  {
+   "a": "Gram anchoring (slide 54). L'idea: tener",
+   "b": 162,
+   "t": "La soluzione si chiama Gram anchoring, ancoraggio della matrice di Gram. L'idea è tenere fisso quali patch si somigliano, anche mentre le feature continuano a cambiare. La matrice di Gram è X per X trasposta: ogni elemento è la similarità fra due patch."
+  },
+  {
+   "a": "G ij è la similarità fra la patch i e la",
+   "b": 164,
+   "t": "La loss somma i quadrati delle differenze fra la matrice dello student e quella di un teacher. Non chiede feature uguali, solo similarità uguali. Il teacher qui è un checkpoint precedente, con feature dense ancora pulite, rinfrescato ogni tanto, e non il teacher a media mobile di ogni passo."
+  },
+  {
+   "a": "Un esempio giocattolo: 16 patch, 5 sul g",
+   "b": 165,
+   "t": "Nell'esempio giocattolo ci sono 16 patch, 5 sul gatto, messe per prime. Al centro il Gram del teacher: due blocchi netti, gatto simile a gatto e sfondo simile a sfondo. A destra lo student degradato: i blocchi sono sfumati e rumorosi. La loss misura proprio questa differenza."
+  },
+  {
+   "a": "Attenzione: frase troncata nella slide 5",
+   "b": 166,
+   "t": "Un altro errore nelle slide: la riga che dovrebbe spiegare il perché è troncata, dice solo why keep. Il senso è: mantenere la qualità delle feature dense del checkpoint buono mentre l'obiettivo globale continua a migliorare."
+  },
+  {
+   "a": "Osservazione della Terra (slide 55). Ste",
+   "b": 167,
+   "t": "La stessa ricetta funziona anche su immagini satellitari: un backbone addestrato su 493 milioni di immagini, più una testa addestrata con altezze misurate dal LiDAR, dà mappe dell'altezza degli alberi. Le feature vengono dal self-supervised, il significato fisico e le unità di misura dalla testa supervisionata."
+  },
+  {
+   "a": "Il punto A scala enorme le feature dense",
+   "b": 168,
+   "t": "Da portare a casa: a scala enorme il globale schiaccia il locale, e il Gram anchoring congela la struttura delle similarità fra patch."
+  },
+  {
+   "a": "19. JEPA: predire rappresentazioni, non ",
+   "b": 169,
+   "t": "Ultima sezione: JEPA, cioè predire rappresentazioni invece di pixel."
+  },
+  {
+   "a": "Il problema (slide 56). Un MAE deve indo",
+   "b": 170,
+   "t": "Un MAE deve indovinare il colore esatto di ogni pixel nascosto, compresi il pelo, i riflessi, il rumore. Molti di questi dettagli sono ambigui o irrilevanti. Meglio predire una descrizione del contenuto mancante che il suo aspetto."
+  },
+  {
+   "a": "Sinistra: MAE confronta pixel predetti e",
+   "b": 172,
+   "t": "Guarda il confronto. A sinistra, in rosso, MAE: encoder, decoder, e alla fine pixel predetti contro pixel veri. A destra, in viola, I-JEPA: un encoder del contesto, un predictor che conosce le posizioni da indovinare, e il confronto avviene con le feature che un encoder target a media mobile calcola sull'immagine intera, con lo stop-gradient."
+  },
+  {
+   "a": "un ViT codifica il contesto visibile (un",
+   "b": 174,
+   "t": "I passi di I-JEPA: un ViT codifica il contesto visibile; un predictor, date le posizioni, predice le feature di alcuni blocchi nascosti, nell'articolo quattro, ognuno grande circa un sesto dell'immagine; il bersaglio sono le feature dell'encoder target."
+  },
+  {
+   "a": "M sono le posizioni bersaglio, ẑ i la fe",
+   "b": 176,
+   "t": "La loss è il quadrato della distanza fra feature predette e feature del teacher, sulle posizioni bersaglio. Riconosci gli ingredienti: mascheramento come MAE, teacher a media mobile e stop-gradient come BYOL e DINO. Il bersaglio però è un vettore di feature, non un'immagine."
+  },
+  {
+   "a": "V-JEPA (Bardes et al. 2024, slide 58). L",
+   "b": 177,
+   "t": "V-JEPA porta l'idea sul video, nascondendo regioni nello spazio e nel tempo. La versione due va oltre: congela l'encoder e addestra una testa che, date osservazioni passate e azioni di un robot, predice le feature future. Con meno di 62 ore di video robotico, il robot riesce a pianificare prese e spostamenti di oggetti."
+  },
+  {
+   "a": "Il punto JEPA = mascheramento + teacher ",
+   "b": 178,
+   "t": "Da portare a casa: JEPA è mascheramento più teacher a media mobile, ma la predizione avviene nello spazio delle feature, senza dover generare ogni pixel."
+  },
+  {
+   "a": "SSL: si inventa un compito dai dati non ",
+   "b": 180,
+   "t": "Riassumiamo. Il self-supervised inventa un compito dai dati e tiene la rete. Il nemico è il collasso, completo o dimensionale. BYOL lo evita con predictor, stop-gradient e teacher a media mobile; MoCo con una coda di negativi; Barlow Twins e VICReg con le statistiche del batch. Il mascheramento, con SimMIM, MAE e BEiT, usa una sola vista. DINO e i suoi successori uniscono teacher-student e mascheramento con dati curati e grande scala, e JEPA predice feature invece di pixel."
+  },
+  {
+   "a": "Verifica di aver capito",
+   "b": 181,
+   "t": "Ora qualche domanda per verificare di aver capito. Per ognuna, metti in pausa e prova a rispondere prima di ascoltare la soluzione."
+  },
+  {
+   "a": "1. Che differenza c'è fra k-means e un m",
+   "b": 182,
+   "t": "Prima domanda: che differenza c'è fra k-means e un metodo self-supervised, e fra linear probe e fine-tuning? Metti in pausa e prova a rispondere. Il k-means produce cluster, il self-supervised un encoder riusabile. Nel linear probe l'encoder è congelato e si addestra solo uno strato lineare; nel fine-tuning si addestra tutto."
+  },
+  {
+   "a": "2. Cosa sono il collasso completo e quel",
+   "b": 183,
+   "t": "Seconda domanda: quale termine di Barlow Twins punisce ciascun collasso? Metti in pausa e prova a rispondere. Il collasso completo dà C tutta zero e lo punisce la diagonale, che vale due nell'esempio. Quello dimensionale dà C tutta uno e lo punisce il termine fuori diagonale, due volte lambda."
+  },
+  {
+   "a": "3. Calcola tre passi di EMA con τ = 0.99",
+   "b": 184,
+   "t": "Terza domanda: tre passi di media mobile con tau zero virgola nove nove, teacher a due e student a tre. Metti in pausa e prova a rispondere. Due virgola zero uno, due virgola zero uno nove nove, circa due virgola zero tre. A metà strada si arriva dopo circa 69 passi."
+  },
+  {
+   "a": "4. Perché BYOL non collassa pur senza ne",
+   "b": 185,
+   "t": "Quarta domanda: perché BYOL non collassa senza negativi, e perché normalizza? Metti in pausa e prova a rispondere. Per predictor, stop-gradient e teacher lento insieme, empiricamente. La normalizzazione rende la loss due meno due volte il coseno: conta solo la direzione, e rimpicciolire i vettori non aiuta."
+  },
+  {
+   "a": "5. Quanti token vede l'encoder di MAE pe",
+   "b": 186,
+   "t": "Quinta domanda: quanti token vede l'encoder di MAE, e perché il 75 per cento? Metti in pausa e prova a rispondere. 49 su 196. Il 75 per cento perché le immagini sono ridondanti: con poche patch nascoste basterebbe interpolare."
+  },
+  {
+   "a": "6. Cosa c'è di sbagliato nella formula d",
+   "b": 187,
+   "t": "Sesta domanda: cosa c'è di sbagliato nella formula di BEiT delle slide? Metti in pausa e prova a rispondere. Manca il segno meno: così è una log-verosimiglianza da massimizzare, non una loss."
+  },
+  {
+   "a": "7. Logit del teacher (5, 1, 0, 0), (4, 0",
+   "b": 188,
+   "t": "Settima domanda: con i logit dell'esempio, cosa fanno centering e sharpening da soli e insieme? Metti in pausa e prova a rispondere. Solo sharpening porta tutto sulla dimensione uno. Solo centering dà distribuzioni piatte. Insieme, ogni immagine va su una dimensione diversa."
+  },
+  {
+   "a": "8. In cosa differiscono il teacher di DI",
+   "b": 189,
+   "t": "Ottava domanda: che differenza c'è fra il teacher di DINO, quello della distillazione di DINOv2 e quello del Gram anchoring? Metti in pausa e prova a rispondere. Il primo è la media mobile dello student a ogni passo. Il secondo è un modello grande già addestrato e congelato. Il terzo è un checkpoint precedente, rinfrescato ogni tanto, di cui si copiano solo le similarità fra patch."
+  },
+  {
+   "a": "9. Che differenza c'è fra MAE e I-JEPA? ",
+   "b": 190,
+   "t": "Nona domanda: che differenza c'è fra MAE e I-JEPA? Metti in pausa e prova a rispondere. Entrambi mascherano, ma MAE predice i pixel, I-JEPA le feature di un encoder target a media mobile."
+  },
+  {
+   "a": "Leggi nel visionbook il cap. 30 , § 30.3",
+   "b": 192,
+   "t": "Per proseguire, leggi nel visionbook il capitolo trenta, sugli autoencoder, l'imputazione e il contrastivo, e il capitolo trentasette su finetuning e distillazione. Poi ripassa con le schede slide per slide: i riquadri di attenzione segnalano gli errori delle slide."
+  },
+  {
+   "a": "Leggi nel visionbook il cap. 30 , § 30.3",
+   "b": 192,
+   "t": "In sintesi: il self-supervised trasforma montagne di immagini senza etichette in feature riusabili. Tutto ruota attorno a evitare il collasso. Le due grandi idee sono confrontare viste e ricostruire parti nascoste. I foundation model le uniscono, con dati curati e tanta scala, e oggi basta attaccare una piccola testa a DINOv2 o DINOv3 per stimare profondità, segmentare o misurare alberi da satellite."
+  }
+ ]
+}

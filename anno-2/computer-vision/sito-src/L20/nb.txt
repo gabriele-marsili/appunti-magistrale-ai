@@ -1,0 +1,1055 @@
+--- [1] markdown
+# Lab - Object Detection & Segmentation
+
+Everything here uses pretrained weights, with no training loops. The goal is to get comfortable running detectors and segmenters for inference, to implement core building blocks such as NMS by hand and check them against the library implementations, and finally to run these models on a real video.
+
+- **Part 1**: Object detection with a pretrained Faster R-CNN, **NMS implemented from scratch**
+  and compared against `torchvision.ops.nms`.
+- **Part 2**: Semantic segmentation with a pretrained **SegFormer**, inference pipeline
+  implemented by hand, **overlay** of prediction over real image, and an example of synthetic-to-real domain gap.
+- **Part 3**: Semantic segmentation on a real video, SegFormer pipeline run frame-by-frame on a real driving clip.
+- **Part 4**: Instance segmentation with real per-instance masks from a pretrained **Mask R-CNN**, compared against a **connected-component labeling
+  implemented from scratch** as a cheap non-learned alternative.
+--- [2] markdown
+## Setup
+
+Install the dependencies you may not already have: `pip install transformers opencv-python-headless ultralytics timm`.
+
+--- [3] code
+import os
+import time
+import zipfile
+import urllib.request
+
+import numpy as np
+import torch
+import torch.nn.functional as F
+
+import torchvision
+from torchvision.io import read_image
+from torchvision.ops import nms, box_iou
+from torchvision.utils import draw_bounding_boxes, draw_segmentation_masks
+
+import cv2
+from PIL import Image
+import matplotlib.pyplot as plt
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print("Using device:", device)
+--- [4] markdown
+### Sample photos
+
+We reuse the Penn-Fudan Pedestrian dataset as a convenient source of real street/campus photos with people in them.
+--- [5] code
+DATA_ROOT = "./data/PennFudanPed"
+
+if not os.path.exists(DATA_ROOT):
+    url = "https://www.cis.upenn.edu/~jshi/ped_html/PennFudanPed.zip"
+    zip_path = "./data/PennFudanPed.zip"
+    os.makedirs("./data", exist_ok=True)
+    print("Downloading Penn-Fudan Pedestrian dataset...")
+    urllib.request.urlretrieve(url, zip_path)
+    with zipfile.ZipFile(zip_path, "r") as f:
+        f.extractall("./data")
+    print("Done.")
+else:
+    print("Dataset already present.")
+
+IMG_DIR = os.path.join(DATA_ROOT, "PNGImages")
+image_files = sorted(os.listdir(IMG_DIR))
+print(f"{len(image_files)} images available")
+
+def load_sample(idx):
+    """Returns (PIL.Image RGB, uint8 CHW tensor) for image `idx`."""
+    path = os.path.join(IMG_DIR, image_files[idx])
+    img_uint8 = read_image(path)[:3]  # drop alpha if present
+    pil_img = Image.fromarray(img_uint8.permute(1, 2, 0).numpy())
+    return pil_img, img_uint8
+
+sample_pil, sample_uint8 = load_sample(12)
+plt.figure(figsize=(5, 7))
+plt.imshow(sample_pil)
+plt.axis("off")
+plt.title(f"{image_files[0]}: {sample_pil.size[0]}x{sample_pil.size[1]}")
+plt.show()
+--- [6] markdown
+## Part 1 - Object Detection with a Pretrained Model
+
+### 1.1 Load a pretrained Faster R-CNN
+
+`fasterrcnn_resnet50_fpn` pretrained on COCO (91 classes).
+
+
+This is a **two-stage** detector: the RPN proposes boxes relative to fixed **anchors**, the box head then classifies/refines each proposal, and `torchvision` already applies NMS internally at the end.
+
+--- [7] code
+COCO_CLASSES = torchvision.models.detection.FasterRCNN_ResNet50_FPN_Weights.DEFAULT.meta["categories"]
+
+detector = torchvision.models.detection.fasterrcnn_resnet50_fpn(weights="DEFAULT")
+detector = detector.to(device).eval()
+
+anchor_gen = detector.rpn.anchor_generator
+print("Anchor sizes per feature level:", anchor_gen.sizes)
+print("Anchor aspect ratios per feature level:", anchor_gen.aspect_ratios)
+
+@torch.no_grad()
+def detect(model, img_uint8, score_thresh=0.8):
+    img_float = img_uint8.float() / 255.0
+    pred = model([img_float.to(device)])[0]
+    keep = pred["scores"] > score_thresh
+    return pred["boxes"][keep].cpu(), pred["labels"][keep].cpu(), pred["scores"][keep].cpu()
+
+boxes, labels, scores = detect(detector, sample_uint8)
+label_names = [f"{COCO_CLASSES[l]} {s:.2f}" for l, s in zip(labels, scores)]
+drawn = draw_bounding_boxes(sample_uint8, boxes, labels=label_names, colors="red", width=3)
+
+plt.figure(figsize=(6, 8))
+plt.imshow(drawn.permute(1, 2, 0))
+plt.axis("off")
+plt.title(f"{len(boxes)} detections kept by torchvision's internal NMS")
+plt.show()
+--- [8] code
+detector.eval()
+img = sample_uint8.float().to(device) / 255.0
+H, W = sample_uint8.shape[-2:]
+
+with torch.no_grad():
+    # Same preprocessing used inside Faster R-CNN
+    images, _ = detector.transform([img], None)
+    features = detector.backbone(images.tensors)
+
+    if isinstance(features, torch.Tensor):
+        features = {"0": features}
+
+    feature_list = list(features.values())
+
+    # 1. ORIGINAL ANCHORS
+    anchors = detector.rpn.anchor_generator(
+        images, feature_list
+    )[0]
+
+    # 2. RPN PROPOSALS
+    proposals, _ = detector.rpn(images, features)
+    proposals = proposals[0]
+
+    # 3. FINAL DETECTIONS
+    predictions = detector([img])[0]
+    keep = predictions["scores"] >= 0.8
+    detections = predictions["boxes"][keep].cpu()
+
+# Map boxes from the internally resized image
+# back to the original image coordinates.
+resized_H, resized_W = images.image_sizes[0]
+
+def to_original_coords(boxes):
+    boxes = boxes.clone()
+    boxes[:, [0, 2]] *= W / resized_W
+    boxes[:, [1, 3]] *= H / resized_H
+    boxes[:, [0, 2]] = boxes[:, [0, 2]].clamp(0, W)
+    boxes[:, [1, 3]] = boxes[:, [1, 3]].clamp(0, H)
+    return boxes
+
+# Sample anchors across all feature levels
+indices = torch.linspace(
+    0, len(anchors) - 1, 150,
+    device=anchors.device
+).long()
+
+sampled_anchors = to_original_coords(
+    anchors[indices]
+)
+
+# Remove boxes with zero width or height after clipping
+def valid_boxes(boxes):
+    keep = (
+        (boxes[:, 2] > boxes[:, 0]) &
+        (boxes[:, 3] > boxes[:, 1])
+    )
+    return boxes[keep].cpu()
+
+sampled_anchors = valid_boxes(sampled_anchors)
+sampled_proposals = valid_boxes(
+    to_original_coords(proposals[:100])
+)
+
+# Draw the three stages
+fig, axes = plt.subplots(1, 3, figsize=(18, 8))
+
+stages = [
+    (sampled_anchors, "blue", "1. Original anchors"),
+    (sampled_proposals, "orange", "2. RPN proposals"),
+    (detections, "red", "3. Final detections")
+]
+
+for ax, (boxes, color, title) in zip(axes, stages):
+    drawn = draw_bounding_boxes(
+        sample_uint8.cpu(),
+        boxes,
+        colors=color,
+        width=2
+    )
+    ax.imshow(drawn.permute(1, 2, 0))
+    ax.set_title(f"{title}\n{len(boxes)} boxes shown")
+    ax.axis("off")
+
+plt.tight_layout()
+plt.show()
+
+print("Total original anchors:", len(anchors))
+print("RPN proposals after RPN NMS:", len(proposals))
+print("Final detections above 0.8:", len(detections))
+--- [9] markdown
+**Original anchors (blue):** Predefined boxes associated with feature-map locations, but expressed in image coordinates. Their positions and shapes are independent of image content, so they are identical for images with the same feature-map dimensions.
+
+**RPN proposals (orange):** The RPN uses image features to predict objectness scores and offsets that adjust the anchors. Low-confidence and overlapping proposals are filtered out.
+
+**Final detections (red):** The ROI head classifies and refines the proposals, applying confidence filtering and NMS to produce the final bounding boxes.
+--- [10] markdown
+### 1.2 Pre-NMS candidate boxes
+
+Object detection models apply NMS internally to remove redundant bounding boxes. To apply our own NMS, we first need to obtain the candidate boxes before this suppression step. We do this by setting the model's internal `nms_thresh` to `1.0`.
+--- [11] code
+@torch.no_grad()
+def predict_raw_boxes(model, img_uint8, score_thresh=0.3):
+    """Run the detector with its internal NMS effectively disabled, returning many raw,
+    overlapping candidate boxes so we can apply our own NMS on top of them."""
+    model.eval()
+    old_nms_thresh = model.roi_heads.nms_thresh
+    old_score_thresh = model.roi_heads.score_thresh
+
+    
+    model.roi_heads.nms_thresh = 1.0
+    model.roi_heads.score_thresh = score_thresh
+
+    # model.roi_heads.detections_per_img = 300    # max number of boxes to return (default 100)
+
+    img_float = img_uint8.float() / 255.0
+    pred = model([img_float.to(device)])[0]
+    model.roi_heads.nms_thresh = old_nms_thresh
+    model.roi_heads.score_thresh = old_score_thresh
+    return pred["boxes"].cpu(), pred["labels"].cpu(), pred["scores"].cpu()
+
+
+raw_boxes, raw_labels, raw_scores = predict_raw_boxes(detector, sample_uint8)
+print(f"{len(raw_boxes)} raw candidate boxes before any NMS "
+      f"(vs. {len(boxes)} after torchvision's internal NMS above)")
+
+drawn_raw = draw_bounding_boxes(sample_uint8, raw_boxes, colors="orange", width=1)
+plt.figure(figsize=(6, 8))
+plt.imshow(drawn_raw.permute(1, 2, 0))
+plt.axis("off")
+plt.title(f"all {len(raw_boxes)} raw candidate boxes (pre-NMS)")
+plt.show()
+--- [12] markdown
+**Implementation detail.**
+
+Faster R-CNN applies NMS twice:
+
+1. **RPN NMS:** Filters overlapping region proposals based on **objectness scores**.
+2. **ROI head NMS:** Removes redundant class-specific detections after classification and confidence filtering.
+
+In this experiment, we effectively disable the second NMS (`nms_thresh=1.0`) to visualize the candidate detections before suppression. We then vary `score_thresh` to observe its effect:
+
+- **Lower threshold:** More candidates survive, including low-confidence predictions.
+- **Higher threshold:** Fewer candidates survive, as uncertain predictions are discarded.
+
+(The first NMS (RPN) remains active.)
+--- [13] code
+raw_score_threshs = [0.9, 0.5, 0.3, 0.1]
+fig, axes = plt.subplots(1, len(raw_score_threshs), figsize=(4 * len(raw_score_threshs), 6))
+for ax, st in zip(axes, raw_score_threshs):
+    rb, rl, rs = predict_raw_boxes(detector, sample_uint8, score_thresh=st)
+    drawn = draw_bounding_boxes(sample_uint8, rb, colors="orange", width=1)
+    ax.imshow(drawn.permute(1, 2, 0))
+    ax.set_title(f"score_thresh={st}\n{len(rb)} raw boxes")
+    ax.axis("off")
+plt.tight_layout()
+plt.show()
+--- [14] markdown
+**Find the Penn-Fudan image with the most *ground-truth* pedestrians**
+
+--- [15] code
+mask_dir = os.path.join(DATA_ROOT, "PedMasks")
+mask_files = sorted(os.listdir(mask_dir))
+instance_counts = [len(np.unique(np.array(Image.open(os.path.join(mask_dir, mf))))) - 1
+                    for mf in mask_files]  # -1 drops the background id (0)
+crowded_idx = int(np.argmax(instance_counts))
+crowded_img_name = mask_files[crowded_idx].replace("_mask", "")
+print(f"crowded image: {crowded_img_name}, {instance_counts[crowded_idx]} ground-truth pedestrians")
+
+crowded_uint8 = read_image(os.path.join(DATA_ROOT, "PNGImages", crowded_img_name))[:3]
+
+COCO_SAMPLE_URL = "http://images.cocodataset.org/val2017/000000039769.jpg"
+COCO_SAMPLE_PATH = "./media/coco_sample.jpg"
+if not os.path.exists(COCO_SAMPLE_PATH):
+    print("Downloading a COCO validation image...")
+    urllib.request.urlretrieve(COCO_SAMPLE_URL, COCO_SAMPLE_PATH)
+coco_uint8 = read_image(COCO_SAMPLE_PATH)[:3]
+
+extra_images = [("crowded Penn-Fudan photo", crowded_uint8), ("COCO photo, several classes", coco_uint8)]
+
+fig, axes = plt.subplots(2, len(extra_images), figsize=(6 * len(extra_images), 12))
+for col, (title, img_uint8) in enumerate(extra_images):
+    rb, rl, rs = predict_raw_boxes(detector, img_uint8)
+    nms_boxes, nms_labels, nms_scores = detect(detector, img_uint8)
+    label_names = [f"{COCO_CLASSES[l]} {s:.2f}" for l, s in zip(nms_labels, nms_scores)]
+    drawn_raw = draw_bounding_boxes(img_uint8, rb, colors="orange", width=1)
+    drawn_nms = draw_bounding_boxes(img_uint8, nms_boxes, labels=label_names, colors="red", width=3)
+    axes[0, col].imshow(drawn_raw.permute(1, 2, 0))
+    axes[0, col].set_title(f"{title}\n{len(rb)} raw boxes")
+    axes[0, col].axis("off")
+    axes[1, col].imshow(drawn_nms.permute(1, 2, 0))
+    axes[1, col].set_title(f"after NMS: {len(nms_boxes)} detections")
+    axes[1, col].axis("off")
+plt.tight_layout()
+plt.show()
+--- [16] markdown
+### 1.3 Implement NMS from scratch
+
+**Algorithm** (greedy NMS): sort boxes by score descending; repeatedly take the
+top-scoring remaining box, keep it, and discard every other remaining box whose IoU with it
+exceeds the threshold $\tau$; repeat until no boxes remain. 
+
+Run once per class: don't suppress a `car` box because it overlaps a `person` box.
+
+**Try it yourself first**, then check against the solution below.
+
+--- [17] code
+def box_iou_manual(boxes1, boxes2):
+    """boxes1: (N, 4), boxes2: (M, 4), both xyxy. Returns (N, M) pairwise IoU."""
+    ### TODO
+
+
+def nms_from_scratch(boxes, scores, iou_threshold):
+    """boxes: (N, 4) xyxy, scores: (N,). Returns indices to keep, highest-score first."""
+    ### TODO
+
+# correctness check 1: our IoU matches torchvision.ops.box_iou exactly
+_tb1 = torch.rand(20, 2)
+_tb1 = torch.cat([_tb1, _tb1 + torch.rand(20, 2) * 2 + 0.1], dim=1)
+_tb2 = torch.rand(15, 2)
+_tb2 = torch.cat([_tb2, _tb2 + torch.rand(15, 2) * 2 + 0.1], dim=1)
+print("max |box_iou_manual - torchvision box_iou| =",
+      (box_iou_manual(_tb1, _tb2) - box_iou(_tb1, _tb2)).abs().max().item())
+
+# correctness check 2: our NMS keeps the same set as torchvision's, on a toy example
+_toy_boxes = torch.tensor([[0, 0, 10, 10], [1, 1, 11, 11], [50, 50, 60, 60]], dtype=torch.float32)
+_toy_scores = torch.tensor([0.9, 0.8, 0.95])
+assert sorted(nms_from_scratch(_toy_boxes, _toy_scores, 0.5).tolist()) \
+    == sorted(nms(_toy_boxes, _toy_scores, 0.5).tolist())
+print("nms_from_scratch verified against torchvision.ops.nms on the toy example.")
+--- [18] markdown
+### 1.4 Apply our NMS to the real raw boxes, sweep the threshold
+
+Run once per class so boxes of different classes never suppress each other.
+
+--- [19] code
+def nms_per_class(boxes, labels, scores, iou_threshold):
+    keep_all = []
+    for c in labels.unique():
+        idx = (labels == c).nonzero(as_tuple=True)[0]
+        keep_c = nms_from_scratch(boxes[idx], scores[idx], iou_threshold)
+        keep_all.append(idx[keep_c])
+    return torch.cat(keep_all)
+
+
+thresholds = [0.1, 0.3, 0.5, 0.7, 0.9]
+fig, axes = plt.subplots(1, len(thresholds), figsize=(4 * len(thresholds), 6))
+for ax, thresh in zip(axes, thresholds):
+    keep_idx = nms_per_class(raw_boxes, raw_labels, raw_scores, iou_threshold=thresh)
+    kept_boxes = raw_boxes[keep_idx]
+    drawn = draw_bounding_boxes(sample_uint8, kept_boxes, colors="lime", width=3)
+    ax.imshow(drawn.permute(1, 2, 0))
+    ax.set_title(f"NMS thresh={thresh}\n{len(kept_boxes)} boxes kept")
+    ax.axis("off")
+plt.tight_layout()
+plt.show()
+--- [20] markdown
+### 1.5 Compare against `torchvision.ops.nms`: correctness *and* speed
+
+**How much slower is our version?** We benchmark both on a large synthetic set of candidate boxes, which is closer to
+what a detector produces before NMS on a busy scene.
+--- [21] code
+torch.manual_seed(0)
+N_BENCH = 3000
+bench_boxes = torch.rand(N_BENCH, 2) * 900
+bench_boxes = torch.cat([bench_boxes, bench_boxes + torch.rand(N_BENCH, 2) * 80 + 1], dim=1)
+bench_scores = torch.rand(N_BENCH)
+
+keep_scratch = nms_from_scratch(bench_boxes, bench_scores, 0.5)
+keep_torch = nms(bench_boxes, bench_scores, 0.5)
+print(f"ours keeps {len(keep_scratch)} boxes, torchvision keeps {len(keep_torch)} boxes, "
+      f"same set: {set(keep_scratch.tolist()) == set(keep_torch.tolist())}")
+
+N_REPEATS = 10
+
+t0 = time.perf_counter()
+for _ in range(N_REPEATS):
+    nms_from_scratch(bench_boxes, bench_scores, 0.5)
+t_scratch = (time.perf_counter() - t0) / N_REPEATS
+
+t0 = time.perf_counter()
+for _ in range(N_REPEATS):
+    nms(bench_boxes, bench_scores, 0.5)
+t_torch = (time.perf_counter() - t0) / N_REPEATS
+
+print(f"ours: {t_scratch * 1000:.2f} ms/call")
+print(f"torchvision.ops.nms: {t_torch * 1000:.2f} ms/call")
+print(f"torchvision is ~{t_scratch / t_torch:.0f}x faster (compiled, batched IoU, no Python loop "
+      f"overhead per iteration).")
+
+--- [22] markdown
+**Question.** Why must NMS run per class, rather than once
+globally across all classes mixed together?
+
+> 
+
+**Question.** Greedy NMS discards a lower-scoring box the instant its IoU with
+a kept box exceeds $\tau$, even if that box is actually a different, nearby object (e.g. two
+people standing close together). What's the concrete failure mode in a crowded scene, and name
+one detector design that avoids this exact failure.
+
+> 
+
+--- [23] markdown
+### 1.6 Optional: Soft-NMS from scratch
+
+Instead of hard-deleting every box with IoU above $\tau$, **decay** its score
+($s_i \leftarrow s_i \cdot (1 - \text{IoU})$) and keep it in the pool:
+boxes that overlap a lot get penalized more, boxes that overlap only a little barely change.
+
+--- [24] code
+def soft_nms_from_scratch(boxes, scores, iou_threshold=0.3, score_thresh=0.05):
+    """Linear Soft-NMS. Returns (kept_boxes, kept_scores)."""
+    ### TODO
+
+
+soft_boxes, soft_scores = soft_nms_from_scratch(raw_boxes, raw_scores.clone(), iou_threshold=0.3)
+hard_idx = nms_from_scratch(raw_boxes, raw_scores, iou_threshold=0.3)
+
+print(f"hard NMS (thresh=0.3): {len(hard_idx)} boxes kept")
+print(f"soft NMS (thresh=0.3): {len(soft_boxes)} boxes kept, "
+      f"score range {soft_scores.min():.2f}-{soft_scores.max():.2f}")
+--- [25] markdown
+### 1.7 Set prediction without NMS: DETR
+
+DETR reframes detection as **set prediction**: a transformer decoder outputs a *fixed* number of
+boxes directly, trained with one-to-one bipartite matching against the ground truth. 
+
+There is no NMS step anywhere in this pipeline, post-processing is just a score threshold.
+
+--- [26] code
+from transformers import DetrImageProcessor, DetrForObjectDetection
+
+DETR_CHECKPOINT = "facebook/detr-resnet-50"
+detr_processor = DetrImageProcessor.from_pretrained(DETR_CHECKPOINT)
+detr_model = DetrForObjectDetection.from_pretrained(DETR_CHECKPOINT).to(device).eval()
+
+@torch.no_grad()
+def detect_detr(model, processor, pil_image, score_thresh=0.8):
+    inputs = processor(images=pil_image, return_tensors="pt").to(device)
+    outputs = model(**inputs)
+    target_sizes = torch.tensor([pil_image.size[::-1]])
+    result = processor.post_process_object_detection(
+        outputs, target_sizes=target_sizes, threshold=score_thresh)[0]
+    return result["boxes"].cpu(), result["labels"].cpu(), result["scores"].cpu()
+
+
+detr_boxes, detr_labels, detr_scores = detect_detr(detr_model, detr_processor, sample_pil)
+print(f"{len(detr_boxes)} DETR detections, no NMS call anywhere in this pipeline")
+
+detr_label_names = [f"{detr_model.config.id2label[l]} {s:.2f}"
+                     for l, s in zip(detr_labels.tolist(), detr_scores)]
+drawn = draw_bounding_boxes(sample_uint8, detr_boxes, labels=detr_label_names, colors="cyan", width=3)
+plt.figure(figsize=(6, 8))
+plt.imshow(drawn.permute(1, 2, 0))
+plt.axis("off")
+plt.title(f"DETR (set prediction): {len(detr_boxes)} detections")
+plt.show()
+--- [27] markdown
+### 1.8 Detector shootout: two-stage vs. one-stage vs. anchor-free vs. set-prediction
+
+Faster R-CNN (two-stage, anchor-based), FCOS (one-stage, anchor-free), YOLOv8n (one-stage, anchor-based), DETR (set-prediction, no NMS).
+--- [28] code
+import gc
+from ultralytics import YOLO
+
+
+def n_params(model):
+    """Parameter count in millions."""
+    return sum(p.numel() for p in model.parameters()) / 1e6
+
+
+def sync():
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()
+
+
+def time_call(fn, n_repeats=3):
+    fn()  # warm-up: discard the first, lazily-compiled call
+    sync()
+    t0 = time.perf_counter()
+    for _ in range(n_repeats):
+        out = fn()
+    sync()
+    return (time.perf_counter() - t0) / n_repeats * 1000, out
+
+
+shootout = []  # (name, latency_ms, n_detections, params_M)
+
+t, (b, l, s) = time_call(lambda: detect(detector, sample_uint8))
+shootout.append(("Faster R-CNN\n(two-stage, anchor-based)", t, len(b), n_params(detector)))
+
+fcos_model = torchvision.models.detection.fcos_resnet50_fpn(weights="DEFAULT").to(device).eval()
+t, (b, l, s) = time_call(lambda: detect(fcos_model, sample_uint8))
+shootout.append(("FCOS\n(one-stage, anchor-free)", t, len(b), n_params(fcos_model)))
+del fcos_model
+gc.collect(); torch.cuda.empty_cache()
+
+yolo_model = YOLO("yolov8n.pt")  # smallest/fastest checkpoint, COCO-pretrained, inference only
+t, yolo_results = time_call(lambda: yolo_model(sample_pil, verbose=False))
+shootout.append(("YOLOv8n\n(one-stage, anchor-free)", t, len(yolo_results[0].boxes),
+                 n_params(yolo_model.model)))
+del yolo_model
+gc.collect(); torch.cuda.empty_cache()
+
+t, (b, l, s) = time_call(lambda: detect_detr(detr_model, detr_processor, sample_pil))
+shootout.append(("DETR\n(set-prediction, no NMS)", t, len(b), n_params(detr_model)))
+del detr_model, detr_processor
+gc.collect(); torch.cuda.empty_cache()
+
+names, latencies, counts, sizes = zip(*shootout)
+fig, axes = plt.subplots(1, 3, figsize=(17, 5))
+
+bars = axes[0].bar(names, latencies, color="steelblue")
+axes[0].bar_label(bars, labels=[f"{t:.0f} ms\n{p:.1f}M params" for t, p in zip(latencies, sizes)],
+                  fontsize=8)
+axes[0].set_ylabel("latency (ms)")
+axes[0].set_title("Inference latency, same photo")
+
+bars = axes[1].bar(names, sizes, color="seagreen")
+axes[1].bar_label(bars, fmt="%.1fM", fontsize=8)
+axes[1].set_ylabel("parameters (millions)")
+axes[1].set_title("Model size")
+
+axes[2].bar(names, counts, color="darkorange")
+axes[2].set_ylabel("detections kept")
+axes[2].set_title("Detections, same photo")
+
+for ax in axes:
+    ax.tick_params(axis="x", labelrotation=15, labelsize=8)
+    ax.margins(y=0.15)  # headroom for the bar labels
+plt.tight_layout()
+plt.show()
+
+for name, t, c, p in shootout:
+    print(f"{name.splitlines()[0]:16s} {p:6.1f}M params  {t:7.1f} ms   {c} detections")
+--- [29] markdown
+## Part 2 - Semantic Segmentation with a Pretrained SegFormer
+
+### 2.1 Load a pretrained SegFormer
+
+`nvidia/segformer-b0-finetuned-cityscapes-1024-1024`: the smallest SegFormer checkpoint,
+fine-tuned on Cityscapes' 19 classes (`road`, `sidewalk`, `person`, `car`, ...).
+
+
+**hierarchical transformer encoder** + a **lightweight all-MLP decoder**, much cheaper
+than DeepLabv3+'s ASPP decoder at comparable mIoU.
+
+--- [30] code
+from transformers import SegformerImageProcessor, SegformerForSemanticSegmentation
+
+SEG_CHECKPOINT = "nvidia/segformer-b0-finetuned-cityscapes-1024-1024"
+seg_processor = SegformerImageProcessor.from_pretrained(SEG_CHECKPOINT)
+seg_model = SegformerForSemanticSegmentation.from_pretrained(SEG_CHECKPOINT).to(device).eval()
+print("Number of classes:", seg_model.config.num_labels)
+--- [31] markdown
+Fix one color per class before predicting anything. Every map and overlay below uses this same palette, so a given color always means the same class throughout the notebook
+--- [32] code
+CITYSCAPES_CLASSES = [
+    "road", "sidewalk", "building", "wall", "fence", "pole", "traffic light",
+    "traffic sign", "vegetation", "terrain", "sky", "person", "rider", "car",
+    "truck", "bus", "train", "motorcycle", "bicycle",
+]
+
+CITYSCAPES_COLORS = np.array([
+    [128, 64, 128], [244, 35, 232], [70, 70, 70], [102, 102, 156], [190, 153, 153],
+    [153, 153, 153], [250, 170, 30], [220, 220, 0], [107, 142, 35], [152, 251, 152],
+    [0, 130, 180], [220, 20, 60], [255, 0, 0], [0, 0, 142], [0, 0, 70],
+    [0, 60, 100], [0, 80, 100], [0, 0, 230], [119, 11, 32],
+], dtype=np.uint8)
+
+PERSON_CLASS_ID = CITYSCAPES_CLASSES.index("person")
+
+
+def decode_labels(class_map, palette=CITYSCAPES_COLORS):
+    """class_map: (H, W) int array of class ids -> (H, W, 3) uint8 RGB."""
+    return palette[class_map]
+
+
+def overlay_mask(image_rgb, colored_mask, alpha=0.5):
+    """image_rgb, colored_mask: (H, W, 3) uint8, same size. The overlay trick: alpha-blend."""
+    image_rgb = np.array(image_rgb).astype(np.uint8)
+    colored_mask = np.array(colored_mask).astype(np.uint8)
+    return cv2.addWeighted(image_rgb, 1 - alpha, colored_mask, alpha, 0)
+--- [33] code
+fig, ax = plt.subplots(figsize=(3.5, 7))
+n = len(CITYSCAPES_CLASSES)
+for i, (name, color) in enumerate(zip(CITYSCAPES_CLASSES, CITYSCAPES_COLORS)):
+    # explicit RGB swatch per class, not an auto-normalized colormap: avoids the classic
+    # off-by-one where imshow()/BoundaryNorm shifts class 0 into the wrong color bucket
+    ax.add_patch(plt.Rectangle((0, n - 1 - i), 1, 1, color=color / 255.0))
+    ax.text(1.2, n - 0.5 - i, name, va="center", fontsize=10)
+ax.set_xlim(0, 4)
+ax.set_ylim(0, n)
+ax.axis("off")
+ax.set_title("Cityscapes class legend")
+plt.tight_layout()
+plt.show()
+--- [34] markdown
+### 2.2 Inference pipeline
+
+Three steps: preprocess, forward pass, **upsample the logits back to the original resolution**.
+SegFormer's decoder outputs class logits at **1/4** of the (resized) input resolution, far
+cheaper than decoding to full resolution.
+
+--- [35] code
+@torch.no_grad()
+def segment_image(model, processor, pil_image):
+    """Returns a (H, W) numpy array of class ids, H/W = original image size."""
+    orig_w, orig_h = pil_image.size
+    inputs = processor(images=pil_image, return_tensors="pt").to(device)
+    logits = model(**inputs).logits  # (1, num_classes, H/4, W/4) of the *resized* input
+    upsampled = F.interpolate(logits, size=(orig_h, orig_w), mode="bilinear", align_corners=False)
+    class_map = upsampled.argmax(dim=1).squeeze(0).cpu().numpy()
+    return class_map
+
+class_map = segment_image(seg_model, seg_processor, sample_pil)
+print("class_map shape:", class_map.shape, " (matches original image H, W)")
+print("classes present:", sorted(np.unique(class_map).tolist()))
+
+plt.figure(figsize=(5, 7))
+plt.imshow(decode_labels(class_map))
+plt.axis("off")
+plt.title("Predicted class-id map")
+plt.show()
+--- [36] markdown
+### 2.3 The overlay trick
+
+The colored map is readable on its own, but it is much easier to judge once it is fused with the real photo. We alpha-blend the colored prediction onto the original image with cv2.addWeighted.
+
+--- [37] code
+colored_mask = decode_labels(class_map)
+overlay = overlay_mask(sample_pil, colored_mask, alpha=0.5)
+
+fig, axes = plt.subplots(1, 3, figsize=(15, 7))
+axes[0].imshow(sample_pil); axes[0].set_title("Original"); axes[0].axis("off")
+axes[1].imshow(colored_mask); axes[1].set_title("Predicted segmentation"); axes[1].axis("off")
+axes[2].imshow(overlay); axes[2].set_title("Overlay"); axes[2].axis("off")
+plt.tight_layout()
+plt.show()
+--- [38] markdown
+**Question.** On a scene where most pixels are `road`/`sky`/`building`
+and only a few are `person`/`bicycle`, why is **mIoU** a better evaluation metric here than overall pixel accuracy?
+
+> 
+
+### 2.4 Domain gap: a SegFormer trained *only* on synthetic GTA5
+
+`guimCC/segformer-v0-gta` is a SegFormer-b0 trained **purely on synthetic GTA5 renders**, using
+the same 19 Cityscapes classes plus an extra `ignore` class -- exactly the "trained on synthetic"
+case. It's a small community checkpoint (not an NVIDIA-official one) and it
+ships weights but **no `preprocessor_config.json`**, so `AutoImageProcessor` can't load one for
+it automatically -- we build the standard SegFormer preprocessing (resize + ImageNet
+normalization) by hand instead, same idea as Section 2.2. Wrapped defensively: if the checkpoint
+download itself fails, we fall back gracefully instead of crashing the rest of the lab.
+
+--- [39] code
+GTA5_AVAILABLE = False
+try:
+    GTA5_CHECKPOINT = "guimCC/segformer-v0-gta"
+    gta5_model = SegformerForSemanticSegmentation.from_pretrained(GTA5_CHECKPOINT).to(device).eval()
+
+    class ManualSegformerProcessor:
+        """Standard SegFormer preprocessing (resize + ImageNet normalization)"""
+        def __init__(self, size=(512, 512)):
+            import torchvision.transforms as T
+            self.tf = T.Compose([
+                T.Resize(size),
+                T.ToTensor(),
+                T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            ])
+
+        def __call__(self, images, return_tensors="pt"):
+            from transformers import BatchFeature
+            return BatchFeature({"pixel_values": self.tf(images).unsqueeze(0)})
+
+    gta5_processor = ManualSegformerProcessor()
+    GTA5_AVAILABLE = True
+    print(f"Loaded {GTA5_CHECKPOINT}: {gta5_model.config.num_labels} classes "
+          f"({gta5_model.config.id2label})")
+except Exception as e:
+    print(f"Could not load the GTA5-only community checkpoint ({e}).\n"
+          f"Skipping Section 2.4 -- the rest of the lab does not depend on it.")
+
+--- [40] code
+if GTA5_AVAILABLE:
+    gta5_class_map = segment_image(gta5_model, gta5_processor, sample_pil)
+
+    # this checkpoint has one extra "ignore" class beyond our 19-color Cityscapes palette
+    gta5_palette = CITYSCAPES_COLORS
+    if gta5_model.config.num_labels == len(CITYSCAPES_COLORS) + 1:
+        gta5_palette = np.vstack([CITYSCAPES_COLORS, [[0, 0, 0]]])  # "ignore" -> black
+    elif gta5_model.config.num_labels != len(CITYSCAPES_COLORS):
+        print(f"note: {gta5_model.config.num_labels} classes, falling back to a generic colormap")
+        gta5_palette = (plt.get_cmap("tab20")(np.arange(gta5_model.config.num_labels) % 20)[:, :3] * 255).astype(np.uint8)
+
+    gta5_colored = decode_labels(gta5_class_map, palette=gta5_palette)
+    gta5_overlay = overlay_mask(sample_pil, gta5_colored, alpha=0.5)
+
+    fig, axes = plt.subplots(1, 2, figsize=(10, 7))
+    axes[0].imshow(overlay)
+    axes[0].set_title("Fine-tuned on real Cityscapes photos)")
+    axes[0].axis("off")
+    axes[1].imshow(gta5_overlay)
+    axes[1].set_title("Trained only on synthetic GTA5 renders")
+    axes[1].axis("off")
+    plt.tight_layout()
+    plt.show()
+--- [41] markdown
+**Question.** What concretely degrades in the GTA5-only prediction compared to the Cityscapes-finetuned one: object shapes,
+class boundaries, low-level texture/lighting statistics?
+
+> 
+--- [42] markdown
+### 2.5 GTA5 vs. a real Cityscapes photo
+
+--- [43] code
+GTA5_IMG_PATH = "./media/00140.png"
+CITYSCAPES_IMG_PATH = "./media/aachen_000000_000019_leftImg8bit.png"
+
+gta5_raw_pil = Image.open(GTA5_IMG_PATH).convert("RGB")
+cityscapes_raw_pil = Image.open(CITYSCAPES_IMG_PATH).convert("RGB")
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+axes[0].imshow(gta5_raw_pil); axes[0].set_title("Synthetic: raw GTA5 frame"); axes[0].axis("off")
+axes[1].imshow(cityscapes_raw_pil); axes[1].set_title("Real: raw Cityscapes frame (Aachen)"); axes[1].axis("off")
+plt.tight_layout()
+plt.show()
+--- [44] code
+def run_and_overlay(model, processor, pil_image):
+    class_map = segment_image(model, processor, pil_image)
+    palette = CITYSCAPES_COLORS
+    if model.config.num_labels == len(CITYSCAPES_COLORS) + 1:
+        palette = np.vstack([CITYSCAPES_COLORS, [[0, 0, 0]]])
+    return overlay_mask(pil_image, decode_labels(class_map, palette=palette), alpha=0.5)
+
+rows = [("Cityscapes-finetuned SegFormer", seg_model, seg_processor)]
+if GTA5_AVAILABLE:
+    rows.append(("GTA5-finetuned SegFormer", gta5_model, gta5_processor))
+
+fig, axes = plt.subplots(len(rows), 2, figsize=(12, 6 * len(rows)), squeeze=False)
+for r, (title, model, processor) in enumerate(rows):
+    axes[r, 0].imshow(run_and_overlay(model, processor, gta5_raw_pil), aspect="auto")
+    axes[r, 0].set_title(f"{title} on the GTA5 image"); axes[r, 0].axis("off")
+    axes[r, 1].imshow(run_and_overlay(model, processor, cityscapes_raw_pil), aspect="auto")
+    axes[r, 1].set_title(f"{title} on the Cityscapes image"); axes[r, 1].axis("off")
+plt.tight_layout()
+plt.show()
+
+--- [45] markdown
+### 2.6 COCO dataset
+--- [46] code
+COCO_SAMPLE_URL = "http://images.cocodataset.org/val2017/000000039769.jpg"
+COCO_SAMPLE_PATH = "./media/coco_sample.jpg"
+
+if not os.path.exists(COCO_SAMPLE_PATH):
+    print("Downloading a COCO validation image...")
+    urllib.request.urlretrieve(COCO_SAMPLE_URL, COCO_SAMPLE_PATH)
+else:
+    print("COCO sample image already present.")
+
+coco_uint8 = read_image(COCO_SAMPLE_PATH)[:3]
+coco_pil = Image.fromarray(coco_uint8.permute(1, 2, 0).numpy())
+
+coco_boxes, coco_labels, coco_scores = detect(detector, coco_uint8, score_thresh=0.7)
+coco_label_names = [f"{COCO_CLASSES[l]} {s:.2f}" for l, s in zip(coco_labels, coco_scores)]
+coco_drawn = draw_bounding_boxes(coco_uint8, coco_boxes, labels=coco_label_names, colors="red", width=3)
+
+coco_classes_found = sorted(set(COCO_CLASSES[l] for l in coco_labels.tolist()))
+plt.figure(figsize=(8, 6))
+plt.imshow(coco_drawn.permute(1, 2, 0))
+plt.axis("off")
+plt.title(f"Faster R-CNN (§1.1) on a COCO photo: {len(coco_boxes)} detections, {coco_classes_found}")
+plt.show()
+--- [47] markdown
+## Part 3 - Semantic Segmentation on a video
+
+--- [48] code
+VIDEO_PATH = "./media/cityscapes_heidelberg.mp4"
+
+if not os.path.exists(VIDEO_PATH):
+    zip_path = "./models.zip"
+    print("Downloading the sample driving video...")
+    urllib.request.urlretrieve(VIDEO_ZIP_URL, zip_path)
+    with zipfile.ZipFile(zip_path, "r") as f:
+        members = [m for m in f.namelist() if m.startswith("media/")]
+        f.extractall(".", members=members)
+    os.remove(zip_path)
+    print("Done.")
+else:
+    print("Video already present.")
+
+cap = cv2.VideoCapture(VIDEO_PATH)
+video_fps = cap.get(cv2.CAP_PROP_FPS)
+video_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+video_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+video_n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+print(f"video: {video_w}x{video_h} @ {video_fps:.1f} FPS, {video_n_frames} frames total")
+--- [49] markdown
+### 3.1 Run SegFormer frame-by-frame, write the output video
+
+**Try it yourself first**: for every frame, run `segment_image`, build the overlay, measure the
+per-frame latency, and append the overlay to a `cv2.VideoWriter`. `cv2.VideoCapture` reads frames
+as **BGR**, so convert to RGB before feeding them to the SegFormer pipeline. We cap the run at
+`N_FRAMES` to keep this tractable live in the lab. Raise it at home for a longer clip.
+
+--- [50] code
+N_FRAMES = 20  
+
+writer = cv2.VideoWriter("processed_video.mp4", cv2.VideoWriter_fourcc(*"mp4v"), 5.0, (video_w, video_h))
+
+frame_latencies = []
+frame_overlays = []
+
+frame_id = 0
+while cap.isOpened() and frame_id < N_FRAMES:
+    ret, frame_bgr = cap.read()
+    if not ret:
+        break
+    frame_pil = Image.fromarray(cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB))
+
+    t0 = time.perf_counter()
+    frame_class_map = segment_image(seg_model, seg_processor, frame_pil)
+    frame_colored = decode_labels(frame_class_map)
+    frame_overlay = overlay_mask(frame_pil, frame_colored, alpha=0.5)
+    latency = time.perf_counter() - t0
+    frame_latencies.append(latency)
+    frame_overlays.append(frame_overlay)
+
+    writer.write(cv2.cvtColor(frame_overlay, cv2.COLOR_RGB2BGR))  # VideoWriter expects BGR
+    print(f"frame {frame_id + 1}/{N_FRAMES}: {latency * 1000:.1f} ms")
+    frame_id += 1
+
+writer.release()
+cap.release()
+
+
+print("\nSaved processed_video.mp4")
+--- [51] code
+import subprocess
+
+subprocess.run([
+    "ffmpeg", "-y", "-loglevel", "error",
+    "-i", "processed_video.mp4",
+    "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+    "-pix_fmt", "yuv420p",          # needed for browser playback
+    "-movflags", "+faststart",
+    "processed_video_h264.mp4",
+], check=True)
+
+from IPython.display import Video, display
+display(Video("processed_video_h264.mp4", embed=True, width=500))
+--- [52] markdown
+### 3.2 Analysis of the video run
+
+Per-frame latency usually shows a slower first frame (lazy CUDA kernel compilation / cache
+warm-up) and then settles, the same effect you'd see processing a real camera stream.
+
+--- [53] code
+plt.figure(figsize=(7, 4))
+plt.plot(range(1, len(frame_latencies) + 1), [l * 1000 for l in frame_latencies], marker="o")
+plt.xlabel("frame")
+plt.ylabel("latency (ms)")
+plt.title("Per-frame segmentation latency")
+plt.grid(alpha=0.3)
+plt.show()
+
+steady_state = frame_latencies[1:]  # drop the warm-up frame
+mean_fps = 1.0 / np.mean(steady_state)
+print(f"First frame: {frame_latencies[0] * 1000:.1f} ms")
+print(f"Steady-state mean latency: {np.mean(steady_state) * 1000:.1f} ms -> {mean_fps:.1f} FPS")
+
+fig, axes = plt.subplots(1, 4, figsize=(16, 4))
+preview_idx = np.linspace(0, len(frame_overlays) - 1, 4).astype(int)
+for ax, idx in zip(axes, preview_idx):
+    ax.imshow(frame_overlays[idx])
+    ax.set_title(f"frame {idx}")
+    ax.axis("off")
+plt.tight_layout()
+plt.show()
+--- [54] markdown
+## Part 4 - Instance Segmentation
+
+### 4.1 Real instance segmentation: pretrained Mask R-CNN
+
+Mask R-CNN gets a **per-instance mask** by running **RoIAlign** on each detected box and
+feeding that into a small mask head.
+
+--- [55] code
+mask_model = torchvision.models.detection.maskrcnn_resnet50_fpn(weights="DEFAULT")
+mask_model = mask_model.to(device).eval()
+
+
+PERSON_COCO_ID = COCO_CLASSES.index("person")
+
+@torch.no_grad()
+def instance_segment(model, img_uint8, score_thresh=0.8):
+    img_float = img_uint8.float() / 255.0
+    pred = model([img_float.to(device)])[0]
+    keep = pred["scores"] > score_thresh
+    return (pred["boxes"][keep].cpu(), pred["labels"][keep].cpu(),
+            pred["scores"][keep].cpu(), pred["masks"][keep].cpu())
+
+
+inst_boxes, inst_labels, inst_scores, inst_masks = instance_segment(mask_model, sample_uint8)
+person_keep = inst_labels == PERSON_COCO_ID
+n_maskrcnn_people = int(person_keep.sum())
+print(f"Mask R-CNN finds {n_maskrcnn_people} 'person' instances (score > 0.8)")
+
+if n_maskrcnn_people > 0:
+    binary_masks = (inst_masks[person_keep] > 0.5).squeeze(1).bool()
+    palette = ["red", "lime", "blue", "yellow", "cyan", "magenta", "orange", "white"]
+    drawn = draw_segmentation_masks(sample_uint8, binary_masks, alpha=0.6,
+                                     colors=palette[:n_maskrcnn_people])
+    plt.figure(figsize=(6, 8))
+    plt.imshow(drawn.permute(1, 2, 0))
+    plt.axis("off")
+    plt.title(f"Mask R-CNN: {n_maskrcnn_people} person instances, real masks via RoIAlign")
+    plt.show()
+--- [56] markdown
+### 4.1b Panoptic Segmentation
+
+Panoptic segmentation unifies semantic ("stuff": road, sky, vegetation, ...) and instance
+("things": person, car, bicycle, ...) predictions into one label map: every stuff pixel gets a
+class, every thing pixel gets a specific instance id.
+
+Very recent panoptic model (Panoptic FPN, Mask2Former, ...) predicts both jointly under one shared label space. 
+
+We can implement the same, using 2 separately-trained models: Mask R-CNN's things trained on COCO's 91 + SegFormer's stuff trained on Cityscapes' 19 classes.
+
+--- [57] code
+panoptic = colored_mask.copy()
+rng = np.random.default_rng(1)
+for i in range(len(inst_masks)):
+    binary_mask = (inst_masks[i, 0] > 0.5).numpy()
+    panoptic[binary_mask] = rng.integers(40, 256, size=3, dtype=np.uint8)
+
+plt.figure(figsize=(6, 8))
+plt.imshow(panoptic)
+plt.axis("off")
+plt.title(f"stuff from SegFormer+ {len(inst_masks)} 'thing' instances from Mask R-CNN")
+plt.show()
+--- [58] markdown
+### (Optional) 4.2 Non-learned alternative: connected components
+
+A classic trick to recover separate blobs (when the instances don't
+actually touch in the mask) is **connected-component labeling**: group all pixels of the same
+class that are reachable from each other through 4-connected neighbors into one component.
+
+Unlike Mask R-CNN above, this never looks at boxes or RoIAlign at all: it only looks at pixel adjacency in the semantic mask.
+
+### 4.3 Implement it
+
+Classic flood-fill / BFS over a grid, a typical "whiteboard coding interview" exercise.
+--- [59] code
+def connected_components_from_scratch(binary_mask):
+    """binary_mask: (H, W) bool/0-1 array. Returns (label_map, num_components).
+    label_map: (H, W) int array, 0 = background, 1..num_components = component id."""
+    ### TODO
+
+person_mask = (class_map == PERSON_CLASS_ID)
+print(f"{person_mask.sum()} 'person' pixels in the mask")
+
+t0 = time.perf_counter()
+label_map_scratch, n_components_scratch = connected_components_from_scratch(person_mask)
+t_scratch = time.perf_counter() - t0
+print(f"from-scratch BFS: {n_components_scratch} components in {t_scratch * 1000:.1f} ms")
+--- [60] markdown
+### 4.4 Verify against `cv2.connectedComponents`
+
+Label ids can differ between the two implementations (numbering is arbitrary), so we compare
+the actual pixel-set **partitions**, plus a runtime comparison.
+--- [61] code
+t0 = time.perf_counter()
+n_components_cv2, label_map_cv2 = cv2.connectedComponents(person_mask.astype(np.uint8), connectivity=4)
+n_components_cv2 -= 1  # cv2 counts background (0) as a component too
+t_cv2 = time.perf_counter() - t0
+
+
+def partition_signature(label_map):
+    """Canonical representation of a labeling: a frozenset of frozensets of pixel indices,
+    independent of how the labels happen to be numbered."""
+    sig = set()
+    for lbl in np.unique(label_map):
+        if lbl == 0:
+            continue
+        pixels = frozenset(map(tuple, np.argwhere(label_map == lbl).tolist()))
+        sig.add(pixels)
+    return sig
+
+
+same_partition = partition_signature(label_map_scratch) == partition_signature(label_map_cv2)
+
+print(f"from-scratch: {n_components_scratch} components, {t_scratch * 1000:.1f} ms")
+print(f"cv2.connectedComponents: {n_components_cv2} components, {t_cv2 * 1000:.1f} ms")
+print(f"identical partitions: {same_partition}")
+print(f"cv2 is ~{t_scratch / max(t_cv2, 1e-6):.0f}x faster (two-pass + union-find in optimized C++, "
+      f"vs. our Python BFS).")
+--- [62] code
+# visualize the pseudo-instance result: one random color per connected component
+rng = np.random.default_rng(0)
+instance_colors = rng.integers(0, 255, size=(n_components_scratch + 1, 3), dtype=np.uint8)
+instance_colors[0] = 0  # background stays black
+
+instance_rgb = instance_colors[label_map_scratch]
+instance_overlay = overlay_mask(sample_pil, instance_rgb, alpha=0.6)
+
+fig, axes = plt.subplots(1, 2, figsize=(10, 7))
+axes[0].imshow(person_mask, cmap="gray")
+axes[0].set_title("'person' binary mask (one blob per touching group)")
+axes[0].axis("off")
+axes[1].imshow(instance_overlay)
+axes[1].set_title(f"pseudo-instances via connected components ({n_components_scratch} found)")
+axes[1].axis("off")
+plt.tight_layout()
+plt.show()
+--- [63] markdown
+### 4.5 Compare the two instance counts
+
+--- [64] code
+print(f"Mask R-CNN (learned instance segmentation):  {n_maskrcnn_people} person instances")
+print(f"Connected components (non-learned trick)): {n_components_scratch} person components")
+--- [65] markdown
+**Question** Name a concrete situation where this connected-components
+trick gives the *wrong* instance count, and explain why Mask R-CNN's RoIAlign + per-box mask head
+does **not** share the same failure mode.
+
+> 
+
+--- [66] markdown
+## Questions
+
+1. **NMS threshold sweep**: how box count and (qualitatively) false positives/negatives change across thresholds on your chosen image.
+2. **NMS from scratch vs. `torchvision.ops.nms`**: confirm they agree, and report the measured speedup factor.
+3. **SegFormer overlay**: look at the overlay and try to understand where and why it fails. Which classes are harder?
+4. **Synthetic-only SegFormer**: describe what visibly degrades vs. the Cityscapes-finetuned overlay on the same photo.
+5. **Video segmentation**: report steady-state FPS on the real driving clip.
+6. **Instance segmentation**: Mask R-CNN's person-instance count vs. the connected-components count on the same photo: do they match?
+## Exercises
+
+- **Object detection datasets**: try the same models on a different dataset.
+- **Object detection becnhmark**: try other object detection approaches we saw in class and compare their performance (both in detection accuracy and speed).
+- **Swap the SegFormer checkpoint**: try `nvidia/segformer-b0-finetuned-ade-512-512` (150 ADE20K classes, trained on general scenes, not driving footage) on the same photo. Which classes stay stable, which change, and why would a model trained on driving scenes vs. general scenes differ here?
+- **Domain gap on another photo**: run GTA5-only checkpoint on a different real photo. Is the degradation consistent, or does it depend a lot on how close the scene is to a typical GTA5 driving frame?
+--- [67] code

@@ -8,8 +8,8 @@ def uri(p):
         import io
         from PIL import Image
         im = Image.open(io.BytesIO(raw)); im = im.convert('RGBA' if im.mode in ('RGBA', 'LA', 'P') else 'RGB')
-        if im.width > 1100: im = im.resize((1100, round(im.height * 1100 / im.width)), Image.LANCZOS)
-        b = io.BytesIO(); im.save(b, 'WEBP', quality=74, method=4)
+        if im.width > 1000: im = im.resize((1000, round(im.height * 1000 / im.width)), Image.LANCZOS)
+        b = io.BytesIO(); im.save(b, 'WEBP', quality=64, method=5)
         if b.tell() < len(raw): return 'data:image/webp;base64,' + base64.b64encode(b.getvalue()).decode()
     mime = 'image/png' if p.endswith('.png') else 'image/jpeg'
     return f'data:{mime};base64,' + base64.b64encode(raw).decode()

@@ -1,0 +1,154 @@
+<div class="sec" id="l20-dispensa"><h2>Dispensa</h2><span>parti da qui · circa 60 minuti</span></div>
+<div class="disp">
+  <p><b>In una frase:</b> il laboratorio mette le mani su tutto ciò che la <a href="#L17">L17</a> ha spiegato a parole: si fa girare <mark class="sh sh-y">Faster R-CNN</mark> su una foto di pedoni, si scrivono da zero <mark class="sh sh-b">IoU e NMS</mark>, si confrontano quattro detector (Faster R-CNN, FCOS, YOLOv8, DETR), si segmenta con <mark class="sh sh-y">SegFormer</mark> una scena di guida e un video, si scopre il <mark class="sh sh-p">domain gap</mark> fra un modello addestrato su GTA5 e uno su Cityscapes, e si arriva alle istanze con <mark class="sh sh-y">Mask R-CNN</mark> e con le <mark class="sh sh-b">componenti connesse</mark>.</p>
+
+  <h3>Prima di iniziare</h3>
+  <p>È un laboratorio senza slide: c'è solo il notebook <code>lab_obj_det_seg.ipynb</code>. La teoria sta nella <a href="#L17">L17</a> (detection, segmentazione, metriche) e nella <a href="#L15">L15</a> (backbone, feature map). Qui la riprendiamo dal punto di vista di chi deve <b>capire cosa esce dalle celle</b>. Ti servono:</p>
+  <ul>
+    <li>dalla <a href="#L15">L15</a>: convoluzione, feature map a risoluzioni diverse, softmax;</li>
+    <li>dalla <a href="#L17">L17</a>: che cosa sono detection, segmentazione semantica, d'istanza e panottica;</li>
+    <li>dalla <a href="#L18">L18</a>: l'idea di transformer con token e attention (per DETR e SegFormer);</li>
+    <li>un po' di geometria: area di un rettangolo, intersezione di due rettangoli.</li>
+  </ul>
+  <p>Il notebook è arrivato <b>senza uscite salvate</b>: tutti i numeri qui sotto vengono dalla <b>nostra esecuzione su CPU</b>. Sono quindi lenti in assoluto (secondi per immagine), ma i conteggi di box e pixel sono deterministici. Le 28 schede sotto seguono il notebook cella per cella; questa dispensa segue l'ordine in cui conviene capire.</p>
+
+  <h3>Guarda prima questi video</h3>
+  <div class="watch">
+    <a href="https://www.youtube.com/watch?v=MshSNnwF1Qg"><span class="k">Video</span><b>Lecture 15: Object Detection (UMich EECS 498-007)</b><span class="d">Justin Johnson, University of Michigan. IoU, NMS, R-CNN, Fast e Faster R-CNN con RPN e anchor, YOLO e SSD, le metriche. Copre le sezioni 1–6 di questa dispensa.</span></a>
+    <a href="https://www.youtube.com/watch?v=BNx-wno-0-g"><span class="k">Video</span><b>DETR: End-to-End Object Detection with Transformers | Paper Explained</b><span class="d">Aleksa Gordić, The AI Epiphany. Object query, cross-attention e matching ungherese: guardalo dopo la sezione 6.</span></a>
+    <a href="https://www.youtube.com/watch?v=zHSjrqS0jAY"><span class="k">Video</span><b>Lecture 16: Detection and Segmentation (UMich EECS 498-007)</b><span class="d">Justin Johnson, University of Michigan. Segmentazione semantica, poi istanza e Mask R-CNN con RoIAlign. Utile per le sezioni 7–11.</span></a>
+  </div>
+
+  <h3>1. Tre compiti, tre tipi di risposta</h3>
+  <p><b>Il problema.</b> Un'auto a guida autonoma riceve una foto. Cosa deve restituire? «Ci sono due persone e una macchina» non basta: serve sapere <i>dove</i>. Ma «dove» si può dire in tre modi diversi.</p>
+  <p><b>L'idea.</b> Con la <mark class="sh sh-b">detection</mark> ogni oggetto riceve un rettangolo (box) e una classe. Con la <mark class="sh sh-b">segmentazione semantica</mark> ogni pixel riceve una classe, ma due persone vicine diventano un unico blocco. Con la <mark class="sh sh-b">segmentazione d'istanza</mark> ogni oggetto riceve la sua maschera, ma cielo e strada restano fuori. La <mark class="sh sh-b">panottica</mark> mette insieme le due cose: tutti i pixel hanno una classe e ogni persona è distinta.</p>
+  <figure><img src="{{IMG:disp2_tre_segmentazioni.png}}" alt="Semantica, istanza, panottica su una scena con due persone sovrapposte"><figcaption>Da sinistra: nella semantica le due persone rosse sono un solo blocco; nell'istanza hanno due colori ma lo sfondo sparisce; nella panottica hanno due colori e c'è anche il cielo.</figcaption></figure>
+  <p>Il lab percorre questi compiti in ordine: parte 1 detection (schede 1–12), parte 2 semantica (13–22), parte 3 istanze (23–28).</p>
+  <div class="box k"><b>Il punto</b><p>Box = dove sono gli oggetti. Semantica = che cosa è ogni pixel. Istanza = quale oggetto possiede ogni pixel. Nessuna risposta sostituisce le altre.</p></div>
+
+  <h3>2. IoU: misurare quanto due box coincidono</h3>
+  <p><b>Il problema.</b> Il detector dice «persona qui», la verità è «persona lì». Quanto sono vicini? Serve un numero, perché lo useremo per togliere duplicati, per assegnare predizioni e verità e per valutare.</p>
+  <p><b>L'idea e la formula.</b> Si confronta ciò che i due box hanno in comune con ciò che coprono insieme:</p>
+  <p><span class="f"><mark class="sh sh-b">IoU(A, B) = |A ∩ B| / |A ∪ B|</mark></span></p>
+  <p><i>A</i> e <i>B</i> sono i due box, <i>|·|</i> è l'area, ∩ l'intersezione, ∪ l'unione. Il valore va da 0 (box disgiunti) a 1 (box identici) e non cambia se si ingrandisce o si sposta l'immagine. L'unione si calcola come <i>|A| + |B| − |A ∩ B|</i>.</p>
+  <figure><img src="{{IMG:disp2_iou.png}}" alt="Tre coppie di box con IoU 0,11, 0,54 e 0,81"><figcaption>Intersezione e unione per tre coppie: 20 su 180, 70 su 130, 89 su 111. Più i box si sovrappongono, più l'IoU sale.</figcaption></figure>
+  <p><b>Esempio svolto.</b> Due box 10×10 con l'ultimo 5 pixel spostato a destra: l'intersezione è 5×10 = 50, l'unione è 100 + 100 − 50 = 150, IoU = 1/3. Nel notebook (scheda 7) <code>box_iou_manual</code> dà gli stessi valori di <code>torchvision.ops.box_iou</code>: differenza massima 0,0.</p>
+  <div class="box k"><b>Il punto</b><p>IoU è il «righello» dei box. Il libro (§ 50.4.2) nota che usarlo come loss ha un difetto: per box disgiunti vale sempre 0, quindi <mark class="sh sh-p">non c'è gradiente</mark> che dica da che parte spostarsi.</p></div>
+
+  <h3>3. NMS: togliere i duplicati</h3>
+  <p><b>Il problema.</b> Un detector produce centinaia di box candidati e molti riguardano lo stesso oggetto. Se li mostri tutti, la persona risulta «trovata» venti volte.</p>
+  <p><b>L'idea.</b> La <mark class="sh sh-b">Non-Maximum Suppression (NMS)</mark> è golosa: tieni il box con il punteggio più alto, butta tutti quelli che lo coprono troppo (IoU maggiore di una soglia τ) e ripeti con i rimasti. Il libro la descrive nel § 50.4.1.2 con tre passi; Szeliski la chiama «greedy most-confident-first».</p>
+  <figure><img src="{{IMG:disp2_nms_passi.png}}" alt="Quattro pannelli: candidati, tieni il migliore, togli chi ha IoU alto, risultato finale"><figcaption>Cinque candidati su due oggetti. Si tiene lo 0,95, si scartano i due che lo coprono (IoU 0,73 e 0,80), si ripete sull'altro gruppo: restano 2 box su 5.</figcaption></figure>
+  <p><b>In codice</b> (scheda 7): ordina per punteggio; finché la lista non è vuota prendi il primo, calcola l'IoU con tutti gli altri, tieni solo quelli con IoU ≤ τ. La nostra versione dà lo stesso insieme di <code>torchvision.ops.nms</code> su 3000 box (2664 restano), ma è 16 volte più lenta (327,8 ms contro 20,6 ms): il costo cresce come il quadrato dei box, e torchvision lo fa in C++.</p>
+  <p><b>La soglia τ è un compromesso.</b> Troppo bassa: due oggetti vicini vengono fusi in uno. Troppo alta: i duplicati sopravvivono. Sulla foto di esempio (1 pedone) restano 4, 5, 5, 9 e 40 box per τ = 0,1, 0,3, 0,5, 0,7, 0,9: a 0,9 si vede lo scarto fra «ripulito» e «pieno di doppioni». Sulla foto affollata (8 pedoni) le persone restano 8 fino a τ = 0,7 e salgono a 14 con 0,9.</p>
+  <figure><img src="{{IMG:disp2_nms_tau_conteggi.png}}" alt="Box rimasti in funzione di τ per le due foto"><figcaption>La curva blu (1 pedone) è piatta e poi esplode a τ = 0,9; la rossa (8 pedoni) parte più alta perché ci sono più oggetti veri.</figcaption></figure>
+  <p><b>Per classe.</b> Le librerie fanno l'NMS <mark class="sh sh-y">separatamente per ogni classe</mark>: una borsa sopra una persona ha IoU alto con lei, ma non va cancellata. Il libro non lo dice: è un dettaglio dell'implementazione (scheda 8).</p>
+  <div class="box k"><b>Il punto</b><p>NMS = tieni il migliore, scarta chi lo copre oltre τ, ripeti. <mark class="sh sh-p">Non esiste una τ perfetta</mark>: con oggetti vicini è un compromesso.</p></div>
+
+  <h3>4. Soft-NMS: non cancellare, abbassare</h3>
+  <p><b>Il problema.</b> Due persone vicine hanno IoU 0,55: con τ = 0,5 l'NMS cancella la seconda. Hai contato 1 persona invece di 2.</p>
+  <p><b>L'idea.</b> Il <mark class="sh sh-b">Soft-NMS</mark> (Bodla et al. 2017; non è nei libri) invece di cancellare <mark class="sh sh-y">riduce il punteggio</mark> del vicino: <span class="f">s ← s · (1 − IoU)</span> se IoU &gt; τ. Alla fine un secondo filtro sul punteggio decide chi resta.</p>
+  <figure><img src="{{IMG:disp2_nms_folla.png}}" alt="Due persone vicine: NMS cancella la seconda, Soft-NMS la tiene con punteggio ridotto"><figcaption>Due persone con IoU 0,55 e punteggi 0,97 e 0,90. A sinistra la coppia, al centro l'NMS ne lascia una, a destra il Soft-NMS tiene entrambe con la seconda a 0,90 → 0,40 (con 0,55 di IoU: 0,90 × 0,45 ≈ 0,40).</figcaption></figure>
+  <p>Sui 100 box della foto di esempio il Soft-NMS lineare (τ = 0,3, soglia 0,05) tiene 8 box, la NMS dura 4 (scheda 10). Ma i quattro in più hanno punteggi bassi: il Soft-NMS sposta il problema sulla scelta della soglia finale.</p>
+  <div class="box k"><b>Il punto</b><p>Soft-NMS = declassare invece di cancellare. Aiuta nelle folle, <mark class="sh sh-p">ma non elimina il problema dei duplicati</mark>: lo rimanda alla soglia sul punteggio.</p></div>
+
+  <h3>5. Faster R-CNN: guardare in due stadi</h3>
+  <p><b>Il problema.</b> Provare ogni possibile rettangolo costa troppo. Come si propongono pochi box buoni?</p>
+  <p><b>L'idea.</b> <mark class="sh sh-y">Faster R-CNN</mark> lavora in due stadi (Szeliski § 6.3.3). Primo stadio: una rete (la <b>RPN</b>, Region Proposal Network) guarda la feature map e propone zone dove c'è «qualcosa». Secondo stadio: ogni proposta viene ritagliata dalla feature map, classificata e affinata.</p>
+  <figure><img src="{{IMG:disp2_due_stadi.png}}" alt="Pipeline: immagine, backbone, RPN, RoIAlign, testa, soglia e NMS"><figcaption>Immagine (lato corto 800) → backbone ResNet-50 con FPN → RPN con NMS a 0,7 → RoIAlign 7×7 → testa a 2 strati FC → soglia 0,05, NMS per classe a 0,5, massimo 100 box.</figcaption></figure>
+  <p><b>Le anchor.</b> A ogni posizione della feature map la RPN prova box di forma prefissata: le <mark class="sh sh-b">anchor</mark>. In torchvision sono <mark class="sh sh-g">15 per posizione</mark>: 5 scale (aree circa 32², 64², 128², 256², 512², una per livello della FPN) × 3 proporzioni (h/w = 0,5, 1, 2). Per ogni anchor la RPN predice un punteggio di <i>objectness</i> (c'è un oggetto?) e un piccolo spostamento che corregge il box.</p>
+  <figure><img src="{{IMG:disp2_anchor_tipi.png}}" alt="15 anchor centrate nello stesso punto"><figcaption>Le 15 anchor di una posizione: colori = scale, tratti = proporzioni. Servono grandi e piccole, larghe e alte, per coprire persone, auto, finestre.</figcaption></figure>
+  <p><b>Il conto.</b> L'immagine di esempio, portata a 800×1056, genera mappe di 200×264, 100×132, 50×66, 25×33 e 13×17 posizioni: 70 346 in totale, per 3 forme: <b>211 038 anchor</b>. Il notebook li mostra come un imbuto (scheda 4):</p>
+  <figure><img src="{{IMG:disp2_imbuto.png}}" alt="Istogramma logaritmico: 211038 anchor, 1000 proposte, 100 box, 4 detection"><figcaption>211 038 anchor → 1000 proposte dopo NMS a 0,7 → 100 box grezzi (tetto di torchvision) → 4 detection finali con punteggio sopra 0,8. Scala logaritmica.</figcaption></figure>
+  <figure><img src="{{IMG:nb_frcnn.png}}" alt="Foto di Penn-Fudan con 4 detection"><figcaption>Le 4 detection finali: la persona in primo piano (1,00), la persona piccola nella porta (0,97) e due box zaino/borsa sulla schiena (cella 7). Nelle annotazioni c'è solo la prima persona: la seconda è un vero rilevamento non annotato.</figcaption></figure>
+  <p><b>Quanti box «grezzi» ci sono?</b> Abbassando la soglia sul punteggio i box crescono: 29 con 0,9, 82 con 0,5, poi 100 con 0,3 e 0,1. Qui non è un risultato del modello: è il <mark class="sh sh-p">tetto <code>detections_per_img = 100</code></mark>, che il notebook non dichiara (scheda 5).</p>
+  <div class="box k"><b>Il punto</b><p>Faster R-CNN = RPN che dice dove guardare (211 038 anchor → 1000) + testa che dice cosa c'è (100 → pochi). Sono le due parti che il libro non descrive: il visionbook ferma la storia a selective search.</p></div>
+
+  <h3>6. DETR: niente anchor, niente NMS</h3>
+  <p><b>Il problema.</b> Anchor e NMS sono pezzi disegnati a mano, con parametri da regolare (scale, proporzioni, τ). Si può fare a meno?</p>
+  <p><b>L'idea.</b> <mark class="sh sh-y">DETR</mark> (Carion et al. 2020; in Szeliski § 6.3.3) vede la detection come <b>predizione di un insieme</b>. Un transformer riceve le feature e <mark class="sh sh-b">100 query</mark> apprese; ognuna produce un box e una classe (91 classi COCO più «nessun oggetto»: 92 logit). In training si accoppia ogni oggetto vero a <i>una sola</i> query con l'<mark class="sh sh-b">algoritmo ungherese</mark>, che sceglie l'abbinamento di costo totale minimo; le query non accoppiate imparano «nessun oggetto». Così <mark class="sh sh-g">non nascono duplicati e l'NMS non serve</mark>.</p>
+  <figure><img src="{{IMG:disp2_detr_matching.png}}" alt="Matrice di costo 5 query per 2 oggetti"><figcaption>Costi (più scuro = costo minore) fra 5 query e 2 oggetti reali. Gli accoppiamenti ottimi sono la query 1 con la persona (0,4) e la query 3 con l'auto (0,5); le altre tre vanno a «nessun oggetto».</figcaption></figure>
+  <figure><img src="{{IMG:nb_detr.png}}" alt="DETR sulla foto di esempio con 4 detection"><figcaption>Anche DETR trova le stesse 4 cose (cella 26), senza NMS.</figcaption></figure>
+  <p><b>Il confronto del lab</b> (scheda 12). Quattro detector sulla stessa foto, su CPU:</p>
+  <figure><img src="{{IMG:nb_shootout.png}}" alt="Latenza, parametri e numero di detection dei quattro detector"><figcaption>Latenza, parametri, detection a soglia 0,8: Faster R-CNN 2300 ms, 41,8 M, 4; FCOS 2029 ms, 32,3 M, 1; YOLOv8n 95 ms, 3,2 M, 2; DETR 1911 ms, 41,5 M, 4.</figcaption></figure>
+  <p>Attenzione a come si legge. <mark class="sh sh-p">YOLOv8n è 20 volte più veloce perché è minuscolo (3,2 M parametri)</mark>, non perché «uno stadio» sia magico. E il terzo grafico non è un test di qualità: i punteggi dei modelli non sono calibrati allo stesso modo, quindi «FCOS ne trova 1» a soglia 0,8 dice poco. Sulla foto affollata (8 pedoni veri) i conteggi di persone sono: Faster R-CNN 9, DETR 9 (13 con soglia 0,5), YOLOv8n 8, FCOS 4 / 10 / 18 con soglie 0,8 / 0,5 / 0,3. Per un giudizio serve l'AP su un dataset annotato (§ 50.4.3 del libro). Nota anche che il notebook dice «anchor-based» per YOLOv8 nel testo e «anchor-free» nel grafico: il secondo è corretto.</p>
+  <div class="box k"><b>Il punto</b><p>Tre famiglie: due stadi (Faster R-CNN), uno stadio (FCOS, YOLO), insieme di predizioni (DETR). <mark class="sh sh-y">Dimensione del modello e soglia pesano quanto la famiglia</mark>.</p></div>
+
+  <h3>7. Dai box ai pixel: SegFormer</h3>
+  <p><b>Il problema.</b> Il box non dice quali pixel sono della persona, e non ha senso per cielo o strada (§ 50.4.4 del libro). Serve una classe <i>per pixel</i>.</p>
+  <p><b>L'idea.</b> La rete <mark class="sh sh-y">SegFormer-b0</mark> (Xie et al. 2021; non nei libri) ha un encoder a quattro stadi che riduce via via la risoluzione e un decoder minuscolo, fatto di soli strati MLP, che ricombina le quattro uscite. Il risultato è una mappa di 19 punteggi per posizione (le classi di Cityscapes) a <mark class="sh sh-p">un quarto della risoluzione</mark>: bisogna riportarla alla taglia dell'immagine.</p>
+  <figure><img src="{{IMG:disp2_segformer_forme.png}}" alt="Schema delle forme da ingresso 512×512 a logit 128×128×19"><figcaption>Ingresso 512×512×3; stadi con 128², 64², 32², 16² posizioni; il decoder porta tutte le uscite a 128×128 e le concatena; i logit sono 128×128×19.</figcaption></figure>
+  <p><b>La catena di forme</b> (schede 13–15): (1, 3, 512, 512) → (1, 19, 128, 128) → <mark class="sh sh-y">interpolazione bilineare dei logit</mark> a (1, 19, H, W) → <i>argmax</i> sui canali → (1, H, W). Si interpolano i <i>logit</i>, non gli id di classe: la media di «strada = 0» e «persona = 11» non è una classe.</p>
+  <p><b>Una trappola nascosta.</b> Il checkpoint si chiama <code>…1024-1024</code>, ma il preprocessore del lab ridimensiona a <b>512×512</b> (scheda 13). Sulla foto Cityscapes 2048×1024 questo cambia i risultati più di quanto ci si aspetti:</p>
+  <figure><img src="{{IMG:disp2_risoluzione.png}}" alt="Foto Cityscapes e segmentazione a 512×512 e 1024×512"><figcaption>A 512×512 la classe «pole» occupa 61 427 pixel (un palo inventato sull'edificio), a 1024×512 ne occupa 16 314. Le persone passano da 339 a 1428 pixel.</figcaption></figure>
+  <div class="box k"><b>Il punto</b><p>SegFormer = encoder gerarchico + decoder MLP, logit a 1/4, poi upsample e argmax. <mark class="sh sh-p">La risoluzione di ingresso cambia il risultato</mark>, soprattutto per le classi piccole e sottili.</p></div>
+
+  <h3>8. Come si legge il risultato: overlay e metriche</h3>
+  <p><b>Overlay.</b> Per vedere la maschera sull'immagine si fa una miscela: <span class="f">out = (1 − α)·foto + α·colori</span>, con α fra 0 e 1 (cv2.addWeighted). Con α = 0 vedi la foto, con α = 1 solo la mappa delle classi.</p>
+  <figure><img src="{{IMG:disp2_alpha.png}}" alt="Sovrapposizione con α 0, 0,3, 0,5, 1"><figcaption>La stessa foto con α crescente: a 0,3–0,5 si vedono insieme persona e asfalto (rosa), a 1 solo le classi.</figcaption></figure>
+  <p><b>mIoU contro pixel accuracy.</b> La <mark class="sh sh-b">pixel accuracy</mark> è la frazione di pixel giusti. Il <mark class="sh sh-b">mIoU</mark> calcola l'IoU <i>per classe</i> (sui pixel: TP / (TP + FP + FN)) e ne fa la media. Strada e cielo occupano quasi tutti i pixel, quindi la prima è dominata da loro (§ 50.5 del libro).</p>
+  <figure><img src="{{IMG:disp2_miou_acc.png}}" alt="Aree delle classi e confronto fra mIoU e pixel accuracy"><figcaption>Scena con strada 700, cielo 250, pedone 50 (migliaia di pixel). Un modello che non vede mai i pedoni ha IoU 0,93 sulla strada, 1,00 sul cielo, 0 sui pedoni: mIoU 0,64 ma pixel accuracy 0,95.</figcaption></figure>
+  <p>Il 95% sembra ottimo, eppure il modello è inutile per un'auto, perché non vede i pedoni. Per questo si usa il mIoU.</p>
+  <div class="box k"><b>Il punto</b><p><mark class="sh sh-p">La pixel accuracy nasconde gli errori sulle classi piccole</mark>: guarda sempre l'IoU per classe.</p></div>
+
+  <h3>9. Domain gap: GTA5 contro Cityscapes</h3>
+  <p><b>Il problema.</b> Etichettare a mano le immagini di guida costa moltissimo; i frame di un videogioco (GTA5) arrivano con le etichette gratis. Un modello addestrato solo sul videogioco funziona sulle strade vere?</p>
+  <p><b>L'idea.</b> Il <mark class="sh sh-b">domain gap</mark> è il calo di prestazioni quando i dati d'uso (reali) sono diversi da quelli di training (sintetici). Il lab (schede 17–18) mette due SegFormer, uno addestrato su Cityscapes e uno su GTA5, davanti a due immagini, una per dominio: 2×2 pannelli.</p>
+  <figure><img src="{{IMG:nb_2x2.png}}" alt="Griglia 2×2: due modelli su un frame GTA5 e su una foto Cityscapes"><figcaption>In alto il modello Cityscapes, in basso il GTA5; a sinistra il frame GTA5, a destra la foto reale. Il pannello in basso a destra (GTA5 su foto reale) è quello degradato: macchie nere («ignore») sull'asfalto e bordi del marciapiede diversi.</figcaption></figure>
+  <p><b>I numeri.</b> Se si prende il modello Cityscapes come riferimento, l'accordo pixel per pixel del modello GTA5 è del 61% su un frame GTA5, 77% sulla foto Aquisgrana, 80% sulla foto di esempio e <mark class="sh sh-p">44% sulla foto affollata</mark>. Il calo non è costante: dipende da quanto la scena somiglia a un frame di guida. Sulla foto dei pedoni, la gamba di una persona viene segnata come strada (ipotesi: nei dati sintetici i pedoni hanno aspetto e pose diverse). Mitigazioni tipiche: più varietà nei dati sintetici, domain adaptation, un po' di dati reali.</p>
+  <div class="box k"><b>Il punto</b><p>Sintetico ≠ reale. <mark class="sh sh-p">Un modello bravo nel suo dominio può essere mediocre in un altro</mark>, e l'accordo medio nasconde le differenze fra scene.</p></div>
+
+  <h3>10. Il video: tempo reale in numeri</h3>
+  <p>Il lab applica SegFormer a un video 2048×1024 a 10 FPS (201 frame, 20 elaborati). Tre cose da sapere (schede 20–22):</p>
+  <ul>
+    <li><b>BGR e RGB</b>: OpenCV legge i frame in BGR, il modello vuole RGB. Si converte all'ingresso e di nuovo all'uscita prima di scrivere.</li>
+    <li><b>FPS</b>: il video di uscita nel notebook è scritto a 5 FPS contro i 10 dell'ingresso, quindi va al rallentatore (un errore del notebook).</li>
+    <li><b>Il budget</b>: a 10 FPS hai 100 ms per frame, a 30 FPS 33 ms. Il nostro SegFormer-b0 su CPU ne impiega 1087 in media (0,9 FPS). Il testo dice che il primo frame è più lento; nella nostra esecuzione no (998 ms).</li>
+  </ul>
+  <figure><img src="{{IMG:disp2_budget.png}}" alt="Barre della latenza contro i budget a 10 e 30 FPS"><figcaption>Il nostro modello (1087 ms) è 10 volte sopra il budget a 10 FPS e 33 volte sopra quello a 30 FPS. Con una GPU la situazione cambia, ma la domanda giusta è sempre: quanti millisecondi per frame?</figcaption></figure>
+
+  <h3>11. Mask R-CNN e RoIAlign: istanze vere</h3>
+  <p><b>Il problema.</b> Con la semantica, due persone a contatto sono un blocco solo. Come si ottiene una maschera per ciascuna?</p>
+  <p><b>L'idea.</b> <mark class="sh sh-y">Mask R-CNN</mark> (He et al. 2017; § 50.6 e Szeliski § 6.4.2) è Faster R-CNN con un <mark class="sh sh-g">ramo in più</mark>: dentro ogni box proposto prevede una maschera binaria (28×28 pixel, poi ridimensionata al box). Due persone hanno due box, quindi due maschere.</p>
+  <p><b>RoIAlign.</b> Per passare da un box di dimensione qualsiasi a una griglia fissa di feature serve un ritaglio. Il vecchio RoIPool <mark class="sh sh-p">arrotonda le coordinate del box alle celle</mark> della feature map: spostamenti di mezza cella, che per un box vanno bene ma per una maschera si vedono. RoIAlign non arrotonda: campiona punti dentro il box con interpolazione bilineare. Nel lab sono 7×7 per la testa dei box e 14×14 per la maschera.</p>
+  <figure><img src="{{IMG:disp2_roialign.png}}" alt="RoIPool arrotonda il box, RoIAlign campiona con interpolazione bilineare"><figcaption>A sinistra il box vero (rosso) e il box arrotondato (blu): non coincidono. A destra RoIAlign: una griglia 4×4 di celle con 2×2 punti ciascuna (blu) campionati senza arrotondare.</figcaption></figure>
+  <figure><img src="{{IMG:nb_maskrcnn.png}}" alt="Mask R-CNN sulla foto di esempio: due istanze person"><figcaption>Sulla foto di esempio Mask R-CNN trova 2 persone con maschere vere (cella 55): quella in primo piano e quella piccola nella porta.</figcaption></figure>
+  <p><b>Panottica.</b> La scheda 24 la costruisce «per composizione»: semantica per lo stuff, istanze per le persone. Non è una vera panottica (nessuna etichetta coerente: i bordi «person» di SegFormer restano, gli zaini sono istanze): il libro la tratta solo in Szeliski § 6.4.3, con la metrica PQ.</p>
+  <div class="box k"><b>Il punto</b><p>Mask R-CNN = Faster R-CNN + maschera per box, con RoIAlign che <mark class="sh sh-g">mantiene l'allineamento al pixel</mark>.</p></div>
+
+  <h3>12. Componenti connesse: contare i blob</h3>
+  <p><b>Il problema.</b> Ho una maschera binaria «persona» di SegFormer (non Mask R-CNN). Posso contare le persone senza una rete d'istanza?</p>
+  <p><b>L'idea.</b> Si dà un'etichetta diversa a ogni insieme di pixel «accesi» collegati fra loro. Con una ricerca in ampiezza (BFS): scorri l'immagine; appena trovi un pixel acceso non visitato, parti da lì, visita tutti i vicini accesi e assegna loro la stessa etichetta. Il costo è lineare nel numero di pixel. Nel lab (scheda 25) la scrivi con una <code>deque</code>: 41,9 ms contro 1,9 ms di <code>cv2.connectedComponents</code>, stessa partizione.</p>
+  <p><b>4 o 8 vicini?</b> Con la 4-connessione contano solo i vicini su, giù, destra e sinistra; con la 8 anche le diagonali.</p>
+  <figure><img src="{{IMG:disp2_ccl_griglia.png}}" alt="Maschera 6×7, 4 componenti con 4-connessione, 3 con 8-connessione"><figcaption>Stessa maschera: con 4 vicini i due pixel che si toccano solo in diagonale sono blob separati (4 componenti), con 8 vicini si fondono (3).</figcaption></figure>
+  <p><b>Dove sbaglia.</b> Sulla foto affollata Mask R-CNN trova 9 persone, SegFormer con le componenti connesse 7 blob (5 con più di 200 pixel). <mark class="sh sh-p">Persone vicine si fondono in un blob, un occlusore spezza una persona in due, il rumore crea blob spuri.</mark> Mask R-CNN parte da box separati, quindi non ha questo problema.</p>
+  <div class="box k"><b>Il punto</b><p>Le componenti connesse sono un surrogato economico delle istanze: <mark class="sh sh-p">funzionano finché gli oggetti non si toccano</mark>.</p></div>
+
+  <h3>I bug del notebook da non copiare</h3>
+  <p>Eseguendolo abbiamo trovato 14 imprecisioni, elencate con cella e correzione nella sezione «Risultati dell'esecuzione» più in basso. Le più importanti: il tetto a 100 box (sezione 5), il ridimensionamento a 512×512 (sezione 7), i 5 FPS contro 10 (sezione 10), e il <code>ValueError</code> di Mask R-CNN con più di 8 persone (palette di 8 colori).</p>
+
+  <h3>Il riassunto in 10 righe</h3>
+  <ol>
+    <li>Detection = box + classe; semantica = classe per pixel; istanza = maschera per oggetto; panottica = entrambe.</li>
+    <li>IoU = intersezione su unione, fra 0 e 1.</li>
+    <li>NMS = tieni il migliore, scarta chi ha IoU &gt; τ, per classe; τ è un compromesso.</li>
+    <li>Soft-NMS abbassa i punteggi invece di cancellare.</li>
+    <li>Faster R-CNN: RPN con 15 anchor per posizione (211 038 sul nostro esempio) → 1000 proposte → RoIAlign → testa → NMS: 4 detection.</li>
+    <li>DETR: 100 query + accoppiamento ungherese, niente anchor né NMS.</li>
+    <li>SegFormer: encoder gerarchico + decoder MLP; logit a 1/4, upsample, argmax.</li>
+    <li>mIoU, non pixel accuracy, per valutare le classi piccole.</li>
+    <li>Domain gap: il modello GTA5 sulle foto reali degrada in modo variabile (44–80% di accordo).</li>
+    <li>Mask R-CNN dà istanze vere con RoIAlign; le componenti connesse sono un surrogato che sbaglia quando gli oggetti si toccano.</li>
+  </ol>
+
+  <h3>Verifica di aver capito</h3>
+  <details><summary>Perché l'NMS si fa per classe, e quando non basta?</summary><p>Perché oggetti di classi diverse possono sovrapporsi legittimamente (zaino e persona). Non basta con oggetti della stessa classe molto vicini: lì servono Soft-NMS o un detector senza NMS come DETR.</p></details>
+  <details><summary>Da dove vengono i 211 038 anchor e perché alla fine ne restano 4?</summary><p>Cinque mappe FPN con 70 346 posizioni totali per 3 forme. La RPN tiene 1000 proposte con NMS a 0,7; la testa le classifica e l'NMS a 0,5 per classe e il tetto di 100 box danno i candidati; con soglia 0,8 ne restano 4.</p></details>
+  <details><summary>Come fa DETR a evitare i duplicati?</summary><p>In training ogni oggetto vero è accoppiato a una sola query (matching ungherese); le altre query imparano «nessun oggetto». Non ci sono più query che rispondono allo stesso oggetto.</p></details>
+  <details><summary>Un modello ha pixel accuracy 95% ma non vede i pedoni. Come lo scopri?</summary><p>Con l'IoU per classe: sui pedoni vale 0, il mIoU scende (0,64 nell'esempio) anche se i pixel giusti sono il 95%.</p></details>
+  <details><summary>Perché si interpolano i logit e non le etichette?</summary><p>Interpolare id di classe produce valori senza significato (la media fra strada e persona non è una classe); interpolando i logit e poi facendo argmax si ottengono bordi coerenti.</p></details>
+  <details><summary>Quando le componenti connesse sbagliano il conteggio e perché Mask R-CNN no?</summary><p>Quando persone vicine si toccano, quando un occlusore spezza una persona, quando il rumore crea blob. Mask R-CNN parte da box separati e predice una maschera in ognuno.</p></details>
+
+  <h3>Come proseguire</h3>
+  <p>Libro: <a href="https://visionbook.mit.edu/object_recognition_v3.html">cap. 50 Object Recognition</a>, § 50.4 (box, NMS, IoU, AP), § 50.5 (semantica) e § 50.6 (istanza); Szeliski § 6.3.3 e § 6.4. Poi apri le schede qui sotto, in particolare le soluzioni e la guida allo studio in fondo alla pagina. Ora ripassa con le schede qui sotto.</p>
+</div>

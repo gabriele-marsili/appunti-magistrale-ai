@@ -1,0 +1,1397 @@
+
+===== CELLA 1 [markdown]
+# Vision Transformers (ViT)
+
+In the CNN lab, convolutional filters processed local neighborhoods. Here an image is divided into patches and represented as a sequence of tokens. The transformer then uses self-attention to exchange information between patches.
+
+We train a small ViT on **Imagenette**, then inspect attention rollout from a separate **ImageNet-pretrained ViT-B/16**. The two models use the same 16 × 16 patch size but very different embedding dimensions and training histories.
+
+
+===== CELLA 2 [markdown]
+The notebook uses a CUDA GPU when PyTorch detects one, otherwise it runs on the CPU. The model and training batches are moved to the selected device automatically.
+
+===== CELLA 3 [code]
+import math
+import time
+import numpy as np
+import matplotlib.pyplot as plt
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torchvision
+from torchvision import transforms
+from torch.utils.data import DataLoader, Subset
+
+torch.manual_seed(4444)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print("Using device:", device, "| PyTorch:", torch.__version__)
+--- out stream:
+Using device: cuda | PyTorch: 2.9.1+cu128
+
+
+===== CELLA 4 [markdown]
+# Dataset: Imagenette
+
+[Imagenette](https://github.com/fastai/imagenette) is a subset of **10 ImageNet classes**, assembled by Jeremy Howard for faster image-classification experiments. It contains real photographs (not upscaled 32 × 32 thumbnails) and retains ImageNet class identifiers. Examples include tench, English springer, cassette player, and parachute.
+
+We use the **320px download** and transform images to **224 × 224** with a 256px resize followed by a center crop for evaluation. The training transform additionally uses a random resized crop and horizontal flip. There is an official `train`/`val` split, but no separate official test split: **we divide the original validation images evenly into a lab validation split and a held-out test split**. Both subsets therefore come from the same source.
+
+At 224 × 224 with $P=16$, each image has $(224/16)^2=196$ patch tokens and **197 tokens including `[CLS]`**, as in lecture slide 26. The original patch has $16^2\cdot 3=768$ pixel values; we project it to $D=96$ coordinates in our small model.
+
+
+===== CELLA 5 [code]
+IMG_SIZE, PATCH_SIZE, NUM_CLASSES = 224, 16, 10
+EMBED_DIM, NUM_HEADS, DEPTH = 96, 4, 2
+BATCH_SIZE = 32
+EPOCHS = 40  # Increase for better classification accuracy; one epoch is only a demonstration.
+
+# ImageNet normalization also matches the pretrained ViT example later.
+mean = (0.485, 0.456, 0.406)
+std = (0.229, 0.224, 0.225)
+train_tf = transforms.Compose([
+    transforms.RandomResizedCrop(IMG_SIZE, scale=(0.65, 1.0)),
+    transforms.RandomHorizontalFlip(),
+    transforms.ToTensor(), transforms.Normalize(mean, std),
+])
+eval_tf = transforms.Compose([
+    transforms.Resize(256), transforms.CenterCrop(IMG_SIZE),
+    transforms.ToTensor(), transforms.Normalize(mean, std),
+])
+
+# Official train/val split; split official val again to reserve held-out evaluation data.
+train_set = torchvision.datasets.Imagenette('./data', split='train', size='320px',
+                                            download=True, transform=train_tf)
+val_full = torchvision.datasets.Imagenette('./data', split='val', size='320px',
+                                           download=True, transform=eval_tf)
+perm = torch.randperm(len(val_full), generator=torch.Generator().manual_seed(42)).tolist()
+mid = len(perm) // 2
+val_set = Subset(val_full, perm[:mid])
+test_set = Subset(val_full, perm[mid:])
+train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=0)
+val_loader = DataLoader(val_set, batch_size=BATCH_SIZE, num_workers=0)
+test_loader = DataLoader(test_set, batch_size=BATCH_SIZE, num_workers=0)
+
+# Imagenette class folders use ImageNet WordNet identifiers, not plain-language labels.
+from torchvision.models import ViT_B_16_Weights
+imagenet_categories = ViT_B_16_Weights.IMAGENET1K_V1.meta['categories']
+# This mapping is for the 10 synsets in Imagenette (the indices are ImageNet-1K indices).
+imagenette_to_imagenet = [0, 217, 482, 491, 497, 566, 569, 571, 574, 701]
+class_names = [imagenet_categories[i] for i in imagenette_to_imagenet]
+print('class names:', class_names)
+print('train / validation / test:', len(train_set), len(val_set), len(test_set))
+
+--- out stream:
+class names: ['tench', 'English springer', 'cassette player', 'chain saw', 'church', 'French horn', 'garbage truck', 'gas pump', 'golf ball', 'parachute']
+train / validation / test: 9469 1962 1963
+
+
+===== CELLA 6 [code]
+x, y = train_set[55]
+print('image:', tuple(x.shape), 'label:', class_names[y])
+img = (x * torch.tensor(std)[:, None, None] + torch.tensor(mean)[:, None, None]).clamp(0, 1)
+plt.figure(figsize=(4, 4))
+plt.imshow(img.permute(1, 2, 0)); plt.title(class_names[y]); plt.axis('off'); plt.show()
+--- out stream:
+image: (3, 224, 224) label: tench
+
+--- out image: work/orig/c06_1.png
+
+===== CELLA 7 [markdown]
+# Dataloading
+
+Recall from the CNN lab: batches have shape `(B, C, H, W)`. Transformers typically process sequences `(B, N, D)` instead.
+
+===== CELLA 8 [code]
+images, labels = next(iter(train_loader))
+print("images:", images.shape, "labels:", labels.shape)
+assert images.ndim == 4 and images.shape[1:] == (3, 224, 224)
+--- out stream:
+images: torch.Size([32, 3, 224, 224]) labels: torch.Size([32])
+
+
+===== CELLA 9 [markdown]
+# From pixels to tokens
+
+An image with height $H$, width $W$, $C$ channels and patch side $P$ is divided into
+
+$$N=\frac{H}{P}\frac{W}{P}$$
+
+non-overlapping patches. Each patch is flattened to $x_p\in\mathbb{R}^{P^2C}$ and projected to $z_p=x_pE\in\mathbb{R}^{D}$, where $E\in\mathbb{R}^{(P^2C)\times D}$.
+
+Here $H=W=224$, $C=3$, $P=16$, and $D=96$. There are **196 patches**, each containing **768** pixel values, projected into **96-dimensional tokens**. Adding `[CLS]` produces **197 tokens**:
+
+$$(B,3,224,224)\rightarrow(B,196,768)\rightarrow(B,196,96)\rightarrow(B,197,96).$$
+
+**Question.** If $P=8$ instead of $16$, how many patches and tokens are produced? How does the attention matrix change?
+
+
+===== CELLA 10 [markdown]
+## Patch projection: do we really need to explicitly patch the image?
+
+Every patch receives the *same* linear projection. A convolution with `kernel_size=P` and `stride=P` performs precisely this operation without explicitly extracting patches.
+
+The provided `PatchEmbed` class uses `nn.Conv2d`.
+
+The patch boundaries are also shown on a sample image.
+
+===== CELLA 11 [code]
+class PatchEmbed(nn.Module):
+    def __init__(self, image_size=224, patch_size=16, in_channels=3, dim=96):
+        super().__init__()
+        assert image_size % patch_size == 0
+        self.grid_size = image_size // patch_size
+        self.num_patches = self.grid_size ** 2
+        self.proj = nn.Conv2d(in_channels, dim, kernel_size=patch_size, stride=patch_size)
+
+    def forward(self, x):
+        return self.proj(x).flatten(2).transpose(1, 2)  # (B, N, D)
+
+patch_embed = PatchEmbed(IMG_SIZE, PATCH_SIZE, dim=EMBED_DIM)
+patch_tokens = patch_embed(images[:2])
+print("patch tokens:", patch_tokens.shape)
+assert patch_tokens.shape == (2, 196, EMBED_DIM)
+--- out stream:
+patch tokens: torch.Size([2, 196, 96])
+
+
+===== CELLA 12 [code]
+# Show the actual 16×16 patches on an Imagenette image.
+show = (images[0].cpu() * torch.tensor(std)[:, None, None] +
+        torch.tensor(mean)[:, None, None]).clamp(0, 1).permute(1, 2, 0)
+fig, axes = plt.subplots(1, 2, figsize=(8, 4))
+axes[0].imshow(show); axes[0].set_title("Imagenette input")
+axes[1].imshow(show); axes[1].set_title(f"{IMG_SIZE//PATCH_SIZE} × {IMG_SIZE//PATCH_SIZE} patch grid")
+for edge in range(0, IMG_SIZE+1, PATCH_SIZE):
+    axes[1].axhline(edge-.5, color="white", alpha=.75, linewidth=.7)
+    axes[1].axvline(edge-.5, color="white", alpha=.75, linewidth=.7)
+for ax in axes: ax.axis("off")
+plt.tight_layout(); plt.show()
+--- out image: work/orig/c12_1.png
+
+===== CELLA 13 [code]
+# Conv vs unfold + linear: same mathematics if the weights are shared.
+conv = patch_embed.proj
+patches = F.unfold(images[:2], kernel_size=PATCH_SIZE, stride=PATCH_SIZE).transpose(1, 2)
+linear_tokens = F.linear(patches, conv.weight.flatten(1), conv.bias)
+torch.testing.assert_close(patch_tokens, linear_tokens, atol=1e-5, rtol=1e-5)
+print("conv and unfold+linear match; patch matrix:", patches.shape)
+--- out stream:
+conv and unfold+linear match; patch matrix: torch.Size([2, 196, 768])
+
+
+===== CELLA 14 [markdown]
+## What does a patch token look like?
+
+A $16\times16$ RGB patch starts with $P^2C=768$ scalar pixel values. We flatten that patch, then project it into $D=96$ learned coordinates. A token is a **vector**, not a small image. The $196$ rows below correspond to locations in a $14\times14$ grid; columns denote embedding coordinates.
+
+$$X_{\mathrm{patch}}\in\mathbb{R}^{B\times196\times768}\quad\xrightarrow{\;E\;}\quad Z_{\mathrm{patch}}\in\mathbb{R}^{B\times196\times96}.$$
+
+The projection is initially random; these heatmaps describe the representation's structure, not established semantic features.
+
+===== CELLA 15 [code]
+# Extract all patches from the same example used in the grid visualization.
+raw = F.unfold(images[:1], kernel_size=PATCH_SIZE, stride=PATCH_SIZE)
+raw = raw.transpose(1, 2)                         # (1, 196, 768)
+with torch.no_grad():
+    embedded = patch_embed(images[:1])            # (1, 196, 96)
+
+# Display six extracted patches in spatial order.
+fig, axes = plt.subplots(1, 6, figsize=(12, 2.5))
+for i, ax in enumerate(axes):
+    r, c = divmod(i, IMG_SIZE // PATCH_SIZE)
+    patch = show[r*PATCH_SIZE:(r+1)*PATCH_SIZE, c*PATCH_SIZE:(c+1)*PATCH_SIZE]
+    ax.imshow(patch, interpolation="nearest")
+    ax.set_title(f"patch {i}")
+    ax.axis("off")
+plt.suptitle("First six patches (each 16 × 16 RGB pixels)")
+plt.tight_layout()
+plt.show()
+
+fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+axes[0].imshow(raw[0].numpy(), aspect="auto", cmap="coolwarm")
+axes[0].set(title="Flattened pixel patches (196 × 768)", xlabel="Pixel / channel index", ylabel="Patch index")
+im = axes[1].imshow(embedded[0].numpy(), aspect="auto", cmap="coolwarm")
+axes[1].set(title="Projected patch tokens (196 × 96)", xlabel="Embedding dimension", ylabel="Patch index")
+fig.colorbar(im, ax=axes[1], shrink=0.8, label="Embedding value")
+plt.tight_layout()
+plt.show()
+
+print("Raw patches:", tuple(raw.shape))
+print("Projected patch tokens:", tuple(embedded.shape))
+for i in range(3):
+    print(f"Token {i}, first 12 of {EMBED_DIM} dimensions:",
+          embedded[0, i, :12].detach().numpy().round(3))
+--- out image: work/orig/c15_1.png
+--- out image: work/orig/c15_2.png
+--- out stream:
+Raw patches: (1, 196, 768)
+Projected patch tokens: (1, 196, 96)
+Token 0, first 12 of 96 dimensions: [-1.81  -0.947  0.163 -0.933 -0.222  1.302 -1.805  2.422  0.688  1.303
+  0.613 -0.657]
+Token 1, first 12 of 96 dimensions: [ 0.411  0.43  -0.234  0.437  0.141 -0.79  -0.091 -0.874 -0.029  0.308
+ -0.337  0.231]
+Token 2, first 12 of 96 dimensions: [ 0.457  0.383 -0.282  0.425  0.236 -0.804  0.02  -0.916 -0.051  0.26
+ -0.321  0.205]
+
+
+===== CELLA 16 [markdown]
+**Questions.** Why does each flattened patch have 768 values, while its embedding has only 96? What determines the embedding dimension?
+If two patches contain identical pixel values, will their embeddings be identical?
+
+===== CELLA 17 [markdown]
+**Answers.**
+
+1. A patch has $P^2C=16\cdot16\cdot3=768$ pixel values. The projection $E\in\mathbb{R}^{768\times96}$ maps it to $D=96$ values. $D$ is a design choice of the model: it is the width used in all encoder blocks, and it sets the model's capacity and cost (e.g. $D=768$ in ViT-B/16). It is independent of the patch size.
+
+2. Yes, after the patch embedding: the same linear projection is applied to every patch. They become different after the positional embedding is added.
+
+===== CELLA 18 [markdown]
+# Self-attention: queries, keys, and values
+
+In the lecture (slides 29–30), the input to an encoder block is a sequence of $N+1$ tokens: $N$ image patches and the classification token. **For the equations below, omit the batch dimension**:
+
+$$X\in\mathbb{R}^{(N+1)\times D},\qquad Q=XW^Q,\quad K=XW^K,\quad V=XW^V.$$
+
+For one attention head, $Q,K,V\in\mathbb{R}^{(N+1)\times d_k}$ (we use equal query, key, and value widths). The lecture's scaled dot-product attention is
+
+$$\boxed{\operatorname{Attention}(Q,K,V)=\underbrace{\operatorname{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}}\right)}_{A\in\mathbb{R}^{(N+1)\times(N+1)}}V.}$$
+
+The expression is evaluated in three steps:
+
+1. **Compare tokens:** $S=QK^\top/\sqrt{d_k}$; element $S_{ij}$ measures how strongly token $i$ (query) matches token $j$ (key).
+2. **Normalize each query row:** $A_{ij}=\exp(S_{ij})/\sum_{m=0}^{N}\exp(S_{im})$. Every row sums to 1; softmax is along the **key-token axis** (`dim=-1`).
+3. **Mix values:** $Y_i=\sum_{j=0}^{N}A_{ij}V_j$. Every output token is a weighted sum of value vectors.
+
+**Why $\sqrt{d_k}$?** Under the idealized assumption that the components of $q$ and $k$ are independent, zero-mean and unit-variance, $\operatorname{Var}(q^\top k)=d_k$. Without scaling, larger heads tend to produce larger logits and a more saturated softmax.
+
+| Tensor | Mathematical shape | PyTorch with batch $B$ and heads $h$ |
+|---|---|---|
+| $Q,K,V$ | $(N+1,d_k)$ for one head | `(B, h, N+1, d_k)` |
+| $S,A$ | $(N+1,N+1)$ | `(B, h, N+1, N+1)` |
+| $Y=AV$ | $(N+1,d_k)$ | `(B, h, N+1, d_k)` |
+
+The small example below shows the score matrix, normalized weights and output for just three tokens.
+
+===== CELLA 19 [code]
+# A tiny numerical example: three tokens, one attention head.
+# This example is separate from the exercise below.
+toy_q = torch.tensor([[2., 0.], [0., 2.], [1., 1.]])
+toy_k = toy_q.clone()
+toy_v = torch.tensor([[1., 0.], [0., 1.], [1., 1.]])
+
+toy_scores = toy_q @ toy_k.T / math.sqrt(toy_q.shape[-1])
+toy_weights = toy_scores.softmax(dim=-1)
+toy_output = toy_weights @ toy_v
+
+fig, axes = plt.subplots(1, 2, figsize=(8, 3.3))
+for ax, mat, title in zip(axes, [toy_scores, toy_weights], ["Scaled QKᵀ scores", "Attention weights (row softmax)"]):
+    im = ax.imshow(mat, cmap="viridis")
+    for r in range(3):
+        for c in range(3): ax.text(c, r, f"{mat[r,c]:.2f}", ha="center", va="center", color="white")
+    ax.set_xticks(range(3), ["K1", "K2", "K3"]); ax.set_yticks(range(3), ["Q1", "Q2", "Q3"])
+    ax.set_title(title)
+plt.tight_layout(); plt.show()
+print("Row sums:", toy_weights.sum(dim=-1))
+print("Weighted values:\n", toy_output)
+--- out image: work/orig/c19_1.png
+--- out stream:
+Row sums: tensor([1., 1., 1.])
+Weighted values:
+ tensor([[0.9546, 0.2321],
+        [0.2321, 0.9546],
+        [0.6667, 0.6667]])
+
+
+===== CELLA 20 [code]
+# A tiny numerical example: three tokens, one attention head.
+# This example is separate from the exercise below.
+toy_q = torch.tensor([[2., 0.], [2., 0.], [1., 1.]])
+toy_k = toy_q.clone()
+toy_v = torch.tensor([[1., 0.], [0., 1.], [1., 1.]])
+
+toy_scores = toy_q @ toy_k.T / math.sqrt(toy_q.shape[-1])
+toy_weights = toy_scores.softmax(dim=-1)
+toy_output = toy_weights @ toy_v
+
+fig, axes = plt.subplots(1, 2, figsize=(8, 3.3))
+for ax, mat, title in zip(axes, [toy_scores, toy_weights], ["Scaled QKᵀ scores", "Attention weights (row softmax)"]):
+    im = ax.imshow(mat, cmap="viridis")
+    for r in range(3):
+        for c in range(3): ax.text(c, r, f"{mat[r,c]:.2f}", ha="center", va="center", color="white")
+    ax.set_xticks(range(3), ["K1", "K2", "K3"]); ax.set_yticks(range(3), ["Q1", "Q2", "Q3"])
+    ax.set_title(title)
+plt.tight_layout(); plt.show()
+print("Row sums:", toy_weights.sum(dim=-1))
+print("Weighted values:\n", toy_output)
+--- out image: work/orig/c20_1.png
+--- out stream:
+Row sums: tensor([1., 1., 1.])
+Weighted values:
+ tensor([[0.5542, 0.5542],
+        [0.5542, 0.5542],
+        [0.6667, 0.6667]])
+
+
+===== CELLA 21 [markdown]
+**Questions.** What happens if we remove the factor $1/\sqrt{d_k}$? If two query rows are equal, what do you expect from their attention distributions?
+
+===== CELLA 22 [markdown]
+**Answers.**
+
+1. Without $1/\sqrt{d_k}$, the scores have variance $\approx d_k$ instead of $\approx 1$. Large scores saturate the softmax: almost all weight goes to the key with the highest score, and the gradients through the softmax become very small.
+
+2. Equal query rows give equal score rows $q_iK^\top$, so their attention distributions and their outputs $\sum_j A_{ij}V_j$ are identical.
+
+===== CELLA 23 [code]
+def attention_from_scratch(q, k, v):
+    """Scaled dot-product attention; q,k,v have shape (B, h, T, d_k)."""
+    scores = (q @ k.transpose(-2, -1)) / math.sqrt(q.shape[-1])
+    weights = scores.softmax(dim=-1)
+    return weights @ v, weights
+
+===== CELLA 24 [code]
+# Verify the implementation against PyTorch.
+q = torch.randn(2, 4, 5, 8)
+k = torch.randn(2, 4, 5, 8)
+v = torch.randn(2, 4, 5, 8)
+
+actual, weights = attention_from_scratch(q, k, v)
+expected = F.scaled_dot_product_attention(q, k, v, dropout_p=0.0)
+
+torch.testing.assert_close(actual, expected, atol=1e-5, rtol=1e-5)
+torch.testing.assert_close(weights.sum(-1), torch.ones(2, 4, 5))
+print("PASS: attention matches PyTorch; output:", actual.shape, "weights:", weights.shape)
+
+--- out stream:
+PASS: attention matches PyTorch; output: torch.Size([2, 4, 5, 8]) weights: torch.Size([2, 4, 5, 5])
+
+
+===== CELLA 25 [markdown]
+# Why does QKV have dimension $3D$?
+
+From lecture slide 30:
+
+$$[Q\mid K\mid V] = XW^{QKV},\qquad W^{QKV}\in\mathbb{R}^{D\times 3D}.$$
+
+For each token, we calculate **three different vectors** (query, key, and value), each of width $D$. Concatenating them gives $3D$, regardless of the number of heads. Concatenation simply combines them into one matrix multiplication.
+
+For $h$ heads, let $d_k=D/h$. After the fused projection:
+
+$$ (B,N+1,D)\xrightarrow{W^{QKV}}(B,N+1,3D)
+\longrightarrow 3\times(B,h,N+1,d_k).$$
+
+For the lab's $D=96$ and $h=4$, each head is 24-dimensional. **$3D=288$ means Q, K and V; it does not mean three attention heads.**
+
+**Questions.** Why is the output dimension $3D$ rather than $hD$? How many weights does the fused projection contain (ignoring bias)? If $h$ changes but $D$ stays fixed, does the number of QKV parameters change?
+
+===== CELLA 26 [markdown]
+**Answers.**
+
+1. Each token produces three vectors (query, key, value) of width $D$. The $h$ heads split each of them into $h$ parts of width $d_k=D/h$, so the total width is $3D$ for any $h$. An output of $hD$ would give every head the full width $D$, which is a different (and $h$ times larger) model.
+
+2. $W^{QKV}\in\mathbb{R}^{D\times 3D}$: $3D^2$ weights. For $D=96$: $3\cdot 96^2=27{,}648$.
+
+3. No. Changing $h$ changes only how the $3D$ outputs are split into heads ($d_k=D/h$); the number of QKV parameters stays $3D^2$.
+
+===== CELLA 27 [code]
+def split_qkv(qkv, num_heads):
+    """(B,T,3D) -> three tensors (B,h,T,D/h)."""
+    B, T, three_D = qkv.shape
+    
+    assert three_D % (3 * num_heads) == 0
+    
+    d_k = three_D // (3 * num_heads)
+    qkv = qkv.reshape(B, T, 3, num_heads, d_k).permute(2, 0, 3, 1, 4)
+    
+    return qkv[0], qkv[1], qkv[2]
+
+
+def split_heads(t, num_heads=4):
+    B, T, D = t.shape
+    d_k = D // num_heads
+
+    return t.reshape(B, T, num_heads, d_k).transpose(1, 2)
+
+===== CELLA 28 [markdown]
+## Multi-head self-attention
+
+Each head computes attention over **all tokens**, but in a different $d_k$-dimensional feature subspace:
+
+$$\mathrm{head}_i=\operatorname{Attention}(Q_i,K_i,V_i),$$
+$$\operatorname{MHSA}(X)=\operatorname{Concat}(\mathrm{head}_1,\ldots,\mathrm{head}_h)W^O,\qquad W^O\in\mathbb{R}^{D\times D}.$$
+
+Concatenation restores width $h\cdot d_k=D$. The output projection combines information from different heads. These equations correspond to the multi-head description on lecture slide 30.
+
+**Questions.** Does a head process only $1/h$ of the patches? What changes if the number of heads doubles while $D$ stays constant? Ignoring bias, why do QKV and the output projection have $4D^2$ parameters in total?
+
+===== CELLA 29 [markdown]
+A useful shape trace for one batch item:
+
+
+```text
+X             [T, 96]
+Linear(QKV)   [T, 288]
+Q, K, V       [4, T, 24] each
+A             [4, T, T]
+head outputs  [4, T, 24]
+concat        [T, 96]
+output linear [T, 96]
+```
+
+
+===== CELLA 30 [code]
+class MyMultiHeadAttention(nn.Module):
+    def __init__(self, dim, num_heads):
+        super().__init__()
+        assert dim % num_heads == 0
+        self.dim, self.num_heads = dim, num_heads
+        self.qkv = nn.Linear(dim, 3 * dim)
+        self.out_proj = nn.Linear(dim, dim)
+
+    def forward(self, x):
+        B, T, D = x.shape
+        q, k, v = split_qkv(self.qkv(x), self.num_heads)
+        attended, weights = attention_from_scratch(q, k, v)
+        merged = attended.transpose(1, 2).reshape(B, T, D)
+        return self.out_proj(merged)
+
+===== CELLA 31 [code]
+# Confirm output shape and gradient flow.
+custom = MyMultiHeadAttention(96, 4)
+sample = torch.randn(2, 7, 96, requires_grad=True)
+out = custom(sample)
+assert out.shape == sample.shape
+out.square().mean().backward()
+assert sample.grad is not None and torch.isfinite(sample.grad).all()
+print("PASS: output shape and backpropagation")
+--- out stream:
+PASS: output shape and backpropagation
+
+
+===== CELLA 32 [markdown]
+# Transformer encoder block
+
+Attention mixes information *across tokens*. The MLP that follows transforms the representation of **each token independently**. The lecture uses a **pre-LayerNorm** encoder (slide 31):
+
+$$ X'=X+\operatorname{MHSA}(\operatorname{LN}(X)), $$
+$$ X''=X'+\operatorname{MLP}(\operatorname{LN}(X')). $$
+
+The residual `+ X` path lets the block preserve the input and learn a correction. The MLP usually expands $D$ to $4D$, applies a nonlinearity, and projects back to $D$.
+
+The classifier below uses `nn.MultiheadAttention` for its encoder blocks.
+
+===== CELLA 33 [code]
+class EncoderBlock(nn.Module):
+    def __init__(self, dim=96, heads=4, mlp_ratio=4):
+        super().__init__()
+        self.norm1 = nn.LayerNorm(dim)
+        self.attn = nn.MultiheadAttention(dim, heads, batch_first=True)
+        self.norm2 = nn.LayerNorm(dim)
+        self.mlp = nn.Sequential(nn.Linear(dim, mlp_ratio * dim), nn.GELU(),
+                                 nn.Linear(mlp_ratio * dim, dim))
+
+    def forward(self, x):
+        h = self.norm1(x)
+        attended, _ = self.attn(h, h, h, need_weights=False)
+        x = x + attended
+        return x + self.mlp(self.norm2(x))
+
+===== CELLA 34 [markdown]
+## Classification token and positional embeddings
+
+Attention alone does not encode where a patch came from. Without positional information, reordering patch tokens simply reorders their outputs (lecture slide 27). ViT adds a learnable vector for each position:
+
+$$Z_0=[x_{\mathrm{cls}};z_1;\ldots;z_N]+E_{\mathrm{pos}},\qquad E_{\mathrm{pos}}\in\mathbb{R}^{(N+1)\times D}.$$
+
+The learned `[CLS]` token is placed at index 0. Its final encoder representation is passed to a linear classification head. Positional embeddings are added **once**, before the first encoder block.
+
+Our model has 2 encoder blocks and $D=96$ rather than the 12 blocks and $D=768$ of ViT-B/16. Both process 224 × 224 images using 16 × 16 patches.
+
+
+===== CELLA 35 [code]
+class ViT(nn.Module):
+    def __init__(self, image_size=224, patch_size=16, dim=96, heads=4, depth=2, classes=10):
+        super().__init__()
+        self.patch_embed = PatchEmbed(image_size, patch_size, 3, dim)
+        n = self.patch_embed.num_patches
+        self.cls_token = nn.Parameter(torch.zeros(1, 1, dim))
+        self.pos_embed = nn.Parameter(torch.zeros(1, n + 1, dim))
+        nn.init.normal_(self.cls_token, std=0.02)
+        nn.init.normal_(self.pos_embed, std=0.02)
+        self.blocks = nn.ModuleList([EncoderBlock(dim, heads) for _ in range(depth)])
+        self.norm = nn.LayerNorm(dim)
+        self.head = nn.Linear(dim, classes)
+
+    def forward_features(self, images):
+        tokens = self.patch_embed(images)
+        cls = self.cls_token.expand(images.size(0), -1, -1)
+        tokens = torch.cat([cls, tokens], dim=1) + self.pos_embed
+        for block in self.blocks:
+            tokens = block(tokens)
+        return self.norm(tokens)  # (B, N+1, D)
+
+    def forward(self, images):
+        return self.head(self.forward_features(images)[:, 0])
+
+model = ViT(IMG_SIZE, PATCH_SIZE, EMBED_DIM, NUM_HEADS, DEPTH, NUM_CLASSES).to(device)
+print("parameters:", f"{sum(p.numel() for p in model.parameters()):,}")
+with torch.no_grad():
+    print("features:", model.forward_features(images[:2].to(device)).shape)
+    print("logits:", model(images[:2].to(device)).shape)
+--- out stream:
+parameters: 317,674
+features: torch.Size([2, 197, 96])
+logits: torch.Size([2, 10])
+
+
+===== CELLA 36 [markdown]
+## Adding `[CLS]` and position information
+
+The patch projection produces $N=196$ tokens. The model prepends a learned classification token and adds learned positional embeddings to **every** token, producing $N+1=197$ vectors:
+
+$$Z_0=[x_{\mathrm{cls}};z_1;\dots;z_{196}]+E_{\mathrm{pos}}\in\mathbb{R}^{197\times96}.$$
+
+The following heatmap shows this sequence **before** the encoder. Row 0 is `[CLS]`; rows 1–196 correspond to the 14 × 14 patch grid.
+
+===== CELLA 37 [code]
+model.eval()
+with torch.no_grad():
+    input_patches = model.patch_embed(images[:1].to(device))
+    input_cls = model.cls_token.expand(1, -1, -1)
+    input_tokens = torch.cat([input_cls, input_patches], dim=1) + model.pos_embed
+    token_matrix = input_tokens[0].cpu()
+
+fig, ax = plt.subplots(figsize=(10, 5))
+heat = ax.imshow(token_matrix.numpy(), aspect="auto", cmap="coolwarm")
+ax.axhline(0.5, color="black", linewidth=1.5)
+ax.set(title="Input sequence: [CLS] + 196 patch tokens + positions (197 × 96)",
+       xlabel="Embedding dimension", ylabel="Token index (0 = CLS)")
+fig.colorbar(heat, ax=ax, shrink=0.85, label="Embedding value")
+plt.tight_layout()
+plt.show()
+print("Sequence shape:", tuple(input_tokens.shape))
+print("[CLS] token, first 12 values:", token_matrix[0, :12].numpy().round(3))
+print("Patch token 1, first 12 values:", token_matrix[1, :12].numpy().round(3))
+--- out image: work/orig/c37_1.png
+--- out stream:
+Sequence shape: (1, 197, 96)
+[CLS] token, first 12 values: [ 0.03   0.04  -0.039 -0.008 -0.046  0.04  -0.024  0.034  0.037 -0.015
+ -0.004  0.008]
+Patch token 1, first 12 values: [ 0.099 -0.055 -0.778  0.292  0.782  1.762  0.174 -1.805 -0.272  0.393
+ -0.969 -1.466]
+
+
+===== CELLA 38 [markdown]
+# Training
+
+The optimization loop is the same as for the CNN: forward pass, cross-entropy loss, backward pass, optimizer update. We train for **one epoch** by default (`EPOCHS = 1` near the dataset setup). Increase `EPOCHS` to train longer and compare the validation results.
+
+A small ViT trained from scratch for one epoch is not expected to achieve strong accuracy. The attention visualizations later in the notebook may also be noisy.
+
+===== CELLA 39 [code]
+def run_epoch(model, loader, criterion, optimizer=None):
+    training = optimizer is not None
+    model.train(training)
+    total_loss, total_correct, total_count = 0.0, 0, 0
+    for xb, yb in loader:
+        xb, yb = xb.to(device), yb.to(device)
+        with torch.set_grad_enabled(training):
+            logits = model(xb)
+            loss = criterion(logits, yb)
+            if training:
+                optimizer.zero_grad(set_to_none=True)
+                loss.backward()
+                optimizer.step()
+        total_loss += loss.item() * len(xb)
+        total_correct += (logits.argmax(1) == yb).sum().item()
+        total_count += len(xb)
+    return total_loss / total_count, total_correct / total_count
+
+criterion = nn.CrossEntropyLoss()
+optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=0.05)
+history = {"train_loss": [], "train_acc": [], "val_loss": [], "val_acc": []}
+for epoch in range(EPOCHS):
+    started = time.time()
+    tr_loss, tr_acc = run_epoch(model, train_loader, criterion, optimizer)
+    val_loss, val_acc = run_epoch(model, val_loader, criterion)
+    for key, value in zip(history, (tr_loss, tr_acc, val_loss, val_acc)):
+        history[key].append(value)
+    print(f"epoch {epoch+1}/{EPOCHS}: train acc={tr_acc:.3f}, val acc={val_acc:.3f}, "
+          f"train loss={tr_loss:.3f}, val loss={val_loss:.3f}, seconds={time.time()-started:.1f}")
+--- out stream:
+epoch 1/40: train acc=0.340, val acc=0.418, train loss=1.886, val loss=1.707, seconds=43.2
+epoch 2/40: train acc=0.461, val acc=0.492, train loss=1.582, val loss=1.518, seconds=44.8
+epoch 3/40: train acc=0.511, val acc=0.532, train loss=1.449, val loss=1.399, seconds=50.8
+epoch 4/40: train acc=0.545, val acc=0.577, train loss=1.353, val loss=1.289, seconds=47.4
+epoch 5/40: train acc=0.566, val acc=0.587, train loss=1.286, val loss=1.246, seconds=45.5
+epoch 6/40: train acc=0.586, val acc=0.602, train loss=1.243, val loss=1.226, seconds=48.2
+epoch 7/40: train acc=0.595, val acc=0.600, train loss=1.198, val loss=1.222, seconds=44.9
+epoch 8/40: train acc=0.613, val acc=0.628, train loss=1.152, val loss=1.132, seconds=45.6
+epoch 9/40: train acc=0.624, val acc=0.631, train loss=1.130, val loss=1.139, seconds=44.4
+epoch 10/40: train acc=0.624, val acc=0.626, train loss=1.118, val loss=1.161, seconds=43.8
+epoch 11/40: train acc=0.636, val acc=0.653, train loss=1.088, val loss=1.088, seconds=42.6
+epoch 12/40: train acc=0.644, val acc=0.656, train loss=1.060, val loss=1.070, seconds=46.6
+epoch 13/40: train acc=0.648, val acc=0.629, train loss=1.045, val loss=1.110, seconds=50.7
+epoch 14/40: train acc=0.653, val acc=0.656, train loss=1.014, val loss=1.092, seconds=53.8
+epoch 15/40: train acc=0.664, val acc=0.655, train loss=1.001, val loss=1.064, seconds=47.3
+epoch 16/40: train acc=0.674, val acc=0.676, train loss=0.976, val loss=1.014, seconds=46.6
+epoch 17/40: train acc=0.679, val acc=0.668, train loss=0.960, val loss=1.030, seconds=45.6
+epoch 18/40: train acc=0.685, val acc=0.669, train loss=0.946, val loss=1.027, seconds=44.1
+epoch 19/40: train acc=0.689, val acc=0.638, train loss=0.929, val loss=1.110, seconds=44.9
+epoch 20/40: train acc=0.690, val acc=0.661, train loss=0.922, val loss=1.046, seconds=49.4
+epoch 21/40: train acc=0.702, val acc=0.664, train loss=0.888, val loss=1.039, seconds=46.9
+epoch 22/40: train acc=0.699, val acc=0.679, train loss=0.883, val loss=1.023, seconds=44.3
+epoch 23/40: train acc=0.698, val acc=0.676, train loss=0.883, val loss=0.993, seconds=46.3
+epoch 24/40: train acc=0.707, val acc=0.683, train loss=0.864, val loss=0.983, seconds=44.9
+epoch 25/40: train acc=0.717, val acc=0.643, train loss=0.844, val loss=1.123, seconds=45.8
+epoch 26/40: train acc=0.718, val acc=0.687, train loss=0.837, val loss=0.970, seconds=45.2
+epoch 27/40: train acc=0.721, val acc=0.671, train loss=0.820, val loss=0.997, seconds=52.0
+epoch 28/40: train acc=0.729, val acc=0.691, train loss=0.806, val loss=0.970, seconds=57.2
+epoch 29/40: train acc=0.731, val acc=0.675, train loss=0.801, val loss=1.039, seconds=56.7
+epoch 30/40: train acc=0.740, val acc=0.689, train loss=0.788, val loss=0.967, seconds=57.1
+epoch 31/40: train acc=0.737, val acc=0.690, train loss=0.776, val loss=0.973, seconds=56.4
+epoch 32/40: train acc=0.737, val acc=0.679, train loss=0.766, val loss=0.995, seconds=58.4
+epoch 33/40: train acc=0.743, val acc=0.661, train loss=0.758, val loss=1.064, seconds=51.0
+epoch 34/40: train acc=0.750, val acc=0.670, train loss=0.741, val loss=1.029, seconds=52.5
+epoch 35/40: train acc=0.749, val acc=0.699, train loss=0.739, val loss=0.964, seconds=59.4
+epoch 36/40: train acc=0.755, val acc=0.680, train loss=0.721, val loss=1.007, seconds=61.2
+epoch 37/40: train acc=0.754, val acc=0.702, train loss=0.718, val loss=0.965, seconds=56.6
+epoch 38/40: train acc=0.755, val acc=0.691, train loss=0.711, val loss=0.981, seconds=56.3
+epoch 39/40: train acc=0.764, val acc=0.708, train loss=0.696, val loss=0.974, seconds=57.4
+epoch 40/40: train acc=0.766, val acc=0.675, train loss=0.684, val loss=1.031, seconds=58.6
+
+
+===== CELLA 40 [code]
+fig, ax = plt.subplots(1, 2, figsize=(9, 3))
+ax[0].plot(history["train_loss"], label="train"); ax[0].plot(history["val_loss"], label="validation")
+ax[0].set_title("Cross-entropy"); ax[0].legend()
+ax[1].plot(history["train_acc"], label="train"); ax[1].plot(history["val_acc"], label="validation")
+ax[1].set_title("Accuracy"); ax[1].legend()
+plt.show()
+--- out image: work/orig/c40_1.png
+
+===== CELLA 41 [markdown]
+# Evaluation
+
+The validation set was used during training to track performance. We now evaluate on the held-out test set and display predictions alongside labels. `model.eval()` disables training-time behavior such as dropout; `torch.no_grad()` avoids retaining backward-pass tensors.
+
+===== CELLA 42 [code]
+test_loss, test_acc = run_epoch(model, test_loader, criterion)
+print(f"held-out test accuracy: {test_acc:.3f}, test loss: {test_loss:.3f}")
+with torch.no_grad():
+    model.eval()
+    examples, targets = next(iter(test_loader))
+    predictions = model(examples[:8].to(device)).argmax(-1).cpu()
+for i in range(8):
+    ax = plt.subplot(2, 4, i + 1)
+    pic = (examples[i] * torch.tensor(std)[:, None, None] + torch.tensor(mean)[:, None, None]).clamp(0, 1)
+    ax.imshow(pic.permute(1, 2, 0)); ax.axis("off")
+    ax.set_title(f"true: {class_names[targets[i].item()]}\npred: {class_names[predictions[i].item()]}", fontsize=9)
+plt.tight_layout(); plt.show()
+--- out stream:
+held-out test accuracy: 0.668, test loss: 1.016
+
+--- out image: work/orig/c42_1.png
+
+===== CELLA 43 [markdown]
+# Spatial representations inside a ViT
+
+Like CNN feature maps, patch-token features can be visualized spatially. After removing `[CLS]`, reshape $196$ patch tokens into a $14\times14$ grid. One embedding coordinate produces one spatial feature map: $F_j\in\mathbb{R}^{14\times14}.$
+
+These are **feature channels**, not class probabilities or attention weights.
+
+===== CELLA 44 [code]
+model.eval()
+with torch.no_grad():
+    tokens = model.forward_features(examples[:1].to(device)).cpu()
+patch_features = tokens[:, 1:]   # remove [CLS]
+grid_side = IMG_SIZE // PATCH_SIZE
+grid = patch_features.reshape(1, grid_side, grid_side, EMBED_DIM)
+fig, axes = plt.subplots(1, 5, figsize=(12, 2.8))
+axes[0].imshow((examples[0] * torch.tensor(std)[:, None, None] + torch.tensor(mean)[:, None, None]).clamp(0, 1).permute(1, 2, 0))
+axes[0].set_title("image")
+for i in range(4):
+    axes[i + 1].imshow(grid[0, :, :, i], cmap="viridis")
+    axes[i + 1].set_title(f"patch channel {i}")
+for a in axes: a.axis("off")
+plt.tight_layout(); plt.show()
+--- out image: work/orig/c44_1.png
+
+===== CELLA 45 [markdown]
+# Attention rollout
+
+A single attention matrix describes interactions in **one layer**. After multiple layers, a final token may receive information through intermediate tokens. Slide 36 introduces **attention rollout** as a way to combine these connections.
+
+First average over the attention heads in each layer, $\bar A^{(l)}=\frac1h\sum_i A_i^{(l)}$. To approximate the residual path, add the identity matrix and normalize each row:
+
+$$ \widetilde A^{(l)}=\operatorname{row\_normalize}(\bar A^{(l)}+I). $$
+
+Compose the layers in **forward order**:
+
+$$ R^{(0)}=I, \qquad R^{(l)}=\widetilde A^{(l)}R^{(l-1)}. $$
+
+The first row of the final rollout matrix describes the estimated flow from the output `[CLS]` token to input tokens. Drop the `[CLS]` column, reshape the 196 patch entries into a $14\times14$ map, and interpolate to $224\times224$ for display.
+
+The first plot below compares per-layer `[CLS]` attention with the combined rollout. The second overlays the resulting heatmap on the image. **Rollout is an approximate visualization of information flow, not a causal attribution of the prediction.**
+
+===== CELLA 46 [code]
+# Inspect how each block changes [CLS] attention, and how rollout composes it.
+@torch.no_grad()
+def rollout_stages(model, batch):
+    model.eval()
+    tokens = model.patch_embed(batch)
+    tokens = torch.cat([model.cls_token.expand(len(batch), -1, -1), tokens], dim=1) + model.pos_embed
+    T = tokens.shape[1]
+    ident = torch.eye(T, device=tokens.device)[None]
+    composed = ident.clone()
+    layer_maps, rollout_maps = [], []
+    for block in model.blocks:
+        normed = block.norm1(tokens)
+        attended, weights = block.attn(normed, normed, normed, need_weights=True, average_attn_weights=False)
+        tokens = tokens + attended
+        tokens = tokens + block.mlp(block.norm2(tokens))
+        mean_attn = weights.mean(dim=1)
+        layer_maps.append(mean_attn[0,0,1:].detach().cpu())
+        adjusted = mean_attn + ident
+        adjusted = adjusted / adjusted.sum(dim=-1, keepdim=True)
+        composed = adjusted @ composed
+        rollout_maps.append(composed[0,0,1:].detach().cpu())
+    return layer_maps, rollout_maps
+
+layers, rollouts = rollout_stages(model, examples[:1].to(device))
+side = IMG_SIZE // PATCH_SIZE
+fig, axes = plt.subplots(2, len(layers), figsize=(3.5*len(layers), 6))
+axes = np.asarray(axes).reshape(2, len(layers))
+for j, (single, cumulative) in enumerate(zip(layers, rollouts)):
+    axes[0,j].imshow(single.reshape(side,side), cmap="magma")
+    axes[0,j].set_title(f"Block {j+1}: [CLS] attention")
+    axes[1,j].imshow(cumulative.reshape(side,side), cmap="magma")
+    axes[1,j].set_title(f"After block {j+1}: rollout")
+for ax in axes.flat: ax.axis("off")
+plt.tight_layout(); plt.show()
+--- out image: work/orig/c46_1.png
+
+===== CELLA 47 [code]
+@torch.no_grad()
+def attention_rollout(model, batch):
+    """Return (B, grid_h, grid_w) CLS-to-patch rollout from every encoder block."""
+    model.eval()
+    batch = batch.to(device)
+    tokens = model.patch_embed(batch)
+    cls = model.cls_token.expand(batch.size(0), -1, -1)
+    tokens = torch.cat([cls, tokens], dim=1) + model.pos_embed
+
+    B, T, _ = tokens.shape
+    rollout = torch.eye(T, device=tokens.device).unsqueeze(0).expand(B, -1, -1).clone()
+    identity = torch.eye(T, device=tokens.device).unsqueeze(0)
+
+    for block in model.blocks:
+        normalized = block.norm1(tokens)
+        attended, weights = block.attn(
+            normalized, normalized, normalized,
+            need_weights=True, average_attn_weights=False
+        )
+        # Mirror EncoderBlock.forward while collecting the attention weights.
+        tokens = tokens + attended
+        tokens = tokens + block.mlp(block.norm2(tokens))
+
+        attention = weights.mean(dim=1)       # (B, T, T); average heads
+        attention = attention + identity      # residual / identity path
+        attention = attention / attention.sum(dim=-1, keepdim=True)
+        rollout = attention @ rollout         # compose layers in forward order
+
+    grid = model.patch_embed.num_patches
+    side = math.isqrt(grid)
+    assert side * side == grid, "This display assumes a square patch grid."
+    return rollout[:, 0, 1:].reshape(B, side, side).cpu()
+
+heat = attention_rollout(model, examples[:4])
+fig, axes = plt.subplots(2, 4, figsize=(12, 6))
+for i in range(4):
+    pic = (examples[i] * torch.tensor(std)[:, None, None] +
+           torch.tensor(mean)[:, None, None]).clamp(0, 1).permute(1, 2, 0)
+    axes[0, i].imshow(pic)
+    axes[0, i].axis("off")
+    axes[0, i].set_title("Input image")
+
+    # Bilinear interpolation only makes the patch-level map easier to view.
+    upsampled = F.interpolate(
+        heat[i][None, None], size=(IMG_SIZE, IMG_SIZE),
+        mode="bilinear", align_corners=False
+    )[0, 0]
+    axes[1, i].imshow(pic)
+    axes[1, i].imshow(upsampled, cmap="jet", alpha=0.55)
+    axes[1, i].axis("off")
+    axes[1, i].set_title("CLS attention rollout")
+plt.suptitle("Lecture slide 36: ViT attention rollout (approximate)")
+plt.tight_layout()
+plt.show()
+--- out image: work/orig/c47_1.png
+
+===== CELLA 48 [markdown]
+After 40 epochs, the rollout is concentrated on a few regions instead of being spread over the image:
+
+- **Chain saw:** the peak is on the red ear defenders, not the saw. Ear protection appears in many chain-saw photos, so the model may use it as a context cue for the class.
+- **Cassette player:** the peaks are on small, high-contrast details (the colored buttons and the side controls).
+- **Church (interior):** small spots at the edges, little on the altar; the map is mostly diffuse.
+- **Church (exterior):** the illuminated tower and its **reflection** on the wet ground. The model does not separate the object from its mirror image.
+
+A small model trained from scratch tends to focus on bright, colored and high-contrast regions, and on context that correlates with the label.
+
+An interesting test would be to check whether the ear defenders actually drive the "chain saw" prediction, occlude them and compare the class probability. 
+
+===== CELLA 49 [markdown]
+---
+# Pretrained ViT-B/16
+
+===== CELLA 50 [code]
+from torchvision.models import vit_b_16, ViT_B_16_Weights
+
+vit_weights = ViT_B_16_Weights.IMAGENET1K_V1
+pretrained_vit = vit_b_16(weights=vit_weights).to(device).eval()
+print('Pretrained ViT-B/16:', len(pretrained_vit.encoder.layers), 'blocks;',
+      pretrained_vit.hidden_dim, 'embedding dimensions')
+--- out stream:
+Pretrained ViT-B/16: 12 blocks; 768 embedding dimensions
+
+
+===== CELLA 51 [markdown]
+### What did the positional embeddings learn?
+
+Our model's `pos_embed` started as random noise (std 0.02). Nothing tells the model that patch 15 lies directly below patch 1; it has to learn this from data.
+
+For each patch position we compute the **cosine similarity** between its positional embedding and the embeddings of all 196 positions, then reshape the result into a 14 × 14 map. The large figure tiles these maps in the same layout as the patch grid: the small square in row $r$, column $c$ shows how similar position $(r, c)$ is to every other position. This is the same figure as Fig. 7 in Dosovitskiy et al. (2021).
+
+===== CELLA 52 [code]
+@torch.no_grad()
+def pos_similarity_grid(pos):
+    """pos: (1+N, D) including [CLS]. Returns a (N, N) tiled image of 14x14 cosine maps."""
+    p = F.normalize(pos[1:].float(), dim=-1)          # drop [CLS], unit vectors (196, D)
+    side = math.isqrt(p.shape[0])
+    sim = (p @ p.T).reshape(side, side, side, side)    # [query row, query col, key row, key col]
+    return sim.permute(0, 2, 1, 3).reshape(side * side, side * side), side
+
+pre_tiles, side = pos_similarity_grid(pretrained_vit.encoder.pos_embedding[0].cpu())
+our_tiles, _ = pos_similarity_grid(model.pos_embed[0].cpu())
+
+fig, axes = plt.subplots(1, 2, figsize=(13, 6.5))
+for ax, tiles, title in [(axes[0], our_tiles, f"Our ViT after {EPOCHS} epoch(s)"),
+                         (axes[1], pre_tiles, "Pretrained ViT-B/16")]:
+    im = ax.imshow(tiles, cmap="viridis", vmin=-1, vmax=1)
+    for e in range(side, side * side, side):           # separate the 14x14 tiles
+        ax.axhline(e - 0.5, color="white", linewidth=0.4)
+        ax.axvline(e - 0.5, color="white", linewidth=0.4)
+    ax.set_title(title); ax.axis("off")
+fig.colorbar(im, ax=axes, shrink=0.8, label="cosine similarity")
+plt.show()
+
+# Zoom in on three positions of the pretrained model
+fig, axes = plt.subplots(1, 3, figsize=(9, 3))
+sim_pre = pre_tiles.reshape(side, side, side, side).permute(0, 2, 1, 3)
+for ax, (r, c) in zip(axes, [(0, 0), (7, 7), (3, 11)]):
+    ax.imshow(sim_pre[r, c], cmap="viridis", vmin=-1, vmax=1)
+    ax.plot(c, r, "r+", markersize=12)
+    ax.set_title(f"position ({r}, {c})"); ax.axis("off")
+plt.suptitle("ViT-B/16: similarity of one position to all others"); plt.tight_layout(); plt.show()
+--- out image: work/orig/c52_1.png
+--- out image: work/orig/c52_2.png
+
+===== CELLA 53 [markdown]
+**Questions.** Nothing in `pos_embed` says "2D grid", so how did ViT-B/16 learn row and column structure? Why is our model's map mostly noise? If we fine-tuned ViT-B/16 at 384 × 384 (24 × 24 patches), how could we reuse these 196 embeddings?
+
+===== CELLA 54 [markdown]
+**Answers.**
+
+1. Positional embeddings are trained. Neighboring patches are correlated in natural images, so on 1.3M images ViT-B/16 learns that positions in the same row or column are similar (the cross in the zoomed maps).
+
+2. Our model learned only "center vs. border": border positions are similar to each other, interior positions are similar to each other. Imagenette objects are mostly centered, and 9.5k images are too few to learn exact rows and columns.
+
+3. Reshape the 196 embeddings to 14 × 14, interpolate to 24 × 24, flatten, and keep the `[CLS]` embedding: 577 positions.
+
+===== CELLA 55 [markdown]
+### Attention rollout with a pretrained ViT-B/16
+
+To visualize more developed representations, we now use `torchvision.models.vit_b_16` with **ImageNet-1K pretrained weights**. It uses **16 × 16 patches**, $N=196$, $D=768$, 12 attention heads and 12 encoder blocks. Unlike our ten-class model, its classifier predicts among the 1000 ImageNet categories, which include all ten Imagenette classes.
+
+`torchvision`'s normal inference path does not return attention matrices. Below we reproduce the encoder's **inference-time** forward pass and request per-head attention weights at each block, without modifying the pretrained parameters. We average heads, add identity for residual paths, normalize rows, and multiply the matrices from early to late blocks. The resulting `[CLS]`-to-patch map is displayed as a 14 × 14 heatmap and overlaid on the photograph.
+
+===== CELLA 56 [code]
+@torch.no_grad()
+def pretrained_rollout(vit, batch, discard_ratio=0.65):
+    """Standard and filtered attention rollout, plus per-block [CLS] maps.
+
+    discard_ratio removes the weakest off-diagonal connections BEFORE adding
+    the identity/residual path. This is an optional visualization heuristic.
+    """
+    vit.eval()
+    batch = batch.to(device)
+    B = batch.size(0)
+    tokens = vit._process_input(batch)
+    tokens = torch.cat([vit.class_token.expand(B, -1, -1), tokens], dim=1)
+    tokens = vit.encoder.dropout(tokens + vit.encoder.pos_embedding)
+    T = tokens.size(1)
+    identity = torch.eye(T, device=tokens.device).unsqueeze(0)
+    raw = identity.expand(B, -1, -1).clone()
+    filtered = raw.clone()
+    layer_cls_maps = []
+    diagonal = torch.eye(T, device=tokens.device, dtype=torch.bool)[None]
+
+    for block in vit.encoder.layers:
+        h = block.ln_1(tokens)
+        attended, head_weights = block.self_attention(
+            h, h, h, need_weights=True, average_attn_weights=False
+        )
+        tokens = tokens + block.dropout(attended)
+        tokens = tokens + block.mlp(block.ln_2(tokens))
+
+        attn = head_weights.mean(dim=1)  # (B, 197, 197)
+        layer_cls_maps.append(attn[:, 0, 1:].reshape(B, 14, 14).cpu())
+
+        a = attn + identity
+        a = a / a.sum(dim=-1, keepdim=True)
+        raw = a @ raw
+
+        # Threshold weakest off-diagonal attention values separately per row.
+        off_diag = attn.masked_fill(diagonal, float('inf'))
+        threshold = torch.quantile(off_diag, discard_ratio, dim=-1, keepdim=True)
+        sparse = attn.masked_fill((attn < threshold) & ~diagonal, 0)
+        sparse = sparse + identity
+        sparse = sparse / sparse.sum(dim=-1, keepdim=True)
+        filtered = sparse @ filtered
+
+    tokens = vit.encoder.ln(tokens)
+    logits = vit.heads(tokens[:, 0])
+    return (raw[:, 0, 1:].reshape(B, 14, 14).cpu(),
+            filtered[:, 0, 1:].reshape(B, 14, 14).cpu(),
+            layer_cls_maps, logits.cpu())
+
+# Display 4 images to avoid interpreting an exceptional example as typical.
+pre_batch = examples[:4]
+pre_images = list(pre_batch)
+pre_targets = targets[:4].tolist()
+
+pre_raw, pre_filtered, pre_layers, pre_logits = pretrained_rollout(pretrained_vit, pre_batch)
+for i, target in enumerate(pre_targets):
+    predicted = pre_logits[i].argmax().item()
+    print(f'Image {i}: Imagenette = {class_names[target]} | '
+          f'ViT-B/16 prediction = {vit_weights.meta["categories"][predicted]}')
+print('Rollout maps:', tuple(pre_raw.shape))
+--- out stream:
+Image 0: Imagenette = chain saw | ViT-B/16 prediction = chain saw
+Image 1: Imagenette = cassette player | ViT-B/16 prediction = cassette player
+Image 2: Imagenette = church | ViT-B/16 prediction = altar
+Image 3: Imagenette = church | ViT-B/16 prediction = church
+Rollout maps: (4, 14, 14)
+
+
+===== CELLA 57 [code]
+# Raw and filtered rollouts are intentionally displayed side by side.
+def upsample_and_scale(grid):
+    # Normalize each heatmap only for display: colors are not calibrated probabilities.
+    up = F.interpolate(grid[None, None], size=(IMG_SIZE, IMG_SIZE),
+                       mode='bilinear', align_corners=False)[0, 0]
+    return ((up - up.min()) / (up.max() - up.min() + 1e-8)).numpy()
+
+fig, axes = plt.subplots(len(pre_images), 5, figsize=(17, 3.4 * len(pre_images)),
+                         squeeze=False)
+for i, image in enumerate(pre_images):
+    original = (image * torch.tensor(std)[:, None, None] +
+                torch.tensor(mean)[:, None, None]).clamp(0, 1).permute(1, 2, 0).numpy()
+    axes[i, 0].imshow(original)
+    axes[i, 0].set_title('Input image')
+
+    # Show per-layer [CLS] attention; different blocks can attend very differently.
+    for j, layer_idx in enumerate([5, 11], start=1):
+        axes[i, j].imshow(pre_layers[layer_idx][i], cmap='magma')
+        axes[i, j].set_title(f'Block {layer_idx+1} [CLS] attention')
+
+    axes[i, 3].imshow(original)
+    axes[i, 3].imshow(upsample_and_scale(pre_raw[i]), cmap='jet', alpha=0.5)
+    axes[i, 3].set_title('Standard rollout')
+    axes[i, 4].imshow(original)
+    axes[i, 4].imshow(upsample_and_scale(pre_filtered[i]), cmap='jet', alpha=0.5)
+    axes[i, 4].set_title('Filtered rollout (heuristic)')
+    for ax in axes[i]:
+        ax.axis('off')
+plt.tight_layout()
+plt.show()
+--- out image: work/orig/c57_1.png
+
+===== CELLA 58 [markdown]
+**Questions.** Why is the final rollout different from the last block's `[CLS]` attention? What information does the identity matrix retain? If the pretrained model predicts the right class but highlights the background, is attention rollout sufficient evidence of the classifier's reasoning? Compare the maps with the one-epoch model above.
+
+
+===== CELLA 59 [markdown]
+- **Block 6** attends mostly to the object: the church tower, the man's head and arms, patches across the cassette player.
+- **Block 12** attends to a few isolated tokens, mostly in the background: sky and water in the exterior church, the borders of the cassette player and interior church images, the grass in the chain-saw image. These are the high-norm "register-like" tokens: background patches that store global information.
+- **Standard rollout** inherits these tokens. In three of the four images the peak lies in the background (dark trees, the corner of the cassette image, the log and the grass), although all four predictions are correct (the interior church is predicted as "altar", which matches the image).
+- **Filtered rollout** removes the weak connections and brings out the object in the church images (the tower, the altarpiece panels). The background peaks remain.
+
+Compared with our model, the pretrained ViT is far more accurate, but its maps are less centered on the objects. This is a general tendency rather than a property of this image: Darcet et al. (2024) observe the high-norm background tokens in large, long-trained ViTs (supervised, CLIP and DINOv2) and not in small or briefly trained ones. Better accuracy does not imply more interpretable attention.
+
+===== CELLA 60 [markdown]
+# Questions:
+
+1. **Patch count:** with a $224\times224$ RGB image and $P=16$, calculate $N$ and $N+1$. What if $P=8$?
+2. **Scaling:** what changes in the attention distribution if $1/\sqrt{d_k}$ is removed? Why is softmax row-wise?
+3. **Position:** what happens if the positional embeddings are all zero? Can self-attention infer the original patch arrangement from the token order alone?
+4. **Cost:** halving $P$ approximately multiplies $N$ by 4. What happens to the $N\times N$ attention matrix and its compute cost?
+5. **Rollout:** why are the identity matrix and all encoder blocks involved?
+6. **Parameters**: how many params has the model? Where are most of them: patch embedding, attention, MLP or head? How does this change for ViT-B/16?
+
+===== CELLA 61 [markdown]
+**Answers.**
+
+1. $N=(224/16)^2=196$, $N+1=197$. With $P=8$: $N=28^2=784$, $N+1=785$.
+
+2. Without $1/\sqrt{d_k}$, the scores have variance $\approx d_k$ instead of $\approx 1$. The softmax saturates: almost all weight goes to one key, and the gradients become very small. Softmax is row-wise because each row is the distribution of one query over all keys; the weights of each query must sum to 1.
+
+3. With zero positional embeddings, the encoder is permutation-equivariant and `[CLS]` is permutation-invariant: shuffling the patches gives the same prediction.
+
+4. The attention matrix has $(N+1)^2$ entries, so $4\times$ more tokens give about $16\times$ more entries, memory and compute for $QK^\top$ and $AV$. The linear layers grow only $4\times$.
+
+5. A token reaches the output through two paths in every block: the attention and the residual connection. The identity matrix models the residual path and the attention matrices of all blocks are multiplied to trace the output back to the input patches.
+
+
+===== CELLA 62 [code]
+def param_groups(m):
+    """Count parameters per component; works for our ViT and torchvision's vit_b_16."""
+    groups = dict.fromkeys(["patch embedding", "[CLS] + position", "attention", "MLP", "LayerNorm", "head"], 0)
+    for name, p in m.named_parameters():
+        if "patch_embed" in name or "conv_proj" in name:
+            g = "patch embedding"
+        elif name in ("cls_token", "pos_embed", "class_token", "encoder.pos_embedding"):
+            g = "[CLS] + position"
+        elif "attn" in name or "self_attention" in name:
+            g = "attention"
+        elif "mlp" in name:
+            g = "MLP"
+        elif "norm" in name or ".ln" in name:
+            g = "LayerNorm"
+        elif "head" in name:
+            g = "head"
+        else:
+            raise ValueError(f"unassigned parameter: {name}")
+        groups[g] += p.numel()
+    return groups
+
+
+ours, vitb = param_groups(model), param_groups(pretrained_vit)
+tot_ours, tot_vitb = sum(ours.values()), sum(vitb.values())
+
+print("6.")
+print(f"{'':18s} {'our ViT':>12s} {'share':>7s} {'ViT-B/16':>13s} {'share':>7s}")
+for g in ours:
+    print(f"{g:18s} {ours[g]:>12,} {100*ours[g]/tot_ours:>6.1f}% {vitb[g]:>13,} {100*vitb[g]/tot_vitb:>6.1f}%")
+print(f"{'total':18s} {tot_ours:>12,} {'':>7s} {tot_vitb:>13,}")
+
+assert tot_ours == sum(p.numel() for p in model.parameters())
+assert tot_vitb == sum(p.numel() for p in pretrained_vit.parameters())
+--- out stream:
+6.
+                        our ViT   share      ViT-B/16   share
+patch embedding          73,824   23.2%       590,592    0.7%
+[CLS] + position         19,008    6.0%       152,064    0.2%
+attention                74,496   23.5%    28,348,416   32.7%
+MLP                     148,416   46.7%    56,669,184   65.5%
+LayerNorm                   960    0.3%        38,400    0.0%
+head                        970    0.3%       769,000    0.9%
+total                   317,674            86,567,656
+
+
+===== CELLA 63 [markdown]
+# Optional experiments
+
+**Change one thing at a time, and write down your prediction before running.**
+
+- PATCH_SIZE=8. Predict the grid size, sequence length and size of the attention tensor. What happens to training time and GPU memory?
+- No positional embeddings. Zero pos_embed and freeze it. Shuffle the patch tokens of an image: do the logits change? Compare with the original model. How much accuracy is lost?
+- Mean pooling. Classify from the mean of the patch tokens instead of [CLS]. What role does [CLS] play now? How must the rollout visualization change?
+- CIFAR-10. Why is PATCH_SIZE=16 a bad choice at 32×32? Pick a patch size, retrain, and compare with your CNN from the previous lab.
+
+===== CELLA 64 [markdown]
+**Answers.**
+
+**1. `PATCH_SIZE=8`.**
+
+| | $P=16$ | $P=8$ |
+|---|---|---|
+| grid | $14\times14$ | $28\times28$ |
+| patches $N$ / tokens $N+1$ | 196 / 197 | 784 / 785 |
+| values per patch $P^2C$ | 768 | 192 |
+| attention tensor `(B, h, T, T)` | `(32, 4, 197, 197)` | `(32, 4, 785, 785)` |
+| patch-embedding parameters | 73,824 | 18,528 |
+| positional-embedding parameters | 18,912 | 75,360 |
+
+Halving $P$ multiplies the number of tokens by 4 and the size of the attention tensor by about 16 ($785^2/197^2\approx 15.9$). The linear layers (QKV, $W^O$, MLP) grow linearly with $T$, attention grows with $T^2$, so one epoch becomes several times slower and GPU memory grows accordingly; reduce `BATCH_SIZE` if memory runs out. The total number of parameters stays almost the same (≈ 319k): the patch embedding shrinks and the positional embedding grows. The rollout maps become finer ($28\times28$). Smaller patches usually help accuracy after long training; after a few epochs the difference can be small.
+
+**2. No positional embeddings.**  The model sees the image as a bag of patches. The accuracy drop is present but often smaller than expected on Imagenette.
+
+**3. Mean pooling.**
+
+```python
+def forward(self, images):
+    return self.head(self.forward_features(images)[:, 1:].mean(dim=1))
+```
+
+<div class="alert alert-block alert-info">
+
+**`[CLS]` vs. mean pooling.** With mean pooling, `[CLS]` is not needed and can be removed; both reach similar accuracy (Dosovitskiy et al., 2021; Beyer et al., 2022).
+
+If `[CLS]` is kept without feeding the head, it acts as a **register**: an extra token where patches store and read global information (Darcet et al., 2024, *Vision Transformers Need Registers*). Without registers, large ViTs reuse background patches for this, which causes the high-norm tokens and the bright spots in the late-layer `[CLS]` attention seen above.
+
+</div>
+
+**4. CIFAR-10.** At $32\times32$ with $P=16$ the image is split into $2\times2=4$ patches. Each patch covers a quarter of the image, the patch embedding compresses 768 values into one token, and attention operates on 5 tokens: almost no spatial structure is left. Use $P=4$ ($8\times8=64$ patches, 65 tokens) or $P=2$ (256 patches).
+
+Required changes: `IMG_SIZE=32`, CIFAR normalization statistics, `RandomCrop(32, padding=4)` and horizontal flip for training, `class_names = train_set.classes`, a validation split taken from the training set, and no pretrained ViT-B/16 section (it expects $224\times224$ ImageNet images).
+
+===== CELLA 65 [markdown]
+---
+# Optional interview-style exercises
+
+These are optional and separate from the runnable ViT. The interviews are usually about **implementations, dimensions, masking, softmax axes, and test cases**.
+
+===== CELLA 66 [markdown]
+## A. Scaled dot-product attention with an optional mask
+
+**Task.** Implement
+
+$$\operatorname{Attention}(Q,K,V)=\operatorname{softmax}\left(\frac{QK^\top}{\sqrt{d_k}}+M\right)V,$$
+
+where $M_{ij}=0$ for permitted positions and $-\infty$ for forbidden positions. Make sure each query row has at least one permitted key. Check the output against PyTorch's `scaled_dot_product_attention`.
+
+**Follow-up.** Where is the mask added: before or after softmax? Why? Is a mask required for image classification with a ViT encoder?
+
+===== CELLA 67 [markdown]
+**Answers.**
+
+The mask is added before softmax. Since $e^{-\infty}=0$, forbidden keys get zero weight and softmax renormalizes over the permitted keys, so each row still sums to 1.
+
+ViT classification needs no mask: the whole image is available at once, every patch may attend to every other patch, and every image has the same number of tokens (197 at 224 × 224 with $P=16$). A vision model needs a mask for autoregressive image or video generation, for streaming video, and for batches of images with different resolutions.
+
+For example, an autoregressive model generates a video one frame at a time: frame $t$ is produced from frames $1,\dots,t-1$, then appended to the input to produce frame $t+1$. At generation time the future frames do not exist yet.
+During training the whole clip is available, and all frames are predicted in parallel in a single forward pass. Without a mask, the tokens that predict frame 3 can attend to frame 3 itself and copy it. The training loss becomes almost zero and the model learns nothing it can use at generation time. The causal mask removes the future frames from the attention, so training matches generation.
+
+
+===== CELLA 68 [code]
+def masked_attention(q, k, v, mask=None):
+    scores = q @ k.transpose(-2, -1) / math.sqrt(q.shape[-1])
+    if mask is not None:
+        scores = scores.masked_fill(~mask, float("-inf"))   # additive M: 0 where allowed, -inf where forbidden
+    weights = scores.softmax(dim=-1)
+    return weights @ v, weights
+
+===== CELLA 69 [code]
+torch.manual_seed(0)
+B, h, T, d_k = 2, 4, 6, 8
+q, k, v = (torch.randn(B, h, T, d_k) for _ in range(3))
+
+# 1. No mask: must equal plain attention
+out, w = masked_attention(q, k, v)
+torch.testing.assert_close(out, F.scaled_dot_product_attention(q, k, v))
+
+# 2. Random mask; every query keeps at least itself
+mask = torch.rand(T, T) > 0.5
+mask.fill_diagonal_(True)
+out, w = masked_attention(q, k, v, mask)
+torch.testing.assert_close(out, F.scaled_dot_product_attention(q, k, v, attn_mask=mask))
+assert torch.all(w[..., ~mask] == 0), "forbidden keys must get exactly zero weight"
+torch.testing.assert_close(w.sum(-1), torch.ones(B, h, T))
+
+# 3. Causal mask: token i sees only tokens 0..i (as in GPT-style decoders)
+causal = torch.tril(torch.ones(T, T, dtype=torch.bool))
+out, w = masked_attention(q, k, v, causal)
+torch.testing.assert_close(out, F.scaled_dot_product_attention(q, k, v, is_causal=True))
+
+print("PASS")
+--- out stream:
+PASS
+
+
+===== CELLA 70 [markdown]
+## B. Fused projection and heads
+
+Let $T = N+1 = 197$ tokens, $B=2$, $D=96$, $h=4$, so each head has width $d_k = D/h = 24$.
+**Fill in the table before running the code**, then run it to check your answers.
+
+| Step | Operation | Shape |
+|---|---|---|
+| 1 | input $X$ | `( ?, ?, ? )` |
+| 2 | fused projection $XW^{QKV}$, with $W^{QKV}\in\mathbb{R}^{D\times 3D}$ | |
+| 3 | split into $Q$ (same for $K$, $V$), heads separated | |
+| 4 | scores $QK^\top/\sqrt{d_k}$ and weights $A=\operatorname{softmax}(\cdot)$ | |
+| 5 | per-head output $AV$ | |
+| 6 | concatenate heads | |
+| 7 | output projection $\cdot\,W^O$, with $W^O\in\mathbb{R}^{D\times D}$ | |
+
+**Questions.**
+1. Why does the fused projection produce $3D$ features? Does the factor 3 depend on $h$?
+2. Along which dimension of $A$ is softmax applied, and what does each row mean?
+3. When splitting into heads, do we split the tokens or the embedding dimensions?
+4. In step 6, why do we need `transpose(1, 2)` before `reshape`? What goes wrong if we call `values.reshape(B, T, D)` directly, and would the code crash?
+5. Why is $W^O$ needed after concatenating the heads?
+
+===== CELLA 71 [markdown]
+**Answers.**
+
+| Step | Operation | Shape |
+|---|---|---|
+| 1 | input $X$ | `(2, 197, 96)` |
+| 2 | fused projection $XW^{QKV}$ | `(2, 197, 288)` |
+| 3 | $Q$, $K$, $V$, heads separated | `(2, 4, 197, 24)` each |
+| 4 | scores and weights $A$ | `(2, 4, 197, 197)` |
+| 5 | per-head output $AV$ | `(2, 4, 197, 24)` |
+| 6 | concatenate heads | `(2, 197, 96)` |
+| 7 | output projection | `(2, 197, 96)` |
+
+1. Each token produces a query, a key and a value, each of width $D$: together $3D$. The factor 3 is independent of $h$. The heads split each $D$-dimensional vector into $h$ parts of width $d_k$, so the QKV projection has $3D^2$ weights for any $h$.
+
+2. Softmax is applied along the key axis (`dim=-1`). Row $i$ of $A$ is a probability distribution over the $T$ keys and gives the weight of each value vector in the output of token $i$.
+
+3. The embedding dimensions. Every head sees all $T=197$ tokens, each restricted to a $d_k=24$-dimensional subspace.
+
+4. **Important.** `values` has shape `(B, h, T, d_k)`. A direct `reshape(B, T, D)` reads the memory in this order (head 0 for all tokens, then head 1, ...) and cuts it into rows of 96 values: each row then mixes several tokens of one head. `transpose(1, 2)` first gives `(B, T, h, d_k)`, so each row contains the $h$ head outputs of one token.
+
+   The same issue appears with `.T`. On a 2-D matrix, `.T` swaps the two axes. With batch and head dimensions, `.T` reverses **all** axes:
+
+   ```python
+   values.shape                  # (2, 4, 197, 24)
+   values.T.shape                # (24, 197, 4, 2)   batch and heads end up last
+   values.transpose(1, 2).shape  # (2, 197, 4, 24)   only heads and tokens swapped
+   k.transpose(-2, -1).shape     # (2, 4, 24, 197)   correct for QK^T
+   ```
+
+   Always name the axes to swap: `transpose(1, 2)` to merge heads, `transpose(-2, -1)` (or `.mT`) for $K^\top$.
+
+5. After concatenation, each block of $d_k$ coordinates still comes from a single head. $W^O\in\mathbb{R}^{D\times D}$ combines the heads and maps the result back to the residual stream. With $W^{QKV}$ this gives $4D^2$ attention weights per block.
+
+===== CELLA 72 [code]
+def my_mhsa(x, qkv_proj, out_proj, h):
+    """Multi-head self-attention by hand. Do NOT use split_qkv or attention_from_scratch.
+    Returns the output and a dict of intermediate tensors."""
+    B, T, D = x.shape
+    d_k = D // h
+
+    qkv = qkv_proj(x)                                                   # (B, T, 3D)
+    q, k, v = qkv.reshape(B, T, 3, h, d_k).permute(2, 0, 3, 1, 4)       # each (B, h, T, d_k)
+    scores = q @ k.transpose(-2, -1) / math.sqrt(d_k)                   # (B, h, T, T)
+    attn = scores.softmax(dim=-1)                                       # (B, h, T, T)
+    values = attn @ v                                                   # (B, h, T, d_k)
+    merged = values.transpose(1, 2).reshape(B, T, D)                    # (B, T, D)
+    out = out_proj(merged)                                              # (B, T, D)
+
+    return out, dict(qkv=qkv, q=q, scores=scores, attn=attn, values=values, merged=merged, out=out)
+
+
+B, T, D, h = 2, 197, 96, 4
+
+predicted = {
+    "qkv":    (2, 197, 288),
+    "q":      (2, 4, 197, 24),
+    "scores": (2, 4, 197, 197),
+    "attn":   (2, 4, 197, 197),
+    "values": (2, 4, 197, 24),
+    "merged": (2, 197, 96),
+    "out":    (2, 197, 96),
+}
+
+===== CELLA 73 [code]
+torch.manual_seed(0)
+x = torch.randn(B, T, D)
+mha = nn.MultiheadAttention(D, h, batch_first=True)
+
+qkv_proj, out_proj = nn.Linear(D, 3 * D), nn.Linear(D, D)
+with torch.no_grad():
+    qkv_proj.weight.copy_(mha.in_proj_weight); qkv_proj.bias.copy_(mha.in_proj_bias)
+    out_proj.weight.copy_(mha.out_proj.weight); out_proj.bias.copy_(mha.out_proj.bias)
+
+out, steps = my_mhsa(x, qkv_proj, out_proj, h)
+for name, tensor in steps.items():
+    guess = predicted[name]
+    status = "fill in your prediction" if guess is None else ("OK" if tuple(guess) == tuple(tensor.shape) else "WRONG")
+    print(f"{name:7s} {str(tuple(tensor.shape)):22s} predicted {str(guess):22s} {status}")
+
+expected, _ = mha(x, x, x, need_weights=False)
+torch.testing.assert_close(out, expected, atol=1e-5, rtol=1e-5)
+print("PASS: matches nn.MultiheadAttention")
+--- out stream:
+qkv     (2, 197, 288)          predicted (2, 197, 288)          OK
+q       (2, 4, 197, 24)        predicted (2, 4, 197, 24)        OK
+scores  (2, 4, 197, 197)       predicted (2, 4, 197, 197)       OK
+attn    (2, 4, 197, 197)       predicted (2, 4, 197, 197)       OK
+values  (2, 4, 197, 24)        predicted (2, 4, 197, 24)        OK
+merged  (2, 197, 96)           predicted (2, 197, 96)           OK
+out     (2, 197, 96)           predicted (2, 197, 96)           OK
+PASS: matches nn.MultiheadAttention
+
+
+===== CELLA 74 [markdown]
+## C. Numerically stable softmax
+
+Attention normalizes each row of scores with softmax:
+
+$$\operatorname{softmax}(x)_i=\frac{e^{x_i}}{\sum_j e^{x_j}}.$$
+
+In float32, $e^{x}$ overflows to `inf` for $x \gtrsim 88$, and `inf / inf = nan`. Large attention logits (e.g. without the $1/\sqrt{d_k}$ factor) can trigger this.
+
+**Task.** Implement `softmax_stable(x, dim=-1)` without calling `torch.softmax`. Use the fact that softmax is unchanged when the same constant $c$ is subtracted from every entry:
+
+$$\frac{e^{x_i-c}}{\sum_j e^{x_j-c}}=\frac{e^{-c}\,e^{x_i}}{e^{-c}\sum_j e^{x_j}}.$$
+
+Which $c$ guarantees that no exponent is positive?
+
+**Follow-up.**
+1. Show that with this choice, the denominator is always ≥ 1. Why does this rule out division by zero?
+2. Masked positions are set to $-\infty$ (Exercise A). What does your function return for a partly masked row? For a *fully* masked row? Why does Exercise A require at least one permitted key per query?
+3. Implement `log_softmax_stable`. Why is `torch.log(softmax(x))` a bad idea for computing cross-entropy?
+
+===== CELLA 75 [markdown]
+**Answers.**
+
+1. With $c=\max_j x_j$, every exponent satisfies $x_j-c\le 0$. For the index $m$ of the maximum, $e^{x_m-c}=e^0=1$, and all other terms are non-negative:
+
+$$\sum_j e^{x_j-c}\;\ge\;1.$$
+
+The denominator cannot be zero, even if all other terms underflow. Since no exponent is positive, $e^{x}$ cannot overflow either.
+
+2. In a partly masked row, $e^{-\infty}=0$: masked positions receive zero weight and the remaining weights still sum to 1. In a fully masked row, $c=-\infty$ and $-\infty-(-\infty)$ is undefined, so the output is `nan` (`torch.softmax` behaves the same way). Without the shift the denominator would be $0$, giving $0/0$. A query with no permitted key has no valid attention distribution; the `nan` propagates to $AV$ and to the gradients. This is why Exercise A requires at least one permitted key per row.
+
+3. For a very negative logit, $\operatorname{softmax}(x)_i$ underflows to $0$ in float32 and $\log 0=-\infty$; the loss becomes `inf` and the gradients `nan`. Computing the logarithm directly avoids the small probability:
+
+$$\log\operatorname{softmax}(x)_i=x_i-c-\log\sum_j e^{x_j-c},\qquad c=\max_j x_j.$$
+
+This is the log-sum-exp trick. `nn.CrossEntropyLoss` therefore takes logits and applies `log_softmax` internally.
+
+===== CELLA 76 [code]
+def softmax_naive(x, dim=-1):
+    e = torch.exp(x)
+    return e / e.sum(dim=dim, keepdim=True)
+
+
+def softmax_stable(x, dim=-1):
+    x_max = x.amax(dim=dim, keepdim=True)    # per-row constant c = max
+    e = torch.exp(x - x_max)                 # every exponent <= 0, so nothing overflows
+    return e / e.sum(dim=dim, keepdim=True)  # denominator >= 1 (the max term is e^0 = 1)er?
+
+# --- tests ---
+big = torch.tensor([1000., 1001., 1002.])
+print("naive :", softmax_naive(big))                  # tensor([nan, nan, nan])
+print("stable:", softmax_stable(big))
+
+torch.testing.assert_close(softmax_stable(big), torch.softmax(big, dim=-1))
+
+scores = 50 * torch.randn(2, 4, 197, 197)             # attention-shaped, large logits
+torch.testing.assert_close(softmax_stable(scores), scores.softmax(dim=-1))
+torch.testing.assert_close(softmax_stable(scores, dim=1), scores.softmax(dim=1))
+
+masked = torch.randn(3, 5)
+masked[:, 3:] = float("-inf")                         # last two keys forbidden
+out = softmax_stable(masked)
+assert torch.all(out[:, 3:] == 0) and torch.allclose(out.sum(-1), torch.ones(3))
+print("PASS")
+--- out stream:
+naive : tensor([nan, nan, nan])
+stable: tensor([0.0900, 0.2447, 0.6652])
+PASS
+

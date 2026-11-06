@@ -1,0 +1,251 @@
+<div class="sec" id="l18-libro"><h2>Studia dal libro</h2><span>Torralba, Isola, Freeman · cap. 26 · Prince cap. 12 · circa 2 ore</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Cosa leggere, in ordine</h3>
+    <div class="meta">Il lab non ha slide: la teoria è nella <a href="#L17">L17</a> (slide 24–39) e in questi paragrafi</div>
+    <ol>
+      <li><a href="https://visionbook.mit.edu/transformers.html">Cap. 26 Transformers</a>, in quest'ordine: § 26.2 (il limite delle CNN: neuroni lontani non si parlano, fig. 26.1), § 26.3–26.4 (l'idea di attenzione, i token, la tokenizzazione della fig. 26.2, mescolare e modificare token), § 26.6 con 26.6.1–26.6.3 (attenzione query-key-value, self-attention con eq. 26.5–26.6, multi-testa con eq. 26.7), § 26.7 (l'architettura completa: è il ViT, fig. 26.14), § 26.8 (equivarianza alle permutazioni), § 26.9 (CNNs in Disguise: tokenizzazione = conv, QKV e MLP = conv 1×1), § 26.10 (attenzione mascherata, per l'esercizio A), § 26.11 (codici posizionali).</li>
+      <li><b>Prince, Understanding Deep Learning, cap. 12</b>: § 12.2 (self-attention a prodotto scalare, con la forma matriciale del § 12.2.4), § 12.3 (codifiche posizionali, scala √D<sub>q</sub>, teste multiple), § 12.4 (lo strato transformer completo), § 12.10.2–12.10.3 (ViT e transformer multi-scala). Le note di fine capitolo, paragrafo sul training dei transformer (warm-up, Adam, posizione della LayerNorm).</li>
+      <li><b>Prince, § 6.4</b> (Adam) e la nota sul weight decay del cap. 9 (perché AdamW), per la scheda 15.</li>
+      <li>Se serve un ripasso: <a href="https://visionbook.mit.edu/neural_nets.html">cap. 12 del visionbook</a>, § 12.7.3 (layernorm), e i § 24.3.2 e 24.6 del <a href="https://visionbook.mit.edu/convolutional_neural_nets.html">cap. 24</a> (global pooling e feature map, per il confronto con la <a href="#L16">L16</a>).</li>
+    </ol>
+    <p><b>Si può saltare</b> per questo lab: § 26.5 (terminologia "token nets", utile ma non necessaria), § 26.12–26.13 (confronto astratto fra strati e conclusione); Prince § 12.5–12.9 (modelli per il linguaggio: BERT, GPT, traduzione, sequenze lunghe), salvo il § 12.7 se vuoi vedere la maschera causale in un modello vero.</p>
+  </div>
+  <div class="two">
+    <div class="card">
+      <h3>1 · L'attenzione come pooling dinamico</h3>
+      <div class="meta">visionbook § 26.3, 26.6 · Prince § 12.2</div>
+      <p>Uno strato lineare mescola i token con pesi fissi; l'attenzione li mescola con pesi <b>calcolati dai dati</b>: ogni token fa una domanda (query), ogni token espone una chiave (key) e un contenuto (value), e l'uscita è la media dei value pesata dalla somiglianza query-key, normalizzata con la softmax per riga. Esempio del libro: nella foto del safari la domanda "quanti animali?" pesa le teste degli animali, "di che colore è l'impala?" le patch dell'impala.</p>
+    </div>
+    <div class="card">
+      <h3>2 · Scala, teste e forme</h3>
+      <div class="meta">visionbook § 26.6.2–26.6.3 · Prince § 12.3.2–12.3.3</div>
+      <p>A = softmax(QKᵀ/√d<sub>k</sub>): la scala tiene i logit a varianza circa 1 e la softmax lontana dalla saturazione. Con h teste ogni testa ha d<sub>k</sub> = D/h, guarda tutti i token in un sottospazio diverso e misura la somiglianza "a modo suo"; le uscite si concatenano e W<sup>O</sup> le ricombina. Parametri 4D², costo dei punteggi T²D qualunque sia h.</p>
+    </div>
+    <div class="card">
+      <h3>3 · Il blocco transformer</h3>
+      <div class="meta">visionbook § 26.7 · Prince § 12.4</div>
+      <p>Due sotto-blocchi residui: attenzione (mescola fra token) e MLP (modifica ogni token da solo), ciascuno preceduto dalla normalizzazione nella variante pre-norm del ViT. Parametri per blocco circa 12D², due terzi nell'MLP. Il Prince descrive il transformer originale post-norm e spiega nelle note perché la pre-norm si addestra meglio.</p>
+    </div>
+    <div class="card">
+      <h3>4 · Equivarianza e posizioni</h3>
+      <div class="meta">visionbook § 26.8, 26.9.5, 26.11 · Prince § 12.3.1</div>
+      <p>Senza informazione di posizione ogni strato di un transformer è equivariante alle permutazioni: la rete vede un insieme di patch. Le posizioni vanno messe negli ingressi: il libro concatena un codice sinusoidale fisso, il ViT somma un embedding appreso e lo deve imparare dai dati (la figura della scheda 21).</p>
+    </div>
+    <div class="card">
+      <h3>5 · CNN travestite</h3>
+      <div class="meta">visionbook § 26.9</div>
+      <p>Tokenizzare = conv con kernel e stride P; QKV e MLP = conv 1×1. L'unica parte non convoluzionale è l'attenzione, globale e dipendente dall'ingresso. Per questo il <code>PatchEmbed</code> del notebook è un <code>nn.Conv2d</code> e i token si possono rimettere in una griglia 14×14 come una feature map.</p>
+    </div>
+    <div class="card">
+      <h3>6 · ViT e dati</h3>
+      <div class="meta">Prince § 12.10.2–12.10.3</div>
+      <p>Il ViT originale era preaddestrato su 303 milioni di immagini etichettate e solo così superava le CNN: il bias induttivo delle convoluzioni si compensa con moltissimi dati. È ciò che si vede nel lab: il nostro ViT da zero su 9469 immagini arriva al 67%, il ViT-B/16 preaddestrato riconosce le immagini di prova senza errori.</p>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Notazione: notebook, visionbook, Prince e L17</h3>
+    <div class="meta">Per non confondersi passando da una fonte all'altra</div>
+    <ul>
+      <li><b>Token</b>: righe di X ∈ ℝ<sup>(N+1)×D</sup> nel notebook e nella L17, righe di T ∈ ℝ<sup>N×d</sup> nel visionbook, <b>colonne</b> di X ∈ ℝ<sup>D×N</sup> nel Prince. Nel Prince quindi Sa[X] = V·Softmax[KᵀQ/√D<sub>q</sub>] con softmax per colonna: la sua matrice di attenzione è la trasposta di quella del notebook.</li>
+      <li><b>Larghezze</b>: d<sub>k</sub> nel notebook, m (query e key) e d (value) nel visionbook, D<sub>q</sub> nel Prince. Il notebook usa d<sub>k</sub> anche per i value.</li>
+      <li><b>Proiezioni</b>: W<sup>Q</sup>, W<sup>K</sup>, W<sup>V</sup>, W<sup>O</sup> nel notebook; W<sub>q</sub>, W<sub>k</sub>, W<sub>v</sub>, W<sub>MSA</sub> nel visionbook (con Q = TW<sub>q</sub>ᵀ); Ω e bias β nel Prince, con Ω<sub>c</sub> per la ricombinazione delle teste. In PyTorch <code>in_proj_weight</code> (3D×D) e <code>out_proj</code>.</li>
+      <li><b>[CLS]</b>: c'è nel notebook, nella L17 e nel Prince (&lt;cls&gt;); il visionbook classifica sommando i token d'uscita.</li>
+      <li><b>Posizioni</b>: E<sub>pos</sub> appreso e <b>sommato</b> nel notebook; codice di soli seni, fisso e <b>concatenato</b> nel visionbook; il Prince descrive entrambe le famiglie (assolute, fisse o apprese, e relative).</li>
+      <li><b>Normalizzazione</b>: <code>nn.LayerNorm</code> con γ e β appresi nel notebook; "token norm" senza parametri nel § 26.7 del visionbook; LayerNorm post-norm nel Prince (eq. 12.13).</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Cosa c'è nel libro e non nel notebook, e viceversa</h3>
+    <div class="meta">Serve a capire, e all'orale fa la differenza</div>
+    <ul>
+      <li>Nel libro: perché le CNN hanno bisogno di molti strati per collegare pixel lontani (§ 26.2) e l'attenzione no; l'attenzione come pooling dinamico; la dimostrazione dell'equivarianza (§ 26.8); perché i "filtri" del transformer devono essere 1×1 (§ 26.9.5).</li>
+      <li>Nel libro: l'intuizione delle teste come modi diversi di misurare la somiglianza (colore, texture, forma).</li>
+      <li>Solo nel notebook (e negli articoli): token [CLS], attention rollout, similarità degli embedding posizionali, token register, softmax stabile e log-sum-exp, le maschere nella convenzione di PyTorch.</li>
+      <li>In nessuno dei due libri: il costo O(N²D) e il conteggio dei parametri per blocco, che sono nella L17 (slide 32) e nelle schede 12, 13, 24 e 25.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="sec" id="l18-guida"><h2>Guida allo studio</h2><span>4 ore circa, con il notebook aperto</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Prima di iniziare</h3>
+    <div class="meta">20 minuti</div>
+    <p>Ripassa la parte sul ViT della <a href="#L17">L17</a> (slide 25–32 e 36–38) e il ciclo di training della <a href="#L16">L16</a>, poi leggi i paragrafi di <b>Studia dal libro</b>. Il notebook gira anche su CPU (circa 100 s per epoca): fai partire il training con <code>EPOCHS = 40</code>, oppure con 5 epoche per avere risultati intermedi, mentre studi le prime due sezioni. Ricorda che dove il testo dice "una epoca" le uscite sono a 40 (scheda 15).</p>
+  </div>
+  <div class="two">
+    <div class="card">
+      <h3>1 · Dati e token</h3>
+      <div class="meta">Schede 1–6 · 40 minuti</div>
+      <ul>
+        <li>Scrivi la catena di forme (B, 3, 224, 224) → (B, 196, 768) → (B, 196, 96) → (B, 197, 96) e rifalla con P = 8 e con un'immagine 384×384.</li>
+        <li>Verifica a mano che conv con kernel e stride P e <code>unfold</code> + lineare sono la stessa cosa.</li>
+        <li>Verifica: sai dire perché due patch identiche hanno lo stesso token e quando smettono di averlo?</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>2 · Self-attention da zero</h3>
+      <div class="meta">Schede 7–11 · 1 ora</div>
+      <ul>
+        <li>Rifai i conti dell'esempio a tre token con e senza √d<sub>k</sub>.</li>
+        <li>Scrivi da solo <code>attention_from_scratch</code> e <code>split_qkv</code> e controllale contro PyTorch.</li>
+        <li>Verifica: sai spiegare perché la proiezione è 3D e non hD, e perché i parametri non dipendono da h?</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>3 · Modello e training</h3>
+      <div class="meta">Schede 12–17 · 50 minuti</div>
+      <ul>
+        <li>Conta a mano i 317 674 parametri (tabella della scheda 13).</li>
+        <li>Leggi le curve: dove inizia l'overfitting, perché la validazione all'inizio è sopra il training.</li>
+        <li>Verifica: cosa succederebbe con <code>batch_first=False</code>? Cosa fa davvero <code>model.eval()</code> su questo modello?</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>4 · Dentro il ViT ed esercizi</h3>
+      <div class="meta">Schede 18–28 · 1 ora e mezza</div>
+      <ul>
+        <li>Dimostra che le righe del rollout sommano a 1 e spiega a cosa serve + I.</li>
+        <li>Fai gli esercizi A, B, C senza guardare la soluzione.</li>
+        <li>Verifica: sai dire perché il rollout non è una spiegazione della predizione e come lo si controlla con un'occlusione?</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Cosa devi sapere</h3>
+    <div class="meta">La lista minima per l'orale</div>
+    <ul>
+      <li><b>Tokenizzazione</b>: N = HW/P², P²C valori per patch, proiezione E condivisa = conv P/P, [CLS], N + 1 token.</li>
+      <li><b>Self-attention</b>: Q, K, V, softmax(QKᵀ/√d<sub>k</sub>)V, softmax per riga sull'asse delle key, perché √d<sub>k</sub>, forme con batch e teste.</li>
+      <li><b>Multi-testa</b>: d<sub>k</sub> = D/h, W<sup>QKV</sup> D×3D, concatenazione con transpose prima di reshape, W<sup>O</sup>, 4D² parametri.</li>
+      <li><b>Blocco</b>: pre-LayerNorm, residui, MLP D → 4D → D con GELU, circa 12D² parametri.</li>
+      <li><b>Posizioni</b>: equivarianza senza posizioni, embedding appresi sommati, struttura 2D appresa, interpolazione a risoluzioni diverse (577 posizioni a 384).</li>
+      <li><b>Costi</b>: attenzione O(N²D) contro parte lineare O(ND²), dimezzare P = 16 volte i punteggi.</li>
+      <li><b>Training</b>: AdamW, weight decay disaccoppiato, validazione per scegliere, test una volta.</li>
+      <li><b>Interpretazione</b>: feature dei token come mappa 14×14, attention rollout e i suoi limiti, token ad alta norma e register.</li>
+      <li><b>Esercizi</b>: maschere additive con −∞, softmax stabile, log-sum-exp.</li>
+      <li><b>Imprecisioni del notebook</b>: testo "una epoca" con 40 epoche, eval senza dropout, register solo in parte verificati.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Domande tipo orale</h3>
+    <div class="meta">Prova a rispondere, poi apri per la traccia</div>
+    <div class="qa">
+      <details><summary>Come si trasforma un'immagine 224×224 in una sequenza di token? Che forme hai con P = 16 e P = 8?</summary><p>Si taglia in patch P×P non sovrapposte, si appiattisce ogni patch (P²C valori) e la si proietta con una matrice E condivisa in D dimensioni; si antepone il [CLS] e si somma E<sub>pos</sub>. P = 16: 14×14 = 196 patch da 768 valori, 197 token. P = 8: 784 patch da 192 valori, 785 token. In pratica E è una conv con kernel e stride P, seguita da flatten e transpose.</p></details>
+      <details><summary>Scrivi la self-attention e spiega ogni passo. Su quale asse va la softmax?</summary><p>Q = XW<sup>Q</sup>, K = XW<sup>K</sup>, V = XW<sup>V</sup>; S = QKᵀ/√d<sub>k</sub> (somiglianza query i, key j); A = softmax per riga, cioè sull'asse delle key (<code>dim=-1</code>), così ogni query distribuisce un peso totale 1 su tutti i token; Y = AV, media pesata dei value. Forme: (N+1)×d<sub>k</sub>, (N+1)×(N+1), (N+1)×d<sub>k</sub>.</p></details>
+      <details><summary>Perché si divide per √d<sub>k</sub>? Cosa succede senza?</summary><p>Con componenti indipendenti a media 0 e varianza 1, Var(qᵀk) = ∑ Var(q<sub>j</sub>k<sub>j</sub>) = d<sub>k</sub>. Senza scala i logit crescono con √d<sub>k</sub>, la softmax satura su una sola key e i suoi gradienti diventano quasi nulli: il training rallenta o si blocca. Con d<sub>k</sub> = 64 la deviazione standard sarebbe 8.</p></details>
+      <details><summary>Multi-head attention: perché W<sup>QKV</sup> è D×3D e non D×3hD? Quanti parametri ha? Cosa cambia raddoppiando h?</summary><p>Le teste dividono le D dimensioni di Q, K, V in h parti da d<sub>k</sub> = D/h; ogni testa vede tutti i token. Parametri 3D² + D² = 4D² (più bias), indipendenti da h. Raddoppiando h a D fisso: d<sub>k</sub> si dimezza, parametri e moltiplicazioni dei punteggi (h·T²·d<sub>k</sub>) invariati, il doppio di matrici di attenzione da memorizzare.</p></details>
+      <details><summary>Perché nella concatenazione delle teste serve transpose(1, 2) prima di reshape? Il codice sbagliato darebbe errore?</summary><p>L'uscita è (B, h, T, d<sub>k</sub>): in memoria tutti i token della testa 0, poi della testa 1. Un reshape diretto a (B, T, D) metterebbe in una riga 4 token di una testa invece delle 4 teste di un token. Non dà errore perché il numero di elementi coincide: è un errore silenzioso, che si scopre solo confrontando con un'implementazione di riferimento.</p></details>
+      <details><summary>Disegna un blocco encoder del ViT. Perché pre-norm? Quanti parametri ha?</summary><p>x ← x + MHSA(LN(x)), x ← x + MLP(LN(x)), MLP D → 4D → D con GELU. Pre-norm: il cammino residuo resta un'identità, i gradienti arrivano senza attenuarsi ai primi blocchi e il training è più stabile (con la post-norm servono warm-up e accorgimenti, Prince note cap. 12). Parametri ≈ 4D² + 8D² = 12D², più bias e LayerNorm: 111 840 per D = 96.</p></details>
+      <details><summary>A cosa servono gli embedding posizionali? Cosa succede se li azzeri?</summary><p>Attenzione e MLP per token sono equivarianti alle permutazioni: senza posizioni rimescolare le patch rimescola le uscite e il [CLS] resta identico, quindi la predizione non cambia (verificato: differenza dei logit 10<sup>−6</sup>). Il modello vedrebbe un sacco di patch. Gli embedding appresi rompono la simmetria; ViT-B/16 impara righe e colonne, il nostro modello solo centro e bordo.</p></details>
+      <details><summary>Come riusi gli embedding posizionali di ViT-B/16 a 384×384?</summary><p>A 384 con P = 16 ci sono 24×24 = 576 patch. Si rimodellano i 196 embedding delle patch in 14×14, si interpolano a 24×24, si riappiattiscono e si rimette davanti quello del [CLS]: 577 posizioni.</p></details>
+      <details><summary>Come scala il costo del ViT con la dimensione delle patch?</summary><p>Dimezzare P moltiplica N per 4. Gli strati lineari (QKV, W<sup>O</sup>, MLP) costano circa 12ND² per blocco e crescono di 4; i punteggi e AV costano 2N²D e crescono di 16, come la memoria delle matrici di attenzione. Nel nostro modello con P = 8 la parte di attenzione supera quella lineare (T &gt; 6D); il calcolo per immagine passa da circa 73 a circa 425 milioni di moltiplicazioni-somme.</p></details>
+      <details><summary>Che cos'è l'attention rollout e quali limiti ha?</summary><p>Media delle attenzioni sulle teste, + I per il residuo, normalizzazione per riga (Ã = (Ā + I)/2), prodotto dei blocchi in ordine di forward; la riga del [CLS] senza la sua colonna, rimodellata 14×14, è la mappa. Limiti: ignora value, MLP e non linearità, fa la media delle teste, non è causale; in modelli grandi è dominato da token di sfondo ad alta norma. Per una prova serve un intervento, per esempio l'occlusione.</p></details>
+      <details><summary>Perché il ViT-B/16 preaddestrato guarda lo sfondo nell'ultimo blocco?</summary><p>Nei ViT grandi e addestrati a lungo alcune patch di sfondo poco informative diventano token ad alta norma che raccolgono informazione globale (Darcet et al. 2024): il [CLS] dell'ultimo blocco legge da loro. Su queste immagini lo abbiamo verificato in 3 casi su 4. Rimedio: aggiungere token register.</p></details>
+      <details><summary>[CLS] o media dei token per classificare?</summary><p>Funzionano in modo simile (Dosovitskiy et al. 2021, appendice; Beyer et al. 2022 preferiscono la media). Il visionbook somma i token. Con la media il [CLS] si può togliere; se lo si tiene senza collegarlo alla testa fa da register.</p></details>
+      <details><summary>Dove si aggiunge una maschera di attenzione, e serve al ViT per classificare?</summary><p>Ai punteggi prima della softmax, con −∞ sulle key vietate: e<sup>−∞</sup> = 0 e la softmax rinormalizza sulle permesse. Il ViT per classificare non ne ha bisogno (immagine intera, numero fisso di token); serve per generazione autoregressiva, video in streaming, batch con risoluzioni diverse. Ogni riga deve avere almeno una key permessa, altrimenti esce nan.</p></details>
+      <details><summary>Come si calcola una softmax senza overflow? E perché CrossEntropyLoss vuole i logit?</summary><p>Si sottrae il massimo della riga: la softmax non cambia, gli esponenti sono ≤ 0, il denominatore è ≥ 1. Per la loss serve il log della softmax: x<sub>i</sub> − c − log ∑ e<sup>x<sub>j</sub>−c</sup> (log-sum-exp) evita il log di probabilità andate a 0 in float32, che darebbe loss infinita e gradienti nan.</p></details>
+    </div>
+  </div>
+</div>
+
+<div class="sec" id="l18-risultati"><h2>Risultati dell'esecuzione</h2><span>notebook del docente e nostra riproduzione</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Uscite salvate del docente</h3>
+    <div class="meta">GPU CUDA, PyTorch 2.9.1, 40 epoche da 43–61 s</div>
+    <ul>
+      <li>Imagenette 320px: 9469 di training, 1962 di validazione, 1963 di test.</li>
+      <li>Modello: 317 674 parametri; ViT-B/16: 86 567 656.</li>
+      <li>Training: epoca 1 train 0,340 / val 0,418; epoca 40 train 0,766 / val 0,675; migliore validazione 0,708 all'epoca 39.</li>
+      <li>Test: <b>0,668</b>, loss 1,016; 5 delle 8 immagini mostrate classificate bene.</li>
+      <li>ViT-B/16 sulle 4 immagini di prova: chain saw, cassette player, altar (etichetta church), church.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Nostra riproduzione</h3>
+    <div class="meta">CPU a 2 core, PyTorch 2.14.1, torchvision con Imagenette 320px scaricato, stesso codice (cambiando solo EPOCHS)</div>
+    <ul>
+      <li><b>Esecuzione deterministica</b>: con il seme 4444 l'epoca 1 dà esattamente train acc 0,340, val acc 0,418, train loss 1,886, val loss 1,707, come il docente su GPU; anche le epoche successive coincidono (verificate le prime nove). Stesse 8 immagini di test, stesse predizioni di ViT-B/16.</li>
+      <li>Un'epoca su CPU: <b>96 s</b> (contro 43–61 s su GPU). Il modello è così piccolo che buona parte del tempo va probabilmente nella lettura e nell'augmentation delle immagini (<code>num_workers=0</code>).</li>
+      <li>Dopo <b>1 epoca</b>: test <b>0,419</b> (loss 1,686) contro 0,668 dopo 40; delle 8 immagini mostrate ne indovina solo 1 (la chiesa esterna).</li>
+      <li>Tutti i test interni del notebook passano (attenzione contro PyTorch, MHSA contro <code>nn.MultiheadAttention</code>, maschere, softmax stabile).</li>
+      <li>Il rollout di ViT-B/16 scritto a mano dà logit identici a quelli di torchvision (differenza 0).</li>
+      <li>Token ad alta norma di ViT-B/16 (scheda 23): norma massima circa 100 contro mediana circa 20; in 3 immagini su 4 coincidono con i picchi d'attenzione del [CLS] nel blocco 12; su 32 immagini ricevono in media l'8% di quell'attenzione.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Predizioni dopo 40 epoche e dopo 1 epoca</h3>
+    <div class="meta">A sinistra le uscite del docente, a destra la nostra esecuzione a 1 epoca</div>
+    <p><img src="{{IMG:img/ris_predizioni_1_40.png}}" alt="Predizioni sulle prime 8 immagini del test dopo 40 epoche e dopo 1 epoca" loading="lazy" style="max-width:100%;height:auto"></p>
+    <p>Dopo 1 epoca il modello risponde spesso con le stesse due classi (French horn 3 volte, English springer 2 volte su 8) indipendentemente dall'immagine: ha imparato poco più delle frequenze e dei colori dominanti.</p>
+  </div>
+  <div class="card">
+    <h3>Rollout dopo 40 epoche e dopo 1 epoca</h3>
+    <div class="meta">Stesse 4 immagini, stesso codice (cella 47)</div>
+    <p><img src="{{IMG:img/ris_rollout_1_40.png}}" alt="Attention rollout del nostro ViT dopo 40 epoche e dopo 1 epoca" loading="lazy" style="max-width:100%;height:auto"></p>
+    <p>Dopo 1 epoca le mappe sono macchie sparse, spesso ai bordi (in alto e in basso nella motosega, in alto a destra e nell'angolo in basso a destra del lettore, sul bordo destro della chiesa interna); solo nella chiesa esterna c'è già un picco sulla base della torre. Dopo 40 epoche i picchi sono pochi e cadono sui dettagli descritti nella scheda 20.</p>
+  </div>
+  <div class="card">
+    <h3>Similarità delle posizioni dopo 40 epoche e dopo 1 epoca</h3>
+    <div class="meta">Cella 52: a sinistra il nostro modello, a destra ViT-B/16</div>
+    <p><img src="{{IMG:img/ris_posizioni_1_40.png}}" alt="Similarità coseno degli embedding posizionali dopo 40 epoche e dopo 1 epoca" loading="lazy" style="max-width:100%;height:auto"></p>
+    <p>Dopo 1 epoca ogni mappa del nostro modello è rumore uniforme con un solo punto chiaro, la posizione con sé stessa: gli embedding sono ancora quelli casuali iniziali (deviazione standard 0,02), quasi indipendenti fra loro. È a questa versione che si riferisce la domanda della cella 53 sul "rumore". Dopo 40 epoche compare la struttura centro/bordo.</p>
+  </div>
+  <div class="card">
+    <h3>Le 196 mappe di ViT-B/16 separate</h3>
+    <div class="meta">Nostra figura: lo stesso calcolo della cella 52, con uno spazio bianco fra una mappa e l'altra</div>
+    <p><img src="{{IMG:img/ris_posizioni_separate.png}}" alt="Similarità delle posizioni di ViT-B/16 con le 196 mappe separate" loading="lazy" style="max-width:100%;height:auto"></p>
+    <p>Anche separate e a piena risoluzione le mappe hanno la stessa trama a righe e colonne del pannello del notebook: la trama è il contenuto vero (ogni posizione è simile alla sua riga, alla sua colonna e, più debolmente, a righe e colonne a intervalli regolari), non un effetto del ridimensionamento della figura. La croce di ogni posizione si legge meglio negli ingrandimenti della cella 52.</p>
+  </div>
+</div>
+
+<div class="sec" id="l18-soluzioni"><h2>Soluzioni di domande ed esperimenti</h2><span>dove sono le risposte e le verifiche che abbiamo eseguito</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Dove trovare le risposte</h3>
+    <div class="meta">Le domande del notebook sono risolte nelle schede, accanto al codice</div>
+    <ul>
+      <li>Cella 9 (P = 8): scheda 4. Cella 16 (768 contro 96, patch identiche): scheda 6.</li>
+      <li>Celle 21 e 25 (√d<sub>k</sub>, query uguali, 3D): schede 9 e 10. Cella 28 (teste): scheda 11.</li>
+      <li>Cella 53 (posizioni): scheda 21. Cella 58 (rollout, senza risposta nel notebook): scheda 23.</li>
+      <li>Cella 60 (sei domande finali): scheda 24. Cella 63 (esperimenti): scheda 25 e sotto.</li>
+      <li>Esercizi A, B, C: schede 26, 27, 28.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Posizioni e permutazioni: verifica</h3>
+    <div class="meta">Nostro esperimento sul modello dopo 1 epoca: 8 immagini del test, le 196 patch rimescolate con una permutazione casuale</div>
+    <ul>
+      <li>Con <code>pos_embed</code> azzerato i logit con e senza rimescolamento differiscono al massimo di <b>8·10<sup>−7</sup></b>: è l'invarianza del [CLS] alle permutazioni (risposta 3 della scheda 24), a meno dell'arrotondamento.</li>
+      <li>Con gli embedding posizionali dopo 1 epoca la differenza massima è solo <b>0,03</b> e le 8 predizioni non cambiano: dopo un'epoca le posizioni sono ancora quasi quelle iniziali (0,02) e il modello le usa pochissimo. Per un modello del genere togliere le posizioni non costerebbe quasi nulla; è coerente con la nota della cella 64 secondo cui su Imagenette il calo è "più piccolo di quanto ci si aspetti".</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Il test di occlusione della cella 48</h3>
+    <div class="meta">Nostro esperimento: si azzera (dopo la normalizzazione, cioè si mette il colore medio) un quadrato di 32×32 pixel, 2×2 patch, alla volta, e si misura la probabilità di "chain saw"</div>
+    <ul>
+      <li><b>ViT-B/16</b> sulla foto della motosega: p(chain saw) = 0,919 sull'immagine intera; nessuna delle 49 occlusioni la porta sotto 0,886. Coprire le cuffie non cambia nulla: il modello preaddestrato usa molte parti dell'immagine insieme, e nessuna regione piccola è decisiva. Il suo rollout, con i picchi su tronco e prato, non dice quindi "cosa conta" per la predizione.</li>
+      <li><b>Come farlo sul nostro modello</b>: stesso ciclo con <code>model</code> al posto di <code>vit</code> e l'indice 3 (chain saw fra le 10 classi); se la probabilità crolla coprendo le cuffie, l'ipotesi della cella 48 (contesto usato come indizio) è confermata.</li>
+    </ul>
+    <pre>with torch.no_grad():
+    base = model(img).softmax(-1)[0, 3]
+    for r in range(0, 14, 2):
+        for c in range(0, 14, 2):
+            o = img.clone(); o[..., r*16:(r+2)*16, c*16:(c+2)*16] = 0
+            drop = base - model(o).softmax(-1)[0, 3]     # mappa di sensibilità 7×7</pre>
+  </div>
+  <div class="card">
+    <h3>Esperimenti facoltativi: previsioni ragionate</h3>
+    <div class="meta">Non eseguiti per intero: richiedono un training completo ciascuno</div>
+    <ul>
+      <li><b>P = 8</b>: forme e parametri nella tabella della scheda 25. Costo per immagine circa 5,8 volte (73 → 425 milioni di moltiplicazioni-somme, nostro conto), memoria delle attenzioni 16 volte per blocco (20 → 315 MB in float32 con batch 32): con la GPU di un portatile serve un batch più piccolo. Ci si aspetta un'epoca 4–6 volte più lenta e, dopo un training lungo, un'accuratezza un po' migliore.</li>
+      <li><b>Niente posizioni</b>: vedi la verifica sopra; previsione: logit invariati al rimescolamento, calo di accuratezza modesto.</li>
+      <li><b>Mean pooling</b>: accuratezza simile; il rollout va letto come media delle righe dei token di patch invece della riga del [CLS].</li>
+      <li><b>CIFAR-10</b>: P = 4 (65 token); senza pre-training e con 50 000 immagini 32×32 ci si aspetta che il ViT resti sotto la ResNet-18 della <a href="#L16">L16</a> a parità di epoche, perché la CNN ha già la località nell'architettura.</li>
+    </ul>
+  </div>
+</div>

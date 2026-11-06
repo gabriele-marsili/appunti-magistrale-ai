@@ -21,3 +21,8 @@ Una dispensa per lezione, scritta da zero integrando slide e libro (Torralba, Is
 | [L15 · Reti convoluzionali](L15-reti-convoluzionali.md) | Convolutional Neural Networks | 8391 |
 | [L16 · Lab CNN su CIFAR-10](L16-lab-cnn-su-cifar-10.md) | Lab: CNNs for Image Classification | 7490 |
 | [L17 · Dense prediction e ViT](L17-dense-prediction-e-vit.md) | ViT, U-Net, Dense Prediction | 10006 |
+| [L18 · Lab ViT](L18-lab-vit.md) | Lab: Vision Transformers (ViT) | 8675 |
+| [L19 · Detection e segmentazione](L19-detection-e-segmentazione.md) | Object Detection and Segmentation | 8045 |
+| [L20 · Lab detection e segmentazione](L20-lab-detection-e-segmentazione.md) | Lab: Object Detection & Segmentation | 3858 |
+| [L21 · SSL contrastivo](L21-ssl-contrastivo.md) | Self-Supervised Contrastive Learning | 7891 |
+| [L22 · SSL e foundation model](L22-ssl-e-foundation-model.md) | Self-supervised learning and vision foundation models | 7752 |
