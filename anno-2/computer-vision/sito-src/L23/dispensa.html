@@ -1,0 +1,250 @@
+<div class="sec" id="l23-dispensa"><h2>Dispensa</h2><span>parti da qui · circa 60 minuti</span></div>
+<div class="disp">
+  <p><b>In una frase:</b> nel primo notebook si addestra da zero una ResNet-18 su CIFAR-10 <mark class="sh sh-y">senza guardare le etichette</mark> (SimSiam) e poi si misura quanto valgono le sue feature con un <mark class="sh sh-b">linear probe</mark> e un <mark class="sh sh-b">k-NN</mark>; nel secondo si prende un foundation model già pronto (DINOv3), lo si <mark class="sh sh-y">congela</mark> e si addestra sopra una semplice regressione logistica che dice, patch per patch, se lì c'è l'oggetto in primo piano.</p>
+
+  <h3>Prima di iniziare</h3>
+  <p>È un laboratorio senza slide: ci sono due notebook, <code>simsiam_cifar10_lab.ipynb</code> e <code>dinov3_foreground_segmentation_lab.ipynb</code>. La teoria è nelle due lezioni precedenti e qui la ripassiamo solo quanto basta. Ti servono:</p>
+  <ul>
+    <li>dalla <a href="#L21">L21</a>: viste, coppie positive, collasso, SimCLR e l'idea di SimSiam;</li>
+    <li>dalla <a href="#L22">L22</a>: BYOL, Barlow Twins, DINO e DINOv3 come foundation model;</li>
+    <li>dalla <a href="#L16">L16</a>: la ResNet-18 adattata a CIFAR-10 (stessa modifica del primo strato);</li>
+    <li>dalla <a href="#L17">L17</a> e <a href="#L18">L18</a>: il ViT che taglia l'immagine in patch 16×16 e produce un token per patch;</li>
+    <li>un po' di statistica: regressione logistica, precision e recall.</li>
+  </ul>
+  <p>I notebook sono arrivati senza uscite. I numeri della nostra esecuzione di SimSiam sono in <a href="#l23-risultati">Risultati dell'esecuzione</a>. Per DINOv3 i pesi richiedono un'autorizzazione di Meta: abbiamo misurato solo la parte dati (conteggi delle patch); le figure con punteggi del modello sono <b>simulate</b>.</p>
+
+  <h3>Guarda prima questi video</h3>
+  <div class="watch">
+    <a href="https://www.youtube.com/watch?v=4howBU7THbM"><span class="k">Video</span><b>Stanford CS231N | Spring 2025 | Lecture 12: Self-Supervised Learning</b><span class="d">Stanford Online. Lezione completa sull'SSL: pretext task, contrastivo, metodi senza negativi, valutazione con linear probe. Ripasso di L21–L22 prima delle sezioni 2–6.</span></a>
+    <a href="https://www.youtube.com/watch?v=YPfUiOMYOEE"><span class="k">Video · 34 min</span><b>BYOL: Bootstrap Your Own Latent: A New Approach to Self-Supervised Learning (Paper Explained)</b><span class="d">Yannic Kilcher. Predictor, stop-gradient, teacher con media mobile: SimSiam è BYOL senza media mobile. Bastano i primi 20 minuti; serve per le sezioni 5–6 e per l'esercizio BYOL.</span></a>
+    <a href="https://www.youtube.com/watch?v=Ou0pfOZUaJU"><span class="k">Video · oltre 1 h 45 min</span><b>DINOv3: One backbone, multiple image/video tasks</b><span class="d">John Tan Chong Min. Discussione lunga dell'articolo DINOv3: teacher-student, Gram anchoring, feature dense usate congelate. Guarda la prima parte prima della sezione 11.</span></a>
+  </div>
+
+  <h3>1. Perché un laboratorio SSL</h3>
+  <p><b>Il problema.</b> Etichettare immagini costa. Per CIFAR-10 qualcuno ha scritto «gatto», «nave», «camion» su 60 000 immagini; per segmentare un oggetto bisogna disegnarne il contorno. Di foto senza etichetta, invece, ne abbiamo quante vogliamo. Si può usare questa montagna di dati per imparare qualcosa di utile, e poi aggiungere solo poche etichette?</p>
+  <p><b>L'idea.</b> Il lavoro si divide in <mark class="sh sh-b">due fasi</mark>. Nella prima (pretraining self-supervised) la rete impara feature da sola, con un compito inventato le cui risposte conosciamo gratis. Nella seconda le feature restano ferme e si addestra sopra un pezzetto piccolo con le etichette. Prince (§ 9.3.7) lo presenta come transfer learning da un compito «gratuito».</p>
+  <figure><img src="{{IMG:img/d01.png}}" alt="Schema in due righe: pretraining senza etichette, poi backbone congelato con linear probe e k-NN"><figcaption>Sopra il pretraining SimSiam, che non vede mai un'etichetta. Sotto la valutazione: lo stesso backbone, congelato, con un linear probe o un k-NN addestrati sulle etichette.</figcaption></figure>
+  <p>Nel primo notebook facciamo noi il pretraining (piccolo: CIFAR-10, una ResNet-18). Nel secondo <mark class="sh sh-y">usiamo il pretraining fatto da Meta</mark> (DINOv3) e ci limitiamo alla seconda fase, con <mark class="sh sh-g">nove sole immagini annotate</mark>.</p>
+  <div class="box k"><b>Il punto</b><p>SSL = imparare le feature senza etichette, poi pochissimo lavoro supervisionato sopra. <mark class="sh sh-y">Il compito della prima fase non interessa: interessa la rete che ne esce.</mark></p></div>
+
+  <h3>2. Ripasso lampo: viste, collasso, due famiglie</h3>
+  <p><b>Il problema.</b> Che compito «gratuito» dare alla rete? Dalla <a href="#L21">L21</a>: crea due versioni modificate a caso di un'immagine x (due <b>viste</b>) e chiedi alla rete f lo stesso vettore per entrambe.</p>
+  <p><b>Il difetto.</b> Il libro (§ 30.10) chiama questa richiesta <i>alignment loss</i> e mostra subito il trucco sporco: se f restituisce sempre lo stesso vettore, le due viste coincidono sempre e la loss è minima. È il <mark class="sh sh-p">collasso</mark>.</p>
+  <p><b>Due famiglie di rimedi.</b></p>
+  <ul>
+    <li><mark class="sh sh-b">Contrastivi</mark> (SimCLR, MoCo): avvicinano le viste della stessa immagine (positivi) e allontanano quelle di immagini diverse (negativi). Il § 30.10.1 scompone l'obiettivo in due termini: L<sub>align</sub> = E‖f(x) − f(x<sup>+</sup>)‖<sub>2</sub><sup>α</sup> avvicina i positivi, L<sub>unif</sub> = log E e<sup>−t‖f(x) − f(x<sup>−</sup>)‖²</sup> spinge tutti i punti a spargersi in modo uniforme sulla sfera.</li>
+    <li><mark class="sh sh-b">Non contrastivi</mark> (BYOL, SimSiam, Barlow Twins, DINO; <a href="#L22">L22</a>): niente negativi. Evitano il collasso con un'asimmetria fra i due rami (predictor, stop-gradient, teacher lento) o con vincoli sulle statistiche delle feature.</li>
+  </ul>
+  <p>SimSiam è il più semplice della seconda famiglia: <mark class="sh sh-g">niente negativi, niente teacher separato, niente batch enormi</mark>.</p>
+  <div class="box k"><b>Il punto</b><p>«Due viste uguali» da solo ammette la <mark class="sh sh-p">soluzione costante</mark>. Ogni metodo SSL è un modo per impedirla: con i negativi o con un'asimmetria.</p></div>
+
+  <h3>3. Augmentation: scegliere che cosa ignorare</h3>
+  <p><b>Il problema.</b> Le due viste devono differire in qualcosa. Ma in cosa? <mark class="sh sh-y">La scelta decide che cosa la rete imparerà a ignorare.</mark></p>
+  <p><b>L'idea.</b> Se due viste differiscono per il colore e la rete deve dar loro lo stesso vettore, la rete diventa <mark class="sh sh-y">invariante al colore</mark>: il colore sparisce dalla rappresentazione. L'esperimento del § 30.10.2 del libro lo mostra su un insieme di figure colorate: con viste ottenute solo ritagliando, l'embedding raggruppa le figure per colore (il colore è l'indizio più facile e resta uguale nelle due viste); aggiungendo variazioni casuali di tinta, luminosità e saturazione, il colore smette di funzionare e l'embedding raggruppa per forma.</p>
+  <p><b>Nel notebook</b> (cella 8) ogni vista nasce così:</p>
+  <ul>
+    <li><code>RandomResizedCrop(32, scale=(0.2, 1.0))</code>: un ritaglio che copre dal 20% al 100% dell'area, riportato a 32×32 → invarianza a posizione e scala;</li>
+    <li>flip orizzontale con probabilità 0,5;</li>
+    <li><code>ColorJitter(0.4, 0.4, 0.2, 0.1)</code> (luminosità, contrasto, saturazione, tinta) applicato con probabilità 0,8;</li>
+    <li>scala di grigi con probabilità 0,2;</li>
+    <li>normalizzazione per canale con media e deviazione standard di CIFAR-10.</li>
+  </ul>
+  <figure><img src="{{IMG:img/d02.png}}" alt="Una foto di gatto ridotta a 32×32 e otto viste casuali"><figcaption>Una foto ridotta a 32×32 (come CIFAR-10) e otto viste prodotte con le stesse trasformazioni del notebook. Per la rete sono tutte «la stessa cosa»: deve riconoscere il gatto anche quando il colore o l'inquadratura cambiano.</figcaption></figure>
+  <p>La classe <code>TwoViews</code> (cella 9) chiama due volte la trasformazione <mark class="sh sh-g">sull'immagine originale</mark>, non sulla prima vista: ogni chiamata estrae parametri nuovi.</p>
+  <p><b>Attenzione al rovescio.</b> <mark class="sh sh-p">Le invarianze sono anche cecità.</mark> Con il flip la rete non distingue più destra da sinistra; con il grigio smette di fidarsi del colore. Per CIFAR-10 va bene (un'auto rossa e una blu sono entrambe «auto»), ma <mark class="sh sh-p">un'augmentation sbagliata cancella proprio l'informazione che servirebbe dopo</mark>, per esempio il colore per riconoscere i semafori.</p>
+  <div class="box k"><b>Il punto</b><p>L'augmentation è il modo in cui diciamo alla rete <mark class="sh sh-b">che cosa non conta</mark>. Il libro lo mostra con un esperimento: cambi le viste, cambia ciò che l'embedding raggruppa.</p></div>
+
+  <h3>4. SimSiam: le tre reti</h3>
+  <p><b>Il problema.</b> Vogliamo una rete che dia vettori simili alle due viste senza collassare, con il minimo di pezzi.</p>
+  <p><b>L'idea.</b> SimSiam (Chen e He 2021) usa una rete <mark class="sh sh-b">siamese</mark>: gli stessi pesi elaborano le due viste. Ogni vista attraversa tre pezzi.</p>
+  <ol>
+    <li><b>Backbone</b>: ResNet-18 senza pesi preaddestrati. Come nella <a href="#L16">L16</a>, per immagini 32×32 il primo strato diventa una convoluzione 3×3 con stride 1 e si toglie il max-pooling: con lo strato standard (7×7, stride 2, più pooling) un'immagine minuscola verrebbe ridotta subito a 8×8. L'ultimo strato di classificazione è sostituito da <code>nn.Identity()</code>: l'uscita è il vettore h da <mark class="sh sh-y">512 numeri</mark>, la rappresentazione che valuteremo. Sono circa 11,2 milioni di parametri.</li>
+    <li><b>Projector</b>: un MLP a tre strati 512 → 512 → 512 → 2048 con BatchNorm e ReLU. L'ultima BatchNorm non ha parametri appresi (<code>affine=False</code>) e non è seguita da ReLU. L'uscita è z.</li>
+    <li><b>Predictor</b>: un MLP 2048 → 512 → 2048, con un <mark class="sh sh-y">collo di bottiglia</mark> a 512. L'uscita è p, con la stessa forma di z.</li>
+  </ol>
+  <figure><img src="{{IMG:img/d03.png}}" alt="Due rami identici: vista, backbone 512, projector 2048, predictor 2048; frecce verso la loss"><figcaption>Le due viste passano per la stessa rete. Il predictor di ogni ramo cerca di indovinare la z dell'altro ramo; le z arrivano alla loss come bersagli fissi (stop-gradient).</figcaption></figure>
+  <p>Sono le dimensioni dell'articolo su ImageNet. Projector e predictor <mark class="sh sh-p">servono solo durante il pretraining</mark>: nella valutazione si buttano e si usa h. Il motivo è empirico: <mark class="sh sh-p">le uscite vicine alla loss si specializzano sul compito di SSL</mark> e perdono informazione utile altrove (come per SimCLR in <a href="#L21">L21</a>).</p>
+  <div class="box k"><b>Il punto</b><p>Backbone (h, 512) → projector (z, 2048) → predictor (p, 2048), stessi pesi sui due rami. <mark class="sh sh-y">Si tiene solo il backbone.</mark></p></div>
+
+  <h3>5. La loss: coseno, simmetria, stop-gradient</h3>
+  <p><b>Il problema.</b> Come si misura «p<sub>1</sub> assomiglia a z<sub>2</sub>»? E come si impedisce che la rete sposti il bersaglio invece della predizione?</p>
+  <p><b>La formula</b> (cella 16 e cella 17):</p>
+  <p><span class="f"><mark class="sh sh-b">L = −½ [ cos(p<sub>1</sub>, sg(z<sub>2</sub>)) + cos(p<sub>2</sub>, sg(z<sub>1</sub>)) ]</mark></span></p>
+  <p>Simbolo per simbolo:</p>
+  <ul>
+    <li><b>cos(a, b) = a·b / (‖a‖ ‖b‖)</b>: la similarità coseno, cioè il coseno dell'angolo fra i due vettori. Vale 1 se puntano nella stessa direzione, 0 se sono perpendicolari, −1 se opposti. <mark class="sh sh-g">Non dipende dalla lunghezza</mark> dei vettori, solo dalla direzione.</li>
+    <li><b>sg(·)</b>, lo <mark class="sh sh-b">stop-gradient</mark>: in avanti restituisce il valore così com'è, all'indietro non lascia passare gradiente. In PyTorch è <code>z.detach()</code>.</li>
+    <li><b>Il segno meno</b> trasforma «massimizza la somiglianza» in «minimizza la loss». Il minimo possibile è −1.</li>
+    <li><b>La somma</b> rende la loss simmetrica: ogni vista fa una volta da predizione e una da bersaglio.</li>
+  </ul>
+  <p><b>Esempio svolto.</b> Prendi vettori in 2D: p = (1, 0), z = (0,6, 0,8), entrambi lunghi 1. Allora cos(p, z) = 1·0,6 + 0·0,8 = 0,6 e quel termine vale −0,6. Il gradiente del coseno rispetto a p (con ‖p‖ = 1) è z − cos·p = (0,6, 0,8) − 0,6·(1, 0) = (0, 0,8): per abbassare la loss p ruota verso l'alto, cioè verso z. Rispetto a z il gradiente sarebbe p − cos·z = (1, 0) − 0,6·(0,6, 0,8) = (0,64, −0,48): senza stop-gradient anche z ruoterebbe verso p.</p>
+  <figure><img src="{{IMG:img/d04.png}}" alt="Due vettori unitari p e z; a sinistra si muove solo p, a destra si muovono entrambi"><figcaption>A sinistra con <code>detach</code>: z è un bersaglio fermo e solo p si sposta, di (0, 0,8) nella direzione di discesa. A destra senza: anche z si muove verso p, di (0,64, −0,48). Due punti che si inseguono a vicenda trovano più facilmente un punto d'incontro comune: il collasso.</figcaption></figure>
+  <p>La cella 19 lo verifica con autograd su due tensori casuali 4×8: dopo <code>backward()</code> la predizione ha un gradiente, il bersaglio staccato no (<code>target.grad is None</code>). Attenzione: <mark class="sh sh-y">detach non congela la rete</mark>. La stessa rete riceve gradiente dall'altro termine, dove la sua uscita fa da predizione.</p>
+  <p>Il commento della cella 19 avverte anche di una trappola: <mark class="sh sh-p">una loss vicina a −1 non prova che le feature siano buone</mark>. Anche una rete collassata allinea perfettamente le viste.</p>
+  <div class="box k"><b>Il punto</b><p>Loss = meno il coseno medio fra predizione e bersaglio, in entrambe le direzioni. Lo stop-gradient fa sì che si muova solo la predizione: <mark class="sh sh-g">il bersaglio resta fermo</mark> durante il passo.</p></div>
+
+  <h3>6. Perché SimSiam non collassa (a grandi linee)</h3>
+  <p><b>Il problema.</b> Non ci sono negativi. Che cosa impedisce a f di restituire una costante?</p>
+  <p><b>Quello che si sa per certo.</b> L'articolo lo misura: <mark class="sh sh-p">togliendo lo stop-gradient la rete collassa e l'accuratezza lineare crolla allo 0,1%</mark> (il caso, su ImageNet con 1000 classi); togliendo il predictor succede lo stesso. Servono <mark class="sh sh-y">entrambi</mark>.</p>
+  <p><b>L'interpretazione degli autori</b> (un'ipotesi, non un teorema). <mark class="sh sh-y">Lo stop-gradient trasforma il training in un'alternanza, simile a k-means</mark>:</p>
+  <ul>
+    <li>passo «bersagli»: con la rete attuale si calcolano i vettori z e li si tiene fissi (come assegnare i punti ai centroidi);</li>
+    <li>passo «rete»: si aggiornano i pesi perché le predizioni si avvicinino a quei bersagli (come spostare i centroidi).</li>
+  </ul>
+  <p><mark class="sh sh-y">Il predictor colma la differenza fra ciò che mostra una vista e la rappresentazione «media» dell'immagine su tutte le augmentation.</mark></p>
+  <p><b>Come accorgersene.</b> Un controllo pratico, dalla <a href="#L21">L21</a>: si normalizzano i vettori z a lunghezza 1 e si guarda la deviazione standard di ogni coordinata sul batch. Se le z sono sparse in modo uniforme sulla sfera vale circa 1/√2048 ≈ 0,022; se la rete collassa scende a 0.</p>
+  <p><b>Il predictor a lr costante.</b> Nella cella 21 l'ottimizzatore ha due gruppi di parametri: backbone e projector seguono un coseno (il learning rate scende fino quasi a zero), il predictor resta a 0,05 per tutto il training. L'articolo trova che così va un po' meglio (68,1% contro 67,7% su ImageNet, Tab. 1c). L'idea: <mark class="sh sh-y">il predictor deve continuare a inseguire bersagli che cambiano</mark>.</p>
+  <div class="box k"><b>Il punto</b><p>Senza stop-gradient o senza predictor, <mark class="sh sh-p">collasso</mark>. Con entrambi il training si comporta come un'alternanza fra «fissa i bersagli» e «inseguili». Il predictor tiene il learning rate costante.</p></div>
+
+  <h3>7. Il training: una, dieci o ottocento epoche</h3>
+  <p><b>Il ciclo</b> (cella 23) è il più semplice possibile: per ogni batch di 256 coppie di viste, <code>zero_grad</code>, <code>loss = model(view1, view2)</code>, <code>backward</code>, <code>step</code>. Con <code>drop_last=True</code> ogni epoca fa 50 000 / 256 = 195 aggiornamenti, tutti con 256 immagini. SGD con lr 0,05 (la regola dell'articolo 0,05·B/256 con B = 256), momentum 0,9, weight decay 10<sup>−4</sup>.</p>
+  <p><b>Una discrepanza nel notebook.</b> Il titolo della sezione 6, il messaggio per chi usa la CPU e il commento finale parlano di 10 epoche, ma la configurazione dice <code>SSL_EPOCHS = 1</code>. Con una sola epoca il coseno del learning rate non ha il tempo di scendere: <mark class="sh sh-p">la funzione vale 1 all'epoca 0 e tutta l'epoca si fa a 0,05</mark>.</p>
+  <figure><img src="{{IMG:img/d05.png}}" alt="Due grafici del learning rate: con 10 epoche il backbone scende a gradini, con 1 epoca resta a 0,05"><figcaption>A sinistra il programma per 10 epoche: il backbone scende a gradini (lo scheduler avanza una volta per epoca) fino a 0,0012, il predictor resta a 0,05. A destra quello che succede con <code>SSL_EPOCHS = 1</code>: tutto fermo a 0,05.</figcaption></figure>
+  <p><b>Cosa aspettarsi.</b> Un'epoca sono 195 passi di gradiente; l'articolo, per CIFAR-10, allena per 800 epoche (circa 156 000 passi) e arriva intorno al 91,8% di accuratezza lineare. Dopo 1 o 10 epoche le feature sono <mark class="sh sh-p">molto lontane da quel livello</mark>: il laboratorio serve a vedere la pipeline funzionare, non a riprodurre l'articolo. Un'altra cautela: <mark class="sh sh-p">anche un backbone con pesi casuali dà un probe sopra il caso</mark>; il pretraining va confrontato con quella base. I numeri della nostra esecuzione sono in <a href="#l23-risultati">Risultati dell'esecuzione</a>.</p>
+  <div class="box k"><b>Il punto</b><p>Il codice fa 1 epoca, il testo ne promette 10, l'articolo ne usa 800. <mark class="sh sh-y">Il valore della rappresentazione cresce con il training</mark>: giudica i risultati del lab con questa scala in mente.</p></div>
+
+  <h3>8. Come si valuta una rappresentazione</h3>
+  <p><b>Il problema.</b> La loss di SimSiam non dice se le feature sono utili (sezione 5). Serve un compito vero con etichette. Ma se in quel compito ri-addestri tutta la rete, non stai più misurando le feature del pretraining.</p>
+  <p><b>L'idea: il protocollo congelato.</b> <mark class="sh sh-b">Si fissa il backbone (<code>requires_grad_(False)</code>, <code>eval()</code>) e si addestra sopra solo un pezzo minuscolo.</mark> Se un classificatore semplice funziona bene, il merito è delle feature. Il notebook fa due cose prima di valutare (cella 26):</p>
+  <ul>
+    <li><code>backbone.eval()</code>: la BatchNorm usa le statistiche accumulate e non le aggiorna. <code>no_grad()</code> da solo non basta: spegne i gradienti, non cambia il comportamento della BatchNorm.</li>
+    <li>ogni vettore h viene <mark class="sh sh-b">normalizzato a lunghezza 1</mark> (<code>F.normalize</code>). Così il prodotto scalare fra due feature è proprio il loro coseno.</li>
+  </ul>
+  <p>Le feature si calcolano <mark class="sh sh-g">una volta sola</mark> (un tensore 50 000 × 512): da lì in poi la ResNet non serve più.</p>
+  <p><b>Lo split.</b> Le etichette si usano in tre ruoli diversi, e non si devono mescolare.</p>
+  <figure><img src="{{IMG:img/d06.png}}" alt="Tre righe: pretraining su 50000, poi 45000 + 5000 di validazione, test da 10000 usato una volta"><figcaption>Riga 1: il pretraining usa tutte le 50 000 immagini di training senza etichette. Riga 2: 45 000 per addestrare il probe e fare da memoria al k-NN, 5 000 per scegliere. Riga 3: il test da 10 000 si guarda una volta sola, alla fine.</figcaption></figure>
+  <p>Perché il test una volta sola? Se guardi un numero e cambi qualcosa in base a esso (l'epoca del probe, il valore di k), <mark class="sh sh-p">quel numero smette di essere una misura onesta</mark>: hai scelto la configurazione che su quei dati va meglio, anche per fortuna. Per questo le scelte si fanno sulla <mark class="sh sh-b">validazione</mark> e il <mark class="sh sh-b">test</mark> arriva quando tutto è deciso (cella 36: «do not use these results to select hyperparameters»).</p>
+  <div class="box k"><b>Il punto</b><p>Backbone congelato, feature normalizzate, un classificatore piccolo sopra. <mark class="sh sh-p">Scegliere guardando il test gonfia il risultato</mark>: si sceglie sulla validazione, si riporta il test.</p></div>
+
+  <h3>9. Il linear probe</h3>
+  <p><b>Il problema.</b> Le feature h separano le classi? Il modo più diretto per chiederlo è vedere se basta una frontiera lineare.</p>
+  <p><b>L'idea.</b> Un <mark class="sh sh-b">linear probe</mark> <mark class="sh sh-b">è un classificatore lineare addestrato su feature congelate</mark>. Il libro (§ 37.3.2) lo descrive come un modulo di lettura leggero, con pochi parametri, che serve sia a riusare una rete per un compito nuovo sia a «sondare» che cosa sa uno strato: se un attributo si legge linearmente da una feature map, quella feature map lo contiene.</p>
+  <p><span class="f">logit = W h + b, &nbsp; ŷ = argmax(logit)</span></p>
+  <p>Qui h è il vettore normalizzato di 512 numeri, W è una matrice 10 × 512 (una riga per classe di CIFAR-10), b un vettore di 10 bias. In tutto 512·10 + 10 = <b>5130 parametri</b>, contro gli 11 milioni del backbone. Si addestra con la cross-entropy, come la softmax regression del libro (§ 9.7.3).</p>
+  <p><b>Nel notebook</b> (celle 29–31): Adam con lr 0,01, coseno su 30 epoche, batch di 512 vettori. Dopo ogni epoca si misura l'accuratezza sulle 5 000 di validazione e si conserva una copia (<code>deepcopy</code>) dei pesi migliori. Alla fine si ricaricano quelli: è <mark class="sh sh-g">la scelta dell'epoca migliore sulla validazione</mark>, una forma di <i>early stopping</i>.</p>
+  <p><b>Esempio piccolo.</b> Con 2 classi e feature 2D, h = (0,6, 0,8), W = [[1, 0], [0, 1]], b = 0: logit = (0,6, 0,8), vince la classe 2. Il probe taglia lo spazio solo con iperpiani: <mark class="sh sh-p">se le classi sono intrecciate, nessun W funziona</mark>, ed è proprio ciò che vogliamo scoprire.</p>
+  <div class="box k"><b>Il punto</b><p>Linear probe = 5130 parametri sopra feature ferme. <mark class="sh sh-g">Se funziona, l'informazione sulla classe è già linearmente leggibile nelle feature.</mark></p></div>
+
+  <h3>10. Il k-NN: nessun addestramento</h3>
+  <p><b>Il problema.</b> Anche il probe impara qualcosa (W e b). Si può valutare le feature senza addestrare proprio nulla?</p>
+  <p><b>L'idea.</b> Per classificare un'immagine si cercano, fra le 45 000 feature con etichetta, le <mark class="sh sh-b">k più simili</mark> e si fa votare la loro classe. Se immagini della stessa classe hanno feature vicine, il voto è giusto. È la stessa idea del libro (§ 30.4.1), che misura la qualità di ogni strato di un autoencoder con un classificatore a 1 vicino: nei pixel il vicino più vicino ha lo stesso colore, negli strati profondi la stessa forma.</p>
+  <p><b>Nel notebook</b> (cella 34): <code>KNeighborsClassifier</code> di scikit-learn con k = 20, distanza coseno (1 − cos), voto a maggioranza semplice.</p>
+  <figure><img src="{{IMG:img/d07.png}}" alt="Punti su un arco di circonferenza colorati per classe, una query rossa e i suoi 5 vicini"><figcaption>Feature normalizzate in 2D: stanno su una circonferenza, e la similarità coseno dipende solo dall'angolo. I 5 vicini della query sono 3 cani e 2 gatti: vince «cane».</figcaption></figure>
+  <p><b>Esempio svolto.</b> Con k = 5 e similarità (0,98 gatto, 0,98 cane, 0,96 cane, 0,955 gatto, 0,93 cane): voti cane 3, gatto 2, risposta «cane». Un k più grande rende il voto più stabile, ma <mark class="sh sh-p">se k è troppo grande entrano vicini lontani di altre classi</mark>. Il notebook fissa k = 20 in anticipo e avverte: se lo vuoi regolare, fallo sulla validazione.</p>
+  <p><b>Probe contro k-NN.</b> <mark class="sh sh-y">Il probe guarda la struttura globale</mark> (esiste un taglio lineare?), <mark class="sh sh-y">il k-NN quella locale</mark> (i vicini hanno la stessa classe?). Per questo il lab li riporta entrambi.</p>
+  <div class="box k"><b>Il punto</b><p>k-NN = vota la classe dei k vicini nello spazio delle feature. <mark class="sh sh-g">Zero parametri addestrati</mark>: misura direttamente se la geometria delle feature rispetta le classi.</p></div>
+
+  <h3>11. Parte 2: un foundation model congelato, feature per patch</h3>
+  <p><b>Il problema.</b> Ora vogliamo una maschera: quali parti della foto sono l'oggetto in primo piano (il gatto, la crostata) e quali lo sfondo. Abbiamo solo 9 immagini annotate. Addestrare una rete di segmentazione da zero con 9 esempi è impossibile.</p>
+  <p><b>L'idea.</b> Usiamo un <mark class="sh sh-b">foundation model</mark>: una rete addestrata in modo self-supervised su moltissimi dati e <mark class="sh sh-b">pensata per essere riusata così com'è</mark>. DINOv3 (<a href="#L22">L22</a>) nella versione ViT-S/16 distillata ha circa 21 milioni di parametri ed è stata addestrata sui dati LVD-1689M. Il libro descrive esattamente questo uso nel § 37.3.1: un modulo che trasforma l'immagine in una feature map, preaddestrato e congelato («potrebbe essere DINO»), con sopra moduli piccoli per i compiti specifici. Nel § 31.3.2 <mark class="sh sh-g">basta un k-means sulle feature dense di DINO per segmentare</mark>.</p>
+  <p><b>Dalla foto alla griglia di token.</b> Un ViT con patch 16 (<a href="#L17">L17</a>, <a href="#L18">L18</a>; libro § 26.4.1) taglia l'immagine in quadrati 16×16 e produce un vettore per quadrato. Prima la foto si ridimensiona: lato lungo 448, entrambi i lati arrotondati per difetto a multipli di 16 (cella 11).</p>
+  <p><b>Il conto.</b> Le foto del dataset sono 4032×3024. Fattore di scala 448 / 4032 = 0,111, quindi 4032×3024 → 448×336 (entrambi già multipli di 16). Griglia: 448 / 16 = 28 colonne, 336 / 16 = 21 righe, <mark class="sh sh-y">21 × 28 = 588 patch</mark>. Le immagini 2 e 7 sono verticali: griglia 28 × 21, sempre 588.</p>
+  <figure><img src="{{IMG:img/d08.png}}" alt="La foto del gatto con sopra una griglia 28 per 21 e lo zoom di una patch"><figcaption>La foto di prova (1600×1200 → 448×336) con la griglia delle 588 patch. A destra una patch: 16×16×3 = 768 numeri in ingresso, un vettore di 384 numeri in uscita dall'ultimo strato.</figcaption></figure>
+  <p><b>L'estrazione</b> (cella 17): <code>model.get_intermediate_layers(batch, n=1, reshape=True, norm=True)</code>. <code>n=1</code> chiede solo l'ultimo strato; <code>reshape=True</code> toglie il token [CLS] e i token di registro e rimette i token delle patch su una griglia [384, 21, 28]; <code>norm=True</code> applica la LayerNorm finale del modello, che non è una normalizzazione a lunghezza 1. Poi [384, 21, 28] → [384, 588] → [588, 384]: <mark class="sh sh-b">una riga per patch</mark>, nello stesso ordine (riga per riga) dei bersagli.</p>
+  <div class="box k"><b>Il punto</b><p>DINOv3 congelato trasforma ogni patch 16×16 in un vettore di 384 numeri. <mark class="sh sh-g">Il lavoro difficile l'ha già fatto il pretraining</mark>; a noi resta un problema di classificazione per riga.</p></div>
+
+  <h3>12. Dalla maschera ai bersagli per patch</h3>
+  <p><b>Il problema.</b> Le etichette sono maschere al pixel (il canale alpha del PNG: 0 = sfondo, 255 = primo piano). Il modello invece dà un vettore per patch. Bisogna portare la maschera alla risoluzione delle patch.</p>
+  <figure><img src="{{IMG:img/d09.png}}" alt="Le nove immagini annotate con le loro maschere"><figcaption>Le 9 immagini annotate con le maschere di primo piano: tre gatti, un uovo in un portauovo a forma di gallina, un cinghiale nel bosco, una crostata, una gallina, dei pancake, un uccellino di legno.</figcaption></figure>
+  <p><b>L'idea.</b> Si ridimensiona la maschera come l'immagine (bilineare, perché alpha è una copertura continua) e si fa la media dentro ogni quadrato 16×16 con <code>avg_pool2d</code>: ne esce, per ogni patch, la <mark class="sh sh-b">frazione di primo piano</mark>. 0,75 vuol dire che tre quarti della patch sono oggetto. Poi tre casi:</p>
+  <ul>
+    <li>frazione &lt; 0,01 → bersaglio 0 (sfondo);</li>
+    <li>frazione &gt; 0,99 → bersaglio 1 (primo piano);</li>
+    <li>tutto il resto → patch di bordo, <mark class="sh sh-p">ignorata</mark> sia nel training sia nella validazione.</li>
+  </ul>
+  <figure><img src="{{IMG:img/d10.png}}" alt="Maschera ridimensionata, copertura per patch 21×28, bersagli con bordo ignorato"><figcaption>Immagine 1. A sinistra la maschera 336×448; al centro la frazione di primo piano su 21×28 patch (i grigi sono i bordi); a destra i bersagli: giallo = 1, verde acqua = 0, viola = ignorata.</figcaption></figure>
+  <p><b>I conti su tutto il dataset</b> (misurati da noi): 9 × 588 = 5292 patch; 3616 di sfondo, 1086 di primo piano, 590 di bordo ignorate. Restano 4702, il <mark class="sh sh-y">23,1% di primo piano</mark>. Nell'immagine 1 restano 519 patch su 588, 82 di primo piano.</p>
+  <figure><img src="{{IMG:img/d11.png}}" alt="Istogramma della frazione di primo piano: due picchi a 0 e 1 e una coda bassa in mezzo; barre 3616, 1086, 590"><figcaption>Quasi tutte le patch sono nettamente sfondo o nettamente oggetto (i due picchi, scala logaritmica). Le 590 patch a cavallo del contorno vengono escluse.</figcaption></figure>
+  <p>Ignorare i bordi semplifica il problema (niente etichette ambigue) ma ha un prezzo: <mark class="sh sh-p">anche la validazione non guarda i bordi</mark>, cioè proprio le patch più difficili. Il punteggio che otterremo è ottimista rispetto a una segmentazione vera.</p>
+  <div class="box k"><b>Il punto</b><p>Maschera → media per patch → 0, 1 o «ignora». Si lavora con 4702 patch etichettate, sbilanciate: <mark class="sh sh-y">circa una su quattro è primo piano</mark>.</p></div>
+
+  <h3>13. La regressione logistica come linear probe denso</h3>
+    <p><b>Il problema e l'idea.</b> Ogni patch ha un vettore h di 384 numeri e un bersaglio 0/1. Serve un linear probe come nella sezione 9, con due classi e applicato a ogni patch: una <mark class="sh sh-b">regressione logistica</mark>.</p>
+  <p><span class="f"><mark class="sh sh-b">p(primo piano | h) = σ(wᵀh + b)</mark>, &nbsp; σ(s) = 1 / (1 + e<sup>−s</sup>)</span></p>
+  <p>w è un vettore di 384 pesi, b un numero, σ la sigmoide che schiaccia qualunque punteggio fra 0 e 1. In tutto <b>385 parametri</b>. <mark class="sh sh-g">Gli stessi w e b valgono per ogni patch</mark> di ogni immagine: <mark class="sh sh-y">è un filtro 1×1 sulla griglia di feature</mark>, l'equivalente denso del probe.</p>
+  <p><b>Esempio.</b> Se wᵀh + b = 2 la probabilità è 1 / (1 + e<sup>−2</sup>) = 0,88; se vale −1 è 0,27; se vale 0 è esattamente 0,5, la soglia di decisione.</p>
+  <p><b>La regolarizzazione C.</b> scikit-learn minimizza la cross-entropy più una penalità ‖w‖²/2 pesata con 1/C. <mark class="sh sh-b">C piccolo = regolarizzazione forte</mark> (pesi piccoli), C grande = regolarizzazione debole. Il notebook prova 8 valori, C = 10<sup>−7</sup>, 10<sup>−6</sup>, …, 10<sup>0</sup>. Il rischio di overfitting è reale: <mark class="sh sh-p">le patch della stessa immagine si somigliano</mark>, quindi gli esempi davvero diversi sono pochi.</p>
+  <div class="box k"><b>Il punto</b><p>Una regressione logistica con 385 parametri, uguale per tutte le patch. <mark class="sh sh-y">C regola quanto può crescere w</mark>, e va scelto sulla validazione.</p></div>
+
+  <h3>14. Validare per immagine, non per patch</h3>
+  <p><b>Il problema.</b> Per scegliere C serve una validazione. La tentazione: mescolare le 4702 patch e tenerne da parte il 20%.</p>
+  <p><b>Perché è sbagliato.</b> <mark class="sh sh-p">Due patch vicine della stessa foto sono quasi uguali</mark>: stesso gatto, stessa luce, stesso pelo. Se una sta nel training e la vicina nella validazione, il modello riconosce la vicina perché ha già visto la sua «gemella». Il numero esce <mark class="sh sh-p">gonfiato</mark>.</p>
+  <p><b>L'idea.</b> Si tiene fuori un'<mark class="sh sh-b">immagine intera</mark> alla volta: <i>leave-one-image-out</i>. Si addestra sulle patch delle altre 8, si valuta sulle patch di quella esclusa, e si ripete per tutte e 9. <mark class="sh sh-g">Ogni patch riceve così una predizione da un modello che non ha mai visto la sua immagine</mark> (cella 21, con un <code>assert</code> che lo controlla).</p>
+  <figure><img src="{{IMG:img/d12.png}}" alt="Matrice 9 per 9 con la diagonale di validazione; a destra una griglia di patch con validazione sparsa"><figcaption>A sinistra i 9 fold: per ognuno un'immagine fa da validazione e 8 da training. Con 8 valori di C sono 9 × 8 = 72 regressioni logistiche. A destra lo split casuale per patch: ogni patch di validazione ha vicine di training quasi identiche.</figcaption></figure>
+  <p><b>Il punteggio.</b> Per ogni C si calcola l'AP (prossima sezione) su ciascuna immagine esclusa e poi la <mark class="sh sh-y">media sulle 9 immagini</mark>. Media per immagine, non per patch: un'immagine con molte patch tenute non pesa più di una con poche (cella 22).</p>
+  <p>Cautela (cella 23): <mark class="sh sh-p">C è stato scelto su questi 9 fold, quindi la loro AP non è più una stima imparziale</mark>. Servirebbe un'immagine annotata mai usata o una validazione annidata: lo stesso principio del test usato una volta sola.</p>
+  <div class="box k"><b>Il punto</b><p>Dati correlati si dividono per gruppo (qui l'immagine), <mark class="sh sh-p">mai per singolo esempio</mark>. Altrimenti la validazione premia la memoria.</p></div>
+
+  <h3>15. Average precision invece dell'accuratezza</h3>
+  <p><b>Il problema.</b> Il 77% delle patch tenute è sfondo. Un modello che risponde sempre «sfondo» ha accuratezza 0,77 e non trova nulla.</p>
+  <p><b>L'idea.</b> Invece di contare quante risposte sono giuste a una soglia fissa, <mark class="sh sh-y">si guarda se il modello</mark> <mark class="sh sh-y">mette le patch di primo piano in cima alla classifica</mark>. Si ordinano le patch per punteggio decrescente e si scorre la lista. Il libro (§ 50.4.3) definisce, per una soglia β:</p>
+  <ul>
+    <li><b>precision</b>(β) = Σ 1(ŷ<sub>i</sub> &gt; β) y<sub>i</sub> / Σ 1(ŷ<sub>i</sub> &gt; β): fra le patch dichiarate primo piano, quante lo sono davvero;</li>
+    <li><b>recall</b>(β) = Σ 1(ŷ<sub>i</sub> &gt; β) y<sub>i</sub> / Σ y<sub>i</sub>: fra le patch di primo piano vere, quante ne ho trovate.</li>
+  </ul>
+  <p>ŷ<sub>i</sub> è il punteggio della patch i, y<sub>i</sub> il bersaglio (0 o 1), 1(·) vale 1 se la condizione è vera. L'<mark class="sh sh-b">average precision</mark> riassume tutta la curva in un numero, l'area sotto la curva precision-recall:</p>
+  <p><span class="f"><mark class="sh sh-b">AP = Σ<sub>n</sub> (R<sub>n</sub> − R<sub>n−1</sub>) P<sub>n</sub></mark></span></p>
+  <p>dove P<sub>n</sub> e R<sub>n</sub> sono precision e recall alla soglia n-esima: ogni volta che la recall cresce, si aggiunge un rettangolo largo quanto il salto e alto quanto la precision in quel punto.</p>
+  <p><b>Esempio svolto: 6 patch.</b> Punteggi 0,95, 0,85, 0,70, 0,60, 0,40, 0,10; i bersagli veri, nello stesso ordine, sono fg, fg, sf, fg, sf, sf (3 di primo piano). Scorrendo: dopo la 1ª P = 1, R = 1/3; dopo la 2ª P = 1, R = 2/3; la 3ª è sfondo, P = 2/3, R non cambia; dopo la 4ª P = 3/4, R = 1. Quindi AP = (1/3)·1 + (1/3)·1 + (1/3)·0,75 = <b>0,917</b>.</p>
+  <figure><img src="{{IMG:img/d13.png}}" alt="Tabella delle 6 patch con P, R e contributi; curva precision-recall a gradini"><figcaption>A sinistra il conto riga per riga; a destra la curva a gradini, la cui area è l'AP. La linea tratteggiata è la prevalenza (3/6): la precision che otterresti con punteggi a caso.</figcaption></figure>
+  <p><b>La linea di base.</b> Con punteggi casuali, a qualunque soglia la precision è circa la frazione di positivi, la <mark class="sh sh-b">prevalenza</mark>. Per questo la cella 23 disegna la prevalenza come linea tratteggiata in ognuna delle 9 curve: <mark class="sh sh-b">l'AP di un modello inutile vale circa la prevalenza</mark> (0,23 su tutto il dataset, 82/519 ≈ 0,16 nell'immagine 1), non 0,5.</p>
+  <figure><img src="{{IMG:img/d14.png}}" alt="Barre di accuratezza e AP per tre classificatori"><figcaption>Simulazione con le stesse proporzioni del dataset (4702 patch, 1086 di primo piano). «Tutto sfondo» ha accuratezza 0,77 ma AP 0,23; punteggi a caso AP 0,24; un ordinamento buono AP 0,82. L'accuratezza distingue poco il primo dal terzo, l'AP moltissimo.</figcaption></figure>
+  <div class="box k"><b>Il punto</b><p>Con classi sbilanciate <mark class="sh sh-p">l'accuratezza premia chi risponde sempre «sfondo»</mark>. L'AP misura l'ordinamento a tutte le soglie e va confrontata con la prevalenza, non con 0,5.</p></div>
+
+  <h3>16. Scegliere C, rifare il fit, predire su una foto nuova</h3>
+  <p><b>Scelta di C</b> (cella 22): si prende il C con la media delle AP più alta; a parità vince il primo della lista, cioè il <mark class="sh sh-g">più regolarizzato</mark> (il modello più semplice). Poi (cella 25) si addestra un probe nuovo su <b>tutte</b> le 9 immagini con quel C: è il modello che si usa. <mark class="sh sh-p">Il suo punteggio sulle immagini di training non è una prestazione.</mark></p>
+  <p><b>Una trappola da conoscere.</b> L'AP dipende solo dall'ordine dei punteggi, non dalla loro scala. Con C molto piccolo i pesi w diventano minuscoli e tutte le probabilità si schiacciano vicino alla prevalenza: l'ordine può restare buono, ma <mark class="sh sh-p">nessuna patch supera la soglia 0,5</mark> e la maschera finale resta vuota. Non l'abbiamo potuto verificare su DINOv3; la figura lo mostra su un esempio giocattolo.</p>
+  <figure><img src="{{IMG:img/d15.png}}" alt="Tre istogrammi delle probabilità per C 0,0001, 0,01, 1"><figcaption>Esempio giocattolo (2 feature, 23% di primo piano). L'AP è 0,84 per tutti e tre i C, perché l'ordine non cambia; ma con C = 0,0001 tutte le probabilità stanno intorno a 0,23 e nessuna supera 0,5. Con C = 1 il 20% delle patch passa la soglia.</figcaption></figure>
+  <p><b>La foto nuova</b> (celle 27–28): un gatto tigrato a pelo lungo su una coperta a righe blu, 1600×1200 → 448×336, griglia 21×28. Si estraggono le feature, si calcola la probabilità di ogni patch (anche quelle di bordo, che stavolta non si possono ignorare) e poi tre passi:</p>
+  <ol>
+    <li><b>Filtro mediano 3×3 sulla griglia delle patch</b>: ogni valore diventa la mediana dei 9 vicini. <mark class="sh sh-g">Una patch isolata ad alta probabilità in mezzo allo sfondo viene cancellata, i bordi netti restano.</mark></li>
+    <li><b>Upsampling bilineare</b> della griglia 21×28 alla taglia della foto.</li>
+    <li><b>Soglia 0,5</b> fissata in anticipo («do not tune it on the demo image») e sovrapposizione rossa semitrasparente.</li>
+  </ol>
+  <figure><img src="{{IMG:img/d16.png}}" alt="Quattro pannelli: griglia rumorosa, dopo il mediano, dopo l'upsampling, maschera rossa sulla foto"><figcaption>Punteggi <b>simulati</b> sull'immagine 1 (la copertura vera più rumore), solo per mostrare i passi: il mediano toglie quasi tutti i punti isolati, l'upsampling rende i bordi morbidi, la soglia dà la maschera.</figcaption></figure>
+  <p><b>Il limite di risoluzione.</b> L'upsampling non inventa dettagli: dentro una patch il modello ha un solo valore. Sulla foto originale una patch copre 1600 / 28 ≈ 57 pixel di lato, quindi <mark class="sh sh-p">baffi, orecchie e contorni fini non possono uscire precisi</mark>. La foto nuova non ha una maschera vera: <mark class="sh sh-y">il risultato è solo qualitativo</mark> (cella 28).</p>
+  <div class="box k"><b>Il punto</b><p>C scelto per AP media, refit su tutte le 9, poi griglia di probabilità → mediano → upsampling → soglia. <mark class="sh sh-y">La risoluzione resta quella delle patch, 16 pixel</mark> sull'immagine ridotta.</p></div>
+
+  <h3>17. Gli esercizi: SimCLR, BYOL, Barlow Twins</h3>
+  <p>L'ultima cella del primo notebook chiede di riscrivere il modello con altri tre metodi della <a href="#L21">L21</a> e <a href="#L22">L22</a>, lasciando uguali trasformazioni, loader, backbone e valutazione. Cosa cambia:</p>
+  <ul>
+    <li><b>SimCLR</b>: via il predictor; serve la loss contrastiva NT-Xent. Le 2B viste del batch si normalizzano, per ogni vista la sua gemella è il positivo e le altre 2B − 2 sono negativi, con una temperatura τ. <mark class="sh sh-p">Funziona meglio con batch grandi</mark> (l'articolo usa 4096).</li>
+    <li><b>BYOL</b>: si aggiunge un teacher, copia di backbone <i>e projector</i>, che non riceve gradiente e si aggiorna come media mobile esponenziale dei pesi dello student <i>dopo</i> <code>optimizer.step()</code>. La loss è l'errore quadratico fra vettori normalizzati, uguale a 2 − 2 cos.</li>
+    <li><b>Barlow Twins</b>: via il predictor; si standardizzano le due uscite lungo il batch e si calcola la matrice di correlazione incrociata C (qui 2048 × 2048). La loss spinge la diagonale a 1 (invarianza) e il resto a 0 (niente ridondanza): Σ<sub>i</sub>(1 − C<sub>ii</sub>)² + λ Σ<sub>i≠j</sub> C<sub>ij</sub>², con λ = 5·10<sup>−3</sup> nell'articolo.</li>
+  </ul>
+  
+  <div class="box k"><b>Il punto</b><p>Stessa pipeline, cambia solo il modo di evitare il collasso: <mark class="sh sh-y">negativi (SimCLR), teacher lento (BYOL), decorrelazione (Barlow Twins)</mark>.</p></div>
+
+  <h3>I bug del notebook da non copiare</h3>
+  <ul>
+    <li><b>SimSiam, epoche:</b> <code>SSL_EPOCHS = 1</code> contro le 10 promesse dal testo (sezione 7).</li>
+    <li><b>SimSiam su macOS e Windows:</b> i worker del DataLoader partono con «spawn» e <mark class="sh sh-p">non trovano <code>TwoViews</code> definita nel notebook</mark> («Can't get attribute … on __main__»). Rimedio: <code>NUM_WORKERS = 0</code> o spostare la classe in un file .py.</li>
+    <li><b>DINOv3:</b> il commento cita la variabile d'ambiente <code>DINOV3_WEIGHTS</code>, che però non viene mai letta: <code>WEIGHTS_LOCATION</code> va cambiato a mano.</li>
+  </ul>
+  <p>Cella per cella sono nelle schede qui sotto.</p>
+
+  <h3>Il riassunto in 10 righe</h3>
+  <ol>
+    <li>SSL in due fasi: feature senza etichette, poi un pezzo piccolo addestrato con poche etichette sopra il backbone congelato.</li>
+    <li>Le augmentation decidono le invarianze: ciò che cambia fra le viste sparisce dalla rappresentazione (libro § 30.10.2).</li>
+    <li>SimSiam: backbone ResNet-18 (h, 512) → projector (z, 2048) → predictor (p, 2048), stessi pesi sui due rami.</li>
+    <li>Loss = −½[cos(p<sub>1</sub>, sg(z<sub>2</sub>)) + cos(p<sub>2</sub>, sg(z<sub>1</sub>))]; senza stop-gradient o senza predictor collassa.</li>
+    <li>Il predictor ha learning rate costante; backbone e projector seguono un coseno. Il codice fa 1 epoca, l'articolo 800.</li>
+    <li>Valutazione: feature congelate e normalizzate; 45 000 per adattare, 5 000 per scegliere, test da 10 000 una volta sola.</li>
+    <li>Linear probe = 5130 parametri; k-NN = voto dei 20 vicini per coseno, zero parametri.</li>
+    <li>DINOv3 ViT-S/16 congelato: 336×448 → griglia 21×28 = 588 patch, un vettore di 384 per patch.</li>
+    <li>Bersagli per patch con bordi ignorati (4702 tenute, 23,1% primo piano); regressione logistica σ(wᵀh + b) uguale per ogni patch.</li>
+    <li>Validazione leave-one-image-out con AP media per immagine; refit, mediano 3×3, upsampling, soglia 0,5: risoluzione di 16 pixel.</li>
+  </ol>
+
+  <h3>Verifica di aver capito</h3>
+  <details><summary>Perché la loss di SimSiam vicina a −1 non basta a dire che il pretraining è riuscito?</summary><p>Perché anche una rete collassata, che dà lo stesso vettore a ogni immagine, allinea perfettamente le viste e ottiene −1. Per giudicare le feature serve un compito con etichette (probe o k-NN) o almeno un controllo sulla dispersione delle z normalizzate.</p></details>
+  <details><summary>Nell'esempio p = (1, 0), z = (0,6, 0,8), cosa cambia con e senza detach?</summary><p>Il coseno è 0,6 in entrambi i casi. Con <code>detach</code> si muove solo p, nella direzione (0, 0,8), verso z. Senza, anche z si muove verso p, nella direzione (0,64, −0,48): i due vettori si inseguono e la rete trova più facilmente la soluzione costante.</p></details>
+  <details><summary>Perché nel lab DINOv3 non si dividono le patch a caso fra training e validazione?</summary><p>Le patch vicine della stessa immagine sono quasi identiche: una nel training e la gemella nella validazione gonfiano il punteggio. Si tiene fuori un'immagine intera per volta (9 fold) e si fa la media dell'AP per immagine.</p></details>
+  <details><summary>Un probe che dice sempre «sfondo»: quanto vale la sua accuratezza e quanto la sua AP?</summary><p>Accuratezza 0,77 (le patch di sfondo sono il 77% delle 4702). AP pari alla prevalenza, circa 0,23: non ordina affatto le patch di primo piano sopra le altre.</p></details>
+  <details><summary>Calcola l'AP con punteggi in ordine e bersagli fg, sf, fg, sf.</summary><p>Dopo la 1ª P = 1, R = 1/2; la 2ª è sfondo; dopo la 3ª P = 2/3, R = 1. AP = (1/2)·1 + (1/2)·(2/3) = 0,833.</p></details>
+  <details><summary>Perché la maschera finale non segue bene i baffi del gatto?</summary><p>Il modello dà un solo valore per patch 16×16 dell'immagine ridotta, cioè circa 57×57 pixel della foto originale. Mediano e upsampling bilineare ammorbidiscono la griglia ma non aggiungono dettagli dentro le patch.</p></details>
+
+  <h3>Come proseguire</h3>
+  <p>Libro: <a href="https://visionbook.mit.edu/representation_learning.html">cap. 30 Representation Learning</a>, § 30.4.1 (valutare con i vicini), § 30.10–30.10.2 (contrastivo, alignment e uniformity, esperimento sulle invarianze); <a href="https://visionbook.mit.edu/transfer_learning.html">cap. 37 Transfer Learning</a>, § 37.3.1 (moduli congelati, DINO come featurizer) e § 37.3.2 (heads and probes); <a href="https://visionbook.mit.edu/perceptual_organization.html">cap. 31</a>, § 31.3.2 (k-means sulle feature DINO); <a href="https://visionbook.mit.edu/object_recognition_v3.html">cap. 50</a>, § 50.4.3 (precision, recall, AP). Prince § 9.3.7 per il quadro generale. Poi apri le schede qui sotto, che seguono i due notebook cella per cella, e la sezione dei risultati. Ora ripassa con le schede qui sotto.</p>
+</div>

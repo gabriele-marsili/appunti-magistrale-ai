@@ -1,0 +1,215 @@
+<div class="sec" id="l23-libro"><h2>Studia dal libro</h2><span>Torralba, Isola, Freeman · cap. 30, 37, 31, 50 · circa 1 ora</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Cosa leggere, in ordine</h3>
+    <div class="meta">Il lab non ha slide: la teoria è nella <a href="#L21">L21</a>, nella <a href="#L22">L22</a> e in questi paragrafi</div>
+    <ol>
+      <li><a href="https://visionbook.mit.edu/representation_learning.html">Cap. 30 Representation Learning</a>: § 30.4.1 (come si valuta una rappresentazione con i vicini più prossimi e il 1-NN strato per strato), § 30.10 (alignment loss, collasso, coppie positive e negative), § 30.10.1 (alignment e uniformity), § 30.10.2 (l'esperimento che mostra come le augmentation scelgono le invarianze). Se hai già studiato la L21, è un ripasso di 20 minuti.</li>
+      <li><a href="https://visionbook.mit.edu/transfer_learning.html">Cap. 37 Transfer Learning and Adaptation</a>: § 37.2–37.3 (pretraining e finetuning, sostituire l'ultimo strato), § 37.3.1 (moduli congelati, con l'esempio di DINO come featurizer: è la parte 2 del lab), § 37.3.2 (teste e <b>linear probe</b>, i due usi).</li>
+      <li><a href="https://visionbook.mit.edu/perceptual_organization.html">Cap. 31 Perceptual Grouping</a>, § 31.3.2: feature dense di modelli contrastivi e DINO, k-means per segmentare (fig. 31.7).</li>
+      <li><a href="https://visionbook.mit.edu/object_recognition_v3.html">Cap. 50 Object Recognition</a>, § 50.4.3: precisione, recall, curva precisione-recall e AP (qui applicati alle patch invece che ai box).</li>
+      <li>Richiami brevi: § 24.11.3 (ResNet), § 12.7.3 (BatchNorm in training e in test), § 26.4.1 (tokenizzazione in patch del ViT), § 9.7.3 (classificazione softmax: la regressione logistica è il caso a due classi).</li>
+      <li>Fuori dal visionbook: <b>Szeliski, 2a ed., § 5.4.7</b> (SimSiam e BYOL senza negativi) e <b>Prince, § 9.3.7</b> (self-supervised learning). SimSiam, DINOv3 e la valutazione con probe e k-NN sono negli articoli: Chen e He 2021 (arXiv 2011.10566), Siméoni et al. 2025 (arXiv 2508.10104).</li>
+    </ol>
+    <p><b>Si può saltare</b>: § 30.5–30.9 (codifiche predittive, imputazione, clustering: già viste in L21), § 37.5–37.10 (prompting, adattamento di dominio), il resto del cap. 31.</p>
+  </div>
+  <div class="two">
+    <div class="card">
+      <h3>1 · Il collasso e come lo si evita</h3>
+      <div class="meta">visionbook § 30.10 · Szeliski § 5.4.7</div>
+      <p>Una loss di solo allineamento ‖f(T(x)) − f(x)‖² si azzera con una f costante. Il libro risolve con i <b>negativi</b> (contrastive learning); SimSiam con <b>predictor + stop-gradient</b>, senza negativi. La scheda 9 riporta che cosa succede togliendo l'uno o l'altro: collasso.</p>
+    </div>
+    <div class="card">
+      <h3>2 · Le augmentation decidono le invarianze</h3>
+      <div class="meta">visionbook § 30.10.2</div>
+      <p>Solo crop → embedding che raggruppa per colore. Crop + variazioni di tinta, luminosità e saturazione → embedding invariante al colore, che raggruppa per forma. Il ColorJitter e il grigio del notebook servono a questo.</p>
+    </div>
+    <div class="card">
+      <h3>3 · Valutare una rappresentazione</h3>
+      <div class="meta">visionbook § 30.4.1, § 37.3.2</div>
+      <p>Due modi di «leggere» le feature congelate: un <b>classificatore lineare</b> (probe) e i <b>vicini più prossimi</b>. Il libro usa il 1-NN per strato e mostra che nessuna rappresentazione è la migliore per tutto (colore nei pixel, forma in profondità).</p>
+    </div>
+    <div class="card">
+      <h3>4 · Featurizer congelato + testa leggera</h3>
+      <div class="meta">visionbook § 37.3.1, § 31.3.2</div>
+      <p>Un foundation model (DINO) usato come estrattore di feature generico, che non si aggiorna; sopra, moduli piccoli per il compito. Le feature dense di DINO sono già quasi raggruppate per oggetto: un k-means le segmenta senza etichette, un probe lineare con poche etichette.</p>
+    </div>
+    <div class="card">
+      <h3>5 · AP con classi sbilanciate</h3>
+      <div class="meta">visionbook § 50.4.3</div>
+      <p>Precisione e recall al variare della soglia, AP = area sotto la curva. Non dipende da una soglia scelta e non si lascia ingannare dalla classe maggioritaria come l'accuratezza.</p>
+    </div>
+    <div class="card">
+      <h3>Notazione: libro e notebook</h3>
+      <div class="meta">differenze da tenere a mente</div>
+      <p>Il libro chiama f l'encoder e scrive le viste come T(x); il notebook separa backbone, projector g e predictor h, e scrive sg(·) o <code>.detach()</code> per lo stop-gradient. Il libro non usa i nomi «projector» e «predictor» e non tratta SimSiam né DINOv3; parla di «heads and probes» dove il notebook dice «linear probe».</p>
+    </div>
+  </div>
+</div>
+
+<div class="sec" id="l23-guida"><h2>Guida allo studio</h2><span>circa 2 ore e mezza · domande da orale</span></div>
+<div class="guide">
+  <div class="two">
+    <div class="card">
+      <h3>Blocco 1 · SimSiam nel codice (50 min)</h3>
+      <div class="meta">schede 1–11</div>
+      <ul>
+        <li>Disegna lo schema: due viste → backbone (512) → projector (2048) → predictor (2048), con lo stop-gradient sui bersagli.</li>
+        <li>Scrivi la loss simmetrizzata e spiega ogni pezzo (coseno, segno meno, media, detach).</li>
+        <li>Rifai il conto del gradiente del coseno della scheda 8.</li>
+        <li>Ricorda i bug: 1 epoca contro 10, <code>NUM_WORKERS</code> su Mac.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Blocco 2 · Valutare le feature (30 min)</h3>
+      <div class="meta">schede 12–15</div>
+      <ul>
+        <li>Protocollo: congela, estrai, normalizza, split 45 000 / 5 000 / test.</li>
+        <li>Linear probe contro k-NN contro finetuning: che cosa misura ognuno.</li>
+        <li>Perché il test si usa una volta sola.</li>
+        <li>Guarda i nostri numeri e il confronto con la rete a pesi casuali.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Blocco 3 · DINOv3 e il probe denso (45 min)</h3>
+      <div class="meta">schede 17–25</div>
+      <ul>
+        <li>Rifai il conto della griglia: 4032×3024 → 448×336 → 21×28 = 588 patch.</li>
+        <li>Bersagli per patch con bordi ignorati; regressione logistica come convoluzione 1×1.</li>
+        <li>Leave-one-image-out: perché non uno split per patch.</li>
+        <li>AP: calcolala a mano sull'esempio della scheda 23.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Blocco 4 · Esercizi (25 min)</h3>
+      <div class="meta">scheda 16 e soluzioni</div>
+      <ul>
+        <li>Leggi il codice di SimCLR, BYOL e Barlow Twins nella sezione Soluzioni.</li>
+        <li>Per ognuno: che cosa impedisce il collasso, quali moduli ha, dove cambia il ciclo di training.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Domande tipo orale</h3>
+    <details><summary>Che cos'è il self-supervised learning e come si valuta la rappresentazione che produce?</summary><p>Si addestra una rete su un compito costruito dai dati stessi, senza etichette (qui: rendere simili le rappresentazioni di due viste aumentate della stessa immagine). Poi si congela il backbone e si misura la qualità delle feature con le etichette di un compito a valle: <b>linear probe</b> (un classificatore lineare addestrato sulle feature) e <b>k-NN</b> (voto dei vicini nella banca delle feature di training). In alternativa si fa finetuning. Si confronta con una rete a pesi casuali e con una supervisionata.</p></details>
+    <details><summary>Descrivi SimSiam: architettura e loss.</summary><p>Due viste x<sub>1</sub>, x<sub>2</sub> della stessa immagine passano per lo stesso encoder f (backbone + projector), che dà z<sub>1</sub>, z<sub>2</sub>; un predictor h (MLP con collo di bottiglia) dà p<sub>1</sub> = h(z<sub>1</sub>), p<sub>2</sub> = h(z<sub>2</sub>). Loss L = −½[cos(p<sub>1</sub>, sg(z<sub>2</sub>)) + cos(p<sub>2</sub>, sg(z<sub>1</sub>))]: ogni vista predice la proiezione dell'altra, trattata come costante. Niente negativi, niente teacher EMA. Senza stop-gradient o senza predictor collassa.</p></details>
+    <details><summary>Che cosa fa <code>.detach()</code> e che cosa non fa?</summary><p>Restituisce un tensore con gli stessi valori ma fuori dal grafo di autograd: nel termine in cui compare, quel ramo non riceve gradiente. Non congela la rete: lo stesso backbone riceve gradiente attraverso l'altro ramo e attraverso l'altro termine della loss simmetrizzata.</p></details>
+    <details><summary>Perché il predictor ha un learning rate costante?</summary><p>Il predictor deve inseguire la rappresentazione, che cambia durante il training: con un lr che decade a zero diventerebbe sempre meno capace di adattarsi. Nell'articolo il lr costante per il predictor migliora leggermente il risultato (68,1% contro 67,7% su ImageNet). Nel notebook: due gruppi di parametri, coseno per backbone e projector, moltiplicatore 1 per il predictor.</p></details>
+    <details><summary>Linear probe o k-NN: che differenza c'è e quale dà di più?</summary><p>Il probe impara un iperpiano per classe: premia classi linearmente separabili anche se sparse. Il k-NN non impara nulla e premia la vicinanza locale: classi compatte. Il probe di solito dà qualche punto in più; il k-NN è più rapido da calcolare e non ha iperparametri di training (solo k e la similarità).</p></details>
+    <details><summary>Perché si normalizzano le feature prima del probe e del k-NN, e perché si usa <code>eval()</code>?</summary><p>La normalizzazione L2 per immagine mette tutte le feature sulla sfera unitaria: il k-NN euclideo diventa equivalente a quello coseno e il probe non dipende dalla scala delle feature; non si stimano statistiche dai dati, quindi nessuna fuga di informazione dalla validazione. <code>eval()</code> fa usare alla BatchNorm le medie mobili invece delle statistiche del batch, così la feature di un'immagine è deterministica e non dipende dalle altre.</p></details>
+    <details><summary>Nel secondo notebook che cosa si addestra e che cosa no?</summary><p>DINOv3 ViT-S/16 è congelato (nessun parametro addestrabile); si addestra solo una regressione logistica con 384 pesi + 1 bias, la stessa per tutte le patch, sulle feature dell'ultimo strato. È un linear probe denso, equivalente a una convoluzione 1×1 sulla mappa di feature.</p></details>
+    <details><summary>Come si passa da una maschera di pixel ai bersagli per patch?</summary><p>Si ridimensiona la maschera alle dimensioni dell'immagine data al ViT (lati multipli di 16), si fa un average pooling 16×16 con stride 16: ogni patch riceve la frazione di primo piano. Sotto 0,01 è sfondo, sopra 0,99 è primo piano, le patch miste (bordi) si ignorano.</p></details>
+    <details><summary>Perché la validazione è leave-one-image-out e non uno split casuale delle patch?</summary><p>Le patch della stessa immagine sono correlate: con uno split casuale patch quasi identiche finirebbero in training e in validazione, e la stima sarebbe ottimista. Tenendo fuori un'immagine intera si misura la generalizzazione a una foto mai vista, che è quello che interessa. In generale: quando gli esempi sono raggruppati, lo split va fatto per gruppi.</p></details>
+    <details><summary>Perché l'average precision e non l'accuratezza?</summary><p>Il primo piano è circa il 23% delle patch: dire sempre «sfondo» dà il 77% di accuratezza. L'AP guarda l'ordinamento dei punteggi a tutte le soglie (area sotto la curva precisione-recall): è 1 se ogni patch di primo piano ha punteggio più alto di ogni patch di sfondo, e la sua base di riferimento è la prevalenza.</p></details>
+    <details><summary>Che cosa rappresenta C e come viene scelto?</summary><p>C è l'inverso della forza della regolarizzazione L2 della regressione logistica: C piccolo, pesi piccoli, modello semplice. Si provano 8 valori da 10⁻⁷ a 1, per ognuno 9 fold leave-one-image-out, e si sceglie il C con l'AP media sulle immagini più alta; a parità il primo, cioè il più regolarizzato. Poi si riaddestra su tutte le 9 immagini.</p></details>
+    <details><summary>Quali limiti ha la maschera finale?</summary><p>Risoluzione di una patch (16 pixel dell'immagine ridimensionata, cioè molto di più nella foto originale), bordi mai visti in training, «primo piano» definito da sole 9 immagini, soglia fissa a 0,5 che con un C molto piccolo può non essere superata da nessuna patch. Il filtro mediano toglie le patch isolate, l'upsampling bilineare ammorbidisce i bordi ma non aggiunge dettaglio.</p></details>
+    <details><summary>Che cosa cambia per trasformare il notebook in SimCLR, BYOL o Barlow Twins?</summary><p>SimCLR: via il predictor, loss NT-Xent con i 2B − 2 negativi del batch. BYOL: un teacher (copia di backbone e projector) senza gradienti, aggiornato con media mobile esponenziale dopo ogni passo; loss 2 − 2 cos. Barlow Twins: via il predictor, standardizzazione lungo il batch, matrice di cross-correlazione D × D spinta verso l'identità.</p></details>
+  </div>
+</div>
+
+<div class="sec" id="l23-risultati"><h2>Risultati dell'esecuzione</h2><span>CPU a 2 core · notebook così com'è (1 epoca)</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Parte 1 · SimSiam su CIFAR-10</h3>
+    <div class="meta">PyTorch 2.15 CPU, torchvision 0.29, scikit-learn 1.9 · <code>NUM_WORKERS = 2</code> (i core disponibili), resto invariato</div>
+    <table>
+      <tr><th>Backbone (congelato)</th><th>Linear probe, validazione</th><th>Linear probe, test</th><th>k-NN (k = 20), validazione</th><th>k-NN, test</th></tr>
+      <tr><td>SimSiam, 1 epoca (notebook)</td><td>38,58%</td><td>37,99%</td><td>37,02%</td><td>37,40%</td></tr>
+      <tr><td>Pesi casuali (stesso protocollo, nostro script)</td><td>32,48%</td><td>32,98%</td><td>32,16%</td><td>32,87%</td></tr>
+    </table>
+    <ul>
+      <li><b>Pretraining</b>: 195 passi, loss media −0,364 (similarità coseno media fra predizione e bersaglio circa 0,36, lontana da 1), <b>1540 s</b> su CPU (circa 26 minuti). Estrazione delle feature di 50 000 + 10 000 immagini: circa 4 minuti. Probe e k-NN: pochi secondi.</li>
+      <li><b>Che cosa ha imparato una epoca</b>: circa <b>5 punti</b> sopra la rete a pesi casuali, sia con il probe (37,99% contro 32,98%) sia con il k-NN (37,40% contro 32,87%). Il caso è il 10%: anche una CNN casuale conserva informazione su colori e texture, e un classificatore lineare la sfrutta in parte. Siamo lontanissimi dal 91,8% che l'articolo riporta con 800 epoche: l'esperimento mostra la pipeline, non un buon modello.</li>
+      <li><b>Probe</b>: accuratezza di validazione 30,1% dopo la prima epoca, 36,2% alla decima, migliore 38,58% alla 24ª, 38,20% alla 30ª (la scelta della miglior epoca guadagna 0,4 punti). La loss di training scende da 2,00 a 1,72.</li>
+      <li><b>Probe contro k-NN</b>: con queste feature deboli i due metodi sono vicini (0,6 punti a favore del probe sul test).</li>
+      <li>Parametri del backbone: 11 168 832; projector e predictor come nella scheda 7; l'esperimento sullo stop-gradient stampa <code>True</code> / <code>False</code> come atteso.</li>
+      <li>Abbiamo usato <code>NUM_WORKERS = 2</code> (i core della macchina, Linux con avvio fork): cambia solo la velocità di caricamento, non i numeri. Su un Mac vale l'avvertenza della scheda 3.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Parte 2 · DINOv3</h3>
+    <div class="meta">eseguite le celle 1–12; backbone non eseguito</div>
+    <ul>
+      <li>I pesi DINOv3 ViT-S/16 LVD-1689M si scaricano solo dopo l'autorizzazione di Meta, che non abbiamo: le celle dal 15 in poi non le abbiamo eseguite e non riportiamo AP o maschere.</li>
+      <li>Dati verificati: 9 coppie immagine-maschera; 7 foto 4032×3024 e 2 verticali 3024×4032; griglie 21×28 (28×21 per le verticali), 588 patch ciascuna; in tutto 5292 patch, 4702 tenute (590 di bordo ignorate), 1086 di primo piano (23,1%). Per immagine (tenute, di cui primo piano): 1: 519, 82 · 2: 523, 78 · 3: 492, 179 · 4: 505, 128 · 5: 556, 21 · 6: 527, 224 · 7: 533, 37 · 8: 515, 273 · 9: 532, 64.</li>
+      <li>La foto della demo è 1600×1200: griglia 21×28.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="sec" id="l23-soluzioni"><h2>Soluzioni degli esercizi</h2><span>codice provato da noi su tensori casuali</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Come usarle</h3>
+    <p>Le tre classi sostituiscono <code>SimSiam</code> nella cella 18; trasformazioni, loader, valutazione restano identici. Le abbiamo provate con un forward e un backward su un batch casuale (8 coppie di viste 32×32): girano, e per BYOL il teacher non riceve gradienti. Non le abbiamo addestrate fino in fondo: gli iperparametri sono quelli degli articoli, da adattare.</p>
+    <pre>def mlp(i, h, o, last_bn=True):
+    layers = [nn.Linear(i, h, bias=False), nn.BatchNorm1d(h), nn.ReLU(), nn.Linear(h, o, bias=not last_bn)]
+    if last_bn: layers.append(nn.BatchNorm1d(o, affine=False))
+    return nn.Sequential(*layers)</pre>
+  </div>
+  <div class="card">
+    <h3>SimCLR · NT-Xent</h3>
+    <pre>class SimCLR(nn.Module):
+    def __init__(self, backbone, feature_dim=512, proj_dim=128, tau=0.5):
+        super().__init__()
+        self.backbone, self.tau = backbone, tau
+        self.projector = nn.Sequential(nn.Linear(feature_dim, feature_dim), nn.ReLU(),
+                                       nn.Linear(feature_dim, proj_dim))
+    def forward(self, v1, v2):
+        z = F.normalize(self.projector(self.backbone(torch.cat([v1, v2]))), dim=1)  # [2B, d]
+        B = v1.size(0)
+        sim = z @ z.T / self.tau                     # [2B, 2B] similarità coseno / τ
+        sim.fill_diagonal_(float('-inf'))            # una vista non è negativa di sé stessa
+        target = torch.cat([torch.arange(B, 2 * B), torch.arange(0, B)]).to(z.device)
+        return F.cross_entropy(sim, target)          # per ogni vista: positiva = l'altra vista</pre>
+    <p>Ogni riga della matrice è una classificazione su 2B − 1 candidati (la diagonale, a −∞, ha probabilità zero): la positiva e 2B − 2 negativi. La cross-entropy media sulle 2B ancore è la NT-Xent della <a href="#L21">L21</a>. Prova di sanità: con le due viste identiche e B = 4 la loss scende (0,61 nella nostra prova) sotto log(2B − 1) = log 7 = 1,95, il valore di una rete che non distingue nulla. τ = 0,5 è un buon valore per CIFAR (SimCLR su ImageNet usa 0,1 con batch enormi). Niente predictor, niente stop-gradient: il collasso lo impediscono i negativi.</p>
+  </div>
+  <div class="card">
+    <h3>BYOL · teacher con media mobile</h3>
+    <pre>class BYOL(nn.Module):
+    def __init__(self, backbone, feature_dim=512, proj_dim=256, hidden=4096, m=0.996):
+        super().__init__()
+        self.backbone = backbone
+        self.projector = mlp(feature_dim, hidden, proj_dim, last_bn=False)
+        self.predictor = mlp(proj_dim, hidden, proj_dim, last_bn=False)
+        self.t_backbone = copy.deepcopy(backbone).requires_grad_(False)
+        self.t_projector = copy.deepcopy(self.projector).requires_grad_(False)
+        self.m = m
+    @torch.no_grad()
+    def update_teacher(self):                    # chiamare DOPO optimizer.step()
+        for s, t in [(self.backbone, self.t_backbone), (self.projector, self.t_projector)]:
+            for ps, pt in zip(s.parameters(), t.parameters()):
+                pt.mul_(self.m).add_(ps.detach(), alpha=1 - self.m)   # ξ ← m ξ + (1 − m) θ
+            for bs, bt in zip(s.buffers(), t.buffers()):
+                bt.copy_(bs)                     # statistiche della BatchNorm
+    def loss_fn(self, p, z):
+        return (2 - 2 * F.cosine_similarity(p, z, dim=1)).mean()      # = ‖p̂ − ẑ‖²
+    def forward(self, v1, v2):
+        p1 = self.predictor(self.projector(self.backbone(v1)))
+        p2 = self.predictor(self.projector(self.backbone(v2)))
+        with torch.no_grad():
+            z1 = self.t_projector(self.t_backbone(v1)); z2 = self.t_projector(self.t_backbone(v2))
+        return 0.5 * (self.loss_fn(p1, z2) + self.loss_fn(p2, z1))
+# nel ciclo di training:  loss.backward(); optimizer.step(); model.update_teacher()</pre>
+    <p>Rispetto a SimSiam: il bersaglio viene da un <b>teacher</b> separato, media mobile esponenziale dello studente (m = 0,996, nell'articolo portato verso 1 con un coseno). Il teacher non ha gradienti, quindi lo stop-gradient è implicito. L'ottimizzatore va costruito solo sui parametri dello studente (quelli con <code>requires_grad</code>): i parametri del teacher non hanno gradiente e SGD li salta comunque. Gli MLP di BYOL hanno strato nascosto a 4096 e uscita a 256 (articolo); per CIFAR si può ridurre.</p>
+  </div>
+  <div class="card">
+    <h3>Barlow Twins · matrice di cross-correlazione</h3>
+    <pre>class BarlowTwins(nn.Module):
+    def __init__(self, backbone, feature_dim=512, proj_dim=2048, lambd=5e-3):
+        super().__init__()
+        self.backbone, self.lambd = backbone, lambd
+        self.projector = nn.Sequential(nn.Linear(feature_dim, proj_dim, bias=False),
+                                       nn.BatchNorm1d(proj_dim), nn.ReLU(),
+                                       nn.Linear(proj_dim, proj_dim, bias=False))
+    def forward(self, v1, v2):
+        z1 = self.projector(self.backbone(v1)); z2 = self.projector(self.backbone(v2))
+        N = z1.size(0)
+        z1 = (z1 - z1.mean(0)) / z1.std(0); z2 = (z2 - z2.mean(0)) / z2.std(0)   # lungo il batch
+        c = z1.T @ z2 / N                                                         # [D, D]
+        on = (torch.diagonal(c) - 1).pow(2).sum()                 # invarianza: diagonale a 1
+        off = (c - torch.diag(torch.diagonal(c))).pow(2).sum()    # ridondanza: resto a 0
+        return on + self.lambd * off</pre>
+    <p>Ogni dimensione si standardizza <b>sul batch</b> (media 0, deviazione 1 per colonna), poi C<sub>ij</sub> è la correlazione fra la dimensione i della prima vista e la j della seconda. La diagonale a 1 rende le due viste coerenti; gli zeri fuori diagonale costringono le dimensioni a portare informazione diversa, il che rende impossibile il collasso. All'inizio la loss è grande (su una rete casuale e batch di 8, circa 4550 nella nostra prova: con N = 8 &lt; D = 2048 le correlazioni sono rumorose); l'articolo usa λ = 5·10⁻³, projector 3 × 8192 e batch 2048. Con batch piccoli la stima di C è rumorosa: su CIFAR conviene projector più piccolo (per esempio 1024 o 2048) e batch ≥ 256.</p>
+  </div>
+</div>
