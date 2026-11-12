@@ -1,0 +1,134 @@
+<div class="sec" id="l24-libro"><h2>Studia dal libro</h2><span>visionbook cap. 51 per intero (circa 1 ora), più § 30.10, § 26.6 e 26.10, § 32.7 e § 37.3.1–37.3.2 come ripasso mirato: circa 2 ore in tutto. BLIP-2, LLaVA, Qwen-VL, LiT e i benchmark sono solo negli articoli</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Cosa leggere, in ordine</h3>
+    <div class="meta">Torralba, Isola, Freeman, <i>Foundations of Computer Vision</i>, gratis online; Szeliski 2a ed. e Prince, <i>Understanding Deep Learning</i>, nella cartella materiale</div>
+    <ol>
+      <li><a href="https://visionbook.mit.edu/representation_learning.html" target="_blank">Cap. 30</a>, § 30.10 Contrastive Learning (eq. 30.4, InfoNCE) e § 30.10.1 (alignment e uniformity sull'ipersfera): ripasso della <a href="#L21">L21</a>, serve per capire la loss di CLIP. Venti minuti.</li>
+      <li><a href="https://visionbook.mit.edu/VLMs.html" target="_blank">Cap. 51, Vision and Language</a>, § 51.1–51.3: tokenizzazione (one-hot per parola o per carattere, BPE; il token come W<sub>tokenize</sub>x, cioè una lookup table), CLIP come metodo contrastivo con un'immagine e la sua didascalia come due viste, le fig. 51.2–51.6 (matrice dei punteggi, t-SNE strato per strato, spazio congiunto sull'ipersfera, classificatori zero-shot su misura). Slide 8, 10–23, 27–28.</li>
+      <li>Stesso capitolo, § 51.4 e 51.4.2: traduzione fra modalità con g ∘ f oppure g ∘ h ∘ f con f e g congelati, captioning con decoder autoregressivo e cross-attention (fig. 51.11). Slide 36–38.</li>
+      <li>Stesso capitolo, § 51.5–51.7: il testo come rappresentazione (fig. 51.12), il VQA come «test di Turing visivo» con l'esercizio di adattare la fig. 51.11, il linguaggio come rappresentazione percettiva. Slide 42–47.</li>
+      <li><a href="https://visionbook.mit.edu/transformers.html" target="_blank">Cap. 26</a>, § 26.6 (query, chiavi, valori; self-attention) e § 26.10 (maschere, attenzione causale, addestramento parallelo di N predizioni). Slide 12, 37–38, 40.</li>
+      <li><a href="https://visionbook.mit.edu/generative_models.html" target="_blank">Cap. 32</a>, § 32.7 Autoregressive Density Models (regola della catena eq. 32.5, batch a sequenze sovrapposte, campionamento un elemento alla volta). Slide 37, 45, 49.</li>
+      <li><a href="https://visionbook.mit.edu/transfer_learning.html" target="_blank">Cap. 37</a>, § 37.3.1 (moduli congelati) e § 37.3.2 (head e probe): la logica di cosa congelare in LiT, BLIP-2, LLaVA, Qwen-VL. Da <a href="https://visionbook.mit.edu/neural_nets_as_distribution_transformers.html" target="_blank">cap. 13</a> basta la fig. 13.9 per capire come è fatta la fig. 51.3 (slide 22).</li>
+      <li>Szeliski 2a ed., § 6.6 Vision and language: captioning, VQA, CLIP in panoramica. Prince, cap. 12 Transformers: decoder, attenzione mascherata ed encoder-decoder con cross-attention, utile per la slide 38.</li>
+    </ol>
+    <p><b>Si può saltare</b>: § 51.4.1 Text-to-image nei dettagli (cVAE di DALL-E 1 e diffusione condizionata, fig. 51.8–51.10: la lezione la nomina solo nella slide 36) e i rimandi al <a href="https://visionbook.mit.edu/conditional_generative_models.html" target="_blank">cap. 34</a>; il resto del cap. 32 (diffusione, GAN). <b>Solo negli articoli</b> (identificativi arXiv verificati): CLIP 2103.00020, InfoNCE/CPC 1807.03748, ConVIRT 2010.00747, ALIGN 2102.05918, LiT 2111.07991, LAION-5B 2210.08402, OpenCLIP 2212.07143, red circle 2304.06712, Paiss et al. 2302.12066, Yuksekgonul et al. (ARO, bag-of-words) 2210.01936, BLIP-2 2301.12597, LLaVA 2304.08485, LLaVA-1.5 2310.03744, Qwen-VL 2308.12966, VQA 1505.00468, NLVR2 1811.00491, RefCOCO/+/g (Yu et al.) 1608.00272, la panoramica di Bordes et al. 2405.17247.</p>
+  </div>
+
+  <div class="card">
+    <h3>Le idee centrali, come le spiega il libro</h3>
+    <div class="meta">Da saper ricostruire senza slide</div>
+    <p><b>1 · Il linguaggio come pretext task.</b> La classificazione è già supervisione linguistica, ma povera: un nome fra K. Aggettivi, relazioni, domande-risposte sono stati provati; a scala sufficiente funziona meglio usare <b>tutto</b> il linguaggio libero. CLIP è un metodo contrastivo del cap. 30 in cui le due viste sono un'immagine e la sua didascalia: InfoNCE simmetrica, embedding normalizzati (così la loss non si abbassa spingendo i negativi infinitamente lontano). Batch di N coppie → matrice N × N: N positivi sulla diagonale, N² − N negativi fuori.</p>
+    <p><b>2 · Un classificatore si scrive in inglese.</b> Dopo l'addestramento, un insieme di frasi definisce un classificatore: si codificano le frasi, si codifica l'immagine, vince il prodotto scalare massimo, senza toccare i pesi (fig. 51.5–51.6: le stesse immagini divise per forma, per colore o per oggetto a seconda delle frasi, «come un astrolabio»). Ogni vettore di testo fa da riga di un classificatore lineare.</p>
+    <p><b>3 · Cosa codificano gli strati dipende dalla modalità.</b> Nel ramo immagine gli strati iniziali raggruppano per colore e i finali per forma; nel ramo testo il contrario, perché nei pixel il colore è superficiale e la forma va calcolata, mentre nel testo «rosso» e «triangolo» sono parole ugualmente facili. Nello spazio congiunto il libro toglie la prima componente principale perché codifica uno scostamento globale fra immagini e testi (il <i>modality gap</i>).</p>
+    <p><b>4 · Tradurre = encoder + decoder + allineamento.</b> g ∘ f non funziona da solo; o si fa fine-tuning dell'insieme, o si congelano f e g e si addestra h nello spazio latente. Tutti i VLM generativi della lezione sono variazioni di g ∘ h ∘ f, dove h è il connettore.</p>
+    <p><b>5 · Cross-attention = le parole interrogano l'immagine.</b> Query dai token di testo, chiavi e valori dai token visivi; la matrice di attenzione è T × N; il decoder è autoregressivo con attenzione causale e, in addestramento, riceve le parole vere precedenti. Il libro somma le uscite di cross- e self-attention con pesi; i transformer standard (e la slide 38) le mettono in serie.</p>
+    <p><b>6 · Il testo è una rappresentazione.</b> Un captioner è un encoder visivo con uscita testuale: perde informazione, ma si collega ai modelli di linguaggio, che possono ragionare. Il VQA è il passo successivo: encoder di testo, encoder di immagini, decoder di testo e dati {[domanda, immagine], risposta}.</p>
+    <p><b>Differenze di notazione fra slide e libro</b>:</p>
+    <ul>
+      <li>Immagine: slide x, encoder <b>f<sub>v</sub></b>, embedding z<sub>v</sub> (o I<sub>k</sub>, v<sub>i</sub>); libro <b>ℓ</b>, encoder <b>f<sub>ℓ</sub></b>, z<sub>ℓ</sub>. La slide 15 usa per sbaglio la notazione del libro (fℓ). Il testo è t e f<sub>t</sub> in entrambi.</li>
+      <li>Dimensione dello spazio comune: d<sub>z</sub> nelle slide 12–13 e nel libro, d_e nel pseudocodice della slide 20.</li>
+      <li><b>Temperatura</b>: le slide (18–20, 27) e CLIP dividono i logit per τ, appresa come parametro logaritmico (nel pseudocodice si moltiplica per exp(t), con t inizializzato a log(1/0,07) e il fattore limitato a 100). Nel libro la loss di CLIP <b>non ha temperatura</b>.</li>
+      <li>Embedding dei token: slide E ∈ ℝ<sup>V×d</sup> (una riga per token); libro W<sub>tokenize</sub> ∈ ℝ<sup>d×K</sup> applicata a un one-hot x (una colonna per token). Stessa cosa trasposta.</li>
+      <li>Cross-attention: slide Q = HW<sup>Q</sup> con √d<sub>k</sub>; libro Q<sub>t</sub> = T<sub>t</sub>W<sub>t,q</sub><sup>⊤</sup> con √m (m mai definito: è la dimensione delle chiavi).</li>
+      <li>La loss della slide 18–19 è una somma sugli esempi; il pseudocodice (slide 20) fa la media e divide per 2 la somma delle due direzioni: cambia solo un fattore di scala.</li>
+    </ul>
+    <p><b>Refusi del cap. 51 (verificati sulla pagina)</b>: nel procedimento zero-shot z<sub>t</sub><sup>b</sup> = f<sub>t</sub>(t<sup>a</sup>), va t<sup>b</sup>; la nota a margine dice che il prodotto scalare fra vettori unitari è «proporzionale all'angolo», ma è il <b>coseno</b> dell'angolo (decrescente con l'angolo, non proporzionale); 𝕊<sup>d<sub>z</sub></sup> è descritto come la superficie dell'ipersfera (d<sub>z</sub> − 1)-dimensionale, mentre con la convenzione usuale quell'insieme si scrive 𝕊<sup>d<sub>z</sub>−1</sup>; in § 51.4.2 «a text decoder (rather than a text encoder)» al posto di «rather than an image decoder», e nella didascalia della fig. 51.11 «each layer of the text encoder» dove si intende il decoder; «if the text matches the matches» (frase rotta); refusi minori («principle component», «cricle»).</p>
+  </div>
+</div>
+
+<div class="sec" id="l24-guida"><h2>Guida allo studio</h2><span>circa 5 ore in cinque blocchi; il cuore è la loss di CLIP rifatta a mano, la cross-attention con le dimensioni e la tabella di cosa si congela nei VLM</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Prima di iniziare</h3>
+    <div class="meta">15 minuti</div>
+    <p>Ripassa dalla <a href="#L21">L21</a> InfoNCE, SimCLR, NT-Xent, temperatura e projection head; dalla <a href="#L22">L22</a> foundation model e backbone congelate; dalla <a href="#L23">L23</a> linear probe e k-NN; da <a href="#L17">L17</a> e <a href="#L18">L18</a> token, [CLS], self-attention; da <a href="#L15">L15</a> softmax e cross-entropy; da <a href="#L19">L19</a> bounding box, region proposal, IoU.</p>
+  </div>
+  <div class="two">
+    <div class="card">
+      <h3>1 · CLIP: architettura e loss</h3>
+      <div class="meta">Slide 1–23 · circa 1 ora e un quarto</div>
+      <p>Obiettivo: scrivere la loss di CLIP e il pseudocodice a memoria.</p>
+      <ul>
+        <li>Token e BPE; i precursori (ConVIRT, 200k contro 400M coppie).</li>
+        <li>Encoder (ResNet modificata o ViT; text transformer causale, feature del token [EOS]), proiezione lineare, normalizzazione L2.</li>
+        <li>Matrice N × N, softmax per righe e per colonne, temperatura appresa.</li>
+        <li>LiT: immagine bloccata, testo addestrato. Libro § 51.3, fig. 51.2–51.4.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>2 · CLIP in uso: dati, zero-shot, limiti</h3>
+      <div class="meta">Slide 24–34 · circa 1 ora</div>
+      <p>Obiettivo: costruire un classificatore zero-shot e dire dove fallisce.</p>
+      <ul>
+        <li>LAION-5B (5,85 miliardi di coppie), OpenCLIP, rumore dell'alt-text.</li>
+        <li>Zero-shot: p(y = k | x, C), dipendenza da C, calibrazione; meglio del linear probe su ResNet-50 in 16 dataset su 27.</li>
+        <li>Retrieval e Recall@K; prompt (+1,3 punti), ensemble (+3,5); red circle.</li>
+        <li>Conteggio e relazioni (bag-of-words).</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>3 · Captioning, cross-attention, BLIP-2</h3>
+      <div class="meta">Slide 35–40 · circa 1 ora e un quarto</div>
+      <p>Obiettivo: disegnare un decoder con cross-attention e il Q-Former con le tre maschere.</p>
+      <ul>
+        <li>Regola della catena, teacher forcing, inferenza sequenziale (libro § 32.7, 26.10).</li>
+        <li>Q, K, V con le dimensioni; T × N; niente maschera nella cross-attention.</li>
+        <li>BLIP-2: due stadi, 32 query × 768, ITC/ITM/ITG.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>4 · VQA e VLM con istruzioni</h3>
+      <div class="meta">Slide 41–53 · circa 1 ora</div>
+      <p>Obiettivo: confrontare BLIP-2, LLaVA e Qwen-VL su connettore, token e cosa si addestra.</p>
+      <ul>
+        <li>Testo come rappresentazione; VQA classificazione contro generativo.</li>
+        <li>LLaVA: W lineare (MLP in 1.5), 595K + 158K, istruzioni generate da GPT-4 solo testuale.</li>
+        <li>Qwen-VL: 256 query, un solo strato, tre stadi, 224² → 448².</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>5 · Ragionamento, grounding, sintesi</h3>
+      <div class="meta">Slide 54–60 · circa 25 minuti</div>
+      <p>Obiettivo: formulare NLVR2 e il grounding e completare la tabella dei compiti.</p>
+      <ul>
+        <li>NLVR2: coppia di immagini + frase → vero/falso.</li>
+        <li>Grounding: regressione del box o selezione fra regioni; RefCOCO, RefCOCO+ (senza parole di posizione), RefCOCOg.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Formule da sapere a memoria</h3>
+    <span class="f">v<sub>i</sub> = W<sub>v</sub>h<sub>i</sub><sup>v</sup> / ‖W<sub>v</sub>h<sub>i</sub><sup>v</sup>‖,   t<sub>i</sub> = W<sub>t</sub>h<sub>i</sub><sup>t</sup> / ‖W<sub>t</sub>h<sub>i</sub><sup>t</sup>‖,   S<sub>ij</sub> = v<sub>i</sub><sup>⊤</sup>t<sub>j</sub> = cos θ<sub>ij</sub></span>
+    <span class="f">L<sub>I→T</sub> = −(1/N)∑<sub>k</sub> log [exp(S<sub>kk</sub>/τ) / ∑<sub>j</sub> exp(S<sub>kj</sub>/τ)],   L<sub>T→I</sub> = −(1/N)∑<sub>k</sub> log [exp(S<sub>kk</sub>/τ) / ∑<sub>j</sub> exp(S<sub>jk</sub>/τ)],   L = (L<sub>I→T</sub> + L<sub>T→I</sub>)/2</span>
+    <span class="f">Zero-shot: p(y = k | x, C) = exp(z<sub>v</sub>·z<sub>t</sub><sup>c<sub>k</sub></sup>/τ) / ∑<sub>j</sub> exp(z<sub>v</sub>·z<sub>t</sub><sup>c<sub>j</sub></sup>/τ),   ĉ = arg max<sub>c</sub> z<sub>v</sub>·z<sub>t</sub><sup>c</sup></span>
+    <span class="f">Captioning: p<sub>θ</sub>(y | x) = ∏<sub>t</sub> p<sub>θ</sub>(y<sub>t</sub> | y<sub>&lt;t</sub>, x),   L = −∑<sub>t</sub> log p<sub>θ</sub>(y<sub>t</sub> | y<sub>&lt;t</sub>, x)</span>
+    <span class="f">Cross-attention: Q = HW<sup>Q</sup>, K = Z<sub>v</sub>W<sup>K</sup>, V = Z<sub>v</sub>W<sup>V</sup>,  C = softmax(QK<sup>⊤</sup>/√d<sub>k</sub>)V,  QK<sup>⊤</sup> ∈ ℝ<sup>T×N</sup></span>
+    <span class="f">LLaVA: H<sub>v</sub> = Z<sub>v</sub>W ∈ ℝ<sup>N×D<sub>LLM</sub></sup>,  L = −∑<sub>t</sub> log p<sub>θ</sub>(y<sub>t</sub> | y<sub>&lt;t</sub>, H<sub>v</sub>, X<sub>q</sub>)</span>
+    <span class="f">Grounding: b̂ = f<sub>θ</sub>(x, r)  oppure  k̂ = arg max<sub>k</sub> s<sub>θ</sub>(b<sub>k</sub>, r, x)</span>
+  </div>
+
+  <div class="card">
+    <h3>Domande tipo orale</h3>
+    <div class="meta">Prova a rispondere, poi apri per la traccia</div>
+    <div class="qa">
+      <details><summary>Come funziona CLIP? Scrivi la loss e spiega cosa succede in un batch.</summary><p>Due encoder (immagine: ResNet modificata o ViT; testo: transformer causale, feature del token [EOS]), proiezioni lineari nello spazio comune d<sub>z</sub>, normalizzazione L2. Batch di N coppie → matrice N × N di coseni; per ogni riga una softmax con temperatura e cross-entropy verso la diagonale (immagine → testo), lo stesso per colonne (testo → immagine), media delle due. N positivi, N² − N negativi presi dal batch. È l'InfoNCE della L21 con due modalità invece di due augmentation. Libro § 51.3 e § 30.10. Slide 10–20.</p></details>
+      <details><summary>Che ruolo ha la temperatura e perché CLIP la apprende? E perché si normalizzano gli embedding?</summary><p>I coseni stanno in [−1, 1]: senza scalarli la softmax sarebbe quasi uniforme. Dividere per τ piccolo rende la distribuzione più piccata e pesa di più i negativi difficili. CLIP la apprende come parametro logaritmico (inizio τ = 0,07, fattore 1/τ limitato a 100) per non doverla cercare a mano. La normalizzazione rende il prodotto scalare un coseno e impedisce di abbassare la loss gonfiando le norme o spingendo i negativi infinitamente lontano (libro § 51.3). Il libro non mette la temperatura nella formula.</p></details>
+      <details><summary>Come si fa classificazione zero-shot con CLIP? Perché i punteggi non sono calibrati e a cosa servono i prompt?</summary><p>Si scrive una frase per classe («A photo of a {label}.»), la si codifica, si prende la classe con coseno massimo con l'embedding dell'immagine: i vettori di testo fanno da pesi di un classificatore lineare costruito al volo, senza addestramento. La softmax è normalizzata solo sull'insieme C scelto: aggiungere o togliere classi cambia le probabilità, quindi non sono probabilità assolute. I template aiutano perché le didascalie di addestramento sono frasi, non parole isolate, e disambiguano (+1,3 punti su ImageNet); l'ensemble di 80 template, mediando gli embedding normalizzati, dà altri 3,5 punti. Gli embedding di testo si calcolano una volta. Slide 27–31; libro fig. 51.5–51.6.</p></details>
+      <details><summary>Dove va bene e dove va male CLIP zero-shot? Quali limiti strutturali ha?</summary><p>Contro un linear probe su feature ResNet-50 vince in 16 dataset su 27, ImageNet compreso; perde molto su domini specializzati (satellite, medicina), conteggio (CLEVRCounts), distanze (KITTI), cifre (MNIST). Limiti: la loss non supervisiona il numero di oggetti (Paiss et al.), e l'allineamento si basa sull'identità degli oggetti più che sulle relazioni: «the horse is eating the grass» e «the grass is eating the horse» hanno punteggi simili (bag-of-words, Yuksekgonul et al.), perché nei batch quasi mai serve l'ordine delle parole per distinguere un positivo dai negativi. Slide 29, 33–34.</p></details>
+      <details><summary>Cos'è LiT e perché bloccare l'encoder dell'immagine funziona meglio che addestrare tutto?</summary><p>Locked-image Text tuning: encoder di immagini preaddestrato (su dati etichettati o con SSL) e congelato, si addestra solo l'encoder di testo con la loss di CLIP: il testo impara a «leggere» uno spazio visivo già buono. Nei risultati della slide 21 Lu batte sia Uu (entrambi sbloccati) sia uu (da zero). L'intuizione: i dati immagine-testo sono rumorosi, e sbloccare l'encoder visivo rischia di rovinare rappresentazioni imparate con supervisione più pulita; costa anche meno. È il primo esempio di «cosa congelare», tema di tutta la seconda metà della lezione.</p></details>
+      <details><summary>Come funziona il captioning autoregressivo? Cos'è il teacher forcing e che problema ha?</summary><p>p(y | x) = ∏ p(y<sub>t</sub> | y<sub>&lt;t</sub>, x), loss = somma delle cross-entropy di ogni passo. In addestramento il decoder riceve i token veri precedenti (teacher forcing): stabile e parallelo grazie alla maschera causale (libro § 26.10, batch a sequenze sovrapposte del § 32.7.1). In inferenza genera un token alla volta riappendendo le proprie uscite. Problema: exposure bias, il modello non ha mai visto i propri errori e questi si accumulano. Slide 37.</p></details>
+      <details><summary>Scrivi la cross-attention con le dimensioni. Che differenza c'è con la self-attention causale?</summary><p>Q = HW<sup>Q</sup> dal testo (H ∈ ℝ<sup>T×D<sub>t</sub></sup>), K = Z<sub>v</sub>W<sup>K</sup> e V = Z<sub>v</sub>W<sup>V</sup> dall'immagine (Z<sub>v</sub> ∈ ℝ<sup>N×D<sub>v</sub></sup>); QK<sup>⊤</sup> è T × N; C = softmax(QK<sup>⊤</sup>/√d<sub>k</sub>)V è T × d<sub>v</sub>, una riga per token di testo. La self-attention causale prende Q, K, V dalla stessa sequenza, ha matrice T × T triangolare; la cross-attention è rettangolare e senza maschera, perché l'immagine è tutta nota. Nel decoder sono sottostrati separati (slide); il libro le somma con pesi (§ 51.4.2). Slide 38.</p></details>
+      <details><summary>Spiega BLIP-2: cosa è congelato, cos'è il Q-Former e perché tre loss con tre maschere diverse?</summary><p>Encoder visivo (CLIP o EVA-CLIP ViT) e LLM (OPT o FlanT5) congelati; si addestra il Q-Former: 32 query apprese di dimensione 768 che con la cross-attention leggono le feature dell'immagine e producono sempre 32 token (collo di bottiglia), strati inizializzati da BERT-base. Stage 1 (senza LLM): ITC con maschera unimodale (query e testo non si vedono, altrimenti il confronto sarebbe banale; similarità massima fra le 32 query e il [CLS] del testo), ITM con maschera bidirezionale (classificazione binaria fine, con negativi difficili), ITG con maschera causale multimodale (il testo vede le query e il testo precedente, le query non vedono il testo: le query devono contenere tutto ciò che serve a descrivere l'immagine). Stage 2: proiezione FC e prompt visivo per l'LLM congelato. Slide 39–40.</p></details>
+      <details><summary>Quali sono le due formulazioni del VQA? Pregi e difetti.</summary><p>Classificazione: p(a | x, q) su K risposte fisse (le più frequenti nel training set), una softmax e una cross-entropy; semplice da valutare, ma una risposta fuori dal vocabolario è impossibile. Generativa: p(a | x, q) = ∏ p(a<sub>t</sub> | a<sub>&lt;t</sub>, x, q), il captioning con in più la domanda; risposte aperte, valutazione più difficile. BLIP-2 condiziona l'LLM con le query del Q-Former, LLaVA con i token visivi proiettati. Nel fine-tuning VQA di BLIP-2 la domanda entra anche nel Q-Former e orienta l'estrazione delle feature; si aggiornano encoder e Q-Former, LLM congelato. Slide 43–46; libro § 51.6.</p></details>
+      <details><summary>Confronta BLIP-2, LLaVA e Qwen-VL: connettore, numero di token visivi, cosa si addestra in ogni stadio.</summary><p>BLIP-2: Q-Former multistrato con tre loss, 32 token, encoder e LLM congelati nel pretraining. LLaVA: proiezione lineare token per token (MLP a due strati in LLaVA-1.5), 256 token (576 in 1.5), encoder sempre congelato; stage 1 solo W su 595K coppie da CC3M, stage 2 W + Vicuna su 158K istruzioni. Qwen-VL: un solo strato di cross-attention con 256 query e posizioni 2D; stage 1 ViT + adapter con LLM congelato (1,4 miliardi di coppie, 224²), stage 2 tutto (448², sette compiti), stage 3 adapter + LLM con ViT congelato (350K dialoghi). Regola: il connettore si addestra sempre; l'LLM si sblocca solo quando i token visivi hanno già senso. Slide 49–53.</p></details>
+      <details><summary>Le istruzioni di LLaVA sono «generate da GPT-4»: come, se GPT-4 non vedeva le immagini?</summary><p>Il GPT-4 usato era solo testuale: per ogni immagine COCO riceveva le didascalie e i bounding box con le categorie degli oggetti, cioè una rappresentazione testuale della scena, e scriveva conversazioni, descrizioni dettagliate e domande di ragionamento (58K + 23K + 77K = 158K). È il testo usato come rappresentazione visiva (slide 42), e spiega perché i dati possono contenere dettagli non verificati sull'immagine. Slide 50.</p></details>
+      <details><summary>Cos'è il visual grounding e come si può formulare? Collega alla detection.</summary><p>Data un'immagine e un'espressione referenziale («giraffe on left»), predire il box dell'unico oggetto indicato. Due formulazioni: regressione diretta b̂ = f<sub>θ</sub>(x, r) (come la testa di regressione di un detector della L19, o coordinate scritte come testo in Qwen-VL) oppure selezione fra regioni candidate k̂ = arg max s<sub>θ</sub>(b<sub>k</sub>, r, x) (proposal di un detector, poi punteggio di compatibilità: un retrieval testo → regione, come il red circle con CLIP). Corretto se IoU &gt; 0,5. RefCOCO, RefCOCO+ (senza parole di posizione: conta l'aspetto), RefCOCOg (espressioni più lunghe). Slide 56.</p></details>
+      <details><summary>Cos'è NLVR2 e perché è difficile per un modello alla CLIP?</summary><p>Coppia di foto + frase → vero/falso, classificazione binaria con cross-entropy. Le frasi richiedono confronto fra due immagini, conteggi esatti e relazioni spaziali, proprio ciò che un unico embedding globale per immagine allineato con la loss contrastiva non cattura (slide 33–34). Serve un modello che faccia interagire i token delle due immagini con quelli della frase. Slide 55.</p></details>
+      <details><summary>In che senso il testo è una rappresentazione visiva? Cosa guadagna e cosa perde?</summary><p>Un captioner è un encoder con uscita testuale, sullo stesso piano di Fourier, profondità, feature DINO (fig. 51.12; anche i pixel sono una rappresentazione). Guadagna: semantica compatta e leggibile, interfaccia con LLM e strumenti NLP, quindi ragionamento e conoscenza del mondo. Perde: posizione, geometria, texture, tutto ciò che la frase non sceglie di dire. Libro § 51.5 e 51.7 (il linguaggio come rappresentazione di «cosa c'è dove»). Slide 42, 47.</p></details>
+    </div>
+    <p><b>Errori e imprecisioni delle slide 35–61 già segnalati nelle schede</b>: slide 46, la figura (presa dall'articolo, che ha la stessa incoerenza) mostra l'image encoder congelato mentre testo e articolo dicono che nel fine-tuning VQA si aggiorna. Da precisare, non errori: la slide 36 illustra la direzione testo → immagine in una sezione sul captioning; la slide 38 mette cross- e self-attention in serie mentre il libro le somma; nella slide 40 le cross-attention del Q-Former non vengono da BERT (partono casuali); nella slide 50 il GPT-4 che ha generato le istruzioni era solo testuale.</p>
+  </div>
+</div>

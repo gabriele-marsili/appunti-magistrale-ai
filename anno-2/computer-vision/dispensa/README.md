@@ -27,3 +27,4 @@ Una dispensa per lezione, scritta da zero integrando slide e libro (Torralba, Is
 | [L21 · SSL contrastivo](L21-ssl-contrastivo.md) | Self-Supervised Contrastive Learning | 7891 |
 | [L22 · SSL e foundation model](L22-ssl-e-foundation-model.md) | Self-supervised learning and vision foundation models | 7752 |
 | [L23 · Lab SSL: SimSiam e DINOv3](L23-lab-ssl-simsiam-e-dinov3.md) | Lab: Self-Supervised Learning (SimSiam, DINOv3) | 6092 |
+| [L24 · Vision-language model](L24-vision-language-model.md) | Vision-Language Models (VLMs) | 7480 |

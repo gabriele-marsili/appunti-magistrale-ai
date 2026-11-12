@@ -137,11 +137,30 @@
   </div>
 </div>
 
-<div class="sec" id="l23-soluzioni"><h2>Soluzioni degli esercizi</h2><span>codice provato da noi su tensori casuali</span></div>
+<div class="sec" id="l23-soluzioni"><h2>Soluzioni degli esercizi</h2><span>soluzioni ufficiali del corso confrontate con le nostre · codice provato sulle celle del notebook</span></div>
 <div class="guide">
   <div class="card">
-    <h3>Come usarle</h3>
-    <p>Le tre classi sostituiscono <code>SimSiam</code> nella cella 18; trasformazioni, loader, valutazione restano identici. Le abbiamo provate con un forward e un backward su un batch casuale (8 coppie di viste 32×32): girano, e per BYOL il teacher non riceve gradienti. Non le abbiamo addestrate fino in fondo: gli iperparametri sono quelli degli articoli, da adattare.</p>
+    <h3>Le soluzioni ufficiali (Moodle, «Lab - SSL - solutions»)</h3>
+    <div class="meta">file <code>solutions_ssl.py</code> · confrontato riga per riga e provato da noi sulle celle 5, 6, 15, 18, 19 e 21 del notebook</div>
+    <p>Il file contiene le stesse tre classi (<code>SimCLR</code>, <code>BYOL</code>, <code>BarlowTwins</code>) e i link ai notebook ufficiali di DINOv2 e DINOv3 (cartelle <code>notebooks</code> dei repository <code>facebookresearch/dinov2</code> e <code>facebookresearch/dinov3</code> su GitHub), utili per la parte 2. Le soluzioni ufficiali sono corrette e girano nel notebook così com'è. Come usarle:</p>
+    <ul>
+      <li>si incolla la classe e nella cella 18 si sostituisce <code>SimSiam(</code> con il nome della classe; i costruttori accettano gli stessi argomenti di <code>SimSiam</code>;</li>
+      <li>SimCLR e Barlow Twins non hanno predictor: lo sostituiscono con <code>nn.Identity()</code>, che non ha parametri, così la cella 21 (due gruppi di parametri) funziona;</li>
+      <li>per SimCLR e Barlow Twins la cella 19 va saltata (lo dice la docstring): con Barlow Twins si ferma perché manca <code>criterion</code>, con SimCLR gira ma non dimostra nulla, perché lì <code>criterion</code> è una cross-entropy;</li>
+      <li>per BYOL si aggiunge <code>model.update_target()</code> subito dopo <code>optimizer.step()</code> nella cella 23; la valutazione usa <code>model.backbone</code>, cioè lo studente.</li>
+    </ul>
+    <p><b>Cosa cambia rispetto alle nostre</b> (nessuna delle due versioni è sbagliata: sono scelte diverse):</p>
+    <ul>
+      <li><b>SimCLR.</b> Il projector ufficiale ha la BatchNorm (512 → 512 → BN → ReLU → d), come nel codice di SimCLR; il nostro no. Poiché la cella 18 passa <code>projection_dim=PROJECTOR_DIM</code>, con entrambe le versioni l'uscita è a 2048 dimensioni, non a 128. La versione ufficiale fa passare le due viste nel backbone separatamente (statistiche della BatchNorm per vista); la nostra concatena le viste in un unico batch. Stessa NT-Xent, τ = 0,5.</li>
+      <li><b>BYOL.</b> Ufficiale: m = 0,99, MLP con strato nascosto 2048 (projector) e 512 (predictor), il teacher tiene le proprie statistiche della BatchNorm (la media mobile riguarda solo i parametri). Nostra: teacher che copia le statistiche dello studente, MLP più larghi. Ora usiamo anche noi m = 0,99: con una sola epoca 0,996 è troppo lento.</li>
+      <li><b>Barlow Twins.</b> Ufficiale: projector a tre strati come nell'articolo, standardizzazione con <code>BatchNorm1d(affine=False)</code>, λ = 0,0051. Nostra: projector a due strati, standardizzazione scritta a mano. Stessa loss.</li>
+    </ul>
+    <p><b>Prova sul notebook vero</b> (CPU, CIFAR-10, batch 256, SGD lr 0,05 come nella cella 21, solo 30 passi di 195, cioè circa un sesto di epoca: indica se l'addestramento parte, non la qualità finale): <b>SimCLR</b> da 5,98 a 5,60 (una rete che non distingue nulla darebbe log 511 ≈ 6,24); <b>BYOL</b> da 1,99 a 0,79 (la loss va da 0 a 4, 2 = vettori ortogonali); <b>Barlow Twins</b> da 1447 a 1650, con oscillazioni intorno a 1600–1770 e nessun NaN: in 30 passi non scende. La loss è una somma su 2048 termini di diagonale più λ volte circa 4 milioni fuori diagonale, quindi è grande e ha gradienti grandi; con lo stesso lr di SimSiam conviene provare un lr più basso o un batch più grande prima di giudicare il metodo. Nessuno dei tre collassa nei primi passi: la dispersione delle feature del backbone resta stabile per SimCLR e BYOL e cala un po' per Barlow Twins.</p>
+  </div>
+  <div class="card">
+    <h3>Le nostre soluzioni: come usarle</h3>
+    <p>Le tre classi sostituiscono <code>SimSiam</code> nella cella 18; trasformazioni, loader e valutazione restano identici. Le firme dei costruttori sono quelle di <code>SimSiam</code> (<code>projection_dim</code>, <code>predictor_hidden_dim</code>) e SimCLR e Barlow Twins hanno un <code>predictor</code> identità senza parametri, così le celle 18 e 21 girano senza modifiche. La cella 19 (la dimostrazione dello stop-gradient) va saltata. Per BYOL, nel ciclo della cella 23, si aggiunge <code>model.update_teacher()</code> subito dopo <code>optimizer.step()</code>.</p>
+    <div class="box w"><b>Attenzione: correzione alla nostra versione precedente</b><p>Fino al 12 novembre qui c'erano costruttori con <code>proj_dim</code> e senza <code>predictor</code>. Provandoli sulle celle vere del notebook, la cella 18 si fermava con <code>TypeError</code> (passa <code>projection_dim=PROJECTOR_DIM</code>) e la 21 con <code>AttributeError</code> per SimCLR e Barlow Twins (l'ottimizzatore usa <code>model.predictor.parameters()</code>). Le avevamo provate solo su tensori casuali, fuori dal notebook. Ora le celle 18 e 21 girano con tutte e tre le classi (verificato).</p></div>
     <pre>def mlp(i, h, o, last_bn=True):
     layers = [nn.Linear(i, h, bias=False), nn.BatchNorm1d(h), nn.ReLU(), nn.Linear(h, o, bias=not last_bn)]
     if last_bn: layers.append(nn.BatchNorm1d(o, affine=False))
@@ -150,11 +169,12 @@
   <div class="card">
     <h3>SimCLR · NT-Xent</h3>
     <pre>class SimCLR(nn.Module):
-    def __init__(self, backbone, feature_dim=512, proj_dim=128, tau=0.5):
+    def __init__(self, backbone, feature_dim=512, projection_dim=128, predictor_hidden_dim=None, tau=0.5):
         super().__init__()
         self.backbone, self.tau = backbone, tau
+        self.predictor = nn.Identity()               # nessun predictor: serve solo alle celle 18 e 21
         self.projector = nn.Sequential(nn.Linear(feature_dim, feature_dim), nn.ReLU(),
-                                       nn.Linear(feature_dim, proj_dim))
+                                       nn.Linear(feature_dim, projection_dim))
     def forward(self, v1, v2):
         z = F.normalize(self.projector(self.backbone(torch.cat([v1, v2]))), dim=1)  # [2B, d]
         B = v1.size(0)
@@ -167,11 +187,11 @@
   <div class="card">
     <h3>BYOL · teacher con media mobile</h3>
     <pre>class BYOL(nn.Module):
-    def __init__(self, backbone, feature_dim=512, proj_dim=256, hidden=4096, m=0.996):
+    def __init__(self, backbone, feature_dim=512, projection_dim=256, predictor_hidden_dim=4096, hidden=4096, m=0.99):
         super().__init__()
         self.backbone = backbone
-        self.projector = mlp(feature_dim, hidden, proj_dim, last_bn=False)
-        self.predictor = mlp(proj_dim, hidden, proj_dim, last_bn=False)
+        self.projector = mlp(feature_dim, hidden, projection_dim, last_bn=False)
+        self.predictor = mlp(projection_dim, predictor_hidden_dim, projection_dim, last_bn=False)
         self.t_backbone = copy.deepcopy(backbone).requires_grad_(False)
         self.t_projector = copy.deepcopy(self.projector).requires_grad_(False)
         self.m = m
@@ -191,17 +211,18 @@
             z1 = self.t_projector(self.t_backbone(v1)); z2 = self.t_projector(self.t_backbone(v2))
         return 0.5 * (self.loss_fn(p1, z2) + self.loss_fn(p2, z1))
 # nel ciclo di training:  loss.backward(); optimizer.step(); model.update_teacher()</pre>
-    <p>Rispetto a SimSiam: il bersaglio viene da un <b>teacher</b> separato, media mobile esponenziale dello studente (m = 0,996, nell'articolo portato verso 1 con un coseno). Il teacher non ha gradienti, quindi lo stop-gradient è implicito. L'ottimizzatore va costruito solo sui parametri dello studente (quelli con <code>requires_grad</code>): i parametri del teacher non hanno gradiente e SGD li salta comunque. Gli MLP di BYOL hanno strato nascosto a 4096 e uscita a 256 (articolo); per CIFAR si può ridurre.</p>
+    <p>Rispetto a SimSiam: il bersaglio viene da un <b>teacher</b> separato, media mobile esponenziale dello studente (m = 0,99; l'articolo parte da 0,996 e lo porta verso 1 con un coseno, ma con una sola epoca, cioè 195 passi, il teacher con 0,996 conserverebbe ancora quasi metà dei pesi casuali iniziali: 0,996<sup>195</sup> ≈ 0,46, contro 0,99<sup>195</sup> ≈ 0,14). Il teacher non ha gradienti, quindi lo stop-gradient è implicito. L'ottimizzatore va costruito solo sui parametri dello studente (quelli con <code>requires_grad</code>): i parametri del teacher non hanno gradiente e SGD li salta comunque. Gli MLP di BYOL hanno strato nascosto a 4096 e uscita a 256 (articolo); per CIFAR si può ridurre.</p>
   </div>
   <div class="card">
     <h3>Barlow Twins · matrice di cross-correlazione</h3>
     <pre>class BarlowTwins(nn.Module):
-    def __init__(self, backbone, feature_dim=512, proj_dim=2048, lambd=5e-3):
+    def __init__(self, backbone, feature_dim=512, projection_dim=2048, predictor_hidden_dim=None, lambd=5e-3):
         super().__init__()
         self.backbone, self.lambd = backbone, lambd
-        self.projector = nn.Sequential(nn.Linear(feature_dim, proj_dim, bias=False),
-                                       nn.BatchNorm1d(proj_dim), nn.ReLU(),
-                                       nn.Linear(proj_dim, proj_dim, bias=False))
+        self.predictor = nn.Identity()               # nessun predictor: serve solo alle celle 18 e 21
+        self.projector = nn.Sequential(nn.Linear(feature_dim, projection_dim, bias=False),
+                                       nn.BatchNorm1d(projection_dim), nn.ReLU(),
+                                       nn.Linear(projection_dim, projection_dim, bias=False))
     def forward(self, v1, v2):
         z1 = self.projector(self.backbone(v1)); z2 = self.projector(self.backbone(v2))
         N = z1.size(0)

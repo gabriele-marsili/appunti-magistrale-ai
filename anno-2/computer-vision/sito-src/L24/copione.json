@@ -1,0 +1,730 @@
+{
+ "L": "L24",
+ "segs": [
+  {
+   "a": "In una frase: un vision-language model (",
+   "b": 0,
+   "t": "Pensa a un classificatore che conosce mille categorie, sempre le stesse. Domani ti serve distinguere un monopattino elettrico da una bicicletta, e lui non sa che esistono. Oggi vediamo come si risolve legando le immagini al linguaggio: le classi le scrivi a parole, e la rete le capisce senza essere riaddestrata."
+  },
+  {
+   "a": "In una frase: un vision-language model (",
+   "b": 0,
+   "t": "La lezione segue tre idee. Prima allineiamo immagini e frasi nello stesso spazio di vettori, ed è CLIP. Poi traduciamo un'immagine in testo con un decoder che la guarda tramite la cross-attention, l'attenzione incrociata. Infine diamo l'immagine a un grande modello di linguaggio che risponde a domande. Alla fine saprai calcolare a mano la loss di CLIP e confrontare le architetture dei VLM, i vision-language model."
+  },
+  {
+   "a": "Slide di Donald Shenaj (11 novembre), 61",
+   "b": 2,
+   "t": "Due parole sul materiale. Le slide questa volta sono di Donald Shenaj, non del prof. Il numero in basso è la pagina del PDF, e l'ultima pagina non è una slide: è solo la panoramica con le miniature."
+  },
+  {
+   "a": "dalla L21 : la loss InfoNCE , SimCLR con",
+   "b": 3,
+   "t": "Dalle lezioni precedenti ti servono la InfoNCE e SimCLR della L21, con la temperatura; il backbone congelato e il linear probe della L22 e della L23; il ViT con le patch come token, il token CLS e la self-attention; e poi softmax, cross-entropy e, per la fine, bounding box e IoU."
+  },
+  {
+   "a": "Il libro di riferimento è il visionbook,",
+   "b": 4,
+   "t": "Il libro di riferimento è il visionbook, capitolo 51, breve e chiaro. Molti modelli di oggi, come BLIP-2, LLaVA e Qwen-VL, nei libri non ci sono: i numeri vengono dalle slide e sono stati controllati sugli articoli."
+  },
+  {
+   "a": "Video OpenAI CLIP: ConnectingText and Im",
+   "b": 6,
+   "t": "Sotto trovi due video, un complemento e non un obbligo: Yannic Kilcher che legge l'articolo di CLIP, e una lezione di Stanford che fa il nostro stesso percorso. Guardali prima o dopo, quando ti fa comodo."
+  },
+  {
+   "a": "1. Perché unire visione e linguaggio",
+   "b": 7,
+   "t": "Prima sezione: perché unire visione e linguaggio. Un classificatore addestrato su ImageNet conosce mille nomi fissi. Per aggiungere una categoria devi raccogliere immagini etichettate e riaddestrare. E non saprà mai rispondere a una domanda aperta. Intanto il web è pieno di immagini con accanto un testo: didascalie, titoli, testi alternativi. Miliardi di coppie, gratis."
+  },
+  {
+   "a": "L'idea (slide 3–5). Nella L21 le coppie ",
+   "b": 9,
+   "t": "L'idea è un ponte con la L21. In SimCLR le due viste positive erano due augmentation della stessa foto. Qui la seconda vista di un'immagine è la frase che la descrive. Il testo porta oggetti, attributi, azioni senza annotazione manuale, e ti permette di definire categorie nuove semplicemente scrivendole."
+  },
+  {
+   "a": "Due modi di usare l'encoder visivo (slid",
+   "b": 10,
+   "t": "Una distinzione che ci accompagnerà fino alla fine. Un ViT produce una sequenza di feature: nella formula, Z con pedice v ha N righe, una per token, e D con pedice v colonne."
+  },
+  {
+   "a": "con N il numero di token e D v la loro d",
+   "b": 12,
+   "t": "Questa sequenza si usa in due modi. Puoi riassumerla in un solo vettore globale, il CLS o una media, e proiettarlo in uno spazio condiviso col testo: è CLIP. Oppure tieni tutti i token e li dai a un modello di linguaggio, che li legge con la cross-attention, come BLIP-2, o direttamente nella sua sequenza, come LLaVA. Questa biforcazione è la chiave del confronto finale."
+  },
+  {
+   "a": "Il punto Il testo sostituisce le etichet",
+   "b": 13,
+   "t": "Da portare a casa: il testo sostituisce le etichette fisse ed è una supervisione gratuita e flessibile. L'encoder visivo dà un vettore per immagine, per allineare, oppure una sequenza di token, per generare."
+  },
+  {
+   "a": "2. Trasformare il testo in token: BPE",
+   "b": 14,
+   "t": "Seconda sezione: come si trasforma il testo in token. Un transformer vuole vettori, non stringhe."
+  },
+  {
+   "a": "Il problema. Un transformer vuole vettor",
+   "b": 15,
+   "t": "Il libro confronta tre scelte. Un codice per parola: in inglese sono oltre centomila, e una parola mai vista non ha codice. Un codice per carattere: pochi simboli, ma sequenze lunghissime. E una via di mezzo, il Byte-Pair Encoding, BPE, cioè codifica per coppie di byte."
+  },
+  {
+   "a": "L'idea (slide 8). Il BPE parte dai carat",
+   "b": 16,
+   "t": "Il BPE parte dai caratteri e ripete una mossa: fonde la coppia di simboli adiacenti più frequente in un simbolo nuovo. Ogni fusione allunga il vocabolario e accorcia le sequenze; il numero di fusioni bilancia le due cose. Le parole comuni diventano un token, quelle rare restano spezzate in pezzi noti. Lo usano GPT e CLIP."
+  },
+  {
+   "a": "Esempio svolto. Corpus: basso ×5, bassi ",
+   "b": 17,
+   "t": "Esempio svolto. Il corpus è basso cinque volte, bassi tre, rosso quattro, rossi due, grosso due: 82 caratteri, 7 lettere diverse. La coppia più frequente è s s, 16 volte: diventa un simbolo e i token scendono a 66. Poi ss più o, e si scende a 55. Poi b a e r o. Infine ro più sso diventa rosso."
+  },
+  {
+   "a": "BPE su un corpus giocattolo (mostrate tr",
+   "b": 18,
+   "t": "Guarda la figura dall'alto in basso. Nella riga blu ogni lettera è una casella: 82 token. In quella arancione le due s si sono fuse: 66. Nella verde compare sso: 55. Nell'ultima, rossa, rosso è un solo token e grosso diventa g più rosso: 33 token e 12 simboli. Grosso non è mai stato fuso per intero, ma si scrive con pezzi noti."
+  },
+  {
+   "a": "Dai token ai vettori. Ogni token ha un n",
+   "b": 19,
+   "t": "Poi ogni token ha un ID intero, e una matrice di embedding associa all'ID i la sua riga i. Il libro lo scrive come una matrice per un vettore one-hot, tutto zero tranne un uno: moltiplicare per quel vettore è leggere una riga. È una tabella appresa, come il patch embedding del ViT."
+  },
+  {
+   "a": "Il punto Testo → token BPE → ID → vettor",
+   "b": 20,
+   "t": "Da portare a casa: testo, token BPE, ID, vettori tramite una tabella appresa. Da qui in avanti testo e immagini sono entrambi sequenze di token."
+  },
+  {
+   "a": "3. Il linguaggio come supervisione: i pr",
+   "b": 21,
+   "t": "Terza sezione: i precursori. L'idea di imparare la visione dal testo è vecchia. La domanda giusta è perché sia esplosa solo nel 2021."
+  },
+  {
+   "a": "La storia (slide 9). I primi lavori (Mor",
+   "b": 23,
+   "t": "I primi lavori risalgono al 1999. Nel 2017 i visual n-grams arrivavano all'11 virgola 5 per cento zero-shot su ImageNet, cioè senza esempi etichettati: pochissimo. Poi tre obiettivi: predire la didascalia parola per parola, predire parole mascherate, oppure il contrastivo. Il libro nota che anche la classificazione è supervisione linguistica, solo molto povera: un nome fra K."
+  },
+  {
+   "a": "L ConVIRT = λ L v→u + (1 − λ) L u→v , L ",
+   "b": 25,
+   "t": "Il precursore diretto è ConVIRT, che lega radiografie e referti medici. La loss è una media pesata da lambda di due direzioni. Ogni termine è meno il logaritmo di una frazione: sopra l'esponenziale della similarità fra l'immagine e il suo referto, divisa per tau; sotto la somma su tutti i referti del batch."
+  },
+  {
+   "a": "v è l'immagine, u il suo referto, u′ sco",
+   "b": 26,
+   "t": "Ti suona familiare: è la InfoNCE della L21, con i negativi presi dall'altra modalità. CLIP usa un obiettivo simmetrico simile, ma su 400 milioni di coppie invece di circa duecentomila. La differenza vera è la scala."
+  },
+  {
+   "a": "Il punto Le idee c'erano già; CLIP ha pr",
+   "b": 27,
+   "t": "Da portare a casa: le idee c'erano già. CLIP ha preso il contrastivo bidirezionale di ConVIRT e l'ha portato alla scala del web."
+  },
+  {
+   "a": "4. CLIP: due encoder, uno spazio comune",
+   "b": 28,
+   "t": "Quarta sezione: CLIP, il cuore della lezione. Vogliamo un vettore per immagine e uno per frase, tali che una foto e la sua descrizione cadano vicine, e coppie non correlate lontane."
+  },
+  {
+   "a": "L'idea (slide 10–12). CLIP ( Contrastive",
+   "b": 30,
+   "t": "CLIP, Contrastive Language-Image Pre-training, cioè preaddestramento contrastivo linguaggio immagine, ha due encoder separati addestrati insieme da zero. Quello delle immagini è una ResNet modificata oppure un ViT."
+  },
+  {
+   "a": "encoder di immagini f v : una ResNet mod",
+   "b": 31,
+   "t": "Quello del testo è un transformer in stile decoder, con attenzione causale: 12 strati, 63 milioni di parametri. Come vettore della frase si prende l'uscita del token di fine frase, che grazie all'attenzione causale ha visto tutto. Poi una proiezione lineare per ciascuno verso lo spazio condiviso. A differenza di SimCLR, niente projection head non lineare: basta una matrice."
+  },
+  {
+   "a": "Dalla slide 10 (figura dell'articolo di ",
+   "b": 32,
+   "t": "Guarda la figura dell'articolo. Nel pannello uno, a sinistra, l'encoder di testo viola produce T uno fino a T N, quello di immagini verde produce I uno fino a I N. La griglia contiene tutti i prodotti I per T, e le caselle azzurre sulla diagonale sono le coppie vere."
+  },
+  {
+   "a": "Dalla slide 10 (figura dell'articolo di ",
+   "b": 32,
+   "t": "Nei pannelli due e tre, a destra, c'è già lo zero-shot. Aereo, auto, cane, uccello vengono inseriti nella frase a photo of a e codificati. La foto del cane dà I uno, e vince la casella azzurra I uno per T tre: a photo of a dog."
+  },
+  {
+   "a": "v i = W v h i v / ‖W v h i v ‖ 2 , t i =",
+   "b": 34,
+   "t": "Ora un dettaglio decisivo: la normalizzazione. Ogni vettore proiettato viene diviso per la sua lunghezza, la norma, e così ha lunghezza 1. Allora il prodotto scalare fra l'immagine i e la frase j è il coseno dell'angolo theta i j fra loro."
+  },
+  {
+   "a": "Dopo la divisione per la norma, tutti i ",
+   "b": 35,
+   "t": "Perché è importante? Senza normalizzazione la rete avrebbe una scorciatoia: abbassare la loss allungando i vettori positivi e spingendo lontano i negativi, senza imparare nulla sul contenuto. Sulla sfera unitaria il prodotto sta fra meno uno e uno, e conta solo la direzione."
+  },
+  {
+   "a": "Sinistra: senza normalizzazione basta mo",
+   "b": 36,
+   "t": "La figura lo mostra. A sinistra il vettore blu I moltiplicato per 3 diventa la freccia azzurra lunga, e il prodotto col positivo verde triplica, mentre il negativo rosso finisce lontano in basso. A destra, sulla circonferenza grigia, il prodotto è il coseno dell'angolo theta fra I e il verde: la rete può solo ruotare i vettori."
+  },
+  {
+   "a": "Attenzione: due imprecisioni del libro (",
+   "b": 37,
+   "t": "Attenzione al libro: dice che il prodotto scalare fra vettori unitari è proporzionale all'angolo. È il coseno dell'angolo, che decresce quando l'angolo cresce, ma non in modo proporzionale. E nelle slide l'encoder delle immagini a volte si chiama f con pedice elle invece di f con pedice v: è lo stesso oggetto."
+  },
+  {
+   "a": "Il punto CLIP = due encoder + due proiez",
+   "b": 38,
+   "t": "Da portare a casa: CLIP è due encoder, due proiezioni lineari e una normalizzazione. Immagini e frasi diventano punti sulla stessa sfera, confrontati col coseno."
+  },
+  {
+   "a": "5. La matrice N × N e la InfoNCE simmetr",
+   "b": 39,
+   "t": "Quinta sezione: la loss. Come si dice alla rete che questa foto va con questa frase e non con le altre?"
+  },
+  {
+   "a": "L'idea (slide 14–17). Si prende un batch",
+   "b": 41,
+   "t": "Si prende un batch di N coppie immagine didascalia, si codificano tutte e si calcolano tutte le similarità: S i j è il prodotto scalare fra l'immagine i e la didascalia j."
+  },
+  {
+   "a": "Ne esce una matrice N × N. Le N coppie v",
+   "b": 43,
+   "t": "Ne esce una matrice N per N. Le coppie vere stanno sulla diagonale; gli altri N al quadrato meno N elementi sono negativi gratis, come in SimCLR. Con N uguale a 6, 6 positivi e 30 negativi. CLIP usava batch da oltre trentaduemila coppie."
+  },
+  {
+   "a": "L I→T = −∑ k log [ exp(I k ·T k /τ) / ∑ ",
+   "b": 45,
+   "t": "Nella formula, per ogni riga k, cioè l'immagine k contro tutte le didascalie, si fa una softmax e si prende meno il logaritmo della probabilità sulla colonna k. La seconda formula fa lo stesso per colonne: al denominatore la somma scorre sulle immagini."
+  },
+  {
+   "a": "L T→I fa lo stesso per colonne: la didas",
+   "b": 46,
+   "t": "Così la didascalia k deve riconoscere la sua immagine fra tutte. La loss totale somma le due direzioni, perché vogliamo cercare sia testi da un'immagine sia immagini da un testo. Le slide scrivono somme, il codice fa medie e divide per 2: cambia solo un fattore di scala."
+  },
+  {
+   "a": "S = [[0.30, 0.10, 0.05], [0.12, 0.28, 0.",
+   "b": 48,
+   "t": "Rendiamolo concreto. Tre coppie: un cane, un gatto, un'auto. Sulla diagonale le similarità valgono zero virgola trenta, zero virgola ventotto e zero virgola venticinque; fuori diagonale valori più piccoli. La temperatura è zero virgola zero sette, cioè si moltiplica per circa 14."
+  },
+  {
+   "a": "Riga 1: logit 0.30/0.07 = 4.29, 1.43, 0.",
+   "b": 49,
+   "t": "Riga del cane: dopo la softmax il positivo prende zero virgola 921, e la loss è meno il suo logaritmo, zero virgola zero 82. Con le altre due righe la media è zero virgola 158. Per colonne la media è zero virgola 145. La loss come nel codice è la media delle due: zero virgola 152."
+  },
+  {
+   "a": "L'esempio numerico. A sinistra le simila",
+   "b": 51,
+   "t": "Guarda i tre pannelli. A sinistra le similarità, con la diagonale bordata di verde. Al centro la softmax per righe: sulla diagonale zero virgola 921, zero virgola 863 e zero virgola 783. A destra per colonne: zero virgola 913, zero virgola 811 e zero virgola 873. Confronta l'ultima riga al centro con l'ultima colonna a destra: l'immagine dell'auto è incerta, ma la sua didascalia la riconosce bene. Le due direzioni vedono errori diversi, ed è per questo che conviene usarle entrambe."
+  },
+  {
+   "a": "Il punto Un batch di N coppie dà una mat",
+   "b": 52,
+   "t": "Da portare a casa: N coppie danno una matrice N per N, softmax per righe e per colonne, cross-entropy verso la diagonale. È la InfoNCE della L21 resa simmetrica."
+  },
+  {
+   "a": "6. La temperatura e lo pseudocodice",
+   "b": 53,
+   "t": "Sesta sezione: la temperatura. I coseni stanno fra meno uno e uno. Dati così alla softmax, la differenza fra zero virgola trenta e zero virgola dieci è minuscola, e le probabilità escono quasi uniformi."
+  },
+  {
+   "a": "L'idea. Si divide per una temperatura τ ",
+   "b": 55,
+   "t": "Per questo si divide per una temperatura tau piccola. Con tau uguale a 1 la riga del cane dà zero virgola 38 al positivo, quasi a caso; con zero virgola zero sette dà zero virgola 92. Ma con tau troppo piccolo la softmax diventa un argmax e la loss satura. In CLIP tau si impara: parte da zero virgola zero sette, con il fattore uno su tau limitato a 100."
+  },
+  {
+   "a": "Stesse similarità, temperature diverse. ",
+   "b": 56,
+   "t": "Guarda la figura. A sinistra la riga dell'immagine uno: le barre arancioni, tau uguale a 1, sono quasi alla pari; le blu danno zero virgola 92 al testo giusto; le rosse, tau zero virgola zero uno, danno praticamente 1."
+  },
+  {
+   "a": "Stesse similarità, temperature diverse. ",
+   "b": 56,
+   "t": "A destra la loss al variare di tau, in scala logaritmica. La linea tratteggiata è il logaritmo di 3, il valore a caso. Il punto arancione, tau uguale a 1, dà zero virgola 977, quasi a caso: pochissimo segnale. Il punto blu dà zero virgola 152. Più a sinistra la curva si appiattisce verso zero: la loss satura."
+  },
+  {
+   "a": "I_f = image_encoder(I) # [n, d_i] T_f = ",
+   "b": 58,
+   "t": "Ora lo pseudocodice dell'articolo, in cui c'è tutto CLIP. Si codificano immagini e testi, si moltiplicano per le proiezioni, si normalizza. La matrice dei logit è immagini per testi trasposti, moltiplicata per l'esponenziale di t. Le etichette sono zero, uno, due e così via. Infine due cross-entropy, una per asse, e la loro media."
+  },
+  {
+   "a": "t è log(1/τ): moltiplicare per exp(t) ti",
+   "b": 59,
+   "t": "Due dettagli. Il parametro t è il logaritmo di uno su tau: l'esponenziale tiene il fattore sempre positivo. E le etichette arange di n dicono che la classe giusta della riga k è la colonna k, la diagonale."
+  },
+  {
+   "a": "Il punto La temperatura trasforma coseni",
+   "b": 60,
+   "t": "Da portare a casa: la temperatura trasforma coseni piccoli in logit ben separati, e in CLIP si impara. Il codice: proietta, normalizza, logit, cross-entropy verso la diagonale nei due versi."
+  },
+  {
+   "a": "7. LiT: congelare l'encoder delle immagi",
+   "b": 61,
+   "t": "Settima sezione: LiT. Esistono già ottimi encoder di immagini, preaddestrati. Serve davvero addestrare tutto da zero come CLIP?"
+  },
+  {
+   "a": "L'idea (slide 21). LiT ( Locked-image Te",
+   "b": 63,
+   "t": "LiT, Locked-image Text Tuning, cioè addestramento del testo con immagine bloccata, congela un encoder di immagini preaddestrato e addestra solo quello di testo, con la stessa loss. Nella formula si minimizza solo rispetto a theta, i parametri del testo."
+  },
+  {
+   "a": "Solo θ (il testo) si muove: il testo imp",
+   "b": 65,
+   "t": "Il testo impara a leggere uno spazio visivo già buono. Zero-shot su ImageNet: con l'immagine bloccata, 70 virgola 1 per cento; con entrambi addestrati da un'immagine preaddestrata, 57 virgola 2; tutto da zero, 50 virgola 6. Bloccare vince. È il featurizer congelato della L23. L'intuizione: i dati del web sono rumorosi, e aggiornarci sopra l'encoder visivo può rovinarlo."
+  },
+  {
+   "a": "Il punto Non serve addestrare tutto: con",
+   "b": 66,
+   "t": "Da portare a casa: con un buon encoder visivo congelato basta insegnare al testo a puntare nello spazio che già esiste."
+  },
+  {
+   "a": "8. Cosa impara CLIP: profondità e spazio",
+   "b": 67,
+   "t": "Ottava sezione: cosa impara CLIP. Il libro usa un dataset giocattolo di forme colorate con le loro descrizioni, e visualizza con t-SNE le feature degli strati intermedi."
+  },
+  {
+   "a": "Rappresentazioni a diverse profondità (s",
+   "b": 68,
+   "t": "Nell'encoder di immagini gli strati iniziali raggruppano per colore, quelli finali per forma. Nel testo succede il contrario. Il motivo: nei pixel il colore è in superficie e la forma richiede elaborazione, mentre nel testo rosso e triangolo sono parole ugualmente facili. È un'osservazione qualitativa."
+  },
+  {
+   "a": "Lo spazio congiunto (slide 23, fig. 51.4",
+   "b": 69,
+   "t": "Poi lo spazio congiunto. Il libro proietta gli embedding in due dimensioni con una kernel PCA, dopo aver tolto la prima componente principale. Quella componente codifica il cosiddetto modality gap: immagini e testi occupano zone diverse della sfera."
+  },
+  {
+   "a": "Dalla slide 23 (fig. 51.4 del libro). Em",
+   "b": 70,
+   "t": "Guarda la figura. Simboli e scritte stanno lungo una circonferenza. A sinistra i triangoli azzurri e verde acqua, con le scritte teal triangle e blue triangle. A destra i cerchi rossi e viola, vicino a red circle. In alto i quadrati rosa e pink square. Ogni frase cade vicino alle icone che descrive, non perfettamente."
+  },
+  {
+   "a": "Attenzione a cosa garantisce la loss (sl",
+   "b": 71,
+   "t": "Attenzione a cosa garantisce la loss: il coseno della coppia giusta deve superare quello delle sbagliate, ma senza un valore assoluto da raggiungere. Per questo in CLIP le coppie giuste hanno spesso similarità intorno a zero virgola tre. Conta l'ordine, non il numero."
+  },
+  {
+   "a": "Il punto Le immagini passano da colore a",
+   "b": 72,
+   "t": "Da portare a casa: lungo la profondità le immagini passano da colore a forma, il testo no. Alla fine ogni frase è vicina alle immagini che descrive, in senso relativo."
+  },
+  {
+   "a": "9. I dati: 400 milioni di coppie, LAION-",
+   "b": 73,
+   "t": "Nona sezione: i dati. CLIP è stato addestrato su 400 milioni di coppie dal web, mai rese pubbliche. E qualità, filtraggio e varietà contano quanto la quantità."
+  },
+  {
+   "a": "LAION-5B (Schuhmann et al. 2022, slide 2",
+   "b": 75,
+   "t": "La risposta aperta è LAION-5B: 5 virgola 85 miliardi di coppie: circa 2 virgola 3 miliardi in inglese, altrettante multilingue, il resto di lingua non determinata. Si pubblicano link, non immagini, e si tengono le coppie con similarità CLIP alta. Ma il testo del web resta rumoroso, pieno di nomi di file e titoli di prodotto. Il filtro aiuta, ma non elimina il rumore."
+  },
+  {
+   "a": "OpenCLIP (Cherti et al. 2023, slide 26):",
+   "b": 76,
+   "t": "OpenCLIP è l'implementazione open source, addestrata su questi dati pubblici. Gli esperimenti di scala mostrano andamenti diversi rispetto al CLIP di OpenAI, pur con ricette simili. Morale: i dati cambiano il risultato."
+  },
+  {
+   "a": "Il punto CLIP = metodo semplice + dati e",
+   "b": 77,
+   "t": "Da portare a casa: CLIP è un metodo semplice più dati enormi, e i dati sono un ingrediente del modello."
+  },
+  {
+   "a": "10. Classificare senza addestrare: lo ze",
+   "b": 78,
+   "t": "Decima sezione: lo zero-shot, classificare senza addestrare. Hai CLIP e vuoi distinguere cani, gatti e auto, senza nessuna immagine etichettata."
+  },
+  {
+   "a": "L'idea (slide 27). Scrivi una frase per ",
+   "b": 80,
+   "t": "Scrivi una frase per classe, a photo of a dog, a photo of a cat, a photo of a car, e codificale. Ecco il trucco: quei vettori sono i pesi di un classificatore lineare, scritti col testo invece che imparati da esempi."
+  },
+  {
+   "a": "p(y = k | x, C) = exp(z v x ·z t c k /τ)",
+   "b": 81,
+   "t": "Nella formula, la probabilità della classe k è una softmax dei coseni fra l'immagine e le frasi, divisi per tau. La previsione è la classe con coseno massimo. È una riga della matrice di addestramento, con le frasi classe al posto delle didascalie. Nel linear probe della L23 i pesi si imparavano; qui si scrivono."
+  },
+  {
+   "a": "Esempio svolto. Coseni fra la foto di un",
+   "b": 83,
+   "t": "Esempio. Coseni fra la foto di un cane e i tre prompt: zero virgola 31, zero virgola 26 e zero virgola 12. Con il fattore 100 la softmax dà zero virgola 993 al cane. Ora aggiungi lupo, con coseno zero virgola 30: il cane scende a zero virgola 727, il lupo prende zero virgola 268. La previsione resta, ma le probabilità dipendono dall'insieme delle classi."
+  },
+  {
+   "a": "Zero-shot con tre classi. Aggiungendo «w",
+   "b": 84,
+   "t": "Guarda la figura. A sinistra la barra blu del cane è la più lunga, zero virgola 31. A destra le barre blu, con tre classi, danno zero virgola 993 al cane; le arancioni, col lupo, zero virgola 727 e zero virgola 268. Stessa immagine. Morale: le probabilità non sono calibrate, e un 99 per cento non vuol dire sicuro al 99 per cento."
+  },
+  {
+   "a": "Classificatori su misura (slide 28, fig.",
+   "b": 85,
+   "t": "Una cosa elegante: classificatori su misura. Le stesse immagini, con CLIP congelato, si dividono in modi diversi cambiando solo le frasi: triangolo contro cerchio, viola contro verde acqua, punta di freccia contro palla. Cambi i testi e sposti il confine di decisione, senza toccare un parametro."
+  },
+  {
+   "a": "Dalla slide 28 (fig. 51.6). Stessi embed",
+   "b": 86,
+   "t": "Nei tre pannelli i punti sono sempre gli stessi; i due segmenti puntano ai vettori di testo, e ogni punto va alla frase più vicina, segnato con un più verde o un trattino rosso. A sinistra triangle contro circle, al centro purple in alto contro teal in basso, a destra arrowhead contro ball. Tre partizioni diverse degli stessi dati."
+  },
+  {
+   "a": "Attenzione: refuso nel libro (§ 51.3) Ne",
+   "b": 87,
+   "t": "Un refuso del libro: scrive che il vettore della classe b si ottiene codificando la frase a. Va letto frase b: ogni classe con la sua frase."
+  },
+  {
+   "a": "Il punto Zero-shot = una frase per class",
+   "b": 88,
+   "t": "Da portare a casa: una frase per classe, coseno con l'immagine, argmax. Le classi si cambiano al momento dell'uso, e le probabilità dipendono da quali classi metti."
+  },
+  {
+   "a": "11. Quanto funziona: risultati, retrieva",
+   "b": 89,
+   "t": "Undicesima sezione: quanto funziona. CLIP zero-shot contro un classificatore lineare addestrato sulle feature di una ResNet-50, su 27 dataset: CLIP vince in 16, ImageNet compreso."
+  },
+  {
+   "a": "Dalla slide 29 (articolo di CLIP). In ve",
+   "b": 91,
+   "t": "Nel grafico, in verde in alto i dataset dove CLIP vince: in cima StanfordCars, più 28 virgola 9 punti. In blu in basso quelli dove perde: in fondo le immagini satellitari di EuroSAT, meno 37 virgola 1, poi le distanze di KITTI, l'istologia, il conteggio. Concetti rari nelle didascalie del web."
+  },
+  {
+   "a": "Retrieval (slide 30). Data una frase q, ",
+   "b": 92,
+   "t": "Poi il retrieval, la ricerca. Data una frase, si ordinano le immagini per coseno. Gli embedding delle immagini si calcolano una volta sola, quindi cercare costa pochissimo. La metrica è il Recall at K: la frazione di query con un risultato giusto fra i primi K."
+  },
+  {
+   "a": "Recall@K: si guarda solo se la risposta ",
+   "b": 93,
+   "t": "Nella figura, quattro query con la risposta giusta in verde: ai ranghi 1, 3, 1 e 6. Il riquadro blu prende il primo posto: Recall at 1 è 2 su 4, il 50 per cento. Quello arancione i primi cinque: 3 su 4, il 75. Con dieci si arriva al 100. Allargando K il recall può solo crescere."
+  },
+  {
+   "a": "Prompt testuali (slide 31). «a photo of ",
+   "b": 94,
+   "t": "I prompt testuali: a photo of a dog invece di dog dà più 1 virgola 3 punti, perché il web è fatto di frasi e una parola sola è ambigua. Boxer è un cane o un pugile? Con la media di 80 modelli di frase per classe, il prompt ensembling, si guadagnano altri 3 virgola 5 punti, senza costi per immagine."
+  },
+  {
+   "a": "Prompt visivi (slide 32). Si può anche m",
+   "b": 95,
+   "t": "E i prompt visivi: invece del testo si modifica l'immagine. Un cerchio rosso attorno a un oggetto guida CLIP verso di esso, senza perdere il contesto."
+  },
+  {
+   "a": "Dalla slide 32. Ogni candidato viene cer",
+   "b": 96,
+   "t": "Nella figura, a sinistra, più copie della stessa foto di orsi, ognuna con un cucciolo diverso cerchiato in rosso. La frase è the cub on the right, il cucciolo a destra. La barra più alta, in blu scuro, va alla copia giusta. A destra altri due esempi, la mucca più piccola e l'agnellino bianco. Nessun parametro aggiornato."
+  },
+  {
+   "a": "Il punto Zero-shot competitivo sulle imm",
+   "b": 97,
+   "t": "Da portare a casa: zero-shot competitivo sulle immagini da web, debole nei domini rari. Il retrieval si misura col Recall at K, e i prompt migliorano senza addestrare."
+  },
+  {
+   "a": "12. I limiti: contare e capire le relazi",
+   "b": 98,
+   "t": "Dodicesima sezione: i limiti. Il primo è contare. Una didascalia raramente dice tre, quindi la loss non supervisiona il numero. Cercando quattro cani CLIP trova foto con due o sei cani."
+  },
+  {
+   "a": "Relazioni e ordine delle parole (slide 3",
+   "b": 100,
+   "t": "Il secondo sono le relazioni. Il cavallo mangia l'erba e l'erba mangia il cavallo hanno le stesse parole, eppure nell'esempio delle slide ricevono punteggi simili. Il modello si comporta come un sacco di parole, un bag-of-words: vede quali oggetti ci sono, non la sintassi."
+  },
+  {
+   "a": "Il punto CLIP sa cosa c'è, molto meno qu",
+   "b": 101,
+   "t": "Da portare a casa: CLIP sa cosa c'è, molto meno quanti e in che relazione, perché conteggi e ordine raramente servono a distinguere le didascalie del batch."
+  },
+  {
+   "a": "13. Dall'immagine al testo: captioning a",
+   "b": 102,
+   "t": "Tredicesima sezione, e seconda grande idea. CLIP sa scegliere fra frasi date, ma non sa scriverne una. Per descrivere un'immagine serve un generatore di testo: il captioning."
+  },
+  {
+   "a": "L'idea: tradurre fra modalità (slide 36,",
+   "b": 104,
+   "t": "Il libro lo vede come una traduzione fra modalità: un encoder porta l'immagine in uno spazio di rappresentazione, un decoder produce testo. Se i due pezzi sono preaddestrati separatamente, serve un connettore appreso fra loro. Ricordati questa parola, connettore: tornerà."
+  },
+  {
+   "a": "p θ (y | x) = ∏ t=1 T p θ (y t | y <t , ",
+   "b": 106,
+   "t": "Nella formula, la probabilità della didascalia è il prodotto, parola per parola, della probabilità di ogni parola date le precedenti e l'immagine: è la regola della catena. La loss è meno la somma dei logaritmi."
+  },
+  {
+   "a": "Ogni fattore è una softmax sul vocabolar",
+   "b": 107,
+   "t": "Ogni fattore è una softmax sul vocabolario, quindi la loss è una cross-entropy ripetuta a ogni posizione. Il decoder usa l'attenzione causale: la posizione t non vede le parole future."
+  },
+  {
+   "a": "Teacher forcing. In addestramento, al po",
+   "b": 108,
+   "t": "Qui entra il teacher forcing, la forzatura da insegnante. In addestramento il decoder riceve le parole vere della didascalia, non le sue, e tutte le posizioni si calcolano in parallelo. In inferenza la didascalia vera non c'è: generi un token, lo riappendi, generi il successivo. E un errore iniziale si propaga."
+  },
+  {
+   "a": "Sopra, addestramento: la didascalia vera",
+   "b": 109,
+   "t": "Nella figura, sopra, l'addestramento: in ingresso la didascalia vera spostata di uno, inizio, un, gatto, con, gli, e in uscita la parola successiva. Sotto, in arancione, l'inferenza: le frecce tratteggiate riportano ogni parola generata all'ingresso dopo. Il modello scrive i invece di gli, e prosegue con baffi: l'errore ha cambiato strada."
+  },
+  {
+   "a": "Il punto Captioning = encoder visivo + d",
+   "b": 110,
+   "t": "Da portare a casa: encoder visivo più decoder autoregressivo, cross-entropy sul token successivo. Teacher forcing in addestramento, un token alla volta in inferenza."
+  },
+  {
+   "a": "14. Come il decoder guarda l'immagine: l",
+   "b": 111,
+   "t": "Quattordicesima sezione: come guarda l'immagine il decoder? Parole diverse hanno bisogno di regioni diverse: gatto guarda il muso, occhiali guarda gli occhi."
+  },
+  {
+   "a": "Q = H W Q , K = Z v W K , V = Z v W V , ",
+   "b": 114,
+   "t": "Nella self-attention query, chiavi e valori vengono dalla stessa sequenza. Nella cross-attention le query vengono dal testo, chiavi e valori dall'immagine. Nella formula, l'uscita è la softmax di Q per K trasposto, diviso la radice di d con pedice k, moltiplicata per V."
+  },
+  {
+   "a": "H ∈ ℝ T×D t sono gli stati del decoder (",
+   "b": 115,
+   "t": "Ragiona sulle forme: Q per K trasposto ha una riga per ogni posizione di testo e una colonna per ogni token d'immagine. Ogni parola distribuisce la sua attenzione sull'immagine e ne riceve una media pesata dei valori."
+  },
+  {
+   "a": "Esempio svolto: le dimensioni. Usiamo i ",
+   "b": 116,
+   "t": "Facciamo i conti col Q-Former di BLIP-2: 32 query da 768 al posto delle parole, e un ViT con patch 14 a 224 pixel. 224 diviso 14 fa 16, quindi 256 patch più il CLS: 257 token da 1024."
+  },
+  {
+   "a": "token immagine: (224/14)² = 16 × 16 = 25",
+   "b": 117,
+   "t": "Q è 32 per 768. K e V passano per matrici 1024 per 768, che traducono le dimensioni dell'immagine in quelle del testo, e sono 257 per 768. L'attenzione è 32 per 257, ogni riga somma 1. L'uscita è 32 per 768."
+  },
+  {
+   "a": "Nota l'effetto: l'uscita ha tante righe ",
+   "b": 118,
+   "t": "Ecco l'effetto importante: l'uscita ha tante righe quante le query, qualunque sia il numero di token immagine. Entrano 257 token, escono 32 vettori. La cross-attention è anche un compressore."
+  },
+  {
+   "a": "Le forme delle matrici nella cross-atten",
+   "b": 119,
+   "t": "Nella figura, in verde il lato delle query, H e Q, 32 per 768. In blu il lato dell'immagine: Z, 257 per 1024, poi K e V. Il blocco arancione è l'attenzione, 32 per 257, e seguendo la freccia grigia tratteggiata si arriva all'uscita verde, di nuovo 32 per 768."
+  },
+  {
+   "a": "Attenzione: due imprecisioni del libro (",
+   "b": 120,
+   "t": "Due imprecisioni del libro: parla di text encoder dove intende il decoder di testo, e divide per la radice di m senza definire m, che è la dimensione delle chiavi."
+  },
+  {
+   "a": "Il punto Cross-attention: query dal test",
+   "b": 121,
+   "t": "Da portare a casa: query dal testo, chiavi e valori dall'immagine. L'uscita ha la lunghezza delle query."
+  },
+  {
+   "a": "15. BLIP-2: un Q-Former fra due modelli ",
+   "b": 122,
+   "t": "Quindicesima sezione: BLIP-2. Esistono ottimi encoder di immagini e ottimi modelli di linguaggio, gli LLM. Riaddestrarli insieme costa moltissimo e rischia di rovinarli. Come si collegano spendendo poco?"
+  },
+  {
+   "a": "L'idea (slide 39). BLIP-2 (Li et al. 202",
+   "b": 124,
+   "t": "BLIP-2 congela sia l'encoder visivo sia l'LLM e addestra solo un ponte: il Q-Former, transformer che interroga. Le sue 32 query, con la cross-attention appena vista, estraggono dall'immagine 32 vettori: un riassunto di lunghezza fissa, pensato per servire al testo."
+  },
+  {
+   "a": "Rappresentazione (encoder visivo congela",
+   "b": 126,
+   "t": "Due fasi. Nella prima non c'è l'LLM: il Q-Former impara con tre loss. Nella seconda le sue 32 uscite passano per uno strato completamente connesso, che le porta alla dimensione dell'LLM, e vengono messe davanti al testo come prompt visivi morbidi. Si addestrano solo Q-Former e proiezione."
+  },
+  {
+   "a": "Dentro il Q-Former (slide 40). Due sotto",
+   "b": 127,
+   "t": "Dentro il Q-Former due rami condividono la self-attention: uno per le query, con cross-attention all'immagine, uno per il testo. Le tre loss usano maschere diverse, cioè regole su chi può guardare chi."
+  },
+  {
+   "a": "ITC (image-text contrastive): query e te",
+   "b": 128,
+   "t": "ITC è il contrastivo come in CLIP: query e testo non si vedono. ITM, image-text matching, lascia tutti vedere tutti e decide se immagine e testo vanno insieme. ITG genera il testo: il testo vede le query, ma non il contrario, quindi tutta l'informazione dell'immagine deve passare dalle query."
+  },
+  {
+   "a": "Dalla slide 40 (articolo di BLIP-2). A s",
+   "b": 129,
+   "t": "Nella figura, il gatto con gli occhiali entra nell'encoder congelato e poi nel Q-Former, con il ramo delle query a sinistra e il testo a cat wearing sunglasses a destra. A destra le tre maschere, grigio vuol dire vietato: per ITM tutto bianco, per ITG le query non vedono il testo, per ITC i due gruppi sono separati."
+  },
+  {
+   "a": "Perché funziona. La fase 1 insegna alle ",
+   "b": 130,
+   "t": "Funziona perché le query imparano a estrarre l'informazione visiva utile al testo, e l'LLM congelato riceve pochi vettori già linguistici. Nell'articolo BLIP-2 batte Flamingo da 80 miliardi nel VQA zero-shot di 8 virgola 7 punti, con 54 volte meno parametri addestrabili."
+  },
+  {
+   "a": "Il punto BLIP-2 = encoder visivo congela",
+   "b": 131,
+   "t": "Da portare a casa: encoder congelato, Q-Former con 32 query e tre loss, LLM congelato. Si addestra solo il ponte."
+  },
+  {
+   "a": "16. Il testo come rappresentazione e il ",
+   "b": 132,
+   "t": "Sedicesima sezione: il testo come rappresentazione. Una frase che descrive un'immagine è un altro modo di rappresentarla, accanto a pixel, profondità e feature DINO. È compatta e un LLM sa ragionarci sopra, ma perde dettagli come la posizione esatta o la sfumatura di colore."
+  },
+  {
+   "a": "Il VQA (slide 43–44). Visual Question An",
+   "b": 134,
+   "t": "Da qui il VQA, Visual Question Answering: data un'immagine e una domanda, predire la risposta. A differenza del captioning, cosa estrarre dipende dalla domanda: riconoscere, come di che colore sono gli occhi, relazioni spaziali, o buon senso, come è una pizza vegetariana."
+  },
+  {
+   "a": "Classificazione della risposta : p θ (a ",
+   "b": 136,
+   "t": "Due formulazioni. La prima è una classificazione fra le K risposte più frequenti: semplice, ma una risposta fuori lista non si può dare. La seconda genera la risposta token per token."
+  },
+  {
+   "a": "p θ (a | x, q) = ∏ t p θ (a t | a <t , x",
+   "b": 137,
+   "t": "La formula del VQA generativo è identica a quella del captioning, con la domanda q in più fra le condizioni. Il VQA è captioning condizionato da una domanda."
+  },
+  {
+   "a": "BLIP-2 per il VQA (slide 46). Nel fine-t",
+   "b": 139,
+   "t": "BLIP-2 per il VQA: nel fine-tuning si aggiornano encoder e Q-Former, l'LLM resta congelato. La domanda entra due volte: nel Q-Former guida le query verso le regioni giuste, per cosa indossa il gatto gli occhiali, e nell'LLM, che genera la risposta, sunglasses."
+  },
+  {
+   "a": "Il punto Il testo è una rappresentazione",
+   "b": 140,
+   "t": "Da portare a casa: il testo è una rappresentazione che un LLM sa usare, e il VQA è captioning con una domanda, a risposte fisse o generate."
+  },
+  {
+   "a": "17. LLaVA: token visivi direttamente nel",
+   "b": 141,
+   "t": "Diciassettesima sezione: LLaVA. Vogliamo un assistente con cui chiacchierare di un'immagine. Serve un LLM che segua istruzioni e veda la foto."
+  },
+  {
+   "a": "L'idea (slide 49). LLaVA (Liu et al. 202",
+   "b": 143,
+   "t": "LLaVA è quasi la soluzione più semplice possibile. Prendi i token di un encoder CLIP, moltiplicali per una matrice W che li porta nello spazio delle parole dell'LLM, Vicuna, e mettili nella sequenza accanto all'istruzione."
+  },
+  {
+   "a": "Z v = f v (x) ∈ ℝ N×D v , H v = Z v W ∈ ",
+   "b": 144,
+   "t": "Nella formula, H con pedice v è Z per W, i token visivi tradotti. La loss è la solita predizione del token successivo sulla risposta, condizionata su token visivi e istruzione."
+  },
+  {
+   "a": "X q è l'istruzione, y la risposta. Nient",
+   "b": 145,
+   "t": "Nota cosa manca: niente cross-attention. L'LLM tratta i token visivi come parole speciali. LLaVA uno virgola cinque sostituisce W con un MLP a due strati e usa immagini a 336 pixel."
+  },
+  {
+   "a": "Dalla slide 49 (articolo di LLaVA). I to",
+   "b": 146,
+   "t": "Nella figura, in basso a sinistra l'immagine passa per l'encoder e per W e dà i token bianchi; a destra l'istruzione dà i token grigi. Entrano insieme nel modello di linguaggio, la banda verde, che genera in alto la risposta."
+  },
+  {
+   "a": "Esempio svolto: quanti token? CLIP ViT-L",
+   "b": 147,
+   "t": "Quanti token? A 224 pixel, 256 token visivi; con BLIP-2 ne entravano 32. LLaVA uno virgola cinque a 336 pixel ne usa 576. L'attenzione costa col quadrato della lunghezza: con 50 token di testo LLaVA costa circa 14 volte BLIP-2, la versione uno virgola cinque circa 58. Più dettaglio, più calcolo."
+  },
+  {
+   "a": "Due fasi (slide 50).",
+   "b": 148,
+   "t": "Due fasi. Prima l'allineamento: 595 mila coppie immagine didascalia, si addestra solo W e W impara a tradurre i token visivi nella lingua dell'LLM. Poi l'instruction tuning, l'addestramento su istruzioni: 158 mila esempi, si addestrano W e Vicuna, CLIP resta congelato."
+  },
+  {
+   "a": "Precisazione sulla slide 50: chi ha «vis",
+   "b": 150,
+   "t": "Una precisazione sulle slide: dicono che le istruzioni le ha generate GPT-4 dalle immagini. Ma GPT-4 era solo testuale: riceveva didascalie e bounding box, non l'immagine."
+  },
+  {
+   "a": "Il punto LLaVA = CLIP congelato + proiez",
+   "b": 151,
+   "t": "Da portare a casa: CLIP congelato, proiezione per token, LLM. Prima solo W, poi anche l'LLM. Semplice, ma passa all'LLM tutti i token."
+  },
+  {
+   "a": "18. Qwen-VL e il confronto fra architett",
+   "b": 152,
+   "t": "Diciottesima sezione: Qwen-VL e il confronto. Più risoluzione vuol dire più dettagli ma più token: a 448 pixel un ViT con patch 14 produce 1024 token. Troppi per l'LLM."
+  },
+  {
+   "a": "L'idea (slide 51). Qwen-VL (Bai et al. 2",
+   "b": 154,
+   "t": "Qwen-VL collega un grande ViT di OpenCLIP all'LLM Qwen con un adattatore: 256 query apprese in un solo strato di cross-attention, con posizioni in due dimensioni per non perdere dove stanno le cose. 1024 token diventano sempre 256. A differenza di LLaVA comprime, a differenza di BLIP-2 usa un solo strato."
+  },
+  {
+   "a": "Tre fasi (slide 52).",
+   "b": 155,
+   "t": "Tre fasi: preaddestramento a 224 pixel con LLM congelato; multi-task a 448 pixel con tutto addestrabile, su compiti come captioning, VQA, grounding e lettura di testo; infine instruction tuning con il ViT congelato, da cui esce Qwen-VL-Chat."
+  },
+  {
+   "a": "Quanti token visivi arrivano all'LLM. Gr",
+   "b": 157,
+   "t": "Nella figura, a sinistra la barra grigia sono i token che escono dal ViT, quella colorata quelli che entrano nell'LLM: BLIP-2 da 257 a 32, Qwen-VL da 1024 a 256, LLaVA tutti i 256, LLaVA uno virgola cinque tutti i 576. A destra il costo dell'attenzione rispetto a BLIP-2: circa 14 volte per Qwen-VL e LLaVA, oltre 58 per LLaVA uno virgola cinque."
+  },
+  {
+   "a": "Il confronto (slide 53).",
+   "b": 158,
+   "t": "Il confronto. CLIP ha un vettore per immagine e allinea, non genera. BLIP-2 comprime con il Q-Former e lascia l'LLM congelato. LLaVA uno virgola cinque passa tutti i token con un MLP e rifinisce l'LLM. Qwen-VL comprime con 256 query e addestra l'LLM. Le due scelte da guardare: come si collega l'immagine, proiezione o query, e cosa si congela."
+  },
+  {
+   "a": "Cosa si addestra in ogni fase. Il connet",
+   "b": 161,
+   "t": "Questa tabella risponde alla seconda domanda. Rosato vuol dire addestrato, grigio congelato. La riga del connettore è tutta rosata: si addestra sempre. BLIP-2 non tocca mai encoder e LLM. LLaVA sblocca l'LLM nella seconda fase. Qwen-VL addestra il ViT nelle prime due fasi e lo blocca nella terza."
+  },
+  {
+   "a": "Il punto Tutti i VLM generativi sono «en",
+   "b": 162,
+   "t": "Da portare a casa: tutti i VLM generativi sono encoder visivo, connettore e LLM. Cambiano il connettore e cosa si congela, in un compromesso fra dettaglio, costo e rischio di rovinare i modelli preaddestrati."
+  },
+  {
+   "a": "19. Altri compiti: ragionare su due foto",
+   "b": 163,
+   "t": "Ultima sezione: due altri compiti. Il primo è NLVR2, ragionamento visivo. Ti danno due foto e una frase, e devi dire se è vera, per esempio un'immagine mostra esattamente due ghiande. Nell'esempio è falso: una foto ha un mucchio di ghiande, l'altra una sola. La loss è una semplice cross-entropy binaria."
+  },
+  {
+   "a": "È una classificazione binaria con cross-",
+   "b": 166,
+   "t": "La formula è facile, il compito no: confrontare due immagini, contare e capire relazioni è proprio ciò in cui CLIP è debole."
+  },
+  {
+   "a": "Grounding: espressioni referenziali (sli",
+   "b": 167,
+   "t": "Il secondo è il grounding, ancorare una frase a una regione. Data un'immagine e un'espressione come la giraffa a sinistra, predire il bounding box. Due strade: regredire il box direttamente, oppure dare un punteggio a regioni candidate e scegliere la migliore."
+  },
+  {
+   "a": "La prima regredisce direttamente il box ",
+   "b": 169,
+   "t": "La prima ricorda le teste di regressione della L19, la seconda i cerchi rossi di prima. Una predizione è giusta se l'IoU col box vero supera zero virgola cinque. E i VLM come Qwen-VL scrivono le coordinate come testo: anche il grounding diventa generazione."
+  },
+  {
+   "a": "Dalla slide 56 (Yu et al. 2016). Lo stes",
+   "b": 170,
+   "t": "Nella figura, due giraffe e un box verde su quella di sinistra, descritto in tre modi. RefCOCO usa la posizione, giraffe on left. RefCOCO più vieta le parole di posizione, quindi giraffe with lowered head, la testa abbassata. RefCOCOg usa una frase lunga, una giraffa adulta che si gratta la schiena con il corno."
+  },
+  {
+   "a": "Il punto NLVR2 verifica il ragionamento ",
+   "b": 171,
+   "t": "Da portare a casa: NLVR2 verifica il ragionamento su due immagini con una risposta binaria, il grounding trasforma una frase in un box."
+  },
+  {
+   "a": "I VLM usano il testo come supervisione: ",
+   "b": 173,
+   "t": "Il riassunto in dieci righe raccoglie tutta la lezione e i numeri da ricordare. Rileggilo con calma."
+  },
+  {
+   "a": "Verifica di aver capito",
+   "b": 174,
+   "t": "Ora qualche domanda per verificare di aver capito. Per ognuna, metti in pausa e prova a rispondere prima di ascoltare la soluzione."
+  },
+  {
+   "a": "1. Perché CLIP normalizza gli embedding ",
+   "b": 175,
+   "t": "Prima domanda: perché CLIP normalizza gli embedding, e a cosa serve la temperatura? Metti in pausa e prova a rispondere. Senza normalizzazione la rete abbasserebbe la loss allungando i vettori; sulla sfera conta solo la direzione. Dividendo i coseni per zero virgola zero sette la softmax separa il positivo: zero virgola 92 invece di zero virgola 38."
+  },
+  {
+   "a": "2. Batch di 3 coppie con coseni diagonal",
+   "b": 176,
+   "t": "Seconda domanda: da dove vengono le loss zero virgola 158 e zero virgola 145 dell'esempio, e perché sono diverse? Metti in pausa e prova a rispondere. Si divide per tau, si fa la softmax per righe e per colonne, si prende meno il logaritmo della diagonale e si fa la media. Sono diverse perché cambiano i negativi: testi diversi per una riga, immagini diverse per una colonna."
+  },
+  {
+   "a": "3. Come si costruisce un classificatore ",
+   "b": 177,
+   "t": "Terza domanda: come si costruisce un classificatore zero-shot per cane, gatto e auto, e cosa cambia aggiungendo lupo? Metti in pausa e prova a rispondere. Una frase per classe, coseno con l'immagine, argmax. Il cane passa da zero virgola 993 a zero virgola 727: la previsione resta, le probabilità no."
+  },
+  {
+   "a": "4. Nella cross-attention del Q-Former co",
+   "b": 178,
+   "t": "Quarta domanda: nella cross-attention del Q-Former, che forme hanno le matrici? Metti in pausa e prova a rispondere. 257 token da 1024. Q è 32 per 768, K e V 257 per 768, l'attenzione 32 per 257, l'uscita 32 per 768."
+  },
+  {
+   "a": "5. Che differenza c'è fra teacher forcin",
+   "b": 179,
+   "t": "Quinta domanda: teacher forcing contro inferenza, e VQA a classificazione contro generativo. Metti in pausa e prova a rispondere. In addestramento le parole vere, in parallelo; in inferenza le proprie, una alla volta. Il primo VQA sceglie fra K risposte, il secondo le scrive."
+  },
+  {
+   "a": "6. Confronta BLIP-2, LLaVA e Qwen-VL: qu",
+   "b": 180,
+   "t": "Sesta domanda: BLIP-2, LLaVA e Qwen-VL, quanti token e cosa si congela? Metti in pausa e prova a rispondere. BLIP-2 passa 32 query con encoder e LLM congelati. LLaVA passa 256 token, prima addestra solo W poi anche l'LLM. Qwen-VL comprime 1024 token in 256, e congela il ViT solo nell'ultima fase."
+  },
+  {
+   "a": "Leggi nel visionbook il cap. 51 per inte",
+   "b": 182,
+   "t": "Per proseguire, leggi il capitolo 51 del visionbook, ricordando i refusi segnalati, e ripassa la InfoNCE nel capitolo 30. Le prossime lezioni sono sul parameter-efficient fine-tuning, cioè adattare modelli enormi addestrando pochi parametri, più un laboratorio."
+  },
+  {
+   "a": "Leggi nel visionbook il cap. 51 per inte",
+   "b": 182,
+   "t": "In sintesi: i vision-language model usano il testo come supervisione. CLIP mette immagini e frasi sulla stessa sfera con una InfoNCE simmetrica, e così classifica a parole senza addestrare. Per generare testo serve un decoder che guarda l'immagine con la cross-attention. I VLM moderni sono encoder visivo, connettore e LLM, e differiscono per quanti token passano e cosa congelano. Il passo successivo è congelare quasi tutto: il PEFT."
+  }
+ ]
+}
