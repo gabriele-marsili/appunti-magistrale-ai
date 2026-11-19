@@ -31,3 +31,4 @@ Una dispensa per lezione, scritta da zero integrando slide e libro (Torralba, Is
 | [L25 · PEFT e LoRA](L25-peft-e-lora.md) | Parameter-Efficient Fine-Tuning | 4261 |
 | [L26 · Lab VLM e PEFT](L26-lab-vlm-e-peft.md) | Lab: Vision-Language Models e Parameter-Efficient Fine-Tuning | 3695 |
 | [L27 · Modelli di diffusione](L27-modelli-di-diffusione.md) | Diffusion Models | 6548 |
+| [L28 · Diffusione personalizzata](L28-diffusione-personalizzata.md) | Personalized Diffusion Models | 4113 |

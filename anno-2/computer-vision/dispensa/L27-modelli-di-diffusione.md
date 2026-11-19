@@ -198,7 +198,7 @@ Con σ<sub>t→s</sub> = 0 il campionamento è **deterministico**: ogni rumore i
 
 ![DDIM deterministico con 20 passi sui dati 1D: niente zig-zag, ogni partenza ha un unico arrivo, e le traiettorie si decidono soprattutto negli ultimi passi, a rumore basso.](../sito-src/L27/disp2_ddim_traiettorie.png)
 
-![Stesso denoiser ideale, campionatori diversi. A 1000 e a 50 passi tutti e due vanno bene; a 10 passi DDPM (blu) è **sparpagliato**, DDIM (arancione) resta sui picchi; a 3 passi falliscono entrambi e producono una massa al centro, la «media» sfocata delle soluzioni.](../sito-src/L27/disp2_ddim.png)
+![Stesso denoiser ideale, campionatori diversi. A 1000 e a 50 passi tutti e due vanno bene; a 10 passi DDPM (blu) è sparpagliato, DDIM (arancione) resta sui picchi; a 3 passi falliscono entrambi e producono una massa al centro, la «media» sfocata delle soluzioni.](../sito-src/L27/disp2_ddim.png)
 
 **Che cosa prevedere** (slide 23–24). Scrivendo x<sub>t</sub> = a<sub>t</sub> x<sub>0</sub> + b<sub>t</sub> ε, con a<sub>t</sub> = √ᾱ<sub>t</sub> e b<sub>t</sub> = √(1 − ᾱ<sub>t</sub>), la rete può prevedere il rumore ε, l'immagine x<sub>0</sub> o la **velocità** v = a<sub>t</sub> ε − b<sub>t</sub> x<sub>0</sub>. Sono **la stessa informazione in tre forme**: dati x<sub>t</sub> e una delle tre, le altre si ricavano. Per v: x<sub>0</sub> = a<sub>t</sub> x<sub>t</sub> − b<sub>t</sub> v ed ε = b<sub>t</sub> x<sub>t</sub> + a<sub>t</sub> v, perché a<sup>2</sup> + b<sup>2</sup> = 1.
 
