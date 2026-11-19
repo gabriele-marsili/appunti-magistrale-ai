@@ -1,0 +1,88 @@
+<div class="sec" id="l27-libro"><h2>Studia dal libro</h2><span>Visionbook cap. 32 (§ 32.8–32.9) e 34 (§ 34.4.4) per l'inquadramento, Prince cap. 18 per la matematica di DDPM; circa 1 ora e mezza. Architetture recenti, flow matching e video solo dagli articoli</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Cosa leggere, in ordine</h3>
+    <div class="meta">Torralba, Isola, Freeman, <i>Foundations of Computer Vision</i>, gratis online; Prince, <i>Understanding Deep Learning</i>, nella cartella materiale</div>
+    <ol>
+      <li><a href="https://visionbook.mit.edu/generative_models.html" target="_blank">Visionbook cap. 32 Generative Models</a>, § 32.1–32.3 (cosa vuol dire generare, approccio diretto e indiretto, il rischio di memorizzare), poi § 32.8 Diffusion Models (corruzione, denoiser, perché dare t alla rete, previsione del rumore) e § 32.9 GAN (gioco min-max). Slide 8–10, 17. Trenta minuti.</li>
+      <li><a href="https://visionbook.mit.edu/conditional_generative_models.html" target="_blank">Cap. 34</a>, § 34.4.4 Conditional Diffusion Models (basta concatenare la condizione all'ingresso del denoiser), e <a href="https://visionbook.mit.edu/VLMs.html" target="_blank">cap. 51</a>, § 51.4 con la fig. 51.10 (testo inserito in ogni U-Net). Slide 18–20. Dieci minuti.</li>
+      <li>Prince, cap. 18 Diffusion models (PDF in CV/materiale): § 18.1–18.2 (processo in avanti, diffusion kernel con la derivazione a due passi, marginali, posteriore q(z<sub>t−1</sub> | z<sub>t</sub>, x)), § 18.3 (decoder gaussiano), § 18.4.5 e § 18.5 (loss e riparametrizzazione in rumore), § 18.6 (algoritmi 18.1–18.2, U-Net con il passo, DDIM e modelli accelerati, classifier guidance e classifier-free guidance, cascate). Slide 10–17, 21–22. Cinquanta minuti, saltando le dimostrazioni del § 18.4.2.</li>
+      <li>Prince, note in fondo al cap. 18: «Improving speed» (Stable Diffusion nel latente, DDIM come ODE, distillazione), «Conditional generation» (classifier guidance e CFG), «Different data types» (video). Slide 27, 32, 46. Dieci minuti.</li>
+      <li>Ripassi: <a href="https://visionbook.mit.edu/transformers.html" target="_blank">cap. 26</a> § 26.6 (query, chiavi, valori: cross-attention e attenzione congiunta), <a href="https://visionbook.mit.edu/convolutional_neural_nets.html" target="_blank">cap. 24</a> § 24.11.2 (U-Net), <a href="https://visionbook.mit.edu/VLMs.html" target="_blank">cap. 51</a> § 51.3 (CLIP e i suoi limiti).</li>
+    </ol>
+    <p><b>Si può saltare</b>: § 32.4–32.7 (modelli di densità, energia, autoregressivi) se non hai tempo; nel Prince le derivazioni complete dell'ELBO (§ 18.4.1–18.4.3), basta sapere da dove nasce la loss. <b>Solo negli articoli</b>: score e SDE (Song et al. 2021, arXiv 2011.13456), DDIM (2010.02502), Improved DDPM e schedule a coseno (2102.09672), CFG (2207.12598), v-prediction (2202.00512), flow matching (2210.02747), rectified flow (2209.03003), latent diffusion (2112.10752), SDXL (2307.01952), KOALA (2312.04005), DiT (2212.09748), SD3 (2403.03206), SANA (2410.10629), Video Diffusion Models (2204.03458), Stable Video Diffusion (2311.15127), CogVideoX (2408.06072), Wan (2503.20314), Movie Gen (2410.13720). Per flow matching e score in modo rigoroso ma accessibile: le dispense del corso MIT 6.S184 (arXiv 2506.02070).</p>
+  </div>
+
+  <div class="card">
+    <h3>Le idee centrali</h3>
+    <div class="meta">Da saper ricostruire senza slide</div>
+    <p><b>1 · Il processo in avanti è fisso e si salta in un colpo.</b> x<sub>t</sub> = √(1 − β<sub>t</sub>) x<sub>t−1</sub> + √β<sub>t</sub> ε<sub>t</sub>; componendo i passi le varianze si sommano e si ottiene x<sub>t</sub> = √ᾱ<sub>t</sub> x<sub>0</sub> + √(1 − ᾱ<sub>t</sub>) ε. Nessun parametro, nessuna simulazione passo per passo durante il training (Prince eq. 18.4–18.8).</p>
+    <p><b>2 · Il passo inverso è quasi gaussiano se i passi sono piccoli.</b> Il vero q(x<sub>t−1</sub> | x<sub>t</sub>) dipende dalla distribuzione dei dati ed è complicato; condizionato su x<sub>0</sub> diventa una gaussiana nota. Si addestra la rete a imitarne la media, e la media si esprime col rumore: ecco perché la loss diventa ‖ε − ε<sub>θ</sub>‖<sup>2</sup> (Prince § 18.2.3–18.5).</p>
+    <p><b>3 · Rumore, score, velocità: la stessa informazione.</b> Score ≈ −ε<sub>θ</sub>/√(1 − ᾱ<sub>t</sub>); x̂<sub>0</sub> = (x<sub>t</sub> − √(1 − ᾱ<sub>t</sub>) ε<sub>θ</sub>)/√ᾱ<sub>t</sub>; v = a ε − b x<sub>0</sub> con inversione grazie a a<sup>2</sup> + b<sup>2</sup> = 1. Cambiano la stabilità numerica e il campionatore, non il modello del mondo.</p>
+    <p><b>4 · Il campionatore è separato dal training.</b> Lo stesso ε<sub>θ</sub> si usa con DDPM stocastico (T passi), con DDIM deterministico (sottosequenze da 20–50 passi) o con risolutori di ODE; la distillazione scende a 1–8 passi ma richiede un nuovo training (Prince § 18.6.2).</p>
+    <p><b>5 · La guida è aritmetica sugli score.</b> ε(∅) + w[ε(c) − ε(∅)] equivale a campionare da q(x) q(c | x)<sup>w</sup>: più aderenza al prompt, meno diversità. Costa due valutazioni per passo (Prince § 18.6.3).</p>
+    <p><b>6 · Il costo si sposta sull'architettura.</b> Latente (f = 8, 48 volte meno valori), transformer su patch (N = HW/p<sup>2</sup>), attenzione congiunta testo-immagine, compressione più spinta (SANA), attenzione scomposta per i video.</p>
+  </div>
+
+  <div class="card">
+    <h3>Differenze di notazione e di contenuto fra slide e libro</h3>
+    <div class="meta">Per non confondersi passando da uno all'altro</div>
+    <ul>
+      <li><b>Prince</b> chiama x l'immagine pulita e z<sub>1</sub>, …, z<sub>T</sub> le immagini rumorose (sono le variabili latenti di un VAE gerarchico), e usa <b>α<sub>t</sub> per il prodotto cumulato</b> ∏(1 − β<sub>s</sub>): l'ᾱ<sub>t</sub> delle slide. Il suo «α<sub>t</sub>» non è l'α<sub>t</sub> = 1 − β<sub>t</sub> della slide 10.</li>
+      <li>Prince chiama il denoiser g<sub>t</sub>[z<sub>t</sub>, ϕ<sub>t</sub>] (le slide ε<sub>θ</sub>(x<sub>t</sub>, t)) e il diffusion kernel q(z<sub>t</sub> | x) (le slide la formula chiusa); il visionbook chiama il denoiser f<sub>θ</sub>(x<sub>t</sub>, t).</li>
+      <li>Il visionbook (§ 32.8) presenta la diffusione in forma molto semplificata: il denoiser che restituisce direttamente l'immagine un po' meno rumorosa, e la previsione del rumore in una riga. Leggilo come intuizione; le formule esatte del passo inverso sono quelle delle slide 13–14 e del Prince.</li>
+      <li>Nessuno dei due libri tratta <b>flow matching</b>, rectified flow, v-prediction, DiT, MM-DiT, FLUX, SANA, metriche FID e CLIP score, né la diffusione per video oltre una citazione: per questi le fonti sono le slide e gli articoli.</li>
+      <li>Convenzioni di tempo opposte: nelle slide e in SD3 t = 0 sono i dati e t = 1 il rumore; in Lipman et al. il contrario. Convenzione di w nella CFG: la slide usa la scala di guida (w = 1 condizionato), l'articolo di Ho e Salimans scrive (1 + w).</li>
+      <li>Il Prince fissa le varianze σ<sub>t</sub><sup>2</sup> del passo inverso; la slide 14 sceglie σ<sub>t</sub><sup>2</sup> = β<sub>t</sub>; Improved DDPM le impara (Prince § 18.6.4).</li>
+    </ul>
+  </div>
+</div>
+
+<div class="sec" id="l27-guida"><h2>Guida allo studio</h2><span>circa 3 ore e mezza: dispensa, schede, conti a mano, domande</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Blocco 1 · DDPM da zero (70 minuti)</h3>
+    <div class="meta">Slide 8–15 · dispensa sezioni 1–4</div>
+    <ul>
+      <li>Ricava la formula chiusa con due passi e poi per induzione (scheda 10).</li>
+      <li>Con lo schedule lineare, calcola SNR per ᾱ = 0,52 e ᾱ = 0,08 e spiega perché i passi finali sono sprecati.</li>
+      <li>Scrivi a memoria i due algoritmi della slide 14 e spiega l'asimmetria: un passo per il training, T per il campionamento.</li>
+      <li>Ricava lo score di q(x<sub>t</sub> | x<sub>0</sub>) e collegalo a ε (scheda 15).</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Blocco 2 · Condizionamento e campionatori (60 minuti)</h3>
+    <div class="meta">Slide 16–28 · dispensa sezioni 5–8</div>
+    <ul>
+      <li>Disegna una U-Net di diffusione e indica dove entrano t (somma per canale o scala e spostamento) e il testo (cross-attention con le forme delle matrici).</li>
+      <li>Scrivi la formula della CFG, spiega w = 0, 1, &gt; 1 e il compromesso con la FID.</li>
+      <li>Verifica a mano l'inversione della v-prediction e il caso «un solo passo» di DDIM.</li>
+      <li>Scrivi la loss del flow matching e spiega perché la rete impara un campo medio.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Blocco 3 · Architetture e video (60 minuti)</h3>
+    <div class="meta">Slide 30–55 · dispensa sezioni 9–11</div>
+    <ul>
+      <li>Segui un tensore in Stable Diffusion (slide 33) e rifai il 48× e le 100 valutazioni.</li>
+      <li>Conta i token di DiT per un latente 32 × 32 con p = 2, 4, 8; spiega perché patch più piccole migliorano la FID.</li>
+      <li>Disegna la matrice dell'attenzione congiunta e indica dove sta la cross-attention.</li>
+      <li>Rifai il conto dei 32 760 token di Wan 2.1 e il costo di attenzione spaziale contro temporale.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Domande tipo orale</h3>
+    <div class="meta">Prova a rispondere ad alta voce, poi apri la traccia</div>
+    <details><summary>Perché i modelli di diffusione hanno sostituito le GAN? Che cosa si paga?</summary><p>Le GAN si addestrano con un gioco min-max instabile e soffrono di mode collapse. La diffusione si addestra con una regressione sul rumore, stabile, e copre tutta la distribuzione (FID migliori da Dhariwal e Nichol 2021 in poi). Il prezzo è il campionamento: una GAN usa un passaggio, la diffusione decine o centinaia, da cui DDIM, distillazione e latenti.</p></details>
+    <details><summary>Scrivi il processo in avanti di DDPM e la formula chiusa. Perché serve la formula chiusa?</summary><p>q(x<sub>t</sub> | x<sub>t−1</sub>) = 𝒩(√(1 − β<sub>t</sub>) x<sub>t−1</sub>, β<sub>t</sub> I); con α<sub>t</sub> = 1 − β<sub>t</sub> e ᾱ<sub>t</sub> = ∏ α<sub>s</sub>: x<sub>t</sub> = √ᾱ<sub>t</sub> x<sub>0</sub> + √(1 − ᾱ<sub>t</sub>) ε. Serve perché il training sceglie un t a caso e deve costruire x<sub>t</sub> in un colpo, senza simulare i t passi precedenti. Si ricava sommando le varianze di gaussiane indipendenti.</p></details>
+    <details><summary>Da dove viene la loss ‖ε − ε<sub>θ</sub>(x<sub>t</sub>, t)‖<sup>2</sup>?</summary><p>Dall'ELBO della log-verosimiglianza: si scompone in KL fra il posteriore gaussiano q(x<sub>t−1</sub> | x<sub>t</sub>, x<sub>0</sub>) e il passo imparato p<sub>θ</sub>(x<sub>t−1</sub> | x<sub>t</sub>). Con varianze fisse è un errore quadratico fra medie; scrivendo x<sub>0</sub> in funzione di x<sub>t</sub> e ε, e facendo prevedere ε alla rete, diventa un errore quadratico sul rumore con un peso per passo. Ho et al. tolgono i pesi: ℒ<sub>simple</sub>.</p></details>
+    <details><summary>Che cos'è lo score e che rapporto ha con il rumore previsto?</summary><p>Lo score è ∇<sub>x</sub> log q(x<sub>t</sub>), la direzione in cui la densità dei dati rumorosi cresce. Vale ∇ log q(x<sub>t</sub>) ≈ −ε<sub>θ</sub>(x<sub>t</sub>, t)/√(1 − ᾱ<sub>t</sub>): prevedere il rumore significa sapere in che direzione toglierlo. È il termine sconosciuto della SDE inversa.</p></details>
+    <details><summary>Come entrano il passo t e il testo nella U-Net?</summary><p>t: codifica sinusoidale, MLP, proiezione a C canali sommata a ogni posizione nei blocchi residui (oppure scala e spostamento della normalizzazione). Testo: encoder (CLIP ViT-L in SD v1, 77 × 768), poi cross-attention a più risoluzioni con Q dalle feature dell'immagine e K, V dal testo; mappa N × M.</p></details>
+    <details><summary>Spiega la classifier-free guidance.</summary><p>Training: si toglie il prompt a caso, così la stessa rete prevede ε con e senza testo. Campionamento: ε̂ = ε(∅) + w[ε(c) − ε(∅)]; w = 0 incondizionato, w = 1 condizionato, w &gt; 1 amplifica il testo. In termini di score è q(x) q(c | x)<sup>w</sup>: classificatore implicito. Più aderenza (CLIP score), meno diversità (FID peggiore), due valutazioni per passo.</p></details>
+    <details><summary>Che cosa cambia DDIM rispetto a DDPM? Serve riaddestrare?</summary><p>No, stesso ε<sub>θ</sub>. Cambia il campionatore: si stima x̂<sub>0</sub> e si ricostruisce x<sub>s</sub> per un s &lt; t qualunque; con σ = 0 è deterministico. Permette sottosequenze di 20–50 passi invece di 1000, perché la traiettoria deterministica è poco curva.</p></details>
+    <details><summary>Che cos'è il flow matching e in che cosa differisce da DDPM?</summary><p>Cammino lineare x<sub>t</sub> = (1 − t)x<sub>0</sub> + t x<sub>1</sub>, target la velocità x<sub>1</sub> − x<sub>0</sub>, loss quadratica; la rete impara il campo medio e si genera integrando da t = 1 a t = 0. DDPM prevede ε lungo uno schedule gaussiano e campiona con passi inversi. Lo usano SD3, FLUX, Wan, Movie Gen. La v di DDPM (a ε − b x<sub>0</sub>) non è la stessa velocità.</p></details>
+    <details><summary>Perché la latent diffusion è così più efficiente? Quanto?</summary><p>L'autoencoder comprime 3 × 512 × 512 in 4 × 64 × 64: 64 volte meno posizioni, 48 volte meno valori. La U-Net, che gira 100 volte con 50 passi e la CFG, lavora sul tensore piccolo; encoder di testo e decoder VAE girano una volta. Il guadagno di calcolo non è esattamente 48× per via dei canali interni.</p></details>
+    <details><summary>Cross-attention contro attenzione congiunta: differenze?</summary><p>Cross-attention (SD 1.x, SDXL): Q dall'immagine, K e V dal testo, mappa N × M, testo fisso, self-attention in uno strato separato. Attenzione congiunta (MM-DiT, FLUX): sequenze concatenate con proiezioni separate per modalità, una sola attenzione (N + M) × (N + M), il testo si aggiorna in ogni blocco; la cross-attention è un blocco di questa matrice.</p></details>
+    <details><summary>Come si passa dalle immagini ai video? Perché attenzione spaziale e temporale separate?</summary><p>Si aggiunge l'asse dei frame: strati temporali (Video Diffusion Models, Stable Video Diffusion partendo da pesi di immagine) o token spazio-temporali con un VAE video e patch 3D (video DiT). Il passo t è lo stesso per tutti i frame. L'attenzione congiunta su FHW token costa (FHW)<sup>2</sup>; scomposta costa F(HW)<sup>2</sup> + HW·F<sup>2</sup>. Esempio Wan 2.1: 32 760 token.</p></details>
+  </div>
+</div>

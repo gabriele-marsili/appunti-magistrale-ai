@@ -1,0 +1,119 @@
+<div class="sec" id="l26-libro"><h2>Studia dal libro</h2><span>visionbook cap. 51 (§ 51.3) e cap. 37 (§ 37.3–37.5) come ripasso mirato, circa 45 minuti; la teoria nuova è nella L24 e nella L25</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Cosa rileggere prima del lab</h3>
+    <div class="meta">Torralba, Isola, Freeman, <i>Foundations of Computer Vision</i>, gratis online</div>
+    <ol>
+      <li><a href="https://visionbook.mit.edu/VLMs.html" target="_blank">Cap. 51</a>, § 51.3: CLIP come apprendimento contrastivo con immagine e didascalia, matrice dei punteggi, spazio congiunto sull'ipersfera (fig. 51.4), classificatori zero-shot costruiti con frasi (fig. 51.5–51.6), analisi strato per strato (fig. 51.3). Schede 4–8, 11, 17.</li>
+      <li><a href="https://visionbook.mit.edu/representation_learning.html" target="_blank">Cap. 30</a>, § 30.10: InfoNCE (eq. 30.4), alignment e uniformity. Scheda 5.</li>
+      <li><a href="https://visionbook.mit.edu/transfer_learning.html" target="_blank">Cap. 37</a>, § 37.3.1–37.3.2: moduli congelati, aggiornamento a basso rango, linear probe; § 37.5 prompting (il prompt ensembling della scheda 14 è un prompting «a mano»). Schede 12, 20–26.</li>
+      <li><a href="https://visionbook.mit.edu/bias_and_shift.html" target="_blank">Cap. 35</a> Data Bias and Shift, per il concetto di <i>domain shift</i> della parte 7: un modello addestrato su una distribuzione peggiora su un'altra. Schede 27–30.</li>
+    </ol>
+    <p><b>Solo negli articoli</b>: CLIP (arXiv 2103.00020, sezione 3.1.4 per prompt e ensemble su Flowers102), LoRA 2106.09685, DoRA 2402.09353, AdaLoRA 2303.10512, VeRA 2310.11454, SemLA (Qorbani et al., 2025), il <i>modality gap</i> (Liang et al., 2022, arXiv 2203.02053). Documentazione della libreria <a href="https://huggingface.co/docs/peft" target="_blank">peft</a> per <code>LoraConfig</code>, <code>inject_adapter_in_model</code>, <code>get_peft_model</code>.</p>
+  </div>
+  <div class="card">
+    <h3>Le idee centrali del lab</h3>
+    <div class="meta">Da saper spiegare con i numeri della nostra esecuzione</div>
+    <p><b>1 · Lo zero-shot è un classificatore lineare scritto a parole.</b> I 16 embedding di testo sono le righe di una matrice di pesi; l'argmax dei coseni dà 81,2% sulle 16 specie e 65,3% sulle 102, senza nessuna etichetta. Sbaglia dove nomi o aspetto si somigliano (globe-flower → buttercup 18 volte su 20).</p>
+    <p><b>2 · La temperatura cambia la confidenza, non la classifica.</b> Con scala 100 la softmax è appuntita, con scala 1 è uniforme; l'argmax è lo stesso.</p>
+    <p><b>3 · Le due modalità non si sovrappongono.</b> Nella PCA congiunta la prima componente separa immagini e testi (modality gap); per questo i coseni immagine-testo sono intorno a 0,3 e quelli immagine-immagine intorno a 0,9.</p>
+    <p><b>4 · Etichette poche ma buone.</b> Con 10 esempi per classe il probe arriva a 88,7%; adattare l'encoder con LoRA (0,17% dei parametri) a 92,8%, con LoRA anche su out_proj a 94,4%.</p>
+    <p><b>5 · LoRA in pratica.</b> B = 0 riproduce esattamente lo zero-shot prima del training; la ΔW appresa è piena ma ha esattamente 4 valori singolari non nulli; il conteggio dei parametri torna al numero (147 456).</p>
+    <p><b>6 · Fondere adapter al test.</b> Un LoRA per dominio, recupero con il centroide CLIP, somma pesata: 92–94% in tutti i domini, senza gradienti; gran parte del guadagno viene però dall'adattamento al compito.</p>
+  </div>
+</div>
+
+<div class="sec" id="l26-guida"><h2>Guida allo studio</h2><span>circa 2 ore e mezza: dispensa, notebook in mano, conti, domande</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>Blocco 1 · CLIP e zero-shot (50 minuti)</h3>
+    <div class="meta">Schede 4–17 · dispensa sezioni 1–5</div>
+    <ul>
+      <li>Scrivi su carta la pipeline immagine → [CLS] → proiezione → normalizzazione → coseno → softmax con scala 100, con le dimensioni (49 + 1 token, 768, 512).</li>
+      <li>Spiega perché la loss immagine→testo (0,626) e quella testo→immagine (1,163) sono diverse.</li>
+      <li>Guarda la matrice di confusione zero-shot e trova le tre confusioni principali; spiega perché il probe le corregge.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Blocco 2 · PEFT sul codice (60 minuti)</h3>
+    <div class="meta">Schede 20–26 · dispensa sezioni 6–8</div>
+    <ul>
+      <li>Rifai a mano i conti di BitFit (102 912), LoRA r = 4 (147 456), DoRA (165 888), AdaLoRA (295 104), VeRA (19 968).</li>
+      <li>Spiega il controllo «prima del training le predizioni coincidono con lo zero-shot».</li>
+      <li>Spiega perché VeRA e AdaLoRA qui non migliorano, e cosa cambieresti.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Blocco 3 · SemLA e spostamento (40 minuti)</h3>
+    <div class="meta">Schede 27–32 · dispensa sezioni 9–10</div>
+    <ul>
+      <li>Descrivi in tre passi recupero e fusione, con la formula di ΔW(x).</li>
+      <li>Leggi il grafico delle quattro condizioni e spiega perché anche l'adapter sbagliato aiuta.</li>
+      <li>Spiega perché uno spostamento medio di 0,65 non significa «LoRA migliora ogni immagine».</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Domande tipo orale</h3>
+    <div class="meta">Prova a rispondere ad alta voce, poi apri la traccia</div>
+    <details><summary>Come classifica CLIP zero-shot, e perché è un classificatore lineare?</summary><p>Si codifica un prompt per classe («a photo of a {nome} flower.»), si normalizzano gli embedding t<sub>c</sub>, si codifica e normalizza l'immagine v(x), si sceglie argmax<sub>c</sub> v(x)<sup>T</sup>t<sub>c</sub>. È un classificatore lineare con matrice dei pesi formata dai t<sub>c</sub>, scritta con il testo invece che appresa dalle immagini. Il linear probe impara la stessa forma di classificatore dalle etichette.</p></details>
+    <details><summary>Che cos'è il modality gap e come si vede nel lab?</summary><p>Gli embedding di immagini e testi occupano due regioni diverse della sfera: nella PCA congiunta la prima componente separa le due modalità (immagini a PC1 ≈ 0, testi a PC1 ≈ 1). La loss contrastiva rende la coppia giusta più vicina delle altre, non uguale; per questo i coseni immagine-testo sono intorno a 0,3, quelli immagine-immagine intorno a 0,9, e la stella più vicina in una PCA a 2 dimensioni non è sempre la classe predetta.</p></details>
+    <details><summary>Perché la temperatura non cambia l'accuratezza zero-shot ma cambia la loss?</summary><p>Dividere tutti i coseni per τ non cambia l'ordine, quindi l'argmax è identico. La softmax invece dipende dalle differenze moltiplicate per 1/τ: con 1/τ = 100 diventa appuntita, con 1 uniforme. La cross-entropy usa le probabilità, quindi cambia, e cambiano i gradienti. Nel lab l'addestramento PEFT usa scala 10 invece di 100.</p></details>
+    <details><summary>Conta i parametri di BitFit e di LoRA r = 4 su q e v per CLIP ViT-B/32.</summary><p>BitFit: per blocco 4d (attenzione) + 4d + d (MLP) + 2d (LayerNorm) = 11d = 8448; 12 blocchi = 101 376; più 2d per le LayerNorm esterne = 102 912. LoRA: per matrice r(d<sub>in</sub> + d<sub>out</sub>) = 4 × 1536 = 6144; 24 matrici = 147 456. Entrambi i valori coincidono con quelli misurati.</p></details>
+    <details><summary>Come verifichi che LoRA è inizializzato bene?</summary><p>Con B = 0 la ΔW è nulla, quindi il modello con LoRA appena iniettato deve dare esattamente le stesse predizioni del modello congelato. Il notebook lo controlla sulle prime 8 immagini di test: [0, 0, 7, 0, 0, 0, 7, 0] in entrambi i casi.</p></details>
+    <details><summary>Perché qui VeRA e AdaLoRA non migliorano lo zero-shot?</summary><p>Stesso learning rate (2·10<sup>−4</sup>) e stessi 120 passi di LoRA. VeRA parte con b = 0 e addestra solo vettori di scala che richiedono learning rate molto più alti; AdaLoRA parte con Λ = 0 e P, Q piccoli, e senza <code>update_and_allocate</code> non fa la potatura dei ranghi. Il confronto dice solo che con questo budget non si muovono; andrebbero tarati a parte.</p></details>
+    <details><summary>Spiega la fusione alla SemLA del notebook e il risultato.</summary><p>Quattro LoRA (clean, fog, night, rain) con i centroidi CLIP delle immagini di training. Per un'immagine: embedding CLIP, coseno con i centroidi, i 2 domini più vicini, pesi con una softmax a scala 10, ΔW(x) = ∑ w<sub>i</sub>(α/r)B<sub>i</sub>A<sub>i</sub> sommato ai pesi per la sola predizione. Risultato: 92–94% in ogni dominio, come l'oracolo; lo zero-shot crolla a circa 70% di notte. Anche l'adapter sbagliato arriva a 86–92%, perché tutti gli adapter hanno imparato le 16 classi.</p></details>
+  </div>
+</div>
+
+<div class="sec" id="l26-soluzioni"><h2>Soluzioni delle domande finali</h2><span>le dieci domande della cella 99, con i numeri della nostra esecuzione</span></div>
+<div class="guide">
+  <div class="card">
+    <h3>1 · Zero-shot contro linear probe al variare degli esempi</h3>
+    <p>Abbiamo rifatto il probe con 1, 2, 4, 8 e 10 esempi per classe, sulle stesse feature e le stesse 320 immagini di test, mediando 5 estrazioni casuali degli esempi:</p>
+    <figure><img src="{{IMG:img/s_shots.png}}" alt="Curva blu del linear probe che sale da 66,9% con 1 esempio a 88,7% con 10; linea rossa tratteggiata dello zero-shot a 81,2%; linea verde punteggiata di LoRA a 92,8%"><figcaption>Il probe supera lo zero-shot fra 2 e 4 esempi per classe: per CLIP su queste 16 specie, scrivere il nome della classe vale circa tre foto etichettate. LoRA, che adatta anche l'encoder, va oltre.</figcaption></figure>
+    <p>1 esempio: 66,9%; 2: 78,4%; 4: 85,1%; 8: 87,4%; 10: 88,7%. Con un solo esempio il probe è peggio dello zero-shot: impara da una foto quello che il testo dice già meglio. Con più esempi vince, perché impara i confini fra le specie simili direttamente dalle immagini.</p>
+  </div>
+  <div class="card">
+    <h3>2 · Prompt ensembling</h3>
+    <p>Con i nostri 4 template l'ensemble dà 82,8% contro 81,2% del prompt singolo, ma «a beautiful {} flower.» da solo arriva a circa 84%. La media non migliora sempre: è un compromesso fra template buoni e cattivi, e un template che porta l'embedding in una direzione sbagliata (qui «a close-up photo of a {} flower.», circa 79%) abbassa il risultato. L'articolo di CLIP usa decine di template scelti sul validation set.</p>
+  </div>
+  <div class="card">
+    <h3>3 · Probe lungo la profondità</h3>
+    <p>Accuratezza quasi nulla agli embedding iniziali, crescita lenta fino al blocco 6, una discesa ai blocchi 8–9, poi un salto negli ultimi tre blocchi fino a circa 91% al blocco 12, sopra il probe sugli embedding proiettati (88,7%). Le feature utili per distinguere le specie compaiono negli ultimi strati; la proiezione finale, addestrata per il testo, perde un po' di informazione. Per la PCA per strato basta riusare <code>train_by_depth[li]</code> al posto di <code>image_np</code> nella cella 20.</p>
+  </div>
+  <div class="card">
+    <h3>4 · Captioning e VQA</h3>
+    <p>Non eseguito (serve una GPU). Il captioning genera una descrizione generale; la VQA condiziona la generazione sulla domanda, e la risposta si concentra su ciò che viene chiesto (colore, numero, sfondo). Cambiando domanda sulla stessa immagine cambiano lunghezza e contenuto; gli errori tipici sono sul conteggio e sulle relazioni spaziali, e i dettagli inventati ma plausibili.</p>
+  </div>
+  <div class="card">
+    <h3>5 · Metodi PEFT e scelta delle proiezioni</h3>
+    <p>Più parametri non vuol dire più accuratezza: AdaLoRA (295 mila) va peggio di BitFit (103 mila). Fra i metodi addestrati bene conta dove si interviene: LoRA su q, v 92,8%, su q, v, o 94,4% (221 184 parametri). Solo Q o solo V si ottengono con <code>target_modules=['q_proj']</code> o <code>['v_proj']</code>: dimezzano i parametri; nella <a href="#L25">L25</a> (tabella di GPT-3) V da sola è molto meglio di Q da sola, ed è ragionevole aspettarsi lo stesso qui.</p>
+  </div>
+  <div class="card">
+    <h3>6 · Merge, dequantizzazione e checkpoint</h3>
+    <p>LoRA si fonde perché W<sub>0</sub>x + (α/r)BAx = (W<sub>0</sub> + (α/r)BA)x: dopo il merge il modello ha le stesse operazioni dell'originale. QLoRA tiene W<sub>0</sub> in 4 bit e deve dequantizzarlo a ogni moltiplicazione; fondere BA in pesi a 4 bit richiederebbe di riquantizzare (con errore). Il checkpoint del solo adapter (<code>save_pretrained</code> su un modello <code>peft</code>) contiene 147 456 numeri, circa 0,6 MB in FP32, contro circa 600 MB dell'intero CLIP.</p>
+  </div>
+  <div class="card">
+    <h3>7 · Fusione contro adapter singoli</h3>
+    <p>La fusione dei due adapter recuperati è al livello dell'oracolo (92–94%) e sopra l'adapter del dominio sbagliato (86–92%) e lo zero-shot (70–83%). Peggiora rispetto all'oracolo quando recupera un dominio sbagliato con peso alto; migliora quando il dominio vero è un misto o quando gli adapter si compensano. Il nuovo dominio (scheda 30) viene recuperato correttamente (peso 0,60), con la notte come secondo.</p>
+  </div>
+  <div class="card">
+    <h3>8 · CLIP-Adapter</h3>
+    <p>Un MLP a collo di bottiglia sull'embedding a 512 dimensioni, con fusione residua:</p>
+    <pre>class ClipAdapter(nn.Module):
+    def __init__(self, d=512, r=128, alpha=0.2):
+        super().__init__(); self.alpha = alpha
+        self.mlp = nn.Sequential(nn.Linear(d, r, bias=False), nn.ReLU(), nn.Linear(r, d, bias=False), nn.ReLU())
+    def forward(self, f):
+        return (1 - self.alpha) * f + self.alpha * self.mlp(f)</pre>
+    <p>Si addestra solo l'MLP (2 × 512 × 128 = 131 072 parametri) sulle feature congelate <code>clip_train</code>, con i logit 100 · normalize(f<sup>⋆</sup>) · t<sub>c</sub>. È molto più veloce di LoRA (nessun passaggio nell'encoder: le feature si calcolano una volta) e di solito si colloca fra probe e LoRA, perché non può cambiare le feature intermedie dell'encoder.</p>
+  </div>
+  <div class="card">
+    <h3>9 · Spostamento degli embedding</h3>
+    <p>Le immagini si spostano tutte molto (distanza coseno media 0,65, da 0,59 a 0,77 per classe); english marigold, che lo zero-shot confondeva di più, è la classe che si sposta di più. Ma la correlazione fra spostamento e correttezza è debole: LoRA corregge 49 immagini e ne peggiora 12, e le peggiorate (gerbere rosse diventate sunflower) si sono spostate quanto le altre. Conta la direzione rispetto ai prototipi di testo, non la lunghezza dello spostamento.</p>
+  </div>
+  <div class="card">
+    <h3>10 · Le tue immagini e le tue classi</h3>
+    <p>Basta sostituire <code>test_images</code> con le tue foto e <code>CLASS_NAMES</code> con le tue etichette, poi ricalcolare <code>encode_texts</code>. Le predizioni sono molto sensibili all'insieme dei candidati (aggiungere una classe simile ruba voti) e alla formulazione: un nome raro o ambiguo («daisy» per due specie diverse) produce gli stessi errori visti qui.</p>
+  </div>
+</div>

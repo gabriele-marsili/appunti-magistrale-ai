@@ -1,0 +1,450 @@
+{
+ "L": "L26",
+ "segs": [
+  {
+   "a": "In una frase: il lab prende CLIP e un pr",
+   "b": 0,
+   "t": "Oggi niente teoria nuova: prendiamo CLIP e un problema vero, riconoscere sedici specie di fiori avendo solo dieci foto per specie, e proviamo tutti i metodi delle ultime due lezioni, uno dopo l'altro, con i numeri veri della nostra esecuzione."
+  },
+  {
+   "a": "In una frase: il lab prende CLIP e un pr",
+   "b": 0,
+   "t": "Vedremo che i soli nomi delle specie danno già l'ottantuno per cento, che un classificatore lineare con dieci foto arriva a ottantanove, e che adattare l'encoder con LoRA, toccando meno di tre parametri su mille, arriva a novantaquattro. Alla fine c'è anche un piccolo esperimento con foto nella nebbia, sotto la pioggia e di notte."
+  },
+  {
+   "a": "Il materiale è un solo notebook, lab_vlm",
+   "b": 2,
+   "t": "Il materiale è un solo notebook, senza slide. Tutte le figure che vedrai vengono dalla nostra esecuzione completa, fatta su un processore normale, senza scheda grafica."
+  },
+  {
+   "a": "dalla L24 : CLIP, la loss contrastiva si",
+   "b": 3,
+   "t": "Ti servono CLIP e lo zero shot della lezione ventiquattro, LoRA e le sue varianti della venticinque, e il linear probe del laboratorio sul self supervised."
+  },
+  {
+   "a": "Video OpenAI CLIP: ConnectingText and Im",
+   "b": 5,
+   "t": "I due video sono un complemento: uno ripassa CLIP, l'altro scrive LoRA da zero in PyTorch. Guardali prima o dopo, come preferisci."
+  },
+  {
+   "a": "1. Il problema del lab",
+   "b": 6,
+   "t": "Partiamo dal problema."
+  },
+  {
+   "a": "Il problema. Hai un modello enorme pread",
+   "b": 7,
+   "t": "Hai un modello enorme, addestrato su quattrocento milioni di coppie immagine testo, e solo dieci foto etichettate per specie. E le specie sono scelte apposta difficili: due tipi di margherita, due fiori gialli tondi, due gialli a raggi, due garofani. Coppie che si somigliano."
+  },
+  {
+   "a": "Zero-shot : nessuna etichetta, solo i no",
+   "b": 9,
+   "t": "Il laboratorio prova tre strade, dalla più economica alla più costosa. Lo zero shot, che usa solo i nomi. Il linear probe, che addestra un classificatore lineare sopra l'encoder congelato. E il PEFT, che adatta l'encoder stesso toccando pochissimi parametri."
+  },
+  {
+   "a": "Il dataset è Oxford Flowers102 : 102 spe",
+   "b": 10,
+   "t": "Il dataset è Oxford Flowers centodue. Il lab usa centosessanta foto di training, centosessanta di validazione e trecentoventi di test. Il modello è CLIP con un ViT base a patch trentadue: quarantanove token più il CLS, poi una proiezione in uno spazio comune a cinquecentododici dimensioni."
+  },
+  {
+   "a": "Il punto Stesso modello, stesse immagini",
+   "b": 11,
+   "t": "Da portare a casa: stesso modello, stesse foto di test, tre livelli di adattamento. Il lab misura quanto vale ognuno."
+  },
+  {
+   "a": "2. CLIP visto da dentro: similarità, los",
+   "b": 12,
+   "t": "Cominciamo da come CLIP confronta un'immagine e una frase."
+  },
+  {
+   "a": "L'idea. CLIP trasforma un'immagine e una",
+   "b": 13,
+   "t": "CLIP trasforma l'immagine e la frase in due vettori di lunghezza uno, nello stesso spazio, e ne misura la somiglianza con il coseno."
+  },
+  {
+   "a": "Con 16 immagini e 16 prompt S è una matr",
+   "b": 15,
+   "t": "Con sedici immagini e sedici prompt ottieni una matrice sedici per sedici. Ed ecco la prima sorpresa: i coseni giusti sono intorno a zero virgola tre, quelli sbagliati poco sotto. Le differenze sono di pochi centesimi. Già così quattordici immagini su sedici trovano il proprio prompt. Le due che sbagliano sono la colt's foot, presa per un tarassaco, e la globe flower, presa per un buttercup."
+  },
+  {
+   "a": "La loss. CLIP è addestrato con una cross",
+   "b": 16,
+   "t": "La loss di CLIP è una cross entropy nei due sensi: per ogni immagine si sceglie fra i testi sulla sua riga, per ogni testo fra le immagini sulla sua colonna. Sulle nostre sedici coppie la prima vale zero virgola sei, la seconda uno virgola sedici. Sono diverse perché righe e colonne contengono numeri diversi: un'immagine può vincere bene la sua riga, mentre nella colonna del suo testo c'è un'altra foto molto simile che rende la scelta incerta."
+  },
+  {
+   "a": "La temperatura. I coseni vengono moltipl",
+   "b": 17,
+   "t": "Prima della softmax, i coseni vengono moltiplicati per una scala. CLIP ha imparato cento, il massimo consentito."
+  },
+  {
+   "a": "La stessa immagine (english marigold), g",
+   "b": 18,
+   "t": "Guarda la figura: è sempre la stessa immagine di calendula, con gli stessi sedici coseni. In alto, con scala uno, tutte le barre sono basse e uguali, circa un sedicesimo. Al centro, con scala quattordici, la classe giusta arriva appena a zero virgola uno quattro. In basso, con scala cento, schizza a zero virgola otto due."
+  },
+  {
+   "a": "Dividere tutto per lo stesso τ non cambi",
+   "b": 19,
+   "t": "La classifica non cambia mai, perché dividere tutto per lo stesso numero non cambia il massimo. Cambia solo quanto sembra sicura la softmax. E qui c'è la trappola: una probabilità alta non è una misura di affidabilità, è solo una piccola differenza amplificata."
+  },
+  {
+   "a": "Il punto CLIP decide con coseni che diff",
+   "b": 20,
+   "t": "Da portare a casa: CLIP decide con differenze di pochi centesimi, e la temperatura le trasforma in probabilità nette senza cambiare la predizione."
+  },
+  {
+   "a": "3. Lo spazio comune non è davvero comune",
+   "b": 21,
+   "t": "Ma perché il coseno fra una foto e la sua didascalia è solo zero virgola tre, se vivono nello stesso spazio?"
+  },
+  {
+   "a": "Cosa mostra il lab. Si proiettano in 2 d",
+   "b": 23,
+   "t": "Il laboratorio proietta in due dimensioni, con la PCA, duecentocinquantasei immagini e i sedici testi."
+  },
+  {
+   "a": "PCA congiunta di immagini (punti colorat",
+   "b": 24,
+   "t": "Guarda la figura. Tutti i punti colorati, le immagini, stanno a sinistra, vicino allo zero. Tutte le stelle nere, i testi, stanno a destra, vicino a uno. La prima componente separa le due modalità. Lungo l'asse verticale, invece, l'ordine delle stelle ricorda quello delle immagini."
+  },
+  {
+   "a": "È il modality gap : le immagini occupano",
+   "b": 25,
+   "t": "Si chiama modality gap. Immagini e testi occupano due zone diverse della sfera. La loss chiede solo che la coppia giusta sia più vicina delle altre, non che le nuvole coincidano. Infatti fra due foto simili il coseno arriva a zero virgola nove. E attenzione: in un grafico PCA la stella più vicina non è sempre la classe predetta, perché la direzione più importante è proprio quella che separa le modalità."
+  },
+  {
+   "a": "Retrieval. Con un testo si possono ordin",
+   "b": 26,
+   "t": "Con un testo si possono ordinare tutte le immagini, ed è il retrieval. La query sul tarassaco trova cinque tarassachi su cinque. Ma la query sulla barbeton daisy trova cinque margherite bianche comuni."
+  },
+  {
+   "a": "Retrieval con «a photo of a barbeton dai",
+   "b": 27,
+   "t": "Guarda le foto: sono tutte margherite bianche con il centro giallo. La barbeton daisy è una gerbera colorata, ma CLIP associa la parola daisy alla margherita. È l'origine di un errore che ritroveremo fra poco."
+  },
+  {
+   "a": "Il testo libero permette anche query per",
+   "b": 28,
+   "t": "Il testo libero permette anche ricerche per attributi, come un fiore viola con il centro scuro, o per stile, come un fiore disegnato da un bambino, che trova margherite dalla forma stilizzata."
+  },
+  {
+   "a": "Il punto Immagini e testi stanno in due ",
+   "b": 29,
+   "t": "Da portare a casa: immagini e testi stanno in due regioni diverse, CLIP funziona perché conta il confronto relativo, e il retrieval mostra cosa associa a ogni parola, anche quando sbaglia."
+  },
+  {
+   "a": "4. Zero-shot contro linear probe: quante",
+   "b": 30,
+   "t": "Ora il confronto centrale: zero shot contro linear probe."
+  },
+  {
+   "a": "Zero-shot. La classe predetta è il promp",
+   "b": 31,
+   "t": "Nello zero shot la classe è il prompt più simile. È un classificatore lineare, con i pesi scritti in inglese: i sedici vettori di testo. Risultato: ottantuno virgola due per cento."
+  },
+  {
+   "a": "Linear probe. Stessi embedding, ma un cl",
+   "b": 32,
+   "t": "Il linear probe usa gli stessi vettori delle immagini, ma impara i pesi dalle centosessanta foto: ottantotto virgola sette."
+  },
+  {
+   "a": "A sinistra lo zero-shot: globe-flower vi",
+   "b": 33,
+   "t": "Guarda le due matrici di confusione. A sinistra, lo zero shot: c'è un diciotto fuori diagonale, globe flower chiamata buttercup diciotto volte su venti, e un undici, oxeye daisy chiamata barbeton daisy. A destra, il probe: quasi tutto sulla diagonale."
+  },
+  {
+   "a": "Gli errori dello zero-shot sono sistemat",
+   "b": 34,
+   "t": "Gli errori dello zero shot sono sistematici: nascono da nomi poco noti o ambigui. Il probe non ha bisogno del nome, guarda dove cadono le foto. L'unica classe su cui peggiora è la petunia."
+  },
+  {
+   "a": "Quanti esempi vale un nome? Rifacendo il",
+   "b": 35,
+   "t": "Ma quante foto vale un nome? Abbiamo rifatto il probe con meno esempi per classe."
+  },
+  {
+   "a": "Il probe supera lo zero-shot fra 2 e 4 e",
+   "b": 36,
+   "t": "Nel grafico la curva blu sale da sessantasette per cento con una foto per classe a ottantanove con dieci. La linea rossa dello zero shot viene superata fra due e quattro foto. Quindi, per queste specie, scrivere il nome vale circa tre foto etichettate. La linea verde in alto è LoRA, che vedremo fra poco."
+  },
+  {
+   "a": "I prompt contano. Cambiando solo il temp",
+   "b": 37,
+   "t": "Anche il prompt conta. Con a beautiful flower si arriva intorno a ottantaquattro, con a close up photo si scende a settantanove. La media di quattro prompt dà ottantadue virgola otto: meglio del prompt base, ma non del migliore, perché un prompt cattivo sposta la media."
+  },
+  {
+   "a": "Tutte le 102 specie. Lo zero-shot scende",
+   "b": 38,
+   "t": "Su tutte le centodue specie lo zero shot scende al sessantacinque per cento, con confusioni fra nomi quasi uguali, come geranio e pelargonio. Non è confrontabile con l'ottantuno: più candidati e classi diverse."
+  },
+  {
+   "a": "Dove nasce l'informazione. Facendo un pr",
+   "b": 39,
+   "t": "Infine, dove nasce l'informazione dentro il ViT? Il lab fa un probe sul CLS dopo ogni blocco."
+  },
+  {
+   "a": "Accuratezza del probe sul [CLS] dopo ogn",
+   "b": 40,
+   "t": "Nel grafico l'accuratezza parte dal caso, sale lentamente fino a metà rete, cala un po' ai blocchi otto e nove, e poi salta negli ultimi tre blocchi, fino a circa novantuno, sopra la linea tratteggiata degli embedding finali."
+  },
+  {
+   "a": "I primi blocchi codificano colori e text",
+   "b": 41,
+   "t": "I primi blocchi codificano colori e texture, e il CLS non ha ancora raccolto l'informazione delle patch. I concetti di specie emergono alla fine. E l'ultimo blocco batte la proiezione finale, perché quella è addestrata per allinearsi al testo, non per separare queste specie."
+  },
+  {
+   "a": "Il punto Lo zero-shot (81%) vale circa t",
+   "b": 42,
+   "t": "Da portare a casa: lo zero shot vale circa tre foto per classe, il probe con dieci foto corregge gli errori dovuti ai nomi, e l'informazione utile sta negli ultimi strati."
+  },
+  {
+   "a": "CLIP sceglie fra frasi date; Qwen2.5-VL-",
+   "b": 44,
+   "t": "Una parentesi su Qwen due virgola cinque VL, un modello che genera testo invece di scegliere fra frasi date. Lo stesso modello fa didascalie e risponde a domande, condizionato dall'immagine e dall'istruzione. Serve una scheda grafica, quindi non l'abbiamo eseguito. Sai già cosa aspettarti: risposte fluide, ma errori nel contare, nelle relazioni spaziali, e dettagli inventati."
+  },
+  {
+   "a": "6. Il PEFT nel codice: lo schema comune",
+   "b": 45,
+   "t": "Passiamo al PEFT nel codice."
+  },
+  {
+   "a": "L'impostazione. Il classificatore resta ",
+   "b": 46,
+   "t": "Il classificatore resta quello zero shot: i sedici vettori di testo sono pesi fissi. Si adatta solo l'encoder visivo, partendo ogni volta da una copia nuova di CLIP, con lo stesso budget per tutti: centoventi passi da sedici immagini."
+  },
+  {
+   "a": "Lo schema della  L25 : nel lab BitFit sb",
+   "b": 47,
+   "t": "Lo schema è quello della lezione precedente: BitFit sblocca i bias, LoRA e DoRA lavorano sulle matrici di query e value."
+  },
+  {
+   "a": "Un dettaglio che conta: per l'addestrame",
+   "b": 48,
+   "t": "Un dettaglio che conta: nell'addestramento la scala dei logit è dieci, non cento. La softmax è molto più piatta, la loss iniziale è alta, e i gradienti spingono a cambiare tanto gli embedding. Per l'accuratezza non cambia nulla, ma ce ne ricorderemo alla fine."
+  },
+  {
+   "a": "7. BitFit e LoRA: i numeri tornano",
+   "b": 49,
+   "t": "Prima BitFit e LoRA."
+  },
+  {
+   "a": "BitFit. Si sbloccano solo i bias: 102 91",
+   "b": 50,
+   "t": "BitFit sblocca solo i bias: centoduemila novecentododici parametri, poco più di un millesimo. Il conto della lezione precedente torna esatto. E l'accuratezza è ottantasette virgola otto: BitFit arriva al livello del linear probe."
+  },
+  {
+   "a": "LoRA. Con LoraConfig(r=4, lora_alpha=8, ",
+   "b": 51,
+   "t": "LoRA con rango quattro su query e value: ogni matrice riceve una A e una B, per centoquarantasettemila parametri in tutto. Anche questo conto torna."
+  },
+  {
+   "a": "Il controllo dell'inizializzazione : pri",
+   "b": 52,
+   "t": "Due cose da notare. Prima del training le predizioni con LoRA sono identiche a quelle zero shot, perché B è nulla. È il modo per verificare che l'adapter sia inserito bene. E dopo il training si passa da ottantuno a novantadue virgola otto, quattro punti sopra il probe."
+  },
+  {
+   "a": "Com'è fatta la ΔW appresa. Per la prima ",
+   "b": 53,
+   "t": "Ma com'è fatto l'aggiornamento appreso? Il notebook prende la prima matrice adattata e ne calcola i valori singolari."
+  },
+  {
+   "a": "A sinistra un angolo della ΔW appresa: p",
+   "b": 54,
+   "t": "Guarda la figura. A sinistra un angolo della matrice di aggiornamento: è piena, tutta colorata, con un motivo a strisce. A destra i valori singolari: esattamente quattro diversi da zero, e tutti gli altri a zero."
+  },
+  {
+   "a": "È la verifica sperimentale della L25 : u",
+   "b": 55,
+   "t": "È la verifica sperimentale della teoria: un aggiornamento di rango quattro tocca tutti i pesi, ma lungo sole quattro direzioni. Le strisce si vedono proprio per questo."
+  },
+  {
+   "a": "Aggiungere una matrice. Mettendo LoRA an",
+   "b": 56,
+   "t": "E se aggiungiamo LoRA anche alla proiezione di output? Duecentoventunomila parametri e novantaquattro virgola quattro per cento, il risultato migliore del lab. Adattare più matrici conviene."
+  },
+  {
+   "a": "Il punto LoRA su q e v con lo 0,17% dei ",
+   "b": 57,
+   "t": "Da portare a casa: LoRA parte esattamente dallo zero shot, impara un aggiornamento pieno ma di rango quattro, e porta CLIP dall'ottantuno al novantatré con meno di due parametri su mille."
+  },
+  {
+   "a": "8. Le varianti e un confronto da leggere",
+   "b": 58,
+   "t": "Le varianti, e un confronto da leggere con attenzione."
+  },
+  {
+   "a": "Accuratezza (a sinistra) e parametri add",
+   "b": 59,
+   "t": "Nel grafico, a sinistra le accuratezze, a destra i parametri in scala logaritmica."
+  },
+  {
+   "a": "DoRA : LoRA più un vettore di moduli per",
+   "b": 60,
+   "t": "DoRA, con un vettore di moduli in più per matrice, fa novantatré virgola uno, appena sopra LoRA. AdaLoRA, con il doppio dei parametri, si ferma a ottantadue e mezzo. VeRA, con soli ventimila parametri, resta all'ottantuno, cioè allo zero shot. QLoRA richiede una scheda grafica e non l'abbiamo eseguita."
+  },
+  {
+   "a": "Attenzione a non concludere che AdaLoRA ",
+   "b": 61,
+   "t": "Ma attenzione a non concludere che AdaLoRA e VeRA non funzionano. Tutti usano lo stesso learning rate e gli stessi passi. VeRA parte da un vettore nullo e ha bisogno di learning rate molto più alti. AdaLoRA parte quasi da zero e, in questo notebook, non fa mai la potatura dei ranghi che lo caratterizza. La frase corretta è: con questo budget non si muovono. E più parametri non vuol dire più accuratezza."
+  },
+  {
+   "a": "Il punto DoRA ≈ LoRA > BitFit ≈ probe; A",
+   "b": 62,
+   "t": "Da portare a casa: DoRA e LoRA vanno meglio di BitFit, che vale quanto il probe; AdaLoRA e VeRA andrebbero tarati a parte."
+  },
+  {
+   "a": "9. SemLA in piccolo: un LoRA per ogni co",
+   "b": 63,
+   "t": "Ora l'esperimento con nebbia, pioggia e notte."
+  },
+  {
+   "a": "Il problema. Un modello adattato a foto ",
+   "b": 64,
+   "t": "Un modello adattato a foto normali peggiora con le foto rovinate, e non puoi riaddestrarlo al volo."
+  },
+  {
+   "a": "Il setup del lab. Tre domini sintetici c",
+   "b": 65,
+   "t": "Il lab costruisce tre domini artificiali sulle stesse foto: nebbia, con sfocatura e un velo grigio; notte, con i colori scuriti e una dominante blu; pioggia, più scura e con strisce chiare."
+  },
+  {
+   "a": "Sei foto di training nei quattro domini.",
+   "b": 66,
+   "t": "Nella figura vedi sei fiori nei quattro domini. La riga della notte è quella più trasformata."
+  },
+  {
+   "a": "Si addestra un LoRA per dominio (accurat",
+   "b": 67,
+   "t": "Si addestra un LoRA per dominio, e ognuno arriva intorno al novanta per cento nel proprio dominio. Con ogni LoRA si salva il punto medio degli embedding CLIP delle sue foto."
+  },
+  {
+   "a": "embedding CLIP della foto (modello conge",
+   "b": 68,
+   "t": "Al test, per ogni foto: si calcola l'embedding CLIP, si cercano i due punti medi più vicini, e si sommano i due aggiornamenti, pesati in base alla somiglianza, solo per quella predizione."
+  },
+  {
+   "a": "64 foto per dominio, quattro strategie. ",
+   "b": 69,
+   "t": "Nel grafico ci sono quattro barre per dominio. Blu, lo zero shot: crolla intorno al settanta per cento di notte. Arancione, l'adapter di un dominio sbagliato. Verde, la fusione dei due recuperati. Rosso, l'oracolo, cioè l'adapter del dominio vero."
+  },
+  {
+   "a": "Cosa si legge: la fusione arriva al 92–9",
+   "b": 70,
+   "t": "La fusione arriva fra novantadue e novantaquattro in tutti i domini, al livello dell'oracolo, senza nessun gradiente al test. Ma guarda la barra arancione: anche l'adapter sbagliato va molto meglio dello zero shot. Tutti gli adapter hanno imparato le sedici specie, quindi gran parte del guadagno viene dal compito, non dal dominio. E con sessantaquattro foto per dominio, una foto vale quasi due punti: piccole differenze sono rumore."
+  },
+  {
+   "a": "L'esercizio finale aggiunge un quinto do",
+   "b": 71,
+   "t": "L'esercizio finale aggiunge un dominio chiamato seppia, che il recupero riconosce. Ma attenzione: la trasformazione del notebook produce foto quasi in bianco e nero, non color seppia."
+  },
+  {
+   "a": "Il punto Una libreria di LoRA indicizzat",
+   "b": 72,
+   "t": "Da portare a casa: una libreria di LoRA indicizzata con CLIP si adatta a ogni foto senza ottimizzazione, ma qui il beneficio principale viene dall'aver imparato il compito."
+  },
+  {
+   "a": "10. Quanto cambia lo spazio dopo LoRA",
+   "b": 73,
+   "t": "Ultima domanda: quanto cambia lo spazio dopo LoRA?"
+  },
+  {
+   "a": "La misura. Per ogni foto di test la dist",
+   "b": 74,
+   "t": "Si misura, per ogni foto, la distanza coseno fra l'embedding prima e dopo. La media è zero virgola sei cinque: in media il vettore ruota di circa settanta gradi. E tutte le classi si spostano in modo simile."
+  },
+  {
+   "a": "Sopra: foto sbagliate dallo zero-shot e ",
+   "b": 75,
+   "t": "Nella figura, sopra ci sono foto che lo zero shot sbagliava e LoRA corregge, soprattutto calendule prese per margherite. Sotto, foto che LoRA peggiora, gerbere che diventano girasoli. In tutto quarantanove corrette e dodici peggiorate."
+  },
+  {
+   "a": "Due lezioni. Primo, uno spostamento gran",
+   "b": 76,
+   "t": "Due lezioni. Uno spostamento grande non vuol dire una classificazione migliore: conta la direzione rispetto ai prototipi, non quanto ci si sposta. E pochi parametri bastano a riorientare tutto lo spazio, aiutati dalla scala dieci della loss. Il prezzo è che l'encoder adattato è meno CLIP: per questo conviene tenere l'adapter separato e toglierlo quando serve il modello originale."
+  },
+  {
+   "a": "I bug del notebook da non copiare",
+   "b": 77,
+   "t": "Prima di chiudere, i bug del notebook da non copiare."
+  },
+  {
+   "a": "Su CPU la parte PEFT salta ( RUN_LORA = ",
+   "b": 78,
+   "t": "Senza scheda grafica la parte PEFT viene saltata e poi una cella va in errore: basta forzare LoRA, che sul processore dura pochi minuti. La scala dieci nella loss va saputa. Il confronto delle varianti usa lo stesso learning rate per tutti. Sommare e sottrarre l'aggiornamento non ripristina i pesi esattamente. E il dominio seppia non è un seppia."
+  },
+  {
+   "a": "Il riassunto in 10 righe",
+   "b": 79,
+   "t": "Ricapitoliamo."
+  },
+  {
+   "a": "CLIP confronta immagini e testi con il c",
+   "b": 80,
+   "t": "CLIP decide con coseni che differiscono di pochi centesimi, la temperatura li rende probabilità senza cambiare la classifica, e immagini e testi occupano zone diverse della sfera. Lo zero shot fa ottantuno, il probe con dieci foto ottantanove, BitFit lo stesso, LoRA novantatré e con tre matrici novantaquattro. LoRA parte dallo zero shot e impara un aggiornamento di rango quattro. E la fusione di LoRA di dominio funziona senza gradienti al test."
+  },
+  {
+   "a": "1. Perché lo zero-shot di CLIP è un clas",
+   "b": 82,
+   "t": "Prima domanda. Perché lo zero shot è un classificatore lineare, e in cosa differisce dal probe? Metti in pausa e prova a rispondere."
+  },
+  {
+   "a": "1. Perché lo zero-shot di CLIP è un clas",
+   "b": 82,
+   "t": "La predizione è il massimo del prodotto fra l'embedding e una matrice di pesi. Nello zero shot le righe della matrice vengono dai prompt, nel probe si imparano dalle foto."
+  },
+  {
+   "a": "2. Moltiplichi tutti i coseni per 100 in",
+   "b": 83,
+   "t": "Seconda domanda. Se moltiplichi i coseni per cento invece che per dieci, cambia l'accuratezza? E la loss? Metti in pausa."
+  },
+  {
+   "a": "2. Moltiplichi tutti i coseni per 100 in",
+   "b": 83,
+   "t": "L'accuratezza no, perché il massimo non cambia. La loss sì, perché la softmax diventa più appuntita, e cambiano anche i gradienti."
+  },
+  {
+   "a": "3. Conta i parametri di LoRA con r = 8 s",
+   "b": 84,
+   "t": "Terza domanda. Quanti parametri addestra LoRA con rango otto su query, value e output? Metti in pausa."
+  },
+  {
+   "a": "3. Conta i parametri di LoRA con r = 8 s",
+   "b": 84,
+   "t": "Per ogni matrice otto per 1536, cioè 12288. Trentasei matrici: circa quattrocentoquarantaduemila parametri."
+  },
+  {
+   "a": "4. Come fai a sapere, senza addestrare, ",
+   "b": 85,
+   "t": "Quarta domanda. Come verifichi, senza addestrare, che LoRA è inserito bene? Metti in pausa."
+  },
+  {
+   "a": "4. Come fai a sapere, senza addestrare, ",
+   "b": 85,
+   "t": "Con B nulla l'aggiornamento è zero: il modello deve dare esattamente le stesse predizioni di prima."
+  },
+  {
+   "a": "5. Perché nella fusione alla SemLA anche",
+   "b": 86,
+   "t": "Quinta domanda. Perché anche l'adapter del dominio sbagliato migliora tanto lo zero shot? Metti in pausa."
+  },
+  {
+   "a": "5. Perché nella fusione alla SemLA anche",
+   "b": 86,
+   "t": "Perché ogni adapter ha imparato le stesse sedici specie. Il guadagno principale viene dal compito, il dominio giusto aggiunge qualche punto."
+  },
+  {
+   "a": "6. LoRA sposta gli embedding in media di",
+   "b": 87,
+   "t": "Ultima domanda. LoRA sposta molto gli embedding: vuol dire che migliora tutte le foto? Metti in pausa."
+  },
+  {
+   "a": "6. LoRA sposta gli embedding in media di",
+   "b": 87,
+   "t": "No: ne corregge quarantanove e ne peggiora dodici, e lo spostamento è simile per tutte. Conta la direzione, non la quantità."
+  },
+  {
+   "a": "Riapri il notebook e prova le modifiche ",
+   "b": 89,
+   "t": "Per proseguire, riapri il notebook e prova le modifiche: LoRA solo su query o solo su value, ranghi diversi, VeRA con un learning rate più alto. Poi ripassa con le schede qui sotto, dove trovi il codice e le soluzioni delle domande finali."
+  }
+ ]
+}

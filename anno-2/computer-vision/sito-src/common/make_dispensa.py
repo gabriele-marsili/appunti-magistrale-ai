@@ -31,5 +31,16 @@ intro = ('<header class="hero"><div class="eyebrow">Computer Vision · dispensa 
          '<p>Tutte le dispense delle lezioni in sequenza, da leggere come un libro. Ogni capitolo parte dai video da guardare prima e finisce con le domande di verifica; il link accanto al titolo porta alle schede slide per slide della lezione. Seleziona del testo per evidenziarlo (giallo, verde, rosa) o sottolinearlo: i segni restano salvati e compaiono anche nella pagina della lezione.</p>'
          '<p class="legend-hl"><span><mark class="sh sh-y">giallo</mark> concetti chiave</span><span><mark class="sh sh-p">rosa</mark> problemi, limiti, trappole</span><span><mark class="sh sh-g">verde</mark> proprietà e vantaggi</span><span><mark class="sh sh-b">blu</mark> definizioni e formule centrali</span></p></header>')
 html = intro + '\n'.join(parts)
-json.dump({'id': 'dispensa', 'nav': nav, 'html': html}, open(f'{R}/site/lessons/dispensa.json', 'w'), ensure_ascii=False)
-print('dispensa', len(parts), 'lezioni', round(len(html) / 1e6, 2), 'MB')
+# Un file pubblicato dell'artifact non può superare 16 MB: oltre MAXB la dispensa si divide in più file
+# (dispensa.json con la prima parte e la lista 'more', poi dispensa_2.json, ...), uniti dal sito al caricamento.
+MAXB = 12_000_000
+chunks = [intro]
+for part in parts:
+    if len(chunks[-1].encode()) + len(part.encode()) > MAXB and chunks[-1] != intro: chunks.append('')
+    chunks[-1] += ('\n' if chunks[-1] else '') + part
+for f in glob.glob(f'{R}/site/lessons/dispensa_*.json'): os.remove(f)
+more = ['dispensa_%d' % (i + 1) for i in range(1, len(chunks))]
+json.dump({'id': 'dispensa', 'nav': nav, 'html': chunks[0], 'more': more}, open(f'{R}/site/lessons/dispensa.json', 'w'), ensure_ascii=False)
+for name, ch in zip(more, chunks[1:]):
+    json.dump({'id': name, 'html': ch}, open(f'{R}/site/lessons/{name}.json', 'w'), ensure_ascii=False)
+print('dispensa', len(parts), 'lezioni', round(len(html) / 1e6, 2), 'MB in', len(chunks), 'file:', [round(len(c.encode()) / 1e6, 2) for c in chunks])

@@ -1,0 +1,520 @@
+{
+ "L": "L25",
+ "segs": [
+  {
+   "a": "In una frase: invece di riaddestrare tut",
+   "b": 0,
+   "t": "Immagina di avere in mano un modello enorme, che sa già riconoscere quasi tutto, e di volerlo adattare a un compito tuo: le radiografie di un ospedale, le foto dei fiori del tuo giardino, le scene stradali di notte. Riaddestrarlo tutto costa una fortuna. Oggi vediamo come si fa addestrando una frazione minuscola dei parametri."
+  },
+  {
+   "a": "In una frase: invece di riaddestrare tut",
+   "b": 0,
+   "t": "L'idea generale ha un nome, PEFT, cioè parameter efficient fine tuning, fine tuning efficiente nei parametri. Il protagonista è LoRA, che impara un aggiornamento a basso rango dei pesi. Alla fine saprai contare i parametri di LoRA a mano, spiegare perché parte da zero e perché non rallenta il modello, e riconoscere le sue varianti."
+  },
+  {
+   "a": "Slide di Donald Shenaj (12 novembre), 48",
+   "b": 2,
+   "t": "Due parole sul materiale. Le slide sono di Donald Shenaj, come quelle sui modelli visione e linguaggio. Il numero in basso è la pagina del PDF, e l'ultima pagina è solo la panoramica delle miniature."
+  },
+  {
+   "a": "dalla L22 e dalla L23 : il foundation mo",
+   "b": 3,
+   "t": "Ti serve ricordare tre cose. Il backbone congelato e il linear probe delle lezioni sul self supervised. La self attention con le sue quattro matrici, query, key, value e output. E CLIP con la classificazione zero shot. Un ultimo ingrediente: il rango di una matrice, cioè quante colonne linearmente indipendenti ha."
+  },
+  {
+   "a": "Il libro (visionbook) non ha un capitolo",
+   "b": 4,
+   "t": "Il libro di riferimento qui aiuta poco: non ha un capitolo sul PEFT. Il capitolo trentasette sul transfer learning dà la cornice, e cita l'aggiornamento a basso rango in una sola frase. Il resto viene dagli articoli, e i numeri che senti sono stati controllati lì."
+  },
+  {
+   "a": "Video What is Low-Rank Adaptation (LoRA)",
+   "b": 6,
+   "t": "I due video sono un complemento. Quello di Edward Hu, l'inventore di LoRA, è breve e racconta perché è nato. Quello di Umar Jamil scrive LoRA da zero in PyTorch, ed è perfetto prima del laboratorio."
+  },
+  {
+   "a": "1. Il problema: adattare un modello giga",
+   "b": 7,
+   "t": "Partiamo dal problema. Quasi nessuno oggi addestra un modello da zero. Si prende un modello base e se ne fanno migliaia di varianti, e quasi tutte sono adattamenti. Il guaio è che il fine tuning completo di un modello grande costa tantissimo, e soprattutto in memoria."
+  },
+  {
+   "a": "Il conto (slide 6). Con Adam in FP32 per",
+   "b": 9,
+   "t": "Facciamo il conto. Con l'ottimizzatore Adam in precisione a trentadue bit, ogni parametro occupa 4 byte per il valore, 4 byte per il gradiente, e 8 byte per le due medie mobili di Adam, il momento primo e il secondo. Totale: 16 byte per parametro."
+  },
+  {
+   "a": "|θ 0 | è il numero di parametri. Per un ",
+   "b": 11,
+   "t": "Per un modello da 7 miliardi di parametri sono 112 gigabyte, e non abbiamo ancora contato le attivazioni salvate per la backpropagation. Non entra in una GPU da 80 gigabyte. E se hai dieci compiti, devi salvare dieci copie intere."
+  },
+  {
+   "a": "Memoria per un modello da 7 miliardi di ",
+   "b": 12,
+   "t": "Guarda la figura. La prima barra è il fine tuning completo: blu per i pesi, arancione per i gradienti, rosso per Adam, fino a 112. La seconda è LoRA: gradienti e Adam si pagano solo sullo zero virgola quattro per cento dei parametri, quindi quasi spariscono, e restano i 28 gigabyte dei pesi. La terza è QLoRA, dove anche i pesi scendono a 4 bit."
+  },
+  {
+   "a": "L'idea del PEFT (slide 3). Tieni i param",
+   "b": 13,
+   "t": "Un esempio concreto. Hai un ospedale con dieci reparti, ognuno con il suo compito di classificazione. Con il fine tuning completo tieni dieci modelli da molti gigabyte. Con il PEFT tieni un solo modello base e dieci pacchetti da pochi megabyte, e li cambi al volo a seconda del reparto."
+  },
+  {
+   "a": "L'idea del PEFT (slide 3). Tieni i param",
+   "b": 13,
+   "t": "L'idea del PEFT è semplice. I parametri preaddestrati restano congelati, e si addestra un insieme piccolo di parametri nuovi, che chiamiamo phi, molto più piccolo dell'originale. Sta a metà strada fra il linear probe, che addestra solo la testa ed è rigido, e il fine tuning completo, che è flessibile ma caro."
+  },
+  {
+   "a": "C'è anche un vantaggio meno ovvio: con p",
+   "b": 14,
+   "t": "C'è un vantaggio meno ovvio. Con pochi dati, aggiornare centinaia di milioni di parametri porta all'overfitting e fa dimenticare al modello ciò che sapeva. Tenere fermo il backbone è una forma di regolarizzazione."
+  },
+  {
+   "a": "Il punto Il fine-tuning completo costa 1",
+   "b": 15,
+   "t": "Da portare a casa: il fine tuning completo costa 16 byte per parametro e una copia del modello per compito; il PEFT congela tutto e addestra pochissimo."
+  },
+  {
+   "a": "2. Dove si può intervenire: bias, adapte",
+   "b": 16,
+   "t": "Se il modello è congelato, cosa addestriamo? In un blocco transformer ci sono quattro posti dove intervenire, e la prima parte della lezione li passa in rassegna."
+  },
+  {
+   "a": "Un blocco transformer congelato (blu). A",
+   "b": 18,
+   "t": "Guarda lo schema. Al centro, in blu, il blocco congelato: ingresso, attenzione, MLP. A sinistra, in rosso, i metodi che aggiungono vettori all'ingresso o all'attenzione. In arancione gli adapter, moduli inseriti dopo ogni sottoblocco. A destra, in verde, LoRA che modifica le matrici esistenti, e BitFit che tocca solo i bias."
+  },
+  {
+   "a": "BitFit: solo i bias (slide 7). In h = σ(",
+   "b": 19,
+   "t": "Il metodo più semplice è BitFit. Si congelano tutte le matrici e si addestrano solo i bias. Niente moduli nuovi. Su BERT è meno di un decimo di punto percentuale dei parametri, e funziona sorprendentemente bene. Il limite è che un bias può solo spostare le feature, non ruotarle né riscalarle."
+  },
+  {
+   "a": "BitFit: solo i bias (slide 7). In h = σ(",
+   "b": 19,
+   "t": "Facciamo il conto per un ViT base. In ogni blocco ci sono i bias di query, key, value, output, dei due strati dell'MLP e delle due LayerNorm: in tutto undici volte d. Con d uguale a 768 e 12 blocchi, circa centomila bias su ottantasei milioni di parametri."
+  },
+  {
+   "a": "Adapter (slide 8–10). Si inserisce un pi",
+   "b": 20,
+   "t": "Poi ci sono gli adapter. L'idea è inserire un piccolo modulo residuo. In visione, i primi adapter erano convoluzioni uno per uno, una per dominio, sommate alla feature. Nei transformer si usa l'adapter di Houlsby, a collo di bottiglia."
+  },
+  {
+   "a": "h′ = h + W up σ(W down h) , W down ∈ ℝ r",
+   "b": 21,
+   "t": "Nella formula che vedi, l'uscita è h più W up applicata a sigma di W down per h. W down comprime da d a r dimensioni, sigma è una non linearità, W up riporta a d. Con r molto più piccolo di d."
+  },
+  {
+   "a": "W down comprime da d a r dimensioni, σ è",
+   "b": 22,
+   "t": "Ogni adapter ha 2 per d per r pesi, e se ne mettono due per blocco."
+  },
+  {
+   "a": "Dalla slide 9 (Houlsby et al., 2019): i ",
+   "b": 23,
+   "t": "Nella figura vedi il blocco transformer con i due riquadri chiamati Adapter: uno dopo il feed forward e uno dopo l'attenzione, sempre prima della somma residua e della LayerNorm."
+  },
+  {
+   "a": "La struttura residua è importante: se W ",
+   "b": 24,
+   "t": "La struttura residua è il trucco importante. Se W up parte da zero, l'adapter non cambia nulla, e si comincia esattamente dal modello preaddestrato, come nelle ResNet. Il difetto è che sono strati in più da eseguire in sequenza, quindi rallentano l'inferenza. CLIP Adapter, per esempio, mette un piccolo MLP dopo l'encoder di CLIP e mescola la feature originale con quella adattata, con un coefficiente alpha piccolo per non andare in overfitting quando hai cinque immagini per classe."
+  },
+  {
+   "a": "Prompt e prefix (slide 13–15). Invece di",
+   "b": 25,
+   "t": "Il terzo modo è non toccare il modello, ma cambiare ciò che vede. Il prompt tuning aggiunge all'ingresso alcuni vettori appresi, come parole virtuali che non esistono nel vocabolario. Il prefix tuning aggiunge chiavi e valori appresi all'attenzione di ogni strato, così ogni token può guardare anche questi elementi in più. Il Visual Prompt Tuning porta l'idea ai ViT."
+  },
+  {
+   "a": "Dalla slide 14 (Jia et al., 2022): in ro",
+   "b": 26,
+   "t": "Nella figura, in rosso con la fiamma, ci sono i prompt e la testa, gli unici parametri addestrati. In blu, con il fiocco di neve, gli strati congelati. A sinistra la versione deep, con prompt nuovi a ogni strato; a destra la versione shallow, con i prompt solo all'ingresso."
+  },
+  {
+   "a": "Su VTAB-1k (19 compiti con 1000 immagini",
+   "b": 27,
+   "t": "Il risultato curioso: su un benchmark con mille immagini per compito, la versione deep batte il fine tuning completo su diversi gruppi di compiti. Con pochi dati, meno libertà significa meno overfitting."
+  },
+  {
+   "a": "Il punto BitFit sblocca i bias, gli adap",
+   "b": 28,
+   "t": "Da portare a casa: BitFit sblocca i bias, gli adapter aggiungono un modulo residuo, prompt e prefix aggiungono vettori. Tutti partono dal modello originale, ma gli adapter rallentano e i prompt occupano posti nella sequenza."
+  },
+  {
+   "a": "3. LoRA: l'idea del basso rango",
+   "b": 29,
+   "t": "Arriviamo a LoRA. Il fine tuning completo impara un aggiornamento delta W pieno, una matrice con milioni di numeri. Ma serve davvero tutta quella libertà per adattare un modello che sa già moltissimo?"
+  },
+  {
+   "a": "L'idea (slide 17, 20). L'ipotesi di Hu e",
+   "b": 31,
+   "t": "Un'analogia: per spostare un'intera orchestra di un semitono non devi riscrivere ogni nota, ti basta una sola regola applicata a tutti. Allo stesso modo, molti cambiamenti utili di un modello si descrivono con poche direzioni."
+  },
+  {
+   "a": "L'idea (slide 17, 20). L'ipotesi di Hu e",
+   "b": 31,
+   "t": "L'ipotesi degli autori di LoRA è che no: l'aggiornamento utile ha rango intrinseco basso, cioè si muove lungo poche direzioni. Allora lo scriviamo come prodotto di due matrici sottili."
+  },
+  {
+   "a": "h = W 0 x + (α/r) BAx, B ∈ ℝ d out ×r , ",
+   "b": 32,
+   "t": "La formula che vedi dice: l'uscita h è W zero per x, più alpha diviso r per B per A per x. A ha r righe e d in colonne, B ha d out righe e r colonne."
+  },
+  {
+   "a": "Simbolo per simbolo: W 0 è la matrice pr",
+   "b": 33,
+   "t": "Leggiamola pezzo per pezzo. W zero è congelata. A comprime l'ingresso da d in numeri a soli r numeri. B li riespande a d out. Il rango r è piccolo, da 1 a qualche decina. Alpha è una costante e alpha diviso r scala l'aggiornamento. Si addestrano solo A e B."
+  },
+  {
+   "a": "Dalla slide 20 (Hu et al., 2022): il ram",
+   "b": 34,
+   "t": "Nella figura dell'articolo, il blocco blu dei pesi preaddestrati sta a sinistra. A destra, in parallelo, due trapezi arancioni: A in basso, che si stringe fino alla strozzatura di larghezza r, e B in alto, che si riallarga. Le due uscite si sommano."
+  },
+  {
+   "a": "Cosa vuol dire «rango ≤ r». Ogni colonna",
+   "b": 35,
+   "t": "Ora la trappola in cui cascano tutti. Rango basso non vuol dire che si cambiano pochi pesi. Il prodotto B per A ha in genere tutte le entrate diverse da zero. Quello che è limitato è il numero di direzioni: tutte le colonne dell'aggiornamento stanno in uno spazio di dimensione r."
+  },
+  {
+   "a": "Esempio con d = 8 e r = 2: ΔW = BA ha tu",
+   "b": 36,
+   "t": "Guarda la figura. B è una striscia otto per due, A una striscia due per otto. Il loro prodotto, al centro, è una matrice otto per otto tutta colorata. Ma a destra i valori singolari sono solo due diversi da zero, gli altri sei sono zero. Trentadue numeri descrivono una matrice di sessantaquattro."
+  },
+  {
+   "a": "Quanti parametri (slide 21). LoRA addest",
+   "b": 37,
+   "t": "Quanti parametri? LoRA addestra r per d in più d out per r, invece di d out per d in. Il rapporto fra i due è r per la somma di uno su d out e uno su d in."
+  },
+  {
+   "a": "Esempio svolto. Una proiezione di un ViT",
+   "b": 39,
+   "t": "Esempio. Una proiezione di un ViT base è 768 per 768, quasi seicentomila pesi. Con rango 4, LoRA addestra 4 per 1536, cioè 6144 parametri, circa l'uno per cento. Su query e value dei 12 blocchi fanno circa centoquarantasettemila parametri, meno di due millesimi dell'encoder."
+  },
+  {
+   "a": "A sinistra: la frazione di parametri cre",
+   "b": 40,
+   "t": "Nel grafico a sinistra vedi che la frazione cresce in linea retta con r, e scende per matrici più grandi: la linea rossa, per d dodicimila, sta molto più in basso della blu. A destra i conti per una matrice 768 per 768, in scala logaritmica: la barra grigia della matrice piena domina tutto."
+  },
+  {
+   "a": "Il libro (§ 24.2.4) usa la stessa idea p",
+   "b": 41,
+   "t": "Il libro usa la stessa idea per i filtri separabili: un filtro di rango uno è il prodotto di un filtro verticale e uno orizzontale."
+  },
+  {
+   "a": "Il punto LoRA scrive l'aggiornamento com",
+   "b": 42,
+   "t": "Da portare a casa: LoRA scrive l'aggiornamento come B per A, di rango al massimo r. Tocca tutti i pesi, ma lungo poche direzioni."
+  },
+  {
+   "a": "4. Inizializzazione e gradienti: perché ",
+   "b": 43,
+   "t": "Ora un dettaglio che all'esame fa la differenza: come si inizializzano A e B."
+  },
+  {
+   "a": "Il problema. All'inizio dell'addestramen",
+   "b": 44,
+   "t": "All'inizio dell'addestramento vogliamo che il modello sia identico a quello preaddestrato. Altrimenti partiamo da un modello rovinato da una perturbazione casuale."
+  },
+  {
+   "a": "L'idea (slide 22). Si inizializza A ∼ 𝒩(",
+   "b": 45,
+   "t": "La scelta è: A casuale, con distribuzione gaussiana, e B tutta a zero. Allora il prodotto B per A è zero, e il primo passo in avanti è esattamente quello del modello originale."
+  },
+  {
+   "a": "La matematica (slide 23). Scriviamo l'us",
+   "b": 46,
+   "t": "Prima di scriverli, ragiona su chi influenza chi. Un elemento di B, quello in riga i e colonna j, tocca solo l'uscita i, moltiplicato per la componente j di A x. Un elemento di A, invece, tocca tutte le uscite, perché passa per un'intera colonna di B."
+  },
+  {
+   "a": "La matematica (slide 23). Scriviamo l'us",
+   "b": 46,
+   "t": "Vediamo i gradienti. Il gradiente rispetto a B è alpha su r, per il gradiente che arriva dall'uscita, per A x trasposto. Il gradiente rispetto ad A è alpha su r, per B trasposta, per il gradiente in uscita, per x trasposto."
+  },
+  {
+   "a": "Sono la regola dello strato lineare (gra",
+   "b": 48,
+   "t": "Sono la solita regola dello strato lineare, applicata due volte. Puoi verificarle con le dimensioni: la prima formula dà una matrice d out per r, come B; la seconda una matrice r per d in, come A."
+  },
+  {
+   "a": "Con B = 0 la seconda formula dà ∂ℒ/∂A = ",
+   "b": 49,
+   "t": "Adesso guarda cosa succede con B uguale a zero. Il gradiente di A contiene B, quindi è zero: al primo passo si muove solo B. Il gradiente di B invece non è zero, perché A è casuale e A x non si annulla. Dal secondo passo B è diversa da zero e anche A comincia a muoversi. Se avessimo messo a zero anche A, il gradiente di B sarebbe nullo, e nulla si muoverebbe mai."
+  },
+  {
+   "a": "Un esperimento giocattolo (matrice 32 × ",
+   "b": 50,
+   "t": "La figura è un esperimento giocattolo. A sinistra, la curva blu è la norma del gradiente di A: al passo zero è esattamente zero, poi cresce. La curva arancione, il gradiente di B, parte già da circa zero virgola uno. A destra la loss che scende."
+  },
+  {
+   "a": "Il punto A gaussiana e B = 0 garantiscon",
+   "b": 51,
+   "t": "Da portare a casa: A gaussiana e B nulla fanno partire dal modello preaddestrato senza bloccare l'apprendimento."
+  },
+  {
+   "a": "5. Dove mettere LoRA e con che rango",
+   "b": 52,
+   "t": "Un transformer ha tante matrici. Quali adattare, e con che rango?"
+  },
+  {
+   "a": "Dove (slide 24, 37). Nell'attenzione Q =",
+   "b": 54,
+   "t": "Nell'attenzione ci sono le proiezioni di query, key, value e output, e si può mettere una coppia A e B su ciascuna. Adattare query e key cambia chi guarda chi, cioè le mappe di attenzione. Adattare value e output cambia cosa viene trasportato da un token all'altro. In un ViT è identico, e nel laboratorio metterai LoRA su query e value dell'encoder di CLIP."
+  },
+  {
+   "a": "Cosa dicono gli esperimenti (slide 25–26",
+   "b": 55,
+   "t": "Gli esperimenti su GPT tre dicono due cose. Con un budget fisso, conviene adattare più matrici con rango basso, per esempio query e value con rango quattro, piuttosto che una sola con rango otto. E query o key da sole sono le scelte peggiori."
+  },
+  {
+   "a": "Dati della slide 26. Le linee sono quasi",
+   "b": 56,
+   "t": "La seconda cosa la vedi nel grafico: le linee sono quasi piatte. Rango uno o due vale quanto rango sessantaquattro. La differenza fra le linee, cioè quali matrici adatti, è molto più grande della differenza lungo una linea, cioè quale rango usi."
+  },
+  {
+   "a": "Una curiosità della tabella della slide ",
+   "b": 57,
+   "t": "Attenzione: nella tabella del prof c'è un numero sbagliato. Per la sola matrice value su MultiNLI la slide dice novantuno virgola cinque, ma nell'articolo è novantuno virgola zero."
+  },
+  {
+   "a": "Il punto Meglio distribuire il budget su",
+   "b": 58,
+   "t": "Da portare a casa: meglio distribuire il budget su più matrici con rango basso. Già un rango da uno a otto basta, e questo conferma l'ipotesi del rango intrinseco basso."
+  },
+  {
+   "a": "6. Merge, latenza e memoria: i vantaggi ",
+   "b": 59,
+   "t": "Ora i vantaggi pratici, che sono il vero motivo del successo di LoRA."
+  },
+  {
+   "a": "Il merge (slide 27). Finito il training ",
+   "b": 60,
+   "t": "Pensa al caso pratico: un servizio che ospita lo stesso modello base per cento clienti diversi. Con LoRA carichi una volta i pesi grandi, e per ogni cliente tieni solo le sue piccole matrici A e B. Quando arriva una richiesta, scegli quali usare."
+  },
+  {
+   "a": "Il merge (slide 27). Finito il training ",
+   "b": 60,
+   "t": "Finito l'addestramento, si somma l'aggiornamento alla matrice: W merged uguale W zero più alpha su r per B per A. Il modello ha esattamente la forma e la velocità dell'originale. Oppure si tengono separati tanti piccoli adapter, uno per compito, sullo stesso backbone."
+  },
+  {
+   "a": "Perché un adapter di Houlsby non si fond",
+   "b": 61,
+   "t": "Perché un adapter di Houlsby non si può fondere allo stesso modo? Perché contiene una non linearità. Non esiste nessuna matrice che, moltiplicata per h, dia lo stesso risultato. LoRA invece è lineare, quindi si fonde sempre."
+  },
+  {
+   "a": "Quanto pesa la latenza (slide 18). Su GP",
+   "b": 62,
+   "t": "Quanto pesa la latenza degli adapter? Su GPT due medium, con batch uno, l'adapter di Houlsby è più lento del trenta per cento. Con batch trentadue solo del tre per cento. Quando la GPU ha poco lavoro in parallelo, gli strati in sequenza pesano di più. Una nota: nell'articolo le colonne hanno anche sequenze di lunghezza diversa, e la slide non lo dice."
+  },
+  {
+   "a": "La memoria (slide 28). Con LoRA restano ",
+   "b": 63,
+   "t": "Sulla memoria, con LoRA restano i pesi preaddestrati, mentre gradienti e stati di Adam servono solo per A e B. Ma le attivazioni servono comunque: per far arrivare il gradiente ai primi strati bisogna attraversare tutti quelli congelati sopra."
+  },
+  {
+   "a": "Il risultato (slide 29). Su GPT-3 175B, ",
+   "b": 64,
+   "t": "E il risultato: su GPT tre, LoRA con quattro virgola sette milioni di parametri, tre millesimi di punto percentuale, è al livello del fine tuning completo su tutti e tre i compiti."
+  },
+  {
+   "a": "Il punto LoRA si fonde nei pesi perché è",
+   "b": 65,
+   "t": "Da portare a casa: LoRA si fonde nei pesi perché è lineare. Niente latenza in più, checkpoint di pochi megabyte, un backbone per tanti compiti."
+  },
+  {
+   "a": "7. Le varianti: QLoRA, DoRA, AdaLoRA, Ve",
+   "b": 66,
+   "t": "Ora le varianti. Il modo più semplice di ricordarle è chiedersi quale pezzo di LoRA cambiano."
+  },
+  {
+   "a": "QLoRA: comprimere anche i pesi congelati",
+   "b": 68,
+   "t": "QLoRA attacca l'ultimo costo rimasto: i pesi congelati. Li salva a 4 bit invece che a sedici o trentadue."
+  },
+  {
+   "a": "A ogni moltiplicazione i pesi vengono ri",
+   "b": 70,
+   "t": "A ogni moltiplicazione i pesi vengono riportati a sedici bit, e il ramo LoRA si addestra normalmente. I trucchi sono tre: un formato a 4 bit chiamato NF4, pensato per pesi distribuiti come una gaussiana; la doppia quantizzazione, che comprime anche le costanti di scala; e gli ottimizzatori paginati, che spostano gli stati di Adam sulla memoria della CPU nei momenti di picco. Così si fa il fine tuning di un modello da sessantacinque miliardi su una sola GPU da quarantotto gigabyte."
+  },
+  {
+   "a": "Pesi gaussiani divisi per il massimo del",
+   "b": 71,
+   "t": "Guarda la figura. La campana azzurra sono i pesi. In alto, sedici livelli rossi equispaziati. In basso, sedici livelli verdi, più fitti al centro dove ci sono più pesi e più radi ai bordi. È l'idea di NF4, e l'errore di arrotondamento medio cala."
+  },
+  {
+   "a": "DoRA: separare lunghezza e direzione (sl",
+   "b": 72,
+   "t": "DoRA invece separa lunghezza e direzione. Ogni colonna di una matrice ha una lunghezza e una direzione."
+  },
+  {
+   "a": "V dà le direzioni delle colonne (con un ",
+   "b": 74,
+   "t": "La formula dice: prendi le direzioni da V, che è W zero più un aggiornamento LoRA, normalizza ogni colonna a lunghezza uno, e moltiplicala per una lunghezza m imparata a parte. Gli autori hanno osservato che LoRA tende a cambiare lunghezza e direzione insieme, mentre il fine tuning completo le cambia in modo più indipendente."
+  },
+  {
+   "a": "Una colonna di W 0  (grigio, lunghezza 5",
+   "b": 75,
+   "t": "Nella figura, la freccia grigia è una colonna di lunghezza cinque. La freccia blu tratteggiata è la stessa direzione, lunga il doppio: basta cambiare m. La freccia verde è ruotata ma con la stessa lunghezza: basta cambiare la direzione."
+  },
+  {
+   "a": "AdaLoRA: rango diverso per ogni matrice ",
+   "b": 76,
+   "t": "AdaLoRA scrive l'aggiornamento come una specie di SVD, con dei valori singolari lambda. Durante il training stima quali componenti contano e pota le altre azzerando il loro lambda. Così il rango diventa diverso da strato a strato."
+  },
+  {
+   "a": "Dalla slide 34 (Zhang et al., 2023): il ",
+   "b": 77,
+   "t": "Nella mappa di calore, le righe sono le sei matrici e le colonne i dodici strati. Il verde scuro è rango alto: le matrici dell'MLP e gli strati alti ricevono più rango, la matrice query e i primi strati meno."
+  },
+  {
+   "a": "VeRA: matrici casuali condivise (slide 3",
+   "b": 78,
+   "t": "VeRA va all'estremo opposto. Le matrici A e B sono casuali, congelate, e condivise da tutti gli strati. Si imparano solo due vettori di scala per strato. Per una matrice d per d, LoRA addestra due r d numeri, VeRA solo d più r."
+  },
+  {
+   "a": "Parametri addestrati per una matrice 768",
+   "b": 79,
+   "t": "Nel grafico, la linea verde di LoRA sale con il rango, fino a quasi quattrocentomila parametri. La linea arancione di VeRA resta quasi piatta, intorno a mille. Per questo VeRA può permettersi ranghi molto più alti."
+  },
+  {
+   "a": "Il punto QLoRA comprime il backbone a 4 ",
+   "b": 80,
+   "t": "Da portare a casa: QLoRA comprime il backbone, DoRA separa moduli e direzioni, AdaLoRA distribuisce il rango, VeRA condivide matrici casuali. E tutte partono da un aggiornamento nullo."
+  },
+  {
+   "a": "8. LoRA in computer vision",
+   "b": 81,
+   "t": "Ultima parte: LoRA in visione."
+  },
+  {
+   "a": "ViT (slide 37–38). Un ViT è un transform",
+   "b": 82,
+   "t": "Un ViT è un transformer su token di patch, quindi LoRA si applica identico. Sul benchmark con mille immagini per compito, LoRA batte i prompt visivi e gli adapter in tutti i gruppi di compiti."
+  },
+  {
+   "a": "Segmentazione medica: SAMed (slide 39). ",
+   "b": 83,
+   "t": "SAM, il modello Segment Anything, è addestrato su foto naturali. Per usarlo su TAC e risonanze, SAMed mette LoRA su query e value del suo encoder congelato, e addestra anche il piccolo decoder delle maschere."
+  },
+  {
+   "a": "Conv-LoRA (slide 40). LoRA lavora token ",
+   "b": 84,
+   "t": "C'è però un limite: LoRA lavora token per token, e non sa nulla dei vicini spaziali, che servono per segmentare bordi e dettagli. Conv LoRA rimette i token a griglia nello spazio piccolo di dimensione r, e li fa passare per delle convoluzioni a scale diverse scelte da un piccolo selettore. Costa poco, perché lavora su pochi canali."
+  },
+  {
+   "a": "SemLA: una biblioteca di LoRA (slide 41–",
+   "b": 85,
+   "t": "Pensa a un'auto a guida autonoma che passa dal sole a un temporale e poi a una galleria buia. Un solo modello adattato al sole sbaglia, e non puoi riaddestrarlo mentre guidi."
+  },
+  {
+   "a": "SemLA: una biblioteca di LoRA (slide 41–",
+   "b": 85,
+   "t": "SemLA è l'idea più elegante. Il compito è segmentare scene stradali con pioggia, nebbia o di notte. Si addestra un LoRA per ogni dominio, e lo si salva insieme al punto medio degli embedding CLIP delle sue immagini."
+  },
+  {
+   "a": "embedding CLIP dell'immagine; i k domini",
+   "b": 86,
+   "t": "Al test si fanno tre passi. Si calcola l'embedding CLIP dell'immagine. Si cercano i domini con il punto medio più vicino. Si sommano i loro aggiornamenti, pesati in base alla somiglianza."
+  },
+  {
+   "a": "L'aggiornamento è su misura per l'immagi",
+   "b": 87,
+   "t": "L'aggiornamento è su misura per quell'immagine, e non serve nessun gradiente: sono solo somme pesate di matrici già pronte."
+  },
+  {
+   "a": "Dalla slide 42 (Qorbani et al., 2025): o",
+   "b": 88,
+   "t": "Nella figura, ogni libro colorato è un LoRA di dominio, posizionato nello spazio di CLIP. La bussola di CLIP mette la foto stradale in mezzo ai libri, e la fusione produce il libro viola che va nel modello. Nel laboratorio ne farai una versione semplificata."
+  },
+  {
+   "a": "VoRA (slide 43–44). Nei VLM della L24 (L",
+   "b": 89,
+   "t": "Infine VoRA, che riprende i modelli visione e linguaggio. Invece di passare l'immagine per un ViT e poi al modello di linguaggio, VoRA manda le patch direttamente nel modello di linguaggio, con dei LoRA dedicati alla visione. Per insegnargli a vedere, allinea le sue rappresentazioni a quelle di un ViT insegnante, con una loss basata sul coseno, strato per strato."
+  },
+  {
+   "a": "Il punto In visione LoRA si usa su ViT e",
+   "b": 90,
+   "t": "Da portare a casa: in visione LoRA si usa come negli LLM, e le varianti aggiungono ciò che manca, lo spazio, i domini, o la visione stessa dentro un modello di linguaggio."
+  },
+  {
+   "a": "9. Il quadro d'insieme",
+   "b": 91,
+   "t": "Per mettere ordine, per ogni metodo fatti tre domande."
+  },
+  {
+   "a": "Dove interviene? Sui pesi esistenti (Bit",
+   "b": 93,
+   "t": "Dove interviene: sui pesi, sulle feature o sull'ingresso. Si fonde nel modello: sì per BitFit e per tutta la famiglia LoRA, no per adapter, prompt e prefix. Cosa risparmia: tutti risparmiano gradienti, ottimizzatore e checkpoint, solo QLoRA anche i pesi, nessuno le attivazioni."
+  },
+  {
+   "a": "Il riassunto in 10 righe",
+   "b": 94,
+   "t": "Ricapitoliamo a voce."
+  },
+  {
+   "a": "Il fine-tuning completo con Adam costa 1",
+   "b": 95,
+   "t": "Il fine tuning completo costa sedici byte per parametro e una copia per compito. Il PEFT congela il modello e addestra poco. BitFit tocca i bias, gli adapter aggiungono moduli, i prompt aggiungono vettori. LoRA scrive l'aggiornamento come B per A, con A casuale e B nulla, e si fonde nei pesi senza costi. Rango piccolo e più matrici funzionano meglio. Le varianti cambiano un pezzo alla volta, e in visione LoRA adatta ViT, SAM e perfino modelli di linguaggio alle immagini."
+  },
+  {
+   "a": "1. Un ViT-B ha 86 milioni di parametri. ",
+   "b": 97,
+   "t": "Prima domanda. Un ViT base ha ottantasei milioni di parametri: quanta memoria per pesi, gradienti e Adam? E con LoRA allo zero virgola due per cento? Metti in pausa e prova a rispondere."
+  },
+  {
+   "a": "1. Un ViT-B ha 86 milioni di parametri. ",
+   "b": 97,
+   "t": "Sedici byte per ottantasei milioni fanno circa un gigabyte e quattro. Con LoRA restano quattro byte per parametro per i pesi, circa trecentoquaranta megabyte, più pochi megabyte per A e B."
+  },
+  {
+   "a": "2. Quanti parametri addestra LoRA con r ",
+   "b": 98,
+   "t": "Seconda domanda. Quanti parametri addestra LoRA con rango otto su tutte e quattro le proiezioni dell'attenzione di un ViT base? Metti in pausa."
+  },
+  {
+   "a": "2. Quanti parametri addestra LoRA con r ",
+   "b": 98,
+   "t": "Per ogni matrice otto per 1536, cioè 12288. Quattro matrici per dodici blocchi: circa cinquecentottantamila, quanto una sola matrice 768 per 768 piena."
+  },
+  {
+   "a": "3. Perché con B = 0 il gradiente di A è ",
+   "b": 99,
+   "t": "Terza domanda. Perché con B nulla il gradiente di A è zero, e perché non si mettono a zero entrambe? Metti in pausa."
+  },
+  {
+   "a": "3. Perché con B = 0 il gradiente di A è ",
+   "b": 99,
+   "t": "Il gradiente di A contiene B trasposta, quindi è zero. Se anche A fosse nulla, A x sarebbe zero, e si annullerebbe anche il gradiente di B: nessuno si muoverebbe mai."
+  },
+  {
+   "a": "4. Un collega dice: «LoRA con r = 4 modi",
+   "b": 100,
+   "t": "Quarta domanda. Un collega dice che LoRA con rango quattro modifica solo pochi pesi. Ha ragione? Metti in pausa."
+  },
+  {
+   "a": "4. Un collega dice: «LoRA con r = 4 modi",
+   "b": 100,
+   "t": "No. Il prodotto B per A tocca quasi tutti i pesi. Ciò che è limitato è il numero di direzioni, cioè il rango, non il numero di entrate cambiate."
+  },
+  {
+   "a": "5. Perché LoRA non aggiunge latenza e un",
+   "b": 101,
+   "t": "Quinta domanda. Perché LoRA non aggiunge latenza e un adapter sì? Metti in pausa."
+  },
+  {
+   "a": "5. Perché LoRA non aggiunge latenza e un",
+   "b": 101,
+   "t": "LoRA è lineare e si somma in una sola matrice. L'adapter contiene una non linearità, quindi resta uno strato in più da eseguire."
+  },
+  {
+   "a": "6. In SemLA, cosa succede a un'immagine ",
+   "b": 102,
+   "t": "Ultima domanda. In SemLA, cosa succede a una foto con nebbia e un po' di buio, e servono gradienti? Metti in pausa."
+  },
+  {
+   "a": "6. In SemLA, cosa succede a un'immagine ",
+   "b": 102,
+   "t": "La foto finisce vicina ai domini nebbia e notte. Si prendono quei due LoRA e si sommano, pesati con la somiglianza. Nessun gradiente, solo una combinazione di matrici già addestrate."
+  },
+  {
+   "a": "Leggi il cap. 37 del visionbook (§ 37.1–",
+   "b": 104,
+   "t": "Per proseguire leggi il capitolo trentasette del libro e le sezioni sperimentali dell'articolo di LoRA. Poi passa al laboratorio, dove farai tutto questo su CLIP. Per oggi è tutto: congela, adatta poco, e fondi."
+  }
+ ]
+}

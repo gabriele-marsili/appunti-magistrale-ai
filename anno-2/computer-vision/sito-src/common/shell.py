@@ -70,7 +70,11 @@ function show(id){{
   main.className = isL ? '' : 'dview';
   if (cache[id]){{ main.innerHTML = cache[id]; window.scrollTo(0,0); isL && window.PV && PV.lessonShown(id); window.HL && HL.shown(); window.DR && DR.decorate(); return; }}
   main.innerHTML = '<p class="loading">Carico la lezione…</p>';
-  fetch('lessons/'+id+'.json').then(function(r){{ if(!r.ok) throw new Error(r.status); return r.json(); }}).then(function(d){{
+  function getj(n){{ return fetch('lessons/'+n+'.json').then(function(r){{ if(!r.ok) throw new Error(r.status); return r.json(); }}); }}
+  getj(id).then(function(d){{
+    if (!d.more || !d.more.length) return d;
+    return Promise.all(d.more.map(getj)).then(function(xs){{ d.html += xs.map(function(x){{ return x.html; }}).join(''); return d; }});
+  }}).then(function(d){{
     cache[id] = d.html; if (current()===id){{ main.innerHTML = d.html; window.scrollTo(0,0); isL && window.PV && PV.lessonShown(id); window.HL && HL.shown(); window.DR && DR.decorate(); }}
   }}).catch(function(){{ main.innerHTML = '<p class="loading">Non riesco a caricare la lezione. Ricarica la pagina per riprovare.</p>'; }});
 }}

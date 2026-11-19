@@ -28,3 +28,6 @@ Una dispensa per lezione, scritta da zero integrando slide e libro (Torralba, Is
 | [L22 · SSL e foundation model](L22-ssl-e-foundation-model.md) | Self-supervised learning and vision foundation models | 7752 |
 | [L23 · Lab SSL: SimSiam e DINOv3](L23-lab-ssl-simsiam-e-dinov3.md) | Lab: Self-Supervised Learning (SimSiam, DINOv3) | 6092 |
 | [L24 · Vision-language model](L24-vision-language-model.md) | Vision-Language Models (VLMs) | 7480 |
+| [L25 · PEFT e LoRA](L25-peft-e-lora.md) | Parameter-Efficient Fine-Tuning | 4261 |
+| [L26 · Lab VLM e PEFT](L26-lab-vlm-e-peft.md) | Lab: Vision-Language Models e Parameter-Efficient Fine-Tuning | 3695 |
+| [L27 · Modelli di diffusione](L27-modelli-di-diffusione.md) | Diffusion Models | 6548 |
